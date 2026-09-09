@@ -3771,7 +3771,6 @@ const invitePageCopyByLocale = {
       : `验证码已发送，${ttlMinutes} 分钟内有效。`,
     phoneCodeSent: '验证码已发送。',
     phoneCodeFailure: '获取验证码失败',
-    loginSuccess: '登录成功，你的邀请码已准备好。',
     loginFailure: '手机号登录失败',
     errorTitle: '操作失败',
     inviteBenefit: '专属邀请权益',
@@ -3804,7 +3803,6 @@ const invitePageCopyByLocale = {
     phoneCodeHint: (_verificationCode: string | undefined, ttlMinutes: number) => `Verification code sent. It is valid for ${ttlMinutes} minutes.`,
     phoneCodeSent: 'Verification code sent.',
     phoneCodeFailure: 'Could not send verification code',
-    loginSuccess: 'Signed in. Your invite code is ready.',
     loginFailure: 'Phone sign-in failed',
     errorTitle: 'Something went wrong',
     inviteBenefit: 'Your invitation benefits',
@@ -3837,7 +3835,6 @@ const invitePageCopyByLocale = {
     phoneCodeHint: (_verificationCode: string | undefined, ttlMinutes: number) => `Código enviado. Válido durante ${ttlMinutes} minutos.`,
     phoneCodeSent: 'Código enviado.',
     phoneCodeFailure: 'No se pudo enviar el código',
-    loginSuccess: 'Sesión iniciada. Tu código está listo.',
     loginFailure: 'Error al iniciar sesión con teléfono',
     errorTitle: 'Ocurrió un error',
     inviteBenefit: 'Tus beneficios de invitación',
@@ -3870,7 +3867,6 @@ const invitePageCopyByLocale = {
     phoneCodeHint: (_verificationCode: string | undefined, ttlMinutes: number) => `Kode verifikasi terkirim dan berlaku ${ttlMinutes} menit.`,
     phoneCodeSent: 'Kode verifikasi terkirim.',
     phoneCodeFailure: 'Gagal mengirim kode verifikasi',
-    loginSuccess: 'Berhasil masuk. Kode undanganmu siap.',
     loginFailure: 'Gagal masuk dengan nomor telepon',
     errorTitle: 'Terjadi kesalahan',
     inviteBenefit: 'Keuntungan undanganmu',
@@ -3903,7 +3899,6 @@ const invitePageCopyByLocale = {
     phoneCodeHint: (_verificationCode: string | undefined, ttlMinutes: number) => `Código enviado. Ele é válido por ${ttlMinutes} minutos.`,
     phoneCodeSent: 'Código enviado.',
     phoneCodeFailure: 'Não foi possível enviar o código',
-    loginSuccess: 'Login concluído. Seu código está pronto.',
     loginFailure: 'Falha no login por telefone',
     errorTitle: 'Algo deu errado',
     inviteBenefit: 'Seus benefícios de convite',
@@ -4125,6 +4120,12 @@ function InviteCodePage() {
     return () => window.clearTimeout(timer)
   }, [phoneCodeCooldownSeconds])
 
+  useEffect(() => {
+    if (!success) return undefined
+    const timer = window.setTimeout(() => setSuccess(''), 4000)
+    return () => window.clearTimeout(timer)
+  }, [success])
+
   async function handleCopyInviteCode() {
     const inviteCode = session?.inviteCode
     if (!inviteCode) return
@@ -4189,7 +4190,6 @@ function InviteCodePage() {
       const nextSession = saveUserSession(profile)
       setSession(nextSession)
       setPhoneForm({ ...phoneForm, inviteCode: profile.inviteCode, countryCode: profile.countryCode, languageCode: profile.languageCode })
-      setSuccess(inviteCopy.loginSuccess)
     } catch (err) {
       setError(localizeInviteOperationError(err, locale, 'signIn'))
     } finally {
