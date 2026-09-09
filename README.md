@@ -53,6 +53,8 @@ PROFILE_CREATE_TOKEN=change-this-profile-create-token \
 mvn spring-boot:run -Dspring-boot.run.arguments=--spring.profiles.active=local
 ```
 
+本地 `local` profile 会把验收数据保存到 `runtime-data/fenxiao-local`。重启后，后台账号、种子邀请人、邀请码关系和验证码审计记录都会保留；该目录已被 Git 忽略。若需要彻底重置本地验收数据，停止后端后删除该目录即可。
+
 默认后端地址：
 - `http://localhost:8080`
 

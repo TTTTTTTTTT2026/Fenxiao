@@ -22,6 +22,7 @@ public class PhoneAuthService {
     private static final String PURPOSE = "LOGIN";
     private static final int MAX_ATTEMPTS = 5;
     private static final int TTL_MINUTES = 10;
+    public static final int RESEND_COOLDOWN_SECONDS = 60;
     private final PhoneVerificationCodeRepository codeRepository;
     private final UserDistributionProfileRepository profileRepository;
     private final DistributionBindingService bindingService;
@@ -58,7 +59,12 @@ public class PhoneAuthService {
         LocalDateTime now = LocalDateTime.now(clock);
         codeRepository.findTopByPhoneNumberAndPurposeAndConsumedFalseAndExpiresAtAfterOrderByIdDesc(normalizedPhone, PURPOSE, now)
                 .ifPresent(existing -> {
-                    throw new TooManyRequestsException("phone verification code already sent, please retry later");
+                    if (existing.getCreatedAt() == null || existing.getCreatedAt().plusSeconds(RESEND_COOLDOWN_SECONDS).isAfter(now)) {
+                        throw new TooManyRequestsException("phone verification code already sent, please retry later");
+                    }
+                    // A replacement code must be the only active code for this phone number.
+                    existing.expireAt(now);
+                    codeRepository.save(existing);
                 });
         String code = String.format("%06d", random.nextInt(1_000_000));
         codeRepository.save(PhoneVerificationCode.issue(normalizedPhone, code, PURPOSE, now.plusMinutes(TTL_MINUTES)));

@@ -1,13 +1,15 @@
 spring:
   datasource:
-    url: jdbc:h2:mem:fenxiao-local;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    # Local acceptance data is intentionally stored on disk and survives restarts.
+    # runtime-data/ is ignored by Git and is never used by test or production profiles.
+    url: jdbc:h2:file:./runtime-data/fenxiao-local;MODE=MySQL;DATABASE_TO_LOWER=TRUE
     driver-class-name: org.h2.Driver
     username: sa
     password:
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: update
   flyway:
     enabled: false
 
@@ -22,7 +24,7 @@ management:
 
 app:
   admin:
-    token: ${ADMIN_TOKEN}
+    token: ${ADMIN_TOKEN:local-admin-token}
     bootstrap-username: ${ADMIN_BOOTSTRAP_USERNAME:admin}
     bootstrap-password: ${ADMIN_BOOTSTRAP_PASSWORD:Local-Admin-Password-2026!}
     bootstrap-display-name: ${ADMIN_BOOTSTRAP_DISPLAY_NAME:系统管理员}
@@ -30,5 +32,5 @@ app:
   web:
     allowed-origins: ${WEB_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173}
   distribution:
-    profile-create-token: ${PROFILE_CREATE_TOKEN}
-    internal-token: ${INTERNAL_DISTRIBUTION_TOKEN}
+    profile-create-token: ${PROFILE_CREATE_TOKEN:local-profile-create-token}
+    internal-token: ${INTERNAL_DISTRIBUTION_TOKEN:local-internal-token}

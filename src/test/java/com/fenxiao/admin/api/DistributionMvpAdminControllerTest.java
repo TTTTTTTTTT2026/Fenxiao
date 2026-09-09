@@ -80,6 +80,9 @@ class DistributionMvpAdminControllerTest {
     private LinkyWebhookLogRepository linkyWebhookLogRepository;
 
     @Autowired
+    private com.fenxiao.distribution.repository.PhoneVerificationCodeRepository phoneVerificationCodeRepository;
+
+    @Autowired
     private com.fenxiao.distribution.repository.UserProductOwnershipRepository userProductOwnershipRepository;
 
     @Test
@@ -806,6 +809,59 @@ class DistributionMvpAdminControllerTest {
                 .andExpect(jsonPath("$.total").value(1))
                 .andExpect(jsonPath("$.items[0].linkyOrderId").value("linky-order-product-1"))
                 .andExpect(jsonPath("$.items[0].userId").value(19602));
+    }
+
+    @Test
+    void shouldLetSuperAdminAuditAndRevealPhoneVerificationCode() throws Exception {
+        var code = phoneVerificationCodeRepository.save(com.fenxiao.distribution.entity.PhoneVerificationCode.issue(
+                "+5511999990001", "246810", "LOGIN", LocalDateTime.now().plusMinutes(10)
+        ));
+        String adminSession = loginAsAdmin();
+
+        mockMvc.perform(get("/admin/distribution/phone-verification-codes")
+                        .header("X-Admin-Session", adminSession)
+                        .param("phoneNumber", "99990001"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.items[0].id").value(code.getId()))
+                .andExpect(jsonPath("$.items[0].phoneNumber").value("+5511999990001"))
+                .andExpect(jsonPath("$.items[0].status").value("ACTIVE"));
+
+        mockMvc.perform(get("/admin/distribution/phone-verification-codes/" + code.getId() + "/reveal")
+                        .header("X-Admin-Session", adminSession))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.verificationCode").value("246810"));
+
+        mockMvc.perform(get("/admin/distribution/phone-verification-codes/" + code.getId() + "/audit")
+                        .header("X-Admin-Session", adminSession))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.items[0].actionName").value("REVEAL_VERIFICATION_CODE"));
+    }
+
+    @Test
+    void shouldLetSuperAdminCreateAuditedSeedInviter() throws Exception {
+        mockMvc.perform(post("/admin/distribution/seed-inviters")
+                        .header("X-Admin-Session", loginAsAdmin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "phoneNumber": "+5511999990010",
+                                  "countryCode": "BR",
+                                  "languageCode": "pt-br"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userId").isNumber())
+                .andExpect(jsonPath("$.phoneNumber").value("+5511999990010"))
+                .andExpect(jsonPath("$.countryCode").value("BR"))
+                .andExpect(jsonPath("$.inviteCode").isNotEmpty());
+
+        UserDistributionProfile profile = userDistributionProfileRepository.findByPhoneNumber("+5511999990010").orElseThrow();
+        org.assertj.core.api.Assertions.assertThat(profile.getInviteCode()).isNotBlank();
+        org.assertj.core.api.Assertions.assertThat(operationAuditLogRepository.findAll())
+                .anyMatch(log -> "CREATE_SEED_INVITER".equals(log.getActionName())
+                        && profile.getUserId().equals(log.getTargetId()));
     }
 
     private String loginAsAdmin() throws Exception {

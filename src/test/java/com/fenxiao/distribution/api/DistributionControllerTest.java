@@ -17,8 +17,10 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 import java.util.Map;
@@ -50,6 +52,9 @@ class DistributionControllerTest {
 
     @Autowired
     private PhoneVerificationCodeRepository phoneVerificationCodeRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @MockBean
     private LinkyGuildProbeClient linkyGuildProbeClient;
@@ -237,6 +242,7 @@ class DistributionControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.phoneNumber").value("+628123450001"))
                 .andExpect(jsonPath("$.ttlMinutes").value(10))
+                .andExpect(jsonPath("$.resendCooldownSeconds").value(60))
                 .andExpect(jsonPath("$.verificationCode").doesNotExist());
     }
 
@@ -256,6 +262,23 @@ class DistributionControllerTest {
                         ))))
                 .andExpect(status().isTooManyRequests())
                 .andExpect(jsonPath("$.code").value("TOO_MANY_REQUESTS"));
+    }
+
+    @Test
+    void shouldIssueANewPhoneCodeAfterSixtySecondCooldown() throws Exception {
+        String phoneNumber = "+628123450004";
+        mockMvc.perform(post("/api/distribution/auth/phone-codes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("phoneNumber", phoneNumber))))
+                .andExpect(status().isOk());
+
+        jdbcTemplate.update("update phone_verification_code set created_at=? where phone_number=?", LocalDateTime.now(Clock.systemUTC()).minusSeconds(61), phoneNumber);
+
+        mockMvc.perform(post("/api/distribution/auth/phone-codes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("phoneNumber", phoneNumber))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resendCooldownSeconds").value(60));
     }
 
     @Test

@@ -9,6 +9,8 @@ public enum AdminPermission {
     TEAM_MANAGE(Set.of("super_admin", "admin", "operations")),
     FINANCE(Set.of("super_admin", "finance")),
     CUSTOMER_SUPPORT(Set.of("super_admin", "customer_support")),
+    OTP_AUDIT(Set.of("super_admin")),
+    SEED_INVITER_MANAGE(Set.of("super_admin")),
     ACCOUNT_MANAGE(Set.of("super_admin"));
 
     private final Set<String> roles;

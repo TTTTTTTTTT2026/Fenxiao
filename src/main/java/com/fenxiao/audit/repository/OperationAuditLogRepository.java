@@ -14,4 +14,11 @@ public interface OperationAuditLogRepository extends JpaRepository<OperationAudi
             order by l.operatedAt desc, l.id desc
             """)
     Page<OperationAuditLog> findAdminAuditLogs(String moduleName, Pageable pageable);
+
+    @Query("""
+            select l from OperationAuditLog l
+            where l.moduleName = :moduleName and l.targetType = :targetType and l.targetId = :targetId
+            order by l.operatedAt desc, l.id desc
+            """)
+    Page<OperationAuditLog> findByAuditTarget(String moduleName, String targetType, Long targetId, Pageable pageable);
 }

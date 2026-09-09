@@ -44,5 +44,6 @@ public class PhoneVerificationCode extends BaseEntity {
     }
     public void failAttempt() { this.attempts++; }
     public void consume() { this.consumed = true; }
+    public void expireAt(LocalDateTime at) { this.expiresAt = at; }
     public boolean expired(Clock clock) { return !expiresAt.isAfter(LocalDateTime.now(clock)); }
 }

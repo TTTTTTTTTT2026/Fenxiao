@@ -3135,6 +3135,7 @@ code {
 
 .consumer-form-card-heading,
 .consumer-input-with-icon,
+.consumer-phone-input,
 .consumer-code-row,
 .consumer-form-submit,
 .consumer-invite-actions,
@@ -3183,6 +3184,7 @@ code {
 
 .consumer-field input,
 .consumer-input-with-icon,
+.consumer-phone-input,
 .consumer-code-row {
   width: 100%;
   min-height: 50px;
@@ -3205,6 +3207,7 @@ code {
 }
 
 .consumer-input-with-icon input,
+.consumer-phone-input input,
 .consumer-code-row input {
   min-height: 48px;
   border: 0;
@@ -3212,6 +3215,35 @@ code {
 
 .consumer-code-row {
   overflow: hidden;
+}
+
+.consumer-phone-input {
+  overflow: hidden;
+}
+
+.consumer-phone-input select {
+  align-self: stretch;
+  max-width: 210px;
+  padding: 0 30px 0 13px;
+  border: 0;
+  border-right: 1px solid #dce3ed;
+  border-radius: 0;
+  background: #f4f7fc;
+  color: #263751;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.consumer-phone-input input {
+  width: 100%;
+  padding: 0 14px;
+}
+
+.consumer-phone-input-hint {
+  color: #718096;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .consumer-code-row button {
@@ -3230,6 +3262,7 @@ code {
 
 .consumer-field input:focus,
 .consumer-input-with-icon:focus-within,
+.consumer-phone-input:focus-within,
 .consumer-code-row:focus-within {
   border-color: #2861e8;
   box-shadow: 0 0 0 3px rgba(40, 97, 232, 0.12);
@@ -4570,6 +4603,17 @@ code {
   overflow: hidden;
   background: #f8faff;
   box-shadow: 0 0 0 1px rgba(24, 56, 120, 0.05), 0 28px 80px rgba(20, 47, 104, 0.12);
+}
+
+/* Forms can grow after status messages are shown. Keep their last action scrollable
+   above the sticky mobile navigation instead of clipping it inside the page shell. */
+.consumer-shell.consumer-form-shell {
+  overflow: visible;
+  padding-bottom: max(150px, calc(112px + env(safe-area-inset-bottom)));
+}
+
+.consumer-form-shell .consumer-bottom-nav {
+  margin-bottom: 0;
 }
 
 .consumer-topbar {
