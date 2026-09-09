@@ -59,17 +59,18 @@ describe('App external landing pages', () => {
 
     expect(markup).not.toContain('>语言<')
     expect(markup).toContain('aria-label="语言"')
-    expect(markup).toContain('绑定页')
+    expect(markup).toContain('绑定 Linky 账号')
     expect(markup).toContain('>邀请<')
-    expect(markup).toContain('我的收益')
+    expect(markup).toContain('我的账户')
   })
 
-  it('uses the shared consumer navigation and form system on the bind page', () => {
+  it('uses the shared consumer navigation and requires a signed-in account on the bind page', () => {
     const markup = renderToStaticMarkup(<App />)
 
     expect(markup).toContain('class="consumer-topbar"')
-    expect(markup).toContain('class="consumer-form-card"')
     expect(markup).toContain('class="consumer-bottom-nav"')
+    expect(markup).toContain('登录后管理平台账号')
+    expect(markup).not.toContain('WhatsApp 号码')
   })
 })
 
@@ -301,7 +302,7 @@ describe('Earnings landing page', () => {
     expect(markup).toContain('我的收益')
     expect(markup).toContain('申请提现')
     expect(markup).toContain('全部记录')
-    expect(markup).toContain('用户导航')
+    expect(markup).toContain('主要导航')
     expect(markup).not.toContain('控制台')
     expect(markup).not.toContain('工作台')
   })
@@ -400,7 +401,7 @@ describe('Earnings landing page', () => {
     expect(markup).toContain('登录后查看你的邀请码')
     expect(markup).toContain('使用手机号登录后即可邀请好友和查看收益。')
     expect(markup).toContain('手机号登录')
-    expect(markup).toContain('去绑定关系')
+    expect(markup).not.toContain('去绑定关系')
   })
 
   it('keeps team income available in a compact disclosure', () => {

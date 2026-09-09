@@ -1,6 +1,6 @@
 package com.fenxiao.distribution.service;
 
-import com.fenxiao.distribution.api.dto.CreateInviteBindingRequest;
+import com.fenxiao.distribution.api.dto.RegisterLinkyAccountRequest;
 import com.fenxiao.distribution.entity.DistributionRelation;
 import com.fenxiao.distribution.entity.InviteBindingRegistration;
 import com.fenxiao.distribution.entity.GuildAccountConfig;
@@ -20,7 +20,6 @@ public class InviteBindingRegistrationService {
     private final UserDistributionProfileRepository userDistributionProfileRepository;
     private final InviteBindingRegistrationRepository inviteBindingRegistrationRepository;
     private final DistributionRelationRepository distributionRelationRepository;
-    private final DistributionBindingService distributionBindingService;
     private final UserProductOwnershipService userProductOwnershipService;
     private final LinkyRegistrationEligibilityService linkyRegistrationEligibilityService;
     private final GuildAccountConfigService guildAccountConfigService;
@@ -28,27 +27,33 @@ public class InviteBindingRegistrationService {
     public InviteBindingRegistrationService(UserDistributionProfileRepository userDistributionProfileRepository,
                                             InviteBindingRegistrationRepository inviteBindingRegistrationRepository,
                                             DistributionRelationRepository distributionRelationRepository,
-                                            DistributionBindingService distributionBindingService,
                                             UserProductOwnershipService userProductOwnershipService,
                                             LinkyRegistrationEligibilityService linkyRegistrationEligibilityService,
                                             GuildAccountConfigService guildAccountConfigService) {
         this.userDistributionProfileRepository = userDistributionProfileRepository;
         this.inviteBindingRegistrationRepository = inviteBindingRegistrationRepository;
         this.distributionRelationRepository = distributionRelationRepository;
-        this.distributionBindingService = distributionBindingService;
         this.userProductOwnershipService = userProductOwnershipService;
         this.linkyRegistrationEligibilityService = linkyRegistrationEligibilityService;
         this.guildAccountConfigService = guildAccountConfigService;
     }
 
-    public InviteBindingRegistration register(CreateInviteBindingRequest request) {
+    public InviteBindingRegistration registerForUser(Long userId, RegisterLinkyAccountRequest request) {
         String normalizedProductCode = normalizeProductCode(request.productCode());
-        String normalizedInviteCode = normalizeInviteCode(request.inviteCode());
-        String normalizedWhatsappNumber = normalizeWhatsappNumber(request.whatsappNumber());
         String normalizedLinkyAccount = normalizeLinkyAccount(request.linkyAccount());
 
-        UserDistributionProfile inviter = userDistributionProfileRepository.findByInviteCode(normalizedInviteCode)
-                .orElseThrow(() -> new IllegalArgumentException("invite code not found"));
+        UserDistributionProfile accountHolder = userDistributionProfileRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("user profile not found"));
+        String normalizedWhatsappNumber = normalizeWhatsappNumber(accountHolder.getPhoneNumber());
+        if (normalizedWhatsappNumber.isBlank()) {
+            throw new IllegalStateException("phone number is required before binding a Linky account");
+        }
+        DistributionRelation relation = distributionRelationRepository.findByUserId(userId)
+                .orElseThrow(() -> new IllegalStateException("distribution relation not found"));
+        UserDistributionProfile attributionProfile = relation.getLevel1InviterId() == null
+                ? accountHolder
+                : userDistributionProfileRepository.findById(relation.getLevel1InviterId())
+                .orElseThrow(() -> new IllegalStateException("inviter profile not found"));
 
         if (inviteBindingRegistrationRepository.existsByWhatsappNumber(normalizedWhatsappNumber)) {
             throw new IllegalStateException("whatsapp number already registered");
@@ -56,7 +61,7 @@ public class InviteBindingRegistrationService {
         if (inviteBindingRegistrationRepository.existsByLinkyAccount(normalizedLinkyAccount)) {
             throw new IllegalStateException("linky account already registered");
         }
-        GuildAccountConfig expectedGuild = guildAccountConfigService.expectedGuild(normalizedProductCode, inviter.getUserId());
+        GuildAccountConfig expectedGuild = guildAccountConfigService.expectedGuild(normalizedProductCode, attributionProfile.getUserId());
         linkyRegistrationEligibilityService.assertEligibleForExpectedGuild(
                 normalizedLinkyAccount,
                 expectedGuild.getGuildId(),
@@ -66,26 +71,14 @@ public class InviteBindingRegistrationService {
 
         InviteBindingRegistration registration = InviteBindingRegistration.createActive(
                 normalizedProductCode,
-                inviter.getUserId(),
-                inviter.getInviteCode(),
+                attributionProfile.getUserId(),
+                attributionProfile.getInviteCode(),
                 normalizedWhatsappNumber,
                 normalizedLinkyAccount
         );
         InviteBindingRegistration saved = inviteBindingRegistrationRepository.save(registration);
-        Long inviteeUserId = Long.valueOf(normalizedLinkyAccount);
-        if (userDistributionProfileRepository.existsById(inviteeUserId)) {
-            DistributionRelation existingRelation = distributionRelationRepository.findByUserId(inviteeUserId)
-                    .orElseThrow(() -> new IllegalStateException("distribution relation not found"));
-            if (existingRelation.getLevel1InviterId() != null) {
-                throw new IllegalStateException("user already has inviter");
-            }
-            distributionRelationRepository.delete(existingRelation);
-            distributionBindingService.bindInviter(inviteeUserId, inviter.getInviteCode());
-        } else {
-            distributionBindingService.createProfile(inviteeUserId, inviter.getCountryCode(), inviter.getLanguageCode(), inviter.getInviteCode());
-        }
         userProductOwnershipService.claimOwnership(
-                inviteeUserId,
+                userId,
                 normalizedProductCode,
                 "INVITE_BINDING",
                 "INVITE_BINDING_REGISTRATION",
@@ -93,9 +86,9 @@ public class InviteBindingRegistrationService {
         );
         linkyRegistrationEligibilityService.attachRegisteredUser(
                 normalizedLinkyAccount,
-                inviteeUserId,
+                userId,
                 normalizedWhatsappNumber,
-                inviter.getInviteCode()
+                attributionProfile.getInviteCode()
         );
         return saved;
     }
@@ -104,12 +97,8 @@ public class InviteBindingRegistrationService {
         return productCode.trim().toUpperCase(Locale.ROOT);
     }
 
-    private String normalizeInviteCode(String inviteCode) {
-        return inviteCode.trim().toUpperCase(Locale.ROOT);
-    }
-
     private String normalizeWhatsappNumber(String whatsappNumber) {
-        return whatsappNumber.replaceAll("[\\s()-]", "").trim();
+        return whatsappNumber == null ? "" : whatsappNumber.replaceAll("[\\s()-]", "").trim();
     }
 
     private String normalizeLinkyAccount(String linkyAccount) {

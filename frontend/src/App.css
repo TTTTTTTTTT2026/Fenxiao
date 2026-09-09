@@ -3217,6 +3217,120 @@ code {
   overflow: hidden;
 }
 
+.consumer-account-overview,
+.consumer-settings-card,
+.consumer-platform-card,
+.consumer-platform-card > div,
+.consumer-account-overview > div:last-child {
+  display: flex;
+}
+
+.consumer-account-overview,
+.consumer-settings-card {
+  margin-top: 18px;
+  padding: 22px;
+  border: 1px solid rgba(39, 77, 153, 0.1);
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 16px 38px rgba(30, 61, 119, 0.08);
+}
+
+.consumer-account-overview {
+  gap: 14px;
+  align-items: center;
+}
+
+.consumer-account-overview-icon,
+.consumer-platform-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  place-items: center;
+  border-radius: 15px;
+  background: #edf2ff;
+  color: #2861e8;
+}
+
+.consumer-account-overview-icon svg,
+.consumer-platform-icon svg {
+  width: 27px;
+  height: 27px;
+}
+
+.consumer-account-overview > div:last-child {
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.consumer-account-overview span,
+.consumer-account-overview small,
+.consumer-settings-card p,
+.consumer-settings-card dt {
+  color: #718096;
+  font-size: 13px;
+}
+
+.consumer-account-overview strong {
+  color: #0c1933;
+}
+
+.consumer-settings-card {
+  flex-direction: column;
+  gap: 16px;
+}
+
+.consumer-settings-card h2,
+.consumer-settings-card p {
+  margin: 0;
+}
+
+.consumer-settings-card h2 {
+  color: #0c1933;
+  font-size: 17px;
+}
+
+.consumer-settings-card dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.consumer-settings-card dl div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px;
+  border-radius: 14px;
+  background: #f7f9fd;
+}
+
+.consumer-settings-card dd {
+  margin: 0;
+  color: #17243e;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+.consumer-platform-card {
+  gap: 16px;
+}
+
+.consumer-platform-card > div {
+  gap: 12px;
+}
+
+.consumer-platform-card > div > div {
+  display: grid;
+  gap: 5px;
+}
+
+.consumer-platform-card .consumer-primary-link {
+  margin-top: 0;
+}
+
 .consumer-phone-input {
   overflow: hidden;
 }

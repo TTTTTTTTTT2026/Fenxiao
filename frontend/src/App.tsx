@@ -72,7 +72,7 @@ import {
   phoneLogin,
   refreshAdminLinkyEligibility,
   refreshAdminLinkyEligibilityBatch,
-  registerInviteBinding,
+  registerLinkyAccount,
   recordWithdrawPayment,
   revealAdminPhoneVerificationCode,
   reverseWithdrawPayment,
@@ -3003,10 +3003,6 @@ export function buildBindGuildInviteGuidance(message: string) {
 }
 
 function BindLandingPage() {
-  const initialInviteCode = typeof window !== 'undefined'
-    ? new URLSearchParams(window.location.search).get('inviteCode') || ''
-    : ''
-
   const copyByLocale = {
     zh: {
       languageLabel: '语言',
@@ -3220,20 +3216,18 @@ function BindLandingPage() {
     },
   } as const
 
+  const [session] = useState<SessionState | null>(() => loadJsonState<SessionState>(STORAGE_KEY))
   const [locale, setLocale] = useState<keyof typeof copyByLocale>(() => loadExternalLocale())
   const product = 'linky'
-  const [form, setForm] = useState({
-    inviteCode: initialInviteCode,
-    whatsappNumber: '',
-    linkyAccount: '',
-  })
+  const [linkyAccount, setLinkyAccount] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<InviteBindingResponse | null>(null)
 
   const copy = copyByLocale[locale]
+  const accountCopy = consumerAccountCopy[locale]
   const guildInviteGuidance = error ? buildBindGuildInviteGuidance(error) : null
-  const canSubmit = Boolean(form.inviteCode.trim() && form.whatsappNumber.trim() && form.linkyAccount.length === 8)
+  const canSubmit = Boolean(session && linkyAccount.length === 8)
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -3243,12 +3237,13 @@ function BindLandingPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!session) return
     setLoading(true)
     setError('')
     try {
-      const response = await registerInviteBinding({
+      const response = await registerLinkyAccount(session.userId, session.accessToken, {
         productCode: product,
-        ...form,
+        linkyAccount,
       })
       setResult(response)
     } catch (err) {
@@ -3271,19 +3266,15 @@ function BindLandingPage() {
               <option value="id">ID</option>
               <option value="pt">PT</option>
             </select>
-            <a className="consumer-account-link" href="/earnings">
-              <Wallet weight="regular" aria-hidden="true" />
-              <span>{copy.navEarnings}</span>
-              <CaretRight weight="bold" aria-hidden="true" />
-            </a>
+            <ConsumerAccountLink locale={locale} />
           </div>
         </header>
 
         <section className="consumer-commercial-hero consumer-bind-hero">
-          <span className="consumer-visually-hidden">{copy.navBind}</span>
+          <span className="consumer-visually-hidden">{accountCopy.bindingTitle}</span>
           <div className="consumer-commercial-kicker"><Diamond weight="fill" aria-hidden="true" /> BANDEIRA REWARDS</div>
-          <h1>{copy.heroTitle}</h1>
-          <p>{copy.productLabel} · Linky · {copy.heroSubtitle}</p>
+          <h1>{accountCopy.bindingTitle}</h1>
+          <p>{copy.productLabel} · Linky · {accountCopy.bindingSubtitle}</p>
           <div className="consumer-commercial-proof">
             <span><ShieldCheck weight="fill" aria-hidden="true" />归属锁定</span>
             <span><LinkSimple weight="bold" aria-hidden="true" />记录可追踪</span>
@@ -3297,46 +3288,42 @@ function BindLandingPage() {
             {guildInviteGuidance ? <span>公会邀请码：<strong>{guildInviteGuidance.inviteCode}</strong></span> : null}
           </section>
         ) : result ? (
-          <section className="consumer-banner is-success" role="status"><strong>{copy.success}</strong><span>{copy.successText}</span></section>
+          <section className="consumer-banner is-success" role="status"><strong>{copy.success}</strong><span>{accountCopy.bindingSuccess}</span></section>
         ) : null}
 
-        <form className="consumer-form-card" onSubmit={handleSubmit}>
-          <label className="consumer-field">
-            <span>{copy.inviteCode}</span>
-            <input value={form.inviteCode} onChange={(event) => setForm({ ...form, inviteCode: event.target.value.toUpperCase() })} placeholder={copy.inviteCodePlaceholder} autoFocus />
-          </label>
-          <label className="consumer-field">
-            <span>{copy.whatsappNumber}</span>
-            <input value={form.whatsappNumber} onChange={(event) => setForm({ ...form, whatsappNumber: event.target.value })} placeholder={copy.whatsappPlaceholder} inputMode="tel" />
-          </label>
-          <label className="consumer-field">
-            <span>{copy.linkyAccount}</span>
-            <input value={form.linkyAccount} onChange={(event) => setForm({ ...form, linkyAccount: event.target.value.replace(/\D/g, '').slice(0, 8) })} placeholder={copy.linkyPlaceholder} inputMode="numeric" />
-          </label>
-          <input type="hidden" value={product} readOnly />
-          <button className="consumer-form-submit" type="submit" disabled={loading || !canSubmit}>
-            {loading ? copy.submitting : copy.submit}<ArrowRight weight="bold" aria-hidden="true" />
-          </button>
-          <p className="consumer-form-note"><ShieldCheck weight="fill" aria-hidden="true" />{copy.fact1}</p>
-        </form>
+        {session ? (
+          <form className="consumer-form-card" onSubmit={handleSubmit}>
+            <div className="consumer-form-card-heading"><div><h2>{accountCopy.bindingTitle}</h2><p>{accountCopy.inviteRelationship}</p></div><LinkSimple size={28} weight="duotone" /></div>
+            <label className="consumer-field">
+              <span>{accountCopy.linkyAccount}</span>
+              <input value={linkyAccount} onChange={(event) => setLinkyAccount(event.target.value.replace(/\D/g, '').slice(0, 8))} placeholder={accountCopy.linkyPlaceholder} inputMode="numeric" autoFocus />
+            </label>
+            <input type="hidden" value={product} readOnly />
+            <button className="consumer-form-submit" type="submit" disabled={loading || !canSubmit}>
+              {loading ? accountCopy.binding : accountCopy.bind}<ArrowRight weight="bold" aria-hidden="true" />
+            </button>
+            <p className="consumer-form-note"><ShieldCheck weight="fill" aria-hidden="true" />{accountCopy.bindingSubtitle}</p>
+          </form>
+        ) : (
+          <section className="consumer-auth-gate">
+            <div className="consumer-auth-icon"><LockSimple weight="duotone" aria-hidden="true" /></div>
+            <h2>{accountCopy.signInTitle}</h2><p>{accountCopy.signInHint}</p>
+            <a className="consumer-primary-link" href="/invite#phone-login">{accountCopy.signIn}<ArrowRight weight="bold" aria-hidden="true" /></a>
+          </section>
+        )}
 
         {result ? (
           <section className="consumer-result-card">
             <div><CheckCircle weight="fill" aria-hidden="true" /><strong>{copy.resultWritten}</strong></div>
             <dl>
-              <div><dt>{copy.inviteCode}</dt><dd>{result.inviteCode}</dd></div>
-              <div><dt>{copy.linkyAccount}</dt><dd>{result.linkyAccount}</dd></div>
-              <div><dt>{copy.status}</dt><dd>{result.bindStatus === 'BOUND' ? copy.success : result.bindStatus}</dd></div>
+              <div><dt>{accountCopy.linkyAccount}</dt><dd>{result.linkyAccount}</dd></div>
+              <div><dt>{copy.status}</dt><dd>{accountCopy.active}</dd></div>
             </dl>
-            <a href="/earnings">{copy.navEarnings}<ArrowRight weight="bold" aria-hidden="true" /></a>
+            <a href="/account">{accountCopy.accountShortcut}<ArrowRight weight="bold" aria-hidden="true" /></a>
           </section>
         ) : null}
 
-        <nav className="consumer-bottom-nav" aria-label="用户导航">
-          <a href="/earnings"><Wallet weight="regular" aria-hidden="true" /><span>{locale === 'zh' ? '收益' : copy.navEarnings}</span></a>
-          <a href="/invite"><UserPlus weight="regular" aria-hidden="true" /><span>{locale === 'zh' ? '邀请' : copy.navInvite}</span></a>
-          <a className="is-active" href="/bind"><LinkSimple weight="fill" aria-hidden="true" /><span>{locale === 'zh' ? '绑定' : copy.navBind}</span></a>
-        </nav>
+        <ConsumerBottomNavigation locale={locale} active="account" />
       </main>
     </div>
   )
@@ -3376,7 +3363,7 @@ const externalPageCopyByLocale = {
     languageLabel: '语言',
     inviteKicker: 'INVITE CODE ENTRY',
     inviteTitle: '邀请好友',
-    inviteSubtitle: '登录后复制邀请码或分享绑定链接。',
+    inviteSubtitle: '登录后复制邀请码或分享注册链接。',
     productLabel: '产品',
     whatsappLabel: 'WhatsApp 号码',
     appAccountLabel: 'app 账户（8位数字）',
@@ -3456,7 +3443,7 @@ const externalPageCopyByLocale = {
     languageLabel: 'Language',
     inviteKicker: 'INVITE CODE ENTRY',
     inviteTitle: 'Generate my invite code',
-    inviteSubtitle: 'Enter product, WhatsApp, and app account to generate an invite code in one click.',
+    inviteSubtitle: 'Sign in to copy your invite code or share a registration link.',
     productLabel: 'Product',
     whatsappLabel: 'WhatsApp number',
     appAccountLabel: 'App account (8 digits)',
@@ -3536,7 +3523,7 @@ const externalPageCopyByLocale = {
     languageLabel: 'Idioma',
     inviteKicker: 'INVITE CODE ENTRY',
     inviteTitle: 'Generar mi código',
-    inviteSubtitle: 'Completa producto, WhatsApp y cuenta app para generar un código con un clic.',
+    inviteSubtitle: 'Inicia sesión para copiar tu código o compartir un enlace de registro.',
     productLabel: 'Producto',
     whatsappLabel: 'Número de WhatsApp',
     appAccountLabel: 'Cuenta app (8 dígitos)',
@@ -3616,7 +3603,7 @@ const externalPageCopyByLocale = {
     languageLabel: 'Bahasa',
     inviteKicker: 'INVITE CODE ENTRY',
     inviteTitle: 'Buat kode undangan saya',
-    inviteSubtitle: 'Isi produk, WhatsApp, dan akun app untuk membuat kode sekali klik.',
+    inviteSubtitle: 'Masuk untuk menyalin kode undangan atau membagikan tautan pendaftaran.',
     productLabel: 'Produk',
     whatsappLabel: 'Nomor WhatsApp',
     appAccountLabel: 'Akun app (8 digit)',
@@ -3696,7 +3683,7 @@ const externalPageCopyByLocale = {
     languageLabel: 'Idioma',
     inviteKicker: 'INVITE CODE ENTRY',
     inviteTitle: 'Gerar meu código',
-    inviteSubtitle: 'Preencha produto, WhatsApp e conta do app para gerar um código com um clique.',
+    inviteSubtitle: 'Entre para copiar seu código ou compartilhar um link de cadastro.',
     productLabel: 'Produto',
     whatsappLabel: 'Número do WhatsApp',
     appAccountLabel: 'Conta do app (8 dígitos)',
@@ -3774,7 +3761,7 @@ const externalPageCopyByLocale = {
 const invitePageCopyByLocale = {
   zh: {
     shareTitle: 'BANDEIRA 邀请',
-    shareText: (inviteCode: string) => `使用邀请码 ${inviteCode} 完成绑定`,
+    shareText: (inviteCode: string) => `使用邀请码 ${inviteCode} 注册并加入 BANDEIRA 奖励计划`,
     shareCopied: '邀请链接已复制。',
     shareFailure: '分享失败，请稍后重试。',
     phoneCodeHint: (verificationCode: string | undefined, ttlMinutes: number) => verificationCode
@@ -3809,7 +3796,7 @@ const invitePageCopyByLocale = {
   },
   en: {
     shareTitle: 'BANDEIRA invitation',
-    shareText: (inviteCode: string) => `Use invite code ${inviteCode} to complete your binding`,
+    shareText: (inviteCode: string) => `Use invite code ${inviteCode} to register for the BANDEIRA rewards program`,
     shareCopied: 'Invite link copied.',
     shareFailure: 'Sharing failed. Please try again.',
     phoneCodeHint: (_verificationCode: string | undefined, ttlMinutes: number) => `Verification code sent. It is valid for ${ttlMinutes} minutes.`,
@@ -3842,7 +3829,7 @@ const invitePageCopyByLocale = {
   },
   es: {
     shareTitle: 'Invitación BANDEIRA',
-    shareText: (inviteCode: string) => `Usa el código ${inviteCode} para completar tu vínculo`,
+    shareText: (inviteCode: string) => `Usa el código ${inviteCode} para registrarte en el programa de recompensas BANDEIRA`,
     shareCopied: 'Enlace de invitación copiado.',
     shareFailure: 'No se pudo compartir. Inténtalo de nuevo.',
     phoneCodeHint: (_verificationCode: string | undefined, ttlMinutes: number) => `Código enviado. Válido durante ${ttlMinutes} minutos.`,
@@ -3875,7 +3862,7 @@ const invitePageCopyByLocale = {
   },
   id: {
     shareTitle: 'Undangan BANDEIRA',
-    shareText: (inviteCode: string) => `Gunakan kode undangan ${inviteCode} untuk menyelesaikan bind`,
+    shareText: (inviteCode: string) => `Gunakan kode undangan ${inviteCode} untuk mendaftar ke program reward BANDEIRA`,
     shareCopied: 'Tautan undangan disalin.',
     shareFailure: 'Gagal membagikan. Coba lagi nanti.',
     phoneCodeHint: (_verificationCode: string | undefined, ttlMinutes: number) => `Kode verifikasi terkirim dan berlaku ${ttlMinutes} menit.`,
@@ -3908,7 +3895,7 @@ const invitePageCopyByLocale = {
   },
   pt: {
     shareTitle: 'Convite BANDEIRA',
-    shareText: (inviteCode: string) => `Use o código ${inviteCode} para concluir o vínculo`,
+    shareText: (inviteCode: string) => `Use o código ${inviteCode} para se cadastrar no programa de recompensas BANDEIRA`,
     shareCopied: 'Link de convite copiado.',
     shareFailure: 'Não foi possível compartilhar. Tente novamente.',
     phoneCodeHint: (_verificationCode: string | undefined, ttlMinutes: number) => `Código enviado. Ele é válido por ${ttlMinutes} minutos.`,
@@ -3962,6 +3949,50 @@ function normalizeLocalPhoneNumber(value: string, callingCode: string) {
   const normalized = value.replace(/\D/g, '')
   const dialDigits = callingCode.slice(1)
   return normalized.startsWith(dialDigits) ? normalized.slice(dialDigits.length) : normalized
+}
+
+type ConsumerLocale = 'zh' | 'en' | 'es' | 'id' | 'pt'
+type ConsumerNavigationKey = 'earnings' | 'invite' | 'account'
+
+const consumerNavigationCopy: Record<ConsumerLocale, Record<ConsumerNavigationKey, string>> = {
+  zh: { earnings: '收益', invite: '邀请', account: '我的' },
+  en: { earnings: 'Earnings', invite: 'Invite', account: 'Account' },
+  es: { earnings: 'Ganancias', invite: 'Invitar', account: 'Cuenta' },
+  id: { earnings: 'Penghasilan', invite: 'Undang', account: 'Akun' },
+  pt: { earnings: 'Ganhos', invite: 'Convidar', account: 'Conta' },
+}
+
+const consumerAccountCopy = {
+  zh: {
+    title: '我的账户', subtitle: '管理你的身份资料与平台账号。', accountInfo: '账户信息', accountId: '用户编号', country: '归属国家 / 地区', language: '默认语言', platform: '平台账号', linkyTitle: 'Linky 账号', linkyHint: '绑定后，平台数据才能归入当前账户并进入奖励计算。', bindLinky: '绑定 Linky 账号', bindingTitle: '绑定 Linky 账号', bindingSubtitle: '你的注册手机号和邀请关系已自动带入，无需重复填写。', linkyAccount: 'Linky 账号（8 位数字）', linkyPlaceholder: '例如 12345678', bind: '提交 Linky 账号', binding: '提交中…', bindingSuccess: 'Linky 账号已绑定到当前账户。', bindingFailure: '绑定失败', signInTitle: '登录后管理平台账号', signInHint: '请先使用手机号登录，再绑定 Linky 账号。', signIn: '去手机号登录', active: '已提交', navigationLabel: '主要导航', accountShortcut: '我的账户', inviteRelationship: '邀请关系已在首次注册时确认。',
+  },
+  en: {
+    title: 'My account', subtitle: 'Manage your identity details and platform account.', accountInfo: 'Account information', accountId: 'User ID', country: 'Country / region', language: 'Default language', platform: 'Platform account', linkyTitle: 'Linky account', linkyHint: 'Bind it so platform activity belongs to this account and can be used for reward calculation.', bindLinky: 'Bind Linky account', bindingTitle: 'Bind Linky account', bindingSubtitle: 'Your registered phone and invitation relationship are already linked. You do not need to enter them again.', linkyAccount: 'Linky account (8 digits)', linkyPlaceholder: 'e.g. 12345678', bind: 'Submit Linky account', binding: 'Submitting…', bindingSuccess: 'Your Linky account is now bound to this account.', bindingFailure: 'Binding failed', signInTitle: 'Sign in to manage your platform account', signInHint: 'Use phone sign-in before binding a Linky account.', signIn: 'Sign in with phone', active: 'Submitted', navigationLabel: 'Main navigation', accountShortcut: 'My account', inviteRelationship: 'Your invitation relationship was confirmed at first registration.',
+  },
+  es: {
+    title: 'Mi cuenta', subtitle: 'Administra tu identidad y tu cuenta de plataforma.', accountInfo: 'Información de cuenta', accountId: 'ID de usuario', country: 'País / región', language: 'Idioma predeterminado', platform: 'Cuenta de plataforma', linkyTitle: 'Cuenta Linky', linkyHint: 'Vincúlala para que la actividad de la plataforma pertenezca a esta cuenta y entre al cálculo de recompensas.', bindLinky: 'Vincular cuenta Linky', bindingTitle: 'Vincular cuenta Linky', bindingSubtitle: 'Tu teléfono registrado y relación de invitación ya están vinculados. No necesitas ingresarlos otra vez.', linkyAccount: 'Cuenta Linky (8 dígitos)', linkyPlaceholder: 'ej. 12345678', bind: 'Enviar cuenta Linky', binding: 'Enviando…', bindingSuccess: 'Tu cuenta Linky quedó vinculada a esta cuenta.', bindingFailure: 'Error al vincular', signInTitle: 'Inicia sesión para administrar tu cuenta', signInHint: 'Inicia sesión con teléfono antes de vincular una cuenta Linky.', signIn: 'Iniciar sesión', active: 'Enviada', navigationLabel: 'Navegación principal', accountShortcut: 'Mi cuenta', inviteRelationship: 'Tu relación de invitación se confirmó al registrarte por primera vez.',
+  },
+  id: {
+    title: 'Akun saya', subtitle: 'Kelola identitas dan akun platform kamu.', accountInfo: 'Informasi akun', accountId: 'ID pengguna', country: 'Negara / wilayah', language: 'Bahasa default', platform: 'Akun platform', linkyTitle: 'Akun Linky', linkyHint: 'Hubungkan agar aktivitas platform masuk ke akun ini dan dapat dihitung sebagai reward.', bindLinky: 'Hubungkan akun Linky', bindingTitle: 'Hubungkan akun Linky', bindingSubtitle: 'Nomor ponsel terdaftar dan relasi undanganmu sudah tertaut. Kamu tidak perlu mengisinya lagi.', linkyAccount: 'Akun Linky (8 digit)', linkyPlaceholder: 'contoh 12345678', bind: 'Kirim akun Linky', binding: 'Mengirim…', bindingSuccess: 'Akun Linky sudah terhubung ke akun ini.', bindingFailure: 'Gagal menghubungkan', signInTitle: 'Masuk untuk mengelola akun platform', signInHint: 'Masuk dengan nomor telepon sebelum menghubungkan akun Linky.', signIn: 'Masuk dengan telepon', active: 'Terkirim', navigationLabel: 'Navigasi utama', accountShortcut: 'Akun saya', inviteRelationship: 'Relasi undanganmu sudah dikonfirmasi saat pendaftaran pertama.',
+  },
+  pt: {
+    title: 'Minha conta', subtitle: 'Gerencie seus dados de identidade e sua conta da plataforma.', accountInfo: 'Informações da conta', accountId: 'ID do usuário', country: 'País / região', language: 'Idioma padrão', platform: 'Conta da plataforma', linkyTitle: 'Conta Linky', linkyHint: 'Vincule-a para que a atividade da plataforma pertença a esta conta e entre no cálculo das recompensas.', bindLinky: 'Vincular conta Linky', bindingTitle: 'Vincular conta Linky', bindingSubtitle: 'Seu telefone cadastrado e sua relação de convite já estão vinculados. Você não precisa informá-los novamente.', linkyAccount: 'Conta Linky (8 dígitos)', linkyPlaceholder: 'ex. 12345678', bind: 'Enviar conta Linky', binding: 'Enviando…', bindingSuccess: 'Sua conta Linky foi vinculada a esta conta.', bindingFailure: 'Falha no vínculo', signInTitle: 'Entre para gerenciar sua conta da plataforma', signInHint: 'Entre com telefone antes de vincular uma conta Linky.', signIn: 'Entrar com telefone', active: 'Enviada', navigationLabel: 'Navegação principal', accountShortcut: 'Minha conta', inviteRelationship: 'Sua relação de convite foi confirmada no primeiro cadastro.',
+  },
+} as const
+
+function ConsumerAccountLink({ locale }: { locale: ConsumerLocale }) {
+  return <a className="consumer-account-link" href="/account"><UserCircle weight="regular" aria-hidden="true" /><span>{consumerAccountCopy[locale].accountShortcut}</span><CaretRight weight="bold" aria-hidden="true" /></a>
+}
+
+function ConsumerBottomNavigation({ locale, active }: { locale: ConsumerLocale; active: ConsumerNavigationKey }) {
+  const labels = consumerNavigationCopy[locale]
+  return (
+    <nav className="consumer-bottom-nav" aria-label={consumerAccountCopy[locale].navigationLabel}>
+      <a className={active === 'earnings' ? 'is-active' : undefined} href="/earnings" aria-current={active === 'earnings' ? 'page' : undefined}><Wallet weight={active === 'earnings' ? 'fill' : 'regular'} aria-hidden="true" /><span>{labels.earnings}</span></a>
+      <a className={active === 'invite' ? 'is-active' : undefined} href="/invite" aria-current={active === 'invite' ? 'page' : undefined}><UserPlus weight={active === 'invite' ? 'fill' : 'regular'} aria-hidden="true" /><span>{labels.invite}</span></a>
+      <a className={active === 'account' ? 'is-active' : undefined} href="/account" aria-current={active === 'account' ? 'page' : undefined}><User weight={active === 'account' ? 'fill' : 'regular'} aria-hidden="true" /><span>{labels.account}</span></a>
+    </nav>
+  )
 }
 
 function formatPhoneNumber(callingCode: string, localNumber: string) {
@@ -4106,7 +4137,7 @@ function InviteCodePage() {
 
   async function handleShareInviteCode() {
     if (!session?.inviteCode) return
-    const shareUrl = `${window.location.origin}/bind?inviteCode=${encodeURIComponent(session.inviteCode)}`
+    const shareUrl = `${window.location.origin}/invite?inviteCode=${encodeURIComponent(session.inviteCode)}`
     try {
       if (navigator.share) {
         await navigator.share({ title: inviteCopy.shareTitle, text: inviteCopy.shareText(session.inviteCode), url: shareUrl })
@@ -4175,7 +4206,7 @@ function InviteCodePage() {
                 <option value="zh">中文</option><option value="en">English</option><option value="es">Español</option><option value="id">Bahasa Indonesia</option><option value="pt">Português</option>
               </select>
             </label>
-            <a className="consumer-account-link" href="/earnings"><UserCircle size={26} weight="duotone" /><span>{copy.navEarnings}</span><CaretRight size={18} /></a>
+            <ConsumerAccountLink locale={locale} />
           </div>
         </header>
 
@@ -4229,19 +4260,51 @@ function InviteCodePage() {
           </form>
         )}
 
-        {session ? (
-          <section className="consumer-account-card">
-            <IdentificationCard size={30} weight="duotone" />
-            <div><span>{inviteCopy.currentAccount}</span><strong>{inviteCopy.userAccount(session.userId, session.countryCode)}</strong></div>
-            <a href={`/bind?inviteCode=${encodeURIComponent(session.inviteCode)}`}>{inviteCopy.goToBinding}<CaretRight size={18} /></a>
-          </section>
-        ) : null}
+        <ConsumerBottomNavigation locale={locale} active="invite" />
+      </main>
+    </div>
+  )
+}
 
-        <nav className="consumer-bottom-nav" aria-label={inviteCopy.navigationLabel}>
-          <a href="/earnings"><span><Diamond size={24} weight="duotone" /></span><small>{copy.navEarnings}</small></a>
-          <a className="is-active" href="/invite"><span><UserPlus size={24} weight="duotone" /></span><small>{copy.navInvite}</small></a>
-          <a href="/bind"><span><UserCircle size={24} weight="duotone" /></span><small>{copy.navBind}</small></a>
-        </nav>
+function AccountPage() {
+  const [session] = useState<SessionState | null>(() => loadJsonState<SessionState>(STORAGE_KEY))
+  const [locale, setLocale] = useState<ConsumerLocale>(() => loadExternalLocale())
+  const copy = consumerAccountCopy[locale]
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') window.localStorage.setItem(EXTERNAL_LOCALE_KEY, locale)
+  }, [locale])
+
+  return (
+    <div className="consumer-app-page">
+      <main className="consumer-shell consumer-form-shell">
+        <header className="consumer-topbar">
+          <a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />BANDEIRA</a>
+          <div className="consumer-topbar-actions">
+            <label className="consumer-language-select"><select aria-label={externalPageCopyByLocale[locale].languageLabel} value={locale} onChange={(event) => setLocale(event.target.value as ConsumerLocale)}><option value="zh">中文</option><option value="en">English</option><option value="es">Español</option><option value="id">Bahasa Indonesia</option><option value="pt">Português</option></select></label>
+          </div>
+        </header>
+
+        {session ? (
+          <>
+            <section className="consumer-commercial-heading"><p><Diamond weight="fill" aria-hidden="true" /> BANDEIRA REWARDS</p><h1>{copy.title}</h1><span>{copy.subtitle}</span></section>
+            <section className="consumer-account-overview">
+              <div className="consumer-account-overview-icon"><IdentificationCard weight="duotone" aria-hidden="true" /></div>
+              <div><span>{copy.accountInfo}</span><strong>{copy.accountId} · {session.userId}</strong><small>{copy.inviteRelationship}</small></div>
+            </section>
+            <section className="consumer-settings-card">
+              <h2>{copy.accountInfo}</h2>
+              <dl><div><dt>{copy.country}</dt><dd>{session.countryCode}</dd></div><div><dt>{copy.language}</dt><dd>{session.languageCode}</dd></div></dl>
+            </section>
+            <section className="consumer-settings-card consumer-platform-card">
+              <div><span className="consumer-platform-icon"><LinkSimple weight="bold" aria-hidden="true" /></span><div><h2>{copy.platform}</h2><strong>{copy.linkyTitle}</strong><p>{copy.linkyHint}</p></div></div>
+              <a className="consumer-primary-link" href="/account/linky">{copy.bindLinky}<ArrowRight weight="bold" aria-hidden="true" /></a>
+            </section>
+          </>
+        ) : (
+          <section className="consumer-auth-gate"><div className="consumer-auth-icon"><LockSimple weight="duotone" aria-hidden="true" /></div><h1>{copy.signInTitle}</h1><p>{copy.signInHint}</p><a className="consumer-primary-link" href="/invite#phone-login">{copy.signIn}<ArrowRight weight="bold" aria-hidden="true" /></a></section>
+        )}
+        <ConsumerBottomNavigation locale={locale} active="account" />
       </main>
     </div>
   )
@@ -4386,11 +4449,7 @@ function EarningsPage() {
                 <option value="pt">PT</option>
               </select>
             ) : null}
-            <a className="consumer-account-link" href="/invite#phone-login">
-              <UserCircle weight="regular" aria-hidden="true" />
-              <span>{session ? '我的账户' : '登录'}</span>
-              <CaretRight weight="bold" aria-hidden="true" />
-            </a>
+            {session ? <ConsumerAccountLink locale={locale} /> : <a className="consumer-account-link" href="/invite#phone-login"><UserCircle weight="regular" aria-hidden="true" /><span>登录</span><CaretRight weight="bold" aria-hidden="true" /></a>}
           </div>
         </header>
 
@@ -4406,7 +4465,6 @@ function EarningsPage() {
             <a className="consumer-primary-link" href="/invite#phone-login">
               {copy.noSessionPrimary}<ArrowRight weight="bold" aria-hidden="true" />
             </a>
-            <a className="consumer-secondary-link" href="/bind">{copy.noSessionSecondary}</a>
           </section>
         ) : (
           <>
@@ -4484,7 +4542,7 @@ function EarningsPage() {
 
               <div className="consumer-task-list">
                 <a href="/invite"><span className="is-orange"><UserPlus weight="fill" /></span><div><strong>邀请新用户</strong><small>当前已邀请 {home?.directInvitedUsers ?? 0} 人</small></div><b>去邀请</b></a>
-                <a href="/bind"><span className="is-pink"><LinkSimple weight="bold" /></span><div><strong>完成平台绑定</strong><small>登记并验证 Timo / Linky ID</small></div><b>去绑定</b></a>
+                <a href="/account/linky"><span className="is-pink"><LinkSimple weight="bold" /></span><div><strong>完成平台绑定</strong><small>登记并验证 Timo / Linky ID</small></div><b>去绑定</b></a>
                 <button type="button" onClick={() => setTeamDetailsOpen(true)}><span className="is-green"><UsersThree weight="fill" /></span><div><strong>跟进有效用户</strong><small>本期有效用户 {effectiveUsersThisView} 人</small></div><b>查看团队</b></button>
                 <button type="button" onClick={() => setRewardDetailsOpen(true)}><span className="is-purple"><Sparkle weight="fill" /></span><div><strong>查看奖励记录</strong><small>当前共 {rewardItems.length} 笔奖励</small></div><b>查看记录</b></button>
               </div>
@@ -4565,11 +4623,7 @@ function EarningsPage() {
           </>
         )}
 
-        <nav className="consumer-bottom-nav" aria-label="用户导航">
-          <a className="is-active" href="/earnings"><Wallet weight="fill" aria-hidden="true" /><span>{locale === 'zh' ? '收益' : copy.navEarnings}</span></a>
-          <a href="/invite"><UserPlus weight="regular" aria-hidden="true" /><span>{locale === 'zh' ? '邀请' : copy.navInvite}</span></a>
-          <a href="/invite#phone-login"><User weight="regular" aria-hidden="true" /><span>{locale === 'zh' ? '我的' : '账户'}</span></a>
-        </nav>
+        <ConsumerBottomNavigation locale={locale} active="earnings" />
       </main>
     </div>
   )
@@ -4577,7 +4631,8 @@ function EarningsPage() {
 
 function App() {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '/'
-  if (pathname.startsWith('/bind')) return <BindLandingPage />
+  if (pathname.startsWith('/account/linky') || pathname.startsWith('/bind')) return <BindLandingPage />
+  if (pathname.startsWith('/account')) return <AccountPage />
   if (pathname.startsWith('/invite')) return <InviteCodePage />
   if (pathname.startsWith('/earnings')) return <EarningsPage />
   const designPreview = import.meta.env.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('adminPreview') === '1'
