@@ -60,15 +60,14 @@ describe('App external landing pages', () => {
     expect(markup).not.toContain('>语言<')
     expect(markup).toContain('aria-label="语言"')
     expect(markup).toContain('绑定 Linky 账号')
-    expect(markup).toContain('>邀请<')
-    expect(markup).toContain('我的账户')
+    expect(markup).not.toContain('class="consumer-bottom-nav"')
   })
 
-  it('uses the shared consumer navigation and requires a signed-in account on the bind page', () => {
+  it('requires a signed-in account on the bind page without exposing member navigation', () => {
     const markup = renderToStaticMarkup(<App />)
 
     expect(markup).toContain('class="consumer-topbar"')
-    expect(markup).toContain('class="consumer-bottom-nav"')
+    expect(markup).not.toContain('class="consumer-bottom-nav"')
     expect(markup).toContain('登录后管理平台账号')
     expect(markup).not.toContain('WhatsApp 号码')
   })
@@ -95,6 +94,22 @@ describe('App external landing pages', () => {
     expect(markup).toContain('账户安全')
     expect(markup).toContain('退出登录')
     expect(markup).toContain('consumer-sign-out-button')
+  })
+
+  it('does not show member navigation on the account page before sign-in', () => {
+    const localStorage = createStorage()
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: {
+        location: { pathname: '/account', search: '', origin: 'http://127.0.0.1:4173' },
+        localStorage,
+      },
+    })
+
+    const markup = renderToStaticMarkup(<App />)
+
+    expect(markup).toContain('登录后管理平台账号')
+    expect(markup).not.toContain('class="consumer-bottom-nav"')
   })
 })
 
@@ -290,9 +305,11 @@ describe('Earnings landing page', () => {
     expect(markup).toContain('手机号登录')
     expect(markup).toContain('获取验证码')
     expect(markup).toContain('验证码')
-    expect(markup).toContain('登录后开始邀请')
+    expect(markup).toContain('手机号登录')
     expect(markup).toContain('邀请码（首次注册必填）')
     expect(markup).not.toContain('立即生成邀请码')
+    expect(markup).not.toContain('邀请好友')
+    expect(markup).not.toContain('class="consumer-bottom-nav"')
   })
 
   it('localizes the invite login flow and provides a country calling-code selector', () => {
@@ -312,12 +329,13 @@ describe('Earnings landing page', () => {
 
     const markup = renderToStaticMarkup(<App />)
 
-    expect(markup).toContain('Sign in to start inviting')
+    expect(markup).toContain('Sign in with phone')
     expect(markup).toContain('Country / calling code')
     expect(markup).toContain('Brazil +55')
     expect(markup).toContain('Indonesia +62')
     expect(markup).toContain('Enter local number')
-    expect(markup).not.toContain('登录后开始邀请')
+    expect(markup).not.toContain('邀请好友')
+    expect(markup).not.toContain('class="consumer-bottom-nav"')
   })
 
   it('renders a task-first earnings home instead of console language', () => {
@@ -426,6 +444,7 @@ describe('Earnings landing page', () => {
     expect(markup).toContain('使用手机号登录后即可邀请好友和查看收益。')
     expect(markup).toContain('手机号登录')
     expect(markup).not.toContain('去绑定关系')
+    expect(markup).not.toContain('class="consumer-bottom-nav"')
   })
 
   it('keeps team income available in a compact disclosure', () => {

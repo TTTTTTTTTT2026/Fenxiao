@@ -4785,6 +4785,10 @@ code {
   padding-bottom: max(150px, calc(112px + env(safe-area-inset-bottom)));
 }
 
+.consumer-shell.consumer-form-shell.consumer-login-shell {
+  padding-bottom: max(42px, calc(24px + env(safe-area-inset-bottom)));
+}
+
 .consumer-form-shell .consumer-bottom-nav {
   margin-bottom: 0;
 }

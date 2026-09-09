@@ -3268,7 +3268,7 @@ function BindLandingPage() {
               <option value="id">ID</option>
               <option value="pt">PT</option>
             </select>
-            <ConsumerAccountLink locale={locale} />
+            {session ? <ConsumerAccountLink locale={locale} /> : null}
           </div>
         </header>
 
@@ -3325,7 +3325,7 @@ function BindLandingPage() {
           </section>
         ) : null}
 
-        <ConsumerBottomNavigation locale={locale} active="account" />
+        {session ? <ConsumerBottomNavigation locale={locale} active="account" /> : null}
       </main>
     </div>
   )
@@ -3778,8 +3778,8 @@ const invitePageCopyByLocale = {
     myInviteCode: '我的邀请码',
     inviteProgressHint: '好友完成绑定后，邀请进度会自动更新。',
     shareInviteLink: '分享邀请链接',
-    loginTitle: '登录后开始邀请',
-    loginHint: '验证码登录，无需设置密码。',
+    loginTitle: '手机号登录',
+    loginHint: '使用验证码登录；首次使用时需填写邀请码。',
     phoneLabel: '手机号 / WhatsApp',
     countryCallingCodeLabel: '国家 / 区号',
     phonePlaceholder: '输入本地号码',
@@ -3811,8 +3811,8 @@ const invitePageCopyByLocale = {
     myInviteCode: 'My invite code',
     inviteProgressHint: 'Your invitation progress updates automatically after a friend completes binding.',
     shareInviteLink: 'Share invite link',
-    loginTitle: 'Sign in to start inviting',
-    loginHint: 'Sign in with a verification code — no password needed.',
+    loginTitle: 'Sign in with phone',
+    loginHint: 'Use a verification code to sign in. An invite code is required on first use.',
     phoneLabel: 'Phone / WhatsApp',
     countryCallingCodeLabel: 'Country / calling code',
     phonePlaceholder: 'Enter local number',
@@ -3844,8 +3844,8 @@ const invitePageCopyByLocale = {
     myInviteCode: 'Mi código de invitación',
     inviteProgressHint: 'Tu progreso se actualizará al completar un amigo el vínculo.',
     shareInviteLink: 'Compartir enlace',
-    loginTitle: 'Inicia sesión para invitar',
-    loginHint: 'Inicia sesión con código; no necesitas contraseña.',
+    loginTitle: 'Inicia sesión con teléfono',
+    loginHint: 'Usa un código de verificación. En el primer acceso se requiere un código de invitación.',
     phoneLabel: 'Teléfono / WhatsApp',
     countryCallingCodeLabel: 'País / prefijo',
     phonePlaceholder: 'Ingresa el número local',
@@ -3877,8 +3877,8 @@ const invitePageCopyByLocale = {
     myInviteCode: 'Kode undangan saya',
     inviteProgressHint: 'Progres undangan akan diperbarui setelah teman menyelesaikan bind.',
     shareInviteLink: 'Bagikan tautan undangan',
-    loginTitle: 'Masuk untuk mulai mengundang',
-    loginHint: 'Masuk dengan kode verifikasi, tanpa kata sandi.',
+    loginTitle: 'Masuk dengan telepon',
+    loginHint: 'Masuk dengan kode verifikasi. Kode undangan diperlukan saat pertama kali menggunakan aplikasi.',
     phoneLabel: 'Telepon / WhatsApp',
     countryCallingCodeLabel: 'Negara / kode panggilan',
     phonePlaceholder: 'Masukkan nomor lokal',
@@ -3910,8 +3910,8 @@ const invitePageCopyByLocale = {
     myInviteCode: 'Meu código de convite',
     inviteProgressHint: 'O progresso será atualizado quando um amigo concluir o vínculo.',
     shareInviteLink: 'Compartilhar link',
-    loginTitle: 'Entre para começar a convidar',
-    loginHint: 'Entre com um código de verificação, sem senha.',
+    loginTitle: 'Entrar com telefone',
+    loginHint: 'Use um código de verificação. Um código de convite é necessário no primeiro acesso.',
     phoneLabel: 'Telefone / WhatsApp',
     countryCallingCodeLabel: 'País / código de discagem',
     phonePlaceholder: 'Digite o número local',
@@ -4199,7 +4199,7 @@ function InviteCodePage() {
 
   return (
     <div className="consumer-app-page">
-      <main className="consumer-shell consumer-form-shell">
+      <main className={`consumer-shell consumer-form-shell${session ? '' : ' consumer-login-shell'}`}>
         <header className="consumer-topbar">
           <a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />BANDEIRA</a>
           <div className="consumer-topbar-actions">
@@ -4208,15 +4208,15 @@ function InviteCodePage() {
                 <option value="zh">中文</option><option value="en">English</option><option value="es">Español</option><option value="id">Bahasa Indonesia</option><option value="pt">Português</option>
               </select>
             </label>
-            <ConsumerAccountLink locale={locale} />
+            {session ? <ConsumerAccountLink locale={locale} /> : null}
           </div>
         </header>
 
-        <section className="consumer-commercial-heading">
+        {session ? <section className="consumer-commercial-heading">
           <p><Diamond weight="fill" aria-hidden="true" /> BANDEIRA REWARDS</p>
           <h1>{copy.inviteTitle}</h1>
           <span>{copy.inviteSubtitle}</span>
-        </section>
+        </section> : null}
 
         {error ? <div className="consumer-banner is-error"><strong>{inviteCopy.errorTitle}</strong><span>{error}</span></div> : null}
         {success ? <div className="consumer-banner is-success"><CheckCircle size={20} weight="fill" /><span>{success}</span></div> : null}
@@ -4262,7 +4262,7 @@ function InviteCodePage() {
           </form>
         )}
 
-        <ConsumerBottomNavigation locale={locale} active="invite" />
+        {session ? <ConsumerBottomNavigation locale={locale} active="invite" /> : null}
       </main>
     </div>
   )
@@ -4325,7 +4325,7 @@ function AccountPage() {
         ) : (
           <section className="consumer-auth-gate"><div className="consumer-auth-icon"><LockSimple weight="duotone" aria-hidden="true" /></div><h1>{copy.signInTitle}</h1><p>{copy.signInHint}</p><a className="consumer-primary-link" href="/invite#phone-login">{copy.signIn}<ArrowRight weight="bold" aria-hidden="true" /></a></section>
         )}
-        <ConsumerBottomNavigation locale={locale} active="account" />
+        {session ? <ConsumerBottomNavigation locale={locale} active="account" /> : null}
       </main>
     </div>
   )
@@ -4644,7 +4644,7 @@ function EarningsPage() {
           </>
         )}
 
-        <ConsumerBottomNavigation locale={locale} active="earnings" />
+        {session ? <ConsumerBottomNavigation locale={locale} active="earnings" /> : null}
       </main>
     </div>
   )
