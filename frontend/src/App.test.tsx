@@ -72,6 +72,30 @@ describe('App external landing pages', () => {
     expect(markup).toContain('登录后管理平台账号')
     expect(markup).not.toContain('WhatsApp 号码')
   })
+
+  it('offers a signed-in user a clear sign-out action in the account page', () => {
+    const localStorage = createStorage()
+    localStorage.setItem('fenxiao-web-session', JSON.stringify({
+      userId: 10001,
+      inviteCode: 'ABCD1234',
+      countryCode: 'BR',
+      languageCode: 'pt',
+      accessToken: 'token-1',
+    }))
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: {
+        location: { pathname: '/account', search: '', origin: 'http://127.0.0.1:4173' },
+        localStorage,
+      },
+    })
+
+    const markup = renderToStaticMarkup(<App />)
+
+    expect(markup).toContain('账户安全')
+    expect(markup).toContain('退出登录')
+    expect(markup).toContain('consumer-sign-out-button')
+  })
 })
 
 describe('bind guild invite guidance', () => {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { applyAdminRiskEventBatchAction, applyAdminWithdrawBatchAction, approveAdminWithdrawRequest, approveWithdrawForPayment, correctAdminOwnership, createAdminSession, createExperiment, createWithdrawRequest, getAdminGuildConfigs, getAdminGuildWeeklyReport, getAdminOwnership, getAdminWithdrawRequests, getDistributionRewardSummary, getDistributionTeamWeeklyIncome, getExperimentDashboard, getWithdrawHistory, issuePhoneCode, phoneLogin, recordWithdrawPayment, refreshAdminLinkyEligibility, refreshAdminLinkyEligibilityBatch, rejectAdminWithdrawRequest, reverseWithdrawPayment, saveAdminGuildConfig } from './api'
+import { applyAdminRiskEventBatchAction, applyAdminWithdrawBatchAction, approveAdminWithdrawRequest, approveWithdrawForPayment, correctAdminOwnership, createAdminSession, createExperiment, createWithdrawRequest, getAdminGuildConfigs, getAdminGuildWeeklyReport, getAdminOwnership, getAdminWithdrawRequests, getDistributionRewardSummary, getDistributionTeamWeeklyIncome, getExperimentDashboard, getWithdrawHistory, issuePhoneCode, logoutUserSession, phoneLogin, recordWithdrawPayment, refreshAdminLinkyEligibility, refreshAdminLinkyEligibilityBatch, rejectAdminWithdrawRequest, reverseWithdrawPayment, saveAdminGuildConfig } from './api'
 
 describe('ownership admin api', () => {
   afterEach(() => {
@@ -98,6 +98,21 @@ describe('ownership admin api', () => {
     await createWithdrawRequest(1001, 'user-token')
 
     expect(fetchMock).toHaveBeenCalledWith('/api/distribution/withdraw-requests/1001', expect.objectContaining({
+      method: 'POST',
+      headers: expect.objectContaining({
+        'Content-Type': 'application/json',
+        'X-Distribution-Token': 'user-token',
+      }),
+    }))
+  })
+
+  it('revokes the current user session with its distribution token', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ revoked: true }) })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await logoutUserSession('user-token')
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/distribution/auth/session/logout', expect.objectContaining({
       method: 'POST',
       headers: expect.objectContaining({
         'Content-Type': 'application/json',

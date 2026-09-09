@@ -504,6 +504,15 @@ export function phoneLogin(payload: PhoneLoginRequest) {
   })
 }
 
+export function logoutUserSession(accessToken: string) {
+  return request<void>('/api/distribution/auth/session/logout', {
+    method: 'POST',
+    headers: {
+      'X-Distribution-Token': accessToken,
+    },
+  })
+}
+
 export function createAdminSession(payload: { username: string; password: string; rememberMe?: boolean }) {
   return request<AdminSessionResponse>('/admin/auth/session', {
     method: 'POST',

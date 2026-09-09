@@ -16,6 +16,7 @@ import {
   ShareNetwork,
   ShieldCheck,
   SignIn,
+  SignOut,
   LockSimple,
   Medal,
   Sparkle,
@@ -69,6 +70,7 @@ import {
   issuePhoneCode,
   logoutAdminSession,
   logoutAllAdminSessions,
+  logoutUserSession,
   phoneLogin,
   refreshAdminLinkyEligibility,
   refreshAdminLinkyEligibilityBatch,
@@ -3964,19 +3966,19 @@ const consumerNavigationCopy: Record<ConsumerLocale, Record<ConsumerNavigationKe
 
 const consumerAccountCopy = {
   zh: {
-    title: '我的账户', subtitle: '管理你的身份资料与平台账号。', accountInfo: '账户信息', accountId: '用户编号', country: '归属国家 / 地区', language: '默认语言', platform: '平台账号', linkyTitle: 'Linky 账号', linkyHint: '绑定后，平台数据才能归入当前账户并进入奖励计算。', bindLinky: '绑定 Linky 账号', bindingTitle: '绑定 Linky 账号', bindingSubtitle: '你的注册手机号和邀请关系已自动带入，无需重复填写。', linkyAccount: 'Linky 账号（8 位数字）', linkyPlaceholder: '例如 12345678', bind: '提交 Linky 账号', binding: '提交中…', bindingSuccess: 'Linky 账号已绑定到当前账户。', bindingFailure: '绑定失败', signInTitle: '登录后管理平台账号', signInHint: '请先使用手机号登录，再绑定 Linky 账号。', signIn: '去手机号登录', active: '已提交', navigationLabel: '主要导航', accountShortcut: '我的账户', inviteRelationship: '邀请关系已在首次注册时确认。',
+    title: '我的账户', subtitle: '管理你的身份资料与平台账号。', accountInfo: '账户信息', accountId: '用户编号', country: '归属国家 / 地区', language: '默认语言', platform: '平台账号', linkyTitle: 'Linky 账号', linkyHint: '绑定后，平台数据才能归入当前账户并进入奖励计算。', bindLinky: '绑定 Linky 账号', bindingTitle: '绑定 Linky 账号', bindingSubtitle: '你的注册手机号和邀请关系已自动带入，无需重复填写。', linkyAccount: 'Linky 账号（8 位数字）', linkyPlaceholder: '例如 12345678', bind: '提交 Linky 账号', binding: '提交中…', bindingSuccess: 'Linky 账号已绑定到当前账户。', bindingFailure: '绑定失败', signInTitle: '登录后管理平台账号', signInHint: '请先使用手机号登录，再绑定 Linky 账号。', signIn: '去手机号登录', active: '已提交', navigationLabel: '主要导航', accountShortcut: '我的账户', inviteRelationship: '邀请关系已在首次注册时确认。', security: '账户安全', signOutHint: '退出当前设备的登录状态。', signOut: '退出登录', signingOut: '退出中…',
   },
   en: {
-    title: 'My account', subtitle: 'Manage your identity details and platform account.', accountInfo: 'Account information', accountId: 'User ID', country: 'Country / region', language: 'Default language', platform: 'Platform account', linkyTitle: 'Linky account', linkyHint: 'Bind it so platform activity belongs to this account and can be used for reward calculation.', bindLinky: 'Bind Linky account', bindingTitle: 'Bind Linky account', bindingSubtitle: 'Your registered phone and invitation relationship are already linked. You do not need to enter them again.', linkyAccount: 'Linky account (8 digits)', linkyPlaceholder: 'e.g. 12345678', bind: 'Submit Linky account', binding: 'Submitting…', bindingSuccess: 'Your Linky account is now bound to this account.', bindingFailure: 'Binding failed', signInTitle: 'Sign in to manage your platform account', signInHint: 'Use phone sign-in before binding a Linky account.', signIn: 'Sign in with phone', active: 'Submitted', navigationLabel: 'Main navigation', accountShortcut: 'My account', inviteRelationship: 'Your invitation relationship was confirmed at first registration.',
+    title: 'My account', subtitle: 'Manage your identity details and platform account.', accountInfo: 'Account information', accountId: 'User ID', country: 'Country / region', language: 'Default language', platform: 'Platform account', linkyTitle: 'Linky account', linkyHint: 'Bind it so platform activity belongs to this account and can be used for reward calculation.', bindLinky: 'Bind Linky account', bindingTitle: 'Bind Linky account', bindingSubtitle: 'Your registered phone and invitation relationship are already linked. You do not need to enter them again.', linkyAccount: 'Linky account (8 digits)', linkyPlaceholder: 'e.g. 12345678', bind: 'Submit Linky account', binding: 'Submitting…', bindingSuccess: 'Your Linky account is now bound to this account.', bindingFailure: 'Binding failed', signInTitle: 'Sign in to manage your platform account', signInHint: 'Use phone sign-in before binding a Linky account.', signIn: 'Sign in with phone', active: 'Submitted', navigationLabel: 'Main navigation', accountShortcut: 'My account', inviteRelationship: 'Your invitation relationship was confirmed at first registration.', security: 'Account security', signOutHint: 'Sign out from this device.', signOut: 'Sign out', signingOut: 'Signing out…',
   },
   es: {
-    title: 'Mi cuenta', subtitle: 'Administra tu identidad y tu cuenta de plataforma.', accountInfo: 'Información de cuenta', accountId: 'ID de usuario', country: 'País / región', language: 'Idioma predeterminado', platform: 'Cuenta de plataforma', linkyTitle: 'Cuenta Linky', linkyHint: 'Vincúlala para que la actividad de la plataforma pertenezca a esta cuenta y entre al cálculo de recompensas.', bindLinky: 'Vincular cuenta Linky', bindingTitle: 'Vincular cuenta Linky', bindingSubtitle: 'Tu teléfono registrado y relación de invitación ya están vinculados. No necesitas ingresarlos otra vez.', linkyAccount: 'Cuenta Linky (8 dígitos)', linkyPlaceholder: 'ej. 12345678', bind: 'Enviar cuenta Linky', binding: 'Enviando…', bindingSuccess: 'Tu cuenta Linky quedó vinculada a esta cuenta.', bindingFailure: 'Error al vincular', signInTitle: 'Inicia sesión para administrar tu cuenta', signInHint: 'Inicia sesión con teléfono antes de vincular una cuenta Linky.', signIn: 'Iniciar sesión', active: 'Enviada', navigationLabel: 'Navegación principal', accountShortcut: 'Mi cuenta', inviteRelationship: 'Tu relación de invitación se confirmó al registrarte por primera vez.',
+    title: 'Mi cuenta', subtitle: 'Administra tu identidad y tu cuenta de plataforma.', accountInfo: 'Información de cuenta', accountId: 'ID de usuario', country: 'País / región', language: 'Idioma predeterminado', platform: 'Cuenta de plataforma', linkyTitle: 'Cuenta Linky', linkyHint: 'Vincúlala para que la actividad de la plataforma pertenezca a esta cuenta y entre al cálculo de recompensas.', bindLinky: 'Vincular cuenta Linky', bindingTitle: 'Vincular cuenta Linky', bindingSubtitle: 'Tu teléfono registrado y relación de invitación ya están vinculados. No necesitas ingresarlos otra vez.', linkyAccount: 'Cuenta Linky (8 dígitos)', linkyPlaceholder: 'ej. 12345678', bind: 'Enviar cuenta Linky', binding: 'Enviando…', bindingSuccess: 'Tu cuenta Linky quedó vinculada a esta cuenta.', bindingFailure: 'Error al vincular', signInTitle: 'Inicia sesión para administrar tu cuenta', signInHint: 'Inicia sesión con teléfono antes de vincular una cuenta Linky.', signIn: 'Iniciar sesión', active: 'Enviada', navigationLabel: 'Navegación principal', accountShortcut: 'Mi cuenta', inviteRelationship: 'Tu relación de invitación se confirmó al registrarte por primera vez.', security: 'Seguridad de la cuenta', signOutHint: 'Cierra sesión en este dispositivo.', signOut: 'Cerrar sesión', signingOut: 'Cerrando sesión…',
   },
   id: {
-    title: 'Akun saya', subtitle: 'Kelola identitas dan akun platform kamu.', accountInfo: 'Informasi akun', accountId: 'ID pengguna', country: 'Negara / wilayah', language: 'Bahasa default', platform: 'Akun platform', linkyTitle: 'Akun Linky', linkyHint: 'Hubungkan agar aktivitas platform masuk ke akun ini dan dapat dihitung sebagai reward.', bindLinky: 'Hubungkan akun Linky', bindingTitle: 'Hubungkan akun Linky', bindingSubtitle: 'Nomor ponsel terdaftar dan relasi undanganmu sudah tertaut. Kamu tidak perlu mengisinya lagi.', linkyAccount: 'Akun Linky (8 digit)', linkyPlaceholder: 'contoh 12345678', bind: 'Kirim akun Linky', binding: 'Mengirim…', bindingSuccess: 'Akun Linky sudah terhubung ke akun ini.', bindingFailure: 'Gagal menghubungkan', signInTitle: 'Masuk untuk mengelola akun platform', signInHint: 'Masuk dengan nomor telepon sebelum menghubungkan akun Linky.', signIn: 'Masuk dengan telepon', active: 'Terkirim', navigationLabel: 'Navigasi utama', accountShortcut: 'Akun saya', inviteRelationship: 'Relasi undanganmu sudah dikonfirmasi saat pendaftaran pertama.',
+    title: 'Akun saya', subtitle: 'Kelola identitas dan akun platform kamu.', accountInfo: 'Informasi akun', accountId: 'ID pengguna', country: 'Negara / wilayah', language: 'Bahasa default', platform: 'Akun platform', linkyTitle: 'Akun Linky', linkyHint: 'Hubungkan agar aktivitas platform masuk ke akun ini dan dapat dihitung sebagai reward.', bindLinky: 'Hubungkan akun Linky', bindingTitle: 'Hubungkan akun Linky', bindingSubtitle: 'Nomor ponsel terdaftar dan relasi undanganmu sudah tertaut. Kamu tidak perlu mengisinya lagi.', linkyAccount: 'Akun Linky (8 digit)', linkyPlaceholder: 'contoh 12345678', bind: 'Kirim akun Linky', binding: 'Mengirim…', bindingSuccess: 'Akun Linky sudah terhubung ke akun ini.', bindingFailure: 'Gagal menghubungkan', signInTitle: 'Masuk untuk mengelola akun platform', signInHint: 'Masuk dengan nomor telepon sebelum menghubungkan akun Linky.', signIn: 'Masuk dengan telepon', active: 'Terkirim', navigationLabel: 'Navigasi utama', accountShortcut: 'Akun saya', inviteRelationship: 'Relasi undanganmu sudah dikonfirmasi saat pendaftaran pertama.', security: 'Keamanan akun', signOutHint: 'Keluar dari perangkat ini.', signOut: 'Keluar', signingOut: 'Keluar…',
   },
   pt: {
-    title: 'Minha conta', subtitle: 'Gerencie seus dados de identidade e sua conta da plataforma.', accountInfo: 'Informações da conta', accountId: 'ID do usuário', country: 'País / região', language: 'Idioma padrão', platform: 'Conta da plataforma', linkyTitle: 'Conta Linky', linkyHint: 'Vincule-a para que a atividade da plataforma pertença a esta conta e entre no cálculo das recompensas.', bindLinky: 'Vincular conta Linky', bindingTitle: 'Vincular conta Linky', bindingSubtitle: 'Seu telefone cadastrado e sua relação de convite já estão vinculados. Você não precisa informá-los novamente.', linkyAccount: 'Conta Linky (8 dígitos)', linkyPlaceholder: 'ex. 12345678', bind: 'Enviar conta Linky', binding: 'Enviando…', bindingSuccess: 'Sua conta Linky foi vinculada a esta conta.', bindingFailure: 'Falha no vínculo', signInTitle: 'Entre para gerenciar sua conta da plataforma', signInHint: 'Entre com telefone antes de vincular uma conta Linky.', signIn: 'Entrar com telefone', active: 'Enviada', navigationLabel: 'Navegação principal', accountShortcut: 'Minha conta', inviteRelationship: 'Sua relação de convite foi confirmada no primeiro cadastro.',
+    title: 'Minha conta', subtitle: 'Gerencie seus dados de identidade e sua conta da plataforma.', accountInfo: 'Informações da conta', accountId: 'ID do usuário', country: 'País / região', language: 'Idioma padrão', platform: 'Conta da plataforma', linkyTitle: 'Conta Linky', linkyHint: 'Vincule-a para que a atividade da plataforma pertença a esta conta e entre no cálculo das recompensas.', bindLinky: 'Vincular conta Linky', bindingTitle: 'Vincular conta Linky', bindingSubtitle: 'Seu telefone cadastrado e sua relação de convite já estão vinculados. Você não precisa informá-los novamente.', linkyAccount: 'Conta Linky (8 dígitos)', linkyPlaceholder: 'ex. 12345678', bind: 'Enviar conta Linky', binding: 'Enviando…', bindingSuccess: 'Sua conta Linky foi vinculada a esta conta.', bindingFailure: 'Falha no vínculo', signInTitle: 'Entre para gerenciar sua conta da plataforma', signInHint: 'Entre com telefone antes de vincular uma conta Linky.', signIn: 'Entrar com telefone', active: 'Enviada', navigationLabel: 'Navegação principal', accountShortcut: 'Minha conta', inviteRelationship: 'Sua relação de convite foi confirmada no primeiro cadastro.', security: 'Segurança da conta', signOutHint: 'Sair deste dispositivo.', signOut: 'Sair', signingOut: 'Saindo…',
   },
 } as const
 
@@ -4267,13 +4269,28 @@ function InviteCodePage() {
 }
 
 function AccountPage() {
-  const [session] = useState<SessionState | null>(() => loadJsonState<SessionState>(STORAGE_KEY))
+  const [session, setSession] = useState<SessionState | null>(() => loadJsonState<SessionState>(STORAGE_KEY))
   const [locale, setLocale] = useState<ConsumerLocale>(() => loadExternalLocale())
+  const [signingOut, setSigningOut] = useState(false)
   const copy = consumerAccountCopy[locale]
 
   useEffect(() => {
     if (typeof window !== 'undefined') window.localStorage.setItem(EXTERNAL_LOCALE_KEY, locale)
   }, [locale])
+
+  async function handleSignOut() {
+    if (!session || signingOut) return
+    setSigningOut(true)
+    try {
+      await logoutUserSession(session.accessToken)
+    } catch {
+      // Local session removal still protects this device if a network interruption prevents server revocation.
+    } finally {
+      window.localStorage.removeItem(STORAGE_KEY)
+      setSession(null)
+      window.location.assign('/invite#phone-login')
+    }
+  }
 
   return (
     <div className="consumer-app-page">
@@ -4299,6 +4316,10 @@ function AccountPage() {
             <section className="consumer-settings-card consumer-platform-card">
               <div><span className="consumer-platform-icon"><LinkSimple weight="bold" aria-hidden="true" /></span><div><h2>{copy.platform}</h2><strong>{copy.linkyTitle}</strong><p>{copy.linkyHint}</p></div></div>
               <a className="consumer-primary-link" href="/account/linky">{copy.bindLinky}<ArrowRight weight="bold" aria-hidden="true" /></a>
+            </section>
+            <section className="consumer-settings-card consumer-security-card">
+              <div className="consumer-security-copy"><span className="consumer-security-icon"><ShieldCheck weight="duotone" aria-hidden="true" /></span><div><h2>{copy.security}</h2><p>{copy.signOutHint}</p></div></div>
+              <button className="consumer-sign-out-button" type="button" onClick={() => void handleSignOut()} disabled={signingOut}><SignOut weight="bold" aria-hidden="true" />{signingOut ? copy.signingOut : copy.signOut}</button>
             </section>
           </>
         ) : (
