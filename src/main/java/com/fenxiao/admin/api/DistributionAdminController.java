@@ -4,6 +4,7 @@ import com.fenxiao.admin.api.dto.AuditLogListResponse;
 import com.fenxiao.admin.api.dto.BatchOperationResultResponse;
 import com.fenxiao.admin.api.dto.BatchRiskEventActionRequest;
 import com.fenxiao.admin.api.dto.BatchWithdrawRequestActionRequest;
+import com.fenxiao.admin.api.dto.CreateSeedInviterRequest;
 import com.fenxiao.admin.api.dto.LinkyEligibilityCheckRequest;
 import com.fenxiao.admin.api.dto.LinkyEligibilityCheckResponse;
 import com.fenxiao.admin.api.dto.LinkyReplayRecordListResponse;
@@ -12,11 +13,14 @@ import com.fenxiao.admin.api.dto.ManualOwnershipCorrectionRequest;
 import com.fenxiao.admin.api.dto.ManualRelationAdjustmentRequest;
 import com.fenxiao.admin.api.dto.OverviewReportResponse;
 import com.fenxiao.admin.api.dto.OwnershipDetailResponse;
+import com.fenxiao.admin.api.dto.PhoneVerificationCodeListResponse;
+import com.fenxiao.admin.api.dto.PhoneVerificationCodeRevealResponse;
 import com.fenxiao.admin.api.dto.RelationDetailResponse;
 import com.fenxiao.admin.api.dto.RiskEventActionRequest;
 import com.fenxiao.admin.api.dto.RiskEventListItem;
 import com.fenxiao.admin.api.dto.RiskEventListResponse;
 import com.fenxiao.admin.api.dto.RewardEngineReportResponse;
+import com.fenxiao.admin.api.dto.SeedInviterResponse;
 import com.fenxiao.admin.api.dto.WithdrawRequestActionRequest;
 import com.fenxiao.admin.api.dto.WithdrawRequestItemResponse;
 import com.fenxiao.admin.api.dto.WithdrawRequestListResponse;
@@ -29,10 +33,12 @@ import com.fenxiao.admin.service.DistributionReportService;
 import com.fenxiao.admin.service.LinkyReplayRecordService;
 import com.fenxiao.admin.service.LinkyWebhookLogService;
 import com.fenxiao.admin.service.OwnershipAdminService;
+import com.fenxiao.admin.service.PhoneVerificationAuditService;
 import com.fenxiao.admin.service.RelationAdjustmentService;
 import com.fenxiao.admin.service.RiskEventActionService;
 import com.fenxiao.admin.service.RiskEventQueryService;
 import com.fenxiao.admin.service.RewardEngineReportService;
+import com.fenxiao.admin.service.SeedInviterAdminService;
 import com.fenxiao.common.security.DistributionAccessGuard;
 import com.fenxiao.distribution.entity.LinkyAccountBinding;
 import com.fenxiao.distribution.entity.WithdrawRequest;
@@ -85,6 +91,8 @@ public class DistributionAdminController {
     private final GuildAccountConfigService guildAccountConfigService;
     private final DistributionAccessGuard distributionAccessGuard;
     private final RewardEngineReportService rewardEngineReportService;
+    private final PhoneVerificationAuditService phoneVerificationAuditService;
+    private final SeedInviterAdminService seedInviterAdminService;
 
     public DistributionAdminController(RewardCalculationService rewardCalculationService,
                                        DistributionQueryService distributionQueryService,
@@ -100,7 +108,9 @@ public class DistributionAdminController {
                                        WithdrawRequestService withdrawRequestService,
                                        GuildAccountConfigService guildAccountConfigService,
                                        DistributionAccessGuard distributionAccessGuard,
-                                       RewardEngineReportService rewardEngineReportService) {
+                                       RewardEngineReportService rewardEngineReportService,
+                                       PhoneVerificationAuditService phoneVerificationAuditService,
+                                       SeedInviterAdminService seedInviterAdminService) {
         this.rewardCalculationService = rewardCalculationService;
         this.distributionQueryService = distributionQueryService;
         this.distributionReportService = distributionReportService;
@@ -116,6 +126,47 @@ public class DistributionAdminController {
         this.guildAccountConfigService = guildAccountConfigService;
         this.distributionAccessGuard = distributionAccessGuard;
         this.rewardEngineReportService = rewardEngineReportService;
+        this.phoneVerificationAuditService = phoneVerificationAuditService;
+        this.seedInviterAdminService = seedInviterAdminService;
+    }
+
+    @GetMapping("/phone-verification-codes")
+    public PhoneVerificationCodeListResponse phoneVerificationCodes(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
+                                                                     @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
+                                                                     @RequestParam(required = false) String phoneNumber,
+                                                                     @RequestParam(defaultValue = "0") int page,
+                                                                     @RequestParam(defaultValue = "20") int size,
+                                                                     HttpServletRequest httpServletRequest) {
+        var principal = distributionAccessGuard.assertPhoneVerificationAuditAccess(adminToken, adminSessionToken);
+        return phoneVerificationAuditService.list(phoneNumber, page, size, principal, httpServletRequest.getRemoteAddr());
+    }
+
+    @PostMapping("/seed-inviters")
+    public SeedInviterResponse createSeedInviter(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
+                                                 @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
+                                                 @Valid @RequestBody CreateSeedInviterRequest request,
+                                                 HttpServletRequest httpServletRequest) {
+        var principal = distributionAccessGuard.assertSeedInviterManageAccess(adminToken, adminSessionToken);
+        return seedInviterAdminService.create(request, principal, httpServletRequest.getRemoteAddr());
+    }
+
+    @GetMapping("/phone-verification-codes/{id}/reveal")
+    public PhoneVerificationCodeRevealResponse revealPhoneVerificationCode(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
+                                                                             @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
+                                                                             @PathVariable long id,
+                                                                             HttpServletRequest httpServletRequest) {
+        var principal = distributionAccessGuard.assertPhoneVerificationAuditAccess(adminToken, adminSessionToken);
+        return phoneVerificationAuditService.reveal(id, principal, httpServletRequest.getRemoteAddr());
+    }
+
+    @GetMapping("/phone-verification-codes/{id}/audit")
+    public AuditLogListResponse phoneVerificationCodeAudit(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
+                                                            @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
+                                                            @PathVariable long id,
+                                                            @RequestParam(defaultValue = "0") int page,
+                                                            @RequestParam(defaultValue = "20") int size) {
+        distributionAccessGuard.assertPhoneVerificationAuditAccess(adminToken, adminSessionToken);
+        return phoneVerificationAuditService.auditTrail(id, page, size);
     }
 
     @GetMapping("/health")

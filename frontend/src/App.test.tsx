@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
-import App, { ConsoleApp, buildBindGuildInviteGuidance, formatBusinessRewardLevel } from './App'
+import App, { ConsoleApp, buildBindGuildInviteGuidance, formatBusinessRewardLevel, localizeInviteOperationError } from './App'
 
 type FakeStorage = {
   getItem: (key: string) => string | null
@@ -31,6 +31,11 @@ const adminTestSession = {
   username: 'operator',
   displayName: '运营账号',
   role: 'ADMIN',
+}
+
+const superAdminTestSession = {
+  ...adminTestSession,
+  role: 'super_admin',
 }
 
 describe('App external landing pages', () => {
@@ -79,6 +84,18 @@ describe('bind guild invite guidance', () => {
 
   it('returns null for ordinary bind errors', () => {
     expect(buildBindGuildInviteGuidance('WhatsApp number already exists')).toBeNull()
+  })
+})
+
+describe('invite page operation errors', () => {
+  it('translates known backend errors into the selected page language', () => {
+    expect(localizeInviteOperationError(new Error('phone number is invalid'), 'zh', 'send')).toBe('请输入有效的手机号码。')
+    expect(localizeInviteOperationError(new Error('verification code expired'), 'en', 'signIn')).toBe('This verification code has expired. Request a new one.')
+    expect(localizeInviteOperationError(new Error('invite code not found'), 'pt', 'signIn')).toBe('O código de convite não é válido. Confira e tente novamente.')
+  })
+
+  it('does not expose unrecognized backend error text to invitees', () => {
+    expect(localizeInviteOperationError(new Error('unexpected internal detail'), 'es', 'send')).toBe('No pudimos enviar el código. Inténtalo de nuevo más tarde.')
   })
 })
 
@@ -174,6 +191,31 @@ describe('ConsoleApp admin core distribution workspace', () => {
     expect(markup).not.toContain('先做这 4 件事')
     expect(markup).not.toContain('当前主链顺序')
   })
+
+  it('keeps seed inviter creation and verification-code review restricted to super administrators', () => {
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: {
+        location: {
+          pathname: '/',
+          search: '',
+          hash: '#admin-settings',
+          origin: 'http://127.0.0.1:4173',
+        },
+        localStorage: createStorage(),
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      },
+    })
+
+    const operatorMarkup = renderToStaticMarkup(<ConsoleApp initialViewMode="admin" initialAdminSession={adminTestSession} />)
+    const superAdminMarkup = renderToStaticMarkup(<ConsoleApp initialViewMode="admin" initialAdminSession={superAdminTestSession} />)
+
+    expect(operatorMarkup).not.toContain('种子邀请人')
+    expect(operatorMarkup).not.toContain('验证码审查')
+    expect(superAdminMarkup).toContain('种子邀请人')
+    expect(superAdminMarkup).toContain('验证码审查')
+  })
 })
 
 describe('Earnings landing page', () => {
@@ -226,6 +268,31 @@ describe('Earnings landing page', () => {
     expect(markup).toContain('登录后开始邀请')
     expect(markup).toContain('邀请码（首次注册必填）')
     expect(markup).not.toContain('立即生成邀请码')
+  })
+
+  it('localizes the invite login flow and provides a country calling-code selector', () => {
+    const localStorage = createStorage()
+    localStorage.setItem('fenxiao-external-locale', 'en')
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: {
+        location: {
+          pathname: '/invite',
+          search: '',
+          origin: 'http://127.0.0.1:4173',
+        },
+        localStorage,
+      },
+    })
+
+    const markup = renderToStaticMarkup(<App />)
+
+    expect(markup).toContain('Sign in to start inviting')
+    expect(markup).toContain('Country / calling code')
+    expect(markup).toContain('Brazil +55')
+    expect(markup).toContain('Indonesia +62')
+    expect(markup).toContain('Enter local number')
+    expect(markup).not.toContain('登录后开始邀请')
   })
 
   it('renders a task-first earnings home instead of console language', () => {

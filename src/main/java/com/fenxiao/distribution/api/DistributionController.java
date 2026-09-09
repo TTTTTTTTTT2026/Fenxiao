@@ -136,7 +136,7 @@ public class DistributionController {
     @PostMapping("/auth/phone-codes")
     public Map<String, Object> issuePhoneCode(@Valid @RequestBody PhoneCodeRequest request) {
         phoneAuthService.issueCode(request.phoneNumber());
-        return Map.of("phoneNumber", request.phoneNumber(), "ttlMinutes", 10);
+        return Map.of("phoneNumber", request.phoneNumber(), "ttlMinutes", 10, "resendCooldownSeconds", PhoneAuthService.RESEND_COOLDOWN_SECONDS);
     }
 
     @PostMapping("/auth/phone-login")

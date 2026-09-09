@@ -13,7 +13,6 @@ import {
   GearSix,
   House,
   Megaphone,
-  Phone,
   ShareNetwork,
   ShieldCheck,
   SignIn,
@@ -37,6 +36,7 @@ import {
   changeExperimentStatus,
   changeAdminPassword,
   correctAdminOwnership,
+  createAdminSeedInviter,
   createExperiment,
   createAdminSession,
   createAdminAccount,
@@ -52,6 +52,8 @@ import {
   getAdminLinkyReplayRecords,
   getAdminLinkyWebhookLogs,
   getAdminOverview,
+  getAdminPhoneVerificationCodeAudit,
+  getAdminPhoneVerificationCodes,
   getAdminOwnership,
   getAdminRelation,
   getAdminRewards,
@@ -72,6 +74,7 @@ import {
   refreshAdminLinkyEligibilityBatch,
   registerInviteBinding,
   recordWithdrawPayment,
+  revealAdminPhoneVerificationCode,
   reverseWithdrawPayment,
   resetAdminPassword,
   unlockAdminAccount,
@@ -98,11 +101,13 @@ import {
   type LinkyWebhookLogListResponse,
   type OverviewReportResponse,
   type OwnershipDetailResponse,
+  type PhoneVerificationCodeListResponse,
   type ProfileResponse,
   type RelationDetailResponse,
   type RewardListResponse,
   type RewardSummaryResponse,
   type RiskEventListResponse,
+  type SeedInviterResponse,
   type TeamListResponse,
   type TeamWeeklyIncomeResponse,
   type WithdrawHistoryListResponse,
@@ -314,6 +319,9 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [adminWithdrawRequests, setAdminWithdrawRequests] = useState<AdminWithdrawRequestListResponse | null>(null)
   const [riskEvents, setRiskEvents] = useState<RiskEventListResponse | null>(null)
   const [auditLogs, setAuditLogs] = useState<AuditLogListResponse | null>(null)
+  const [phoneVerificationCodes, setPhoneVerificationCodes] = useState<PhoneVerificationCodeListResponse | null>(null)
+  const [phoneVerificationAuditLogs, setPhoneVerificationAuditLogs] = useState<AuditLogListResponse | null>(null)
+  const [revealedPhoneVerificationCodes, setRevealedPhoneVerificationCodes] = useState<Record<number, string>>({})
   const [adminOwnership, setAdminOwnership] = useState<OwnershipDetailResponse | null>(null)
   const [adminRelation, setAdminRelation] = useState<RelationDetailResponse | null>(null)
   const [linkyWebhookLogs, setLinkyWebhookLogs] = useState<LinkyWebhookLogListResponse | null>(null)
@@ -364,7 +372,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [withdrawViewName, setWithdrawViewName] = useState('')
   const [selectedWithdrawViewId, setSelectedWithdrawViewId] = useState('')
   const [adminBindingView, setAdminBindingView] = useState<'users' | 'risks'>('users')
-  const [adminSettingsView, setAdminSettingsView] = useState<'experiment' | 'guilds' | 'advanced'>('experiment')
+  const [adminSettingsView, setAdminSettingsView] = useState<'experiment' | 'guilds' | 'advanced' | 'seedInviter' | 'phoneVerification'>('experiment')
   const [experimentCode, setExperimentCode] = useState('BANDEIRA_V1_100')
   const [experimentDashboard, setExperimentDashboard] = useState<ExperimentDashboardResponse | null>(null)
   const [experimentForm, setExperimentForm] = useState({ name: 'BANDEIRA V1 100人实验', primaryMetricCode: 'FIRST_INCOME', enrollmentStartsAt: '', enrollmentEndsAt: '', observationEndsAt: '' })
@@ -395,6 +403,9 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     page: '0',
     size: '5',
   })
+  const [phoneVerificationQuery, setPhoneVerificationQuery] = useState({ phoneNumber: '', page: '0', size: '20' })
+  const [seedInviterForm, setSeedInviterForm] = useState({ phoneNumber: '', countryCode: 'BR', languageCode: 'pt-br' })
+  const [createdSeedInviter, setCreatedSeedInviter] = useState<SeedInviterResponse | null>(null)
   const [riskActionDrafts, setRiskActionDrafts] = useState<Record<number, string>>({})
   const [selectedRiskEventIds, setSelectedRiskEventIds] = useState<number[]>([])
   const [riskViews, setRiskViews] = useState(() => loadJsonState<NamedFilterView<RiskQuery>[]>(RISK_VIEWS_KEY) || [])
@@ -450,6 +461,9 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     [profileCreateToken, form.userId, form.inviteCode],
   )
   const currentAdminProductLabel = ADMIN_PRODUCT_OPTIONS.find((item) => item.value === adminProduct)?.label ?? '全部产品'
+  const canAuditPhoneVerification = adminSession?.role?.toLowerCase() === 'super_admin'
+  const canManageSeedInviters = adminSession?.role?.toLowerCase() === 'super_admin'
+  const seedInviterCountry = phoneCountries.find((country) => country.countryCode === seedInviterForm.countryCode) ?? phoneCountries[0]
   const activeAdminProductCode = adminProduct === 'ALL' ? undefined : adminProduct
   const adminSectionLinks = useMemo(() => buildAdminSectionLinks(adminSession?.role), [adminSession?.role])
   const canViewAdminSection = (section: AdminSectionKey) => adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES[section])
@@ -856,6 +870,62 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
       setAuditLogs(result)
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载处理记录失败')
+    }
+  }
+
+  async function loadPhoneVerificationCodes(query = phoneVerificationQuery) {
+    if (!adminSession || !canAuditPhoneVerification) return
+    setLoading(true)
+    setError('')
+    try {
+      const result = await getAdminPhoneVerificationCodes(adminSession.sessionToken, {
+        phoneNumber: query.phoneNumber.trim() || undefined,
+        page: Number(query.page || 0),
+        size: Number(query.size || 20),
+      })
+      setPhoneVerificationCodes(result)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '加载验证码记录失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleRevealPhoneVerificationCode(id: number) {
+    if (!adminSession || !canAuditPhoneVerification) return
+    setLoading(true)
+    setError('')
+    try {
+      const revealed = await revealAdminPhoneVerificationCode(adminSession.sessionToken, id)
+      const audit = await getAdminPhoneVerificationCodeAudit(adminSession.sessionToken, id)
+      setRevealedPhoneVerificationCodes((current) => ({ ...current, [id]: revealed.verificationCode }))
+      setPhoneVerificationAuditLogs(audit)
+      setSuccessMessage('验证码已显示；本次查看已写入审计记录。')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '显示验证码失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleCreateSeedInviter(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!adminSession || !canManageSeedInviters) return
+    setLoading(true)
+    setError('')
+    setSuccessMessage('')
+    try {
+      const created = await createAdminSeedInviter(adminSession.sessionToken, {
+        phoneNumber: formatPhoneNumber(seedInviterCountry.callingCode, seedInviterForm.phoneNumber),
+        countryCode: seedInviterForm.countryCode.trim().toUpperCase(),
+        languageCode: seedInviterForm.languageCode.trim().toLowerCase(),
+      })
+      setCreatedSeedInviter(created)
+      setSuccessMessage('种子邀请人已创建。请复制邀请码，用它完成首批用户注册。')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '创建种子邀请人失败')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -1761,6 +1831,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               <button className={adminSettingsView === 'experiment' ? 'is-active' : ''} onClick={() => setAdminSettingsView('experiment')} role="tab" aria-selected={adminSettingsView === 'experiment'}>100 人实验</button>
               <button className={adminSettingsView === 'guilds' ? 'is-active' : ''} onClick={() => setAdminSettingsView('guilds')} role="tab" aria-selected={adminSettingsView === 'guilds'}>公会配置</button>
               <button className={adminSettingsView === 'advanced' ? 'is-active' : ''} onClick={() => setAdminSettingsView('advanced')} role="tab" aria-selected={adminSettingsView === 'advanced'}>高级接入</button>
+              {canManageSeedInviters ? <button className={adminSettingsView === 'seedInviter' ? 'is-active' : ''} onClick={() => setAdminSettingsView('seedInviter')} role="tab" aria-selected={adminSettingsView === 'seedInviter'}>种子邀请人</button> : null}
+              {canAuditPhoneVerification ? <button className={adminSettingsView === 'phoneVerification' ? 'is-active' : ''} onClick={() => setAdminSettingsView('phoneVerification')} role="tab" aria-selected={adminSettingsView === 'phoneVerification'}>验证码审查</button> : null}
             </div>
           ) : null}
 
@@ -1814,6 +1886,99 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                 </div>
               </PanelSection>
             </div>
+          ) : null}
+
+          {activeAdminSection === 'settings' && canManageSeedInviters && adminSettingsView === 'seedInviter' ? (
+            <PanelSection
+              sectionId="admin-seed-inviter"
+              eyebrow="Controlled onboarding"
+              title="种子邀请人"
+              description="创建首批根节点用户并自动生成邀请码。该号码可通过验证码登录；后续新用户必须使用其邀请码注册。"
+            >
+              <div className="stack-gap">
+                <InfoCard title="创建首个邀请根节点" tone="success">
+                  <form className="grid-form compact-form exception-filter-grid" onSubmit={handleCreateSeedInviter}>
+                    <label>
+                      手机号 / WhatsApp
+                      <div className="consumer-phone-input">
+                        <select value={seedInviterCountry.countryCode} onChange={(event) => setSeedInviterForm({ ...seedInviterForm, countryCode: event.target.value })} aria-label="运营国家和区号">
+                          {phoneCountries.filter((country) => ['BR', 'ID', 'MX', 'CO'].includes(country.countryCode)).map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names.zh} {country.callingCode}</option>)}
+                        </select>
+                        <input required value={seedInviterForm.phoneNumber} onChange={(event) => setSeedInviterForm({ ...seedInviterForm, phoneNumber: normalizeLocalPhoneNumber(event.target.value, seedInviterCountry.callingCode) })} placeholder="输入本地号码" inputMode="tel" autoComplete="tel-national" />
+                      </div>
+                      <small className="consumer-phone-input-hint">选择国家后，只需输入本地号码；系统会自动补全国际区号。</small>
+                    </label>
+                    <label>
+                      默认语言
+                      <select value={seedInviterForm.languageCode} onChange={(event) => setSeedInviterForm({ ...seedInviterForm, languageCode: event.target.value })}>
+                        <option value="pt-br">Português</option><option value="id">Bahasa Indonesia</option><option value="es">Español</option><option value="en">English</option><option value="zh">中文</option>
+                      </select>
+                    </label>
+                    <button className="primary-btn" type="submit" disabled={loading}>创建种子邀请人</button>
+                  </form>
+                </InfoCard>
+                <InlineHint text="仅最高管理员可创建；号码不可重复，创建过程会记录管理员、网络地址、时间和脱敏号码。不要在这里创建测试奖励或开启奖励引擎。" />
+                {createdSeedInviter ? (
+                  <InfoCard title="已创建的种子邀请人" tone="success">
+                    <div className="relation-grid">
+                      <div className="relation-item"><span>用户 ID</span><strong>{createdSeedInviter.userId}</strong></div>
+                      <div className="relation-item"><span>手机号</span><strong>{createdSeedInviter.phoneNumber}</strong></div>
+                      <div className="relation-item"><span>国家 / 语言</span><strong>{createdSeedInviter.countryCode} / {createdSeedInviter.languageCode}</strong></div>
+                      <div className="relation-item"><span>邀请码</span><strong>{createdSeedInviter.inviteCode}</strong></div>
+                    </div>
+                    <div className="action-row top-gap"><button className="ghost-btn small-btn" type="button" onClick={() => void handleCopyInviteCode(createdSeedInviter.inviteCode)}>复制邀请码</button></div>
+                  </InfoCard>
+                ) : null}
+              </div>
+            </PanelSection>
+          ) : null}
+
+          {activeAdminSection === 'settings' && canAuditPhoneVerification && adminSettingsView === 'phoneVerification' ? (
+            <PanelSection
+              sectionId="admin-phone-verification"
+              eyebrow="Restricted Access"
+              title="验证码发送记录"
+              description="仅最高管理员可查询与显示验证码。每次查询和显示都会进入后台审计记录。"
+              action={<button className="primary-btn" onClick={() => void loadPhoneVerificationCodes()} disabled={loading}>查询记录</button>}
+            >
+              <div className="stack-gap">
+                <div className="grid-form compact-form">
+                  <label>
+                    手机号筛选
+                    <input value={phoneVerificationQuery.phoneNumber} onChange={(event) => setPhoneVerificationQuery({ ...phoneVerificationQuery, phoneNumber: event.target.value, page: '0' })} placeholder="输入完整或部分手机号" />
+                  </label>
+                  <label>
+                    每页数量
+                    <select value={phoneVerificationQuery.size} onChange={(event) => setPhoneVerificationQuery({ ...phoneVerificationQuery, size: event.target.value, page: '0' })}>
+                      <option value="10">10</option>
+                      <option value="20">20</option>
+                      <option value="50">50</option>
+                    </select>
+                  </label>
+                </div>
+                <InlineHint text="“显示验证码”属于敏感操作，系统会记录操作账号、角色、网络地址和时间。" />
+                <DataTable
+                  headers={['手机号', '用途', '状态', '验证码', '尝试次数', '发出时间', '失效时间', '操作']}
+                  rows={(phoneVerificationCodes?.items ?? []).map((item) => [
+                    item.phoneNumber,
+                    item.purpose,
+                    item.status,
+                    revealedPhoneVerificationCodes[item.id] ?? '已隐藏',
+                    item.attempts,
+                    formatDateTime(item.issuedAt),
+                    formatDateTime(item.expiresAt),
+                    <button className="ghost-btn small-btn" onClick={() => void handleRevealPhoneVerificationCode(item.id)} disabled={loading}>{revealedPhoneVerificationCodes[item.id] ? '已显示' : '显示验证码'}</button>,
+                  ])}
+                  emptyText="点击查询记录，查看已发出的验证码及其使用状态。"
+                />
+                {phoneVerificationCodes ? <InlineHint text={`共 ${phoneVerificationCodes.total} 条记录；当前第 ${phoneVerificationCodes.page + 1} 页。`} /> : null}
+                {phoneVerificationAuditLogs ? (
+                  <InfoCard title="最近验证码查看审计" tone="neutral">
+                    <DataTable headers={['时间', '操作', '角色', '操作人', '网络地址']} rows={phoneVerificationAuditLogs.items.map((item) => [formatDateTime(item.operatedAt), item.actionName, item.operatorRole, item.operatorId, item.requestIp || '-'])} emptyText="显示验证码后，这里会显示对应的审计记录。" />
+                  </InfoCard>
+                ) : null}
+              </div>
+            </PanelSection>
           ) : null}
 
           {activeAdminSection === 'overview' ? (
@@ -2019,7 +2184,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           ) : null}
 
           {activeAdminSection === 'bindings' || activeAdminSection === 'settings' ? (
-              <div className="admin-workbench-container" hidden={activeAdminSection === 'settings' && adminSettingsView === 'advanced'}>
+              <div className="admin-workbench-container" hidden={activeAdminSection === 'settings' && adminSettingsView !== 'experiment' && adminSettingsView !== 'guilds'}>
                 <PanelSection
                   sectionId="admin-bindings"
                   eyebrow="Bindings"
@@ -3606,6 +3771,294 @@ const externalPageCopyByLocale = {
   },
 } as const
 
+const invitePageCopyByLocale = {
+  zh: {
+    shareTitle: 'BANDEIRA 邀请',
+    shareText: (inviteCode: string) => `使用邀请码 ${inviteCode} 完成绑定`,
+    shareCopied: '邀请链接已复制。',
+    shareFailure: '分享失败，请稍后重试。',
+    phoneCodeHint: (verificationCode: string | undefined, ttlMinutes: number) => verificationCode
+      ? `测试验证码 ${verificationCode}，${ttlMinutes} 分钟内有效。`
+      : `验证码已发送，${ttlMinutes} 分钟内有效。`,
+    phoneCodeSent: '验证码已发送。',
+    phoneCodeFailure: '获取验证码失败',
+    loginSuccess: '登录成功，你的邀请码已准备好。',
+    loginFailure: '手机号登录失败',
+    errorTitle: '操作失败',
+    inviteBenefit: '专属邀请权益',
+    myInviteCode: '我的邀请码',
+    inviteProgressHint: '好友完成绑定后，邀请进度会自动更新。',
+    shareInviteLink: '分享邀请链接',
+    loginTitle: '登录后开始邀请',
+    loginHint: '验证码登录，无需设置密码。',
+    phoneLabel: '手机号 / WhatsApp',
+    countryCallingCodeLabel: '国家 / 区号',
+    phonePlaceholder: '输入本地号码',
+    phoneInputHint: '选择国家后，只需输入本地号码。',
+    verificationCodeLabel: '验证码',
+    verificationCodePlaceholder: '6 位验证码',
+    requestVerificationCode: '获取验证码',
+    resendCountdown: (seconds: number) => `${seconds} 秒后重新获取`,
+    inviteCodeRequiredLabel: '邀请码（首次注册必填）',
+    inviteCodePlaceholder: '新用户请输入有效邀请码',
+    signInWithPhone: '手机号登录',
+    currentAccount: '当前账户',
+    userAccount: (userId: number, countryCode: string) => `用户 ${userId} · ${countryCode}`,
+    goToBinding: '去绑定',
+    navigationLabel: '主要导航',
+  },
+  en: {
+    shareTitle: 'BANDEIRA invitation',
+    shareText: (inviteCode: string) => `Use invite code ${inviteCode} to complete your binding`,
+    shareCopied: 'Invite link copied.',
+    shareFailure: 'Sharing failed. Please try again.',
+    phoneCodeHint: (_verificationCode: string | undefined, ttlMinutes: number) => `Verification code sent. It is valid for ${ttlMinutes} minutes.`,
+    phoneCodeSent: 'Verification code sent.',
+    phoneCodeFailure: 'Could not send verification code',
+    loginSuccess: 'Signed in. Your invite code is ready.',
+    loginFailure: 'Phone sign-in failed',
+    errorTitle: 'Something went wrong',
+    inviteBenefit: 'Your invitation benefits',
+    myInviteCode: 'My invite code',
+    inviteProgressHint: 'Your invitation progress updates automatically after a friend completes binding.',
+    shareInviteLink: 'Share invite link',
+    loginTitle: 'Sign in to start inviting',
+    loginHint: 'Sign in with a verification code — no password needed.',
+    phoneLabel: 'Phone / WhatsApp',
+    countryCallingCodeLabel: 'Country / calling code',
+    phonePlaceholder: 'Enter local number',
+    phoneInputHint: 'Choose a country, then enter your local number only.',
+    verificationCodeLabel: 'Verification code',
+    verificationCodePlaceholder: '6-digit code',
+    requestVerificationCode: 'Get code',
+    resendCountdown: (seconds: number) => `Try again in ${seconds}s`,
+    inviteCodeRequiredLabel: 'Invite code (required for first registration)',
+    inviteCodePlaceholder: 'Enter a valid invite code',
+    signInWithPhone: 'Sign in with phone',
+    currentAccount: 'Current account',
+    userAccount: (userId: number, countryCode: string) => `User ${userId} · ${countryCode}`,
+    goToBinding: 'Go to binding',
+    navigationLabel: 'Main navigation',
+  },
+  es: {
+    shareTitle: 'Invitación BANDEIRA',
+    shareText: (inviteCode: string) => `Usa el código ${inviteCode} para completar tu vínculo`,
+    shareCopied: 'Enlace de invitación copiado.',
+    shareFailure: 'No se pudo compartir. Inténtalo de nuevo.',
+    phoneCodeHint: (_verificationCode: string | undefined, ttlMinutes: number) => `Código enviado. Válido durante ${ttlMinutes} minutos.`,
+    phoneCodeSent: 'Código enviado.',
+    phoneCodeFailure: 'No se pudo enviar el código',
+    loginSuccess: 'Sesión iniciada. Tu código está listo.',
+    loginFailure: 'Error al iniciar sesión con teléfono',
+    errorTitle: 'Ocurrió un error',
+    inviteBenefit: 'Tus beneficios de invitación',
+    myInviteCode: 'Mi código de invitación',
+    inviteProgressHint: 'Tu progreso se actualizará al completar un amigo el vínculo.',
+    shareInviteLink: 'Compartir enlace',
+    loginTitle: 'Inicia sesión para invitar',
+    loginHint: 'Inicia sesión con código; no necesitas contraseña.',
+    phoneLabel: 'Teléfono / WhatsApp',
+    countryCallingCodeLabel: 'País / prefijo',
+    phonePlaceholder: 'Ingresa el número local',
+    phoneInputHint: 'Elige un país e ingresa solo tu número local.',
+    verificationCodeLabel: 'Código de verificación',
+    verificationCodePlaceholder: 'Código de 6 dígitos',
+    requestVerificationCode: 'Obtener código',
+    resendCountdown: (seconds: number) => `Reintentar en ${seconds}s`,
+    inviteCodeRequiredLabel: 'Código de invitación (obligatorio al registrarte)',
+    inviteCodePlaceholder: 'Ingresa un código válido',
+    signInWithPhone: 'Iniciar sesión',
+    currentAccount: 'Cuenta actual',
+    userAccount: (userId: number, countryCode: string) => `Usuario ${userId} · ${countryCode}`,
+    goToBinding: 'Ir al vínculo',
+    navigationLabel: 'Navegación principal',
+  },
+  id: {
+    shareTitle: 'Undangan BANDEIRA',
+    shareText: (inviteCode: string) => `Gunakan kode undangan ${inviteCode} untuk menyelesaikan bind`,
+    shareCopied: 'Tautan undangan disalin.',
+    shareFailure: 'Gagal membagikan. Coba lagi nanti.',
+    phoneCodeHint: (_verificationCode: string | undefined, ttlMinutes: number) => `Kode verifikasi terkirim dan berlaku ${ttlMinutes} menit.`,
+    phoneCodeSent: 'Kode verifikasi terkirim.',
+    phoneCodeFailure: 'Gagal mengirim kode verifikasi',
+    loginSuccess: 'Berhasil masuk. Kode undanganmu siap.',
+    loginFailure: 'Gagal masuk dengan nomor telepon',
+    errorTitle: 'Terjadi kesalahan',
+    inviteBenefit: 'Keuntungan undanganmu',
+    myInviteCode: 'Kode undangan saya',
+    inviteProgressHint: 'Progres undangan akan diperbarui setelah teman menyelesaikan bind.',
+    shareInviteLink: 'Bagikan tautan undangan',
+    loginTitle: 'Masuk untuk mulai mengundang',
+    loginHint: 'Masuk dengan kode verifikasi, tanpa kata sandi.',
+    phoneLabel: 'Telepon / WhatsApp',
+    countryCallingCodeLabel: 'Negara / kode panggilan',
+    phonePlaceholder: 'Masukkan nomor lokal',
+    phoneInputHint: 'Pilih negara, lalu masukkan nomor lokal saja.',
+    verificationCodeLabel: 'Kode verifikasi',
+    verificationCodePlaceholder: 'Kode 6 digit',
+    requestVerificationCode: 'Dapatkan kode',
+    resendCountdown: (seconds: number) => `Coba lagi dalam ${seconds} dtk`,
+    inviteCodeRequiredLabel: 'Kode undangan (wajib saat pendaftaran pertama)',
+    inviteCodePlaceholder: 'Masukkan kode undangan yang valid',
+    signInWithPhone: 'Masuk dengan telepon',
+    currentAccount: 'Akun saat ini',
+    userAccount: (userId: number, countryCode: string) => `Pengguna ${userId} · ${countryCode}`,
+    goToBinding: 'Ke halaman bind',
+    navigationLabel: 'Navigasi utama',
+  },
+  pt: {
+    shareTitle: 'Convite BANDEIRA',
+    shareText: (inviteCode: string) => `Use o código ${inviteCode} para concluir o vínculo`,
+    shareCopied: 'Link de convite copiado.',
+    shareFailure: 'Não foi possível compartilhar. Tente novamente.',
+    phoneCodeHint: (_verificationCode: string | undefined, ttlMinutes: number) => `Código enviado. Ele é válido por ${ttlMinutes} minutos.`,
+    phoneCodeSent: 'Código enviado.',
+    phoneCodeFailure: 'Não foi possível enviar o código',
+    loginSuccess: 'Login concluído. Seu código está pronto.',
+    loginFailure: 'Falha no login por telefone',
+    errorTitle: 'Algo deu errado',
+    inviteBenefit: 'Seus benefícios de convite',
+    myInviteCode: 'Meu código de convite',
+    inviteProgressHint: 'O progresso será atualizado quando um amigo concluir o vínculo.',
+    shareInviteLink: 'Compartilhar link',
+    loginTitle: 'Entre para começar a convidar',
+    loginHint: 'Entre com um código de verificação, sem senha.',
+    phoneLabel: 'Telefone / WhatsApp',
+    countryCallingCodeLabel: 'País / código de discagem',
+    phonePlaceholder: 'Digite o número local',
+    phoneInputHint: 'Escolha o país e informe somente seu número local.',
+    verificationCodeLabel: 'Código de verificação',
+    verificationCodePlaceholder: 'Código de 6 dígitos',
+    requestVerificationCode: 'Receber código',
+    resendCountdown: (seconds: number) => `Tentar novamente em ${seconds}s`,
+    inviteCodeRequiredLabel: 'Código de convite (obrigatório no primeiro cadastro)',
+    inviteCodePlaceholder: 'Digite um código válido',
+    signInWithPhone: 'Entrar com telefone',
+    currentAccount: 'Conta atual',
+    userAccount: (userId: number, countryCode: string) => `Usuário ${userId} · ${countryCode}`,
+    goToBinding: 'Ir para vínculo',
+    navigationLabel: 'Navegação principal',
+  },
+} as const
+
+const phoneCountries = [
+  { countryCode: 'BR', callingCode: '+55', names: { zh: '巴西', en: 'Brazil', es: 'Brasil', id: 'Brasil', pt: 'Brasil' } },
+  { countryCode: 'ID', callingCode: '+62', names: { zh: '印度尼西亚', en: 'Indonesia', es: 'Indonesia', id: 'Indonesia', pt: 'Indonésia' } },
+  { countryCode: 'CN', callingCode: '+86', names: { zh: '中国', en: 'China', es: 'China', id: 'Tiongkok', pt: 'China' } },
+  { countryCode: 'US', callingCode: '+1', names: { zh: '美国', en: 'United States', es: 'Estados Unidos', id: 'Amerika Serikat', pt: 'Estados Unidos' } },
+  { countryCode: 'CA', callingCode: '+1', names: { zh: '加拿大', en: 'Canada', es: 'Canadá', id: 'Kanada', pt: 'Canadá' } },
+  { countryCode: 'MX', callingCode: '+52', names: { zh: '墨西哥', en: 'Mexico', es: 'México', id: 'Meksiko', pt: 'México' } },
+  { countryCode: 'CO', callingCode: '+57', names: { zh: '哥伦比亚', en: 'Colombia', es: 'Colombia', id: 'Kolombia', pt: 'Colômbia' } },
+  { countryCode: 'AR', callingCode: '+54', names: { zh: '阿根廷', en: 'Argentina', es: 'Argentina', id: 'Argentina', pt: 'Argentina' } },
+  { countryCode: 'CL', callingCode: '+56', names: { zh: '智利', en: 'Chile', es: 'Chile', id: 'Cile', pt: 'Chile' } },
+  { countryCode: 'PE', callingCode: '+51', names: { zh: '秘鲁', en: 'Peru', es: 'Perú', id: 'Peru', pt: 'Peru' } },
+  { countryCode: 'PH', callingCode: '+63', names: { zh: '菲律宾', en: 'Philippines', es: 'Filipinas', id: 'Filipina', pt: 'Filipinas' } },
+  { countryCode: 'TH', callingCode: '+66', names: { zh: '泰国', en: 'Thailand', es: 'Tailandia', id: 'Thailand', pt: 'Tailândia' } },
+  { countryCode: 'VN', callingCode: '+84', names: { zh: '越南', en: 'Vietnam', es: 'Vietnam', id: 'Vietnam', pt: 'Vietnã' } },
+  { countryCode: 'MY', callingCode: '+60', names: { zh: '马来西亚', en: 'Malaysia', es: 'Malasia', id: 'Malaysia', pt: 'Malásia' } },
+] as const
+
+function normalizeLocalPhoneNumber(value: string, callingCode: string) {
+  const normalized = value.replace(/\D/g, '')
+  const dialDigits = callingCode.slice(1)
+  return normalized.startsWith(dialDigits) ? normalized.slice(dialDigits.length) : normalized
+}
+
+function formatPhoneNumber(callingCode: string, localNumber: string) {
+  const digits = localNumber.replace(/\D/g, '')
+  return digits ? `${callingCode}${digits}` : ''
+}
+
+const inviteErrorCopyByLocale = {
+  zh: {
+    invalidPhone: '请输入有效的手机号码。',
+    codeAlreadySent: '验证码已发送，请在 60 秒后重新获取。',
+    codeRequestLimited: '请求过于频繁，请稍后再试。',
+    codeNotFound: '未找到验证码，请先获取验证码。',
+    codeExpired: '验证码已过期，请重新获取。',
+    codeAttemptsExceeded: '验证码尝试次数已达上限，请重新获取。',
+    codeInvalid: '验证码不正确，请重新输入。',
+    inviteCodeRequired: '首次注册需要有效的邀请码。',
+    inviteCodeNotFound: '邀请码无效，请检查后重试。',
+    phoneCountryMismatch: '所选国家与手机号码区号不一致。',
+    sendFailed: '暂时无法发送验证码，请稍后再试。',
+    signInFailed: '暂时无法登录，请稍后再试。',
+  },
+  en: {
+    invalidPhone: 'Enter a valid phone number.',
+    codeAlreadySent: 'A verification code was already sent. Try again in 60 seconds.',
+    codeRequestLimited: 'Too many requests. Please try again later.',
+    codeNotFound: 'No verification code was found. Request a new code first.',
+    codeExpired: 'This verification code has expired. Request a new one.',
+    codeAttemptsExceeded: 'Too many verification attempts. Request a new code.',
+    codeInvalid: 'The verification code is incorrect. Try again.',
+    inviteCodeRequired: 'A valid invite code is required for first registration.',
+    inviteCodeNotFound: 'This invite code is invalid. Check it and try again.',
+    phoneCountryMismatch: 'The selected country does not match the phone calling code.',
+    sendFailed: 'We could not send a verification code. Please try again later.',
+    signInFailed: 'We could not sign you in. Please try again later.',
+  },
+  es: {
+    invalidPhone: 'Ingresa un número de teléfono válido.',
+    codeAlreadySent: 'Ya se envió un código. Inténtalo de nuevo en 60 segundos.',
+    codeRequestLimited: 'Demasiadas solicitudes. Inténtalo de nuevo más tarde.',
+    codeNotFound: 'No encontramos un código. Solicita uno nuevo primero.',
+    codeExpired: 'El código venció. Solicita uno nuevo.',
+    codeAttemptsExceeded: 'Se alcanzó el límite de intentos. Solicita un código nuevo.',
+    codeInvalid: 'El código no es correcto. Inténtalo de nuevo.',
+    inviteCodeRequired: 'Se requiere un código válido para el primer registro.',
+    inviteCodeNotFound: 'El código de invitación no es válido. Revísalo e inténtalo de nuevo.',
+    phoneCountryMismatch: 'El país seleccionado no coincide con el prefijo telefónico.',
+    sendFailed: 'No pudimos enviar el código. Inténtalo de nuevo más tarde.',
+    signInFailed: 'No pudimos iniciar sesión. Inténtalo de nuevo más tarde.',
+  },
+  id: {
+    invalidPhone: 'Masukkan nomor telepon yang valid.',
+    codeAlreadySent: 'Kode verifikasi sudah dikirim. Coba lagi dalam 60 detik.',
+    codeRequestLimited: 'Terlalu banyak permintaan. Coba lagi nanti.',
+    codeNotFound: 'Kode verifikasi tidak ditemukan. Minta kode baru terlebih dahulu.',
+    codeExpired: 'Kode verifikasi sudah kedaluwarsa. Minta kode baru.',
+    codeAttemptsExceeded: 'Batas percobaan verifikasi sudah tercapai. Minta kode baru.',
+    codeInvalid: 'Kode verifikasi tidak benar. Coba lagi.',
+    inviteCodeRequired: 'Kode undangan yang valid diperlukan untuk pendaftaran pertama.',
+    inviteCodeNotFound: 'Kode undangan tidak valid. Periksa lalu coba lagi.',
+    phoneCountryMismatch: 'Negara yang dipilih tidak sesuai dengan kode panggilan nomor telepon.',
+    sendFailed: 'Kode verifikasi belum dapat dikirim. Coba lagi nanti.',
+    signInFailed: 'Belum dapat masuk. Coba lagi nanti.',
+  },
+  pt: {
+    invalidPhone: 'Digite um número de telefone válido.',
+    codeAlreadySent: 'Um código já foi enviado. Tente novamente em 60 segundos.',
+    codeRequestLimited: 'Muitas solicitações. Tente novamente mais tarde.',
+    codeNotFound: 'Não encontramos um código. Solicite um novo primeiro.',
+    codeExpired: 'O código expirou. Solicite um novo.',
+    codeAttemptsExceeded: 'O limite de tentativas foi atingido. Solicite um novo código.',
+    codeInvalid: 'O código não está correto. Tente novamente.',
+    inviteCodeRequired: 'Um código de convite válido é necessário no primeiro cadastro.',
+    inviteCodeNotFound: 'O código de convite não é válido. Confira e tente novamente.',
+    phoneCountryMismatch: 'O país selecionado não corresponde ao código de discagem do telefone.',
+    sendFailed: 'Não foi possível enviar o código. Tente novamente mais tarde.',
+    signInFailed: 'Não foi possível fazer login. Tente novamente mais tarde.',
+  },
+} as const
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function localizeInviteOperationError(error: unknown, locale: keyof typeof inviteErrorCopyByLocale, operation: 'send' | 'signIn') {
+  const rawMessage = error instanceof Error ? error.message.toLowerCase() : ''
+  const copy = inviteErrorCopyByLocale[locale]
+  if (rawMessage.includes('phone number is invalid')) return copy.invalidPhone
+  if (rawMessage.includes('phone verification code already sent')) return copy.codeAlreadySent
+  if (rawMessage.includes('too many request')) return copy.codeRequestLimited
+  if (rawMessage.includes('verification code not found')) return copy.codeNotFound
+  if (rawMessage.includes('verification code expired')) return copy.codeExpired
+  if (rawMessage.includes('verification attempts exceeded')) return copy.codeAttemptsExceeded
+  if (rawMessage.includes('verification code invalid')) return copy.codeInvalid
+  if (rawMessage.includes('valid invite code is required')) return copy.inviteCodeRequired
+  if (rawMessage.includes('invite code not found')) return copy.inviteCodeNotFound
+  if (rawMessage.includes('registration requires a +')) return copy.phoneCountryMismatch
+  return operation === 'send' ? copy.sendFailed : copy.signInFailed
+}
+
 function InviteCodePage() {
   const [session, setSession] = useState<SessionState | null>(() => loadJsonState<SessionState>(STORAGE_KEY))
   const [locale, setLocale] = useState<keyof typeof externalPageCopyByLocale>(() => loadExternalLocale())
@@ -3618,16 +4071,26 @@ function InviteCodePage() {
     languageCode: session?.languageCode ?? 'pt-br',
   })
   const [phoneCodeHint, setPhoneCodeHint] = useState('')
+  const [phoneCodeCooldownSeconds, setPhoneCodeCooldownSeconds] = useState(0)
   const [phoneAuthLoading, setPhoneAuthLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const copy = externalPageCopyByLocale[locale]
+  const inviteCopy = invitePageCopyByLocale[locale]
+  const selectedPhoneCountry = phoneCountries.find((country) => country.countryCode === phoneForm.countryCode) ?? phoneCountries[0]
+  const phoneNumberForSubmission = formatPhoneNumber(selectedPhoneCountry.callingCode, phoneForm.phoneNumber)
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(EXTERNAL_LOCALE_KEY, locale)
     }
   }, [locale])
+
+  useEffect(() => {
+    if (phoneCodeCooldownSeconds <= 0) return undefined
+    const timer = window.setTimeout(() => setPhoneCodeCooldownSeconds((seconds) => Math.max(0, seconds - 1)), 1000)
+    return () => window.clearTimeout(timer)
+  }, [phoneCodeCooldownSeconds])
 
   async function handleCopyInviteCode() {
     const inviteCode = session?.inviteCode
@@ -3646,15 +4109,15 @@ function InviteCodePage() {
     const shareUrl = `${window.location.origin}/bind?inviteCode=${encodeURIComponent(session.inviteCode)}`
     try {
       if (navigator.share) {
-        await navigator.share({ title: 'BANDEIRA 邀请', text: `使用邀请码 ${session.inviteCode} 完成绑定`, url: shareUrl })
+        await navigator.share({ title: inviteCopy.shareTitle, text: inviteCopy.shareText(session.inviteCode), url: shareUrl })
       } else {
         await navigator.clipboard.writeText(shareUrl)
-        setSuccess('邀请链接已复制。')
+        setSuccess(inviteCopy.shareCopied)
       }
       setError('')
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return
-      setError('分享失败，请稍后重试。')
+      setError(inviteCopy.shareFailure)
     }
   }
 
@@ -3663,11 +4126,15 @@ function InviteCodePage() {
     setError('')
     setSuccess('')
     try {
-      const response = await issuePhoneCode(phoneForm.phoneNumber)
-      setPhoneCodeHint(response.verificationCode ? `测试验证码 ${response.verificationCode}，${response.ttlMinutes} 分钟内有效。` : `验证码已发送，${response.ttlMinutes} 分钟内有效。`)
-      setSuccess('验证码已发送。')
+      const response = await issuePhoneCode(phoneNumberForSubmission)
+      setPhoneCodeHint(inviteCopy.phoneCodeHint(response.verificationCode, response.ttlMinutes))
+      setPhoneCodeCooldownSeconds(response.resendCooldownSeconds ?? 60)
+      setSuccess(inviteCopy.phoneCodeSent)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '获取验证码失败')
+      if (err instanceof Error && err.message.toLowerCase().includes('phone verification code already sent')) {
+        setPhoneCodeCooldownSeconds(60)
+      }
+      setError(localizeInviteOperationError(err, locale, 'send'))
     } finally {
       setPhoneAuthLoading(false)
     }
@@ -3680,7 +4147,7 @@ function InviteCodePage() {
     setSuccess('')
     try {
       const profile = await phoneLogin({
-        phoneNumber: phoneForm.phoneNumber,
+        phoneNumber: phoneNumberForSubmission,
         verificationCode: phoneForm.verificationCode,
         inviteCode: phoneForm.inviteCode || undefined,
         countryCode: phoneForm.countryCode || undefined,
@@ -3689,9 +4156,9 @@ function InviteCodePage() {
       const nextSession = saveUserSession(profile)
       setSession(nextSession)
       setPhoneForm({ ...phoneForm, inviteCode: profile.inviteCode, countryCode: profile.countryCode, languageCode: profile.languageCode })
-      setSuccess('登录成功，你的邀请码已准备好。')
+      setSuccess(inviteCopy.loginSuccess)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '手机号登录失败')
+      setError(localizeInviteOperationError(err, locale, 'signIn'))
     } finally {
       setPhoneAuthLoading(false)
     }
@@ -3718,43 +4185,59 @@ function InviteCodePage() {
           <span>{copy.inviteSubtitle}</span>
         </section>
 
-        {error ? <div className="consumer-banner is-error"><strong>操作失败</strong><span>{error}</span></div> : null}
+        {error ? <div className="consumer-banner is-error"><strong>{inviteCopy.errorTitle}</strong><span>{error}</span></div> : null}
         {success ? <div className="consumer-banner is-success"><CheckCircle size={20} weight="fill" /><span>{success}</span></div> : null}
 
         {session ? (
           <section className="consumer-invite-card">
-            <div className="consumer-invite-card-top"><span>专属邀请权益</span><Diamond weight="fill" aria-hidden="true" /></div>
-            <p>我的邀请码</p>
+            <div className="consumer-invite-card-top"><span>{inviteCopy.inviteBenefit}</span><Diamond weight="fill" aria-hidden="true" /></div>
+            <p>{inviteCopy.myInviteCode}</p>
             <strong>{session.inviteCode}</strong>
-            <span className="consumer-invite-caption">好友完成绑定后，邀请进度会自动更新。</span>
+            <span className="consumer-invite-caption">{inviteCopy.inviteProgressHint}</span>
             <div className="consumer-invite-actions">
-              <button type="button" onClick={handleCopyInviteCode}><Copy size={21} />复制邀请码</button>
-              <button type="button" onClick={handleShareInviteCode}><ShareNetwork size={21} />分享邀请链接</button>
+              <button type="button" onClick={handleCopyInviteCode}><Copy size={21} />{copy.copyInviteCode}</button>
+              <button type="button" onClick={handleShareInviteCode}><ShareNetwork size={21} />{inviteCopy.shareInviteLink}</button>
             </div>
           </section>
         ) : (
           <form id="phone-login" className="consumer-form-card" onSubmit={handlePhoneLogin}>
-            <div className="consumer-form-card-heading"><div><h2>登录后开始邀请</h2><p>验证码登录，无需设置密码。</p></div><ShieldCheck size={28} weight="duotone" /></div>
-            <label className="consumer-field"><span>手机号 / WhatsApp</span><div className="consumer-input-with-icon"><Phone size={20} /><input value={phoneForm.phoneNumber} onChange={(e) => setPhoneForm({ ...phoneForm, phoneNumber: e.target.value })} placeholder="例如 +5511999999999" /></div></label>
-            <label className="consumer-field"><span>验证码</span><div className="consumer-code-row"><input value={phoneForm.verificationCode} onChange={(e) => setPhoneForm({ ...phoneForm, verificationCode: e.target.value.replace(/\D/g, '').slice(0, 6) })} placeholder="6 位验证码" /><button type="button" onClick={handleIssuePhoneCode} disabled={phoneAuthLoading || !phoneForm.phoneNumber.trim()}>获取验证码</button></div></label>
-            <div className="consumer-field-grid">
-              <label className="consumer-field"><span>邀请码（首次注册必填）</span><input value={phoneForm.inviteCode} onChange={(e) => setPhoneForm({ ...phoneForm, inviteCode: e.target.value.trim().toUpperCase() })} placeholder="新用户请输入有效邀请码" /></label>
-              <label className="consumer-field"><span>国家</span><input value={phoneForm.countryCode} onChange={(e) => setPhoneForm({ ...phoneForm, countryCode: e.target.value.trim().toUpperCase() })} placeholder="BR" /></label>
-            </div>
+            <div className="consumer-form-card-heading"><div><h2>{inviteCopy.loginTitle}</h2><p>{inviteCopy.loginHint}</p></div><ShieldCheck size={28} weight="duotone" /></div>
+            <label className="consumer-field">
+              <span>{inviteCopy.phoneLabel}</span>
+              <div className="consumer-phone-input">
+                <select
+                  aria-label={inviteCopy.countryCallingCodeLabel}
+                  value={selectedPhoneCountry.countryCode}
+                  onChange={(event) => setPhoneForm({ ...phoneForm, countryCode: event.target.value })}
+                >
+                  {phoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names[locale]} {country.callingCode}</option>)}
+                </select>
+                <input
+                  value={phoneForm.phoneNumber}
+                  onChange={(event) => setPhoneForm({ ...phoneForm, phoneNumber: normalizeLocalPhoneNumber(event.target.value, selectedPhoneCountry.callingCode) })}
+                  placeholder={inviteCopy.phonePlaceholder}
+                  inputMode="tel"
+                  autoComplete="tel-national"
+                />
+              </div>
+              <small className="consumer-phone-input-hint">{inviteCopy.phoneInputHint}</small>
+            </label>
+            <label className="consumer-field"><span>{inviteCopy.verificationCodeLabel}</span><div className="consumer-code-row"><input value={phoneForm.verificationCode} onChange={(e) => setPhoneForm({ ...phoneForm, verificationCode: e.target.value.replace(/\D/g, '').slice(0, 6) })} placeholder={inviteCopy.verificationCodePlaceholder} inputMode="numeric" autoComplete="one-time-code" /><button type="button" onClick={handleIssuePhoneCode} disabled={phoneAuthLoading || !phoneNumberForSubmission || phoneCodeCooldownSeconds > 0}>{phoneCodeCooldownSeconds > 0 ? inviteCopy.resendCountdown(phoneCodeCooldownSeconds) : inviteCopy.requestVerificationCode}</button></div></label>
+            <label className="consumer-field"><span>{inviteCopy.inviteCodeRequiredLabel}</span><input value={phoneForm.inviteCode} onChange={(e) => setPhoneForm({ ...phoneForm, inviteCode: e.target.value.trim().toUpperCase() })} placeholder={inviteCopy.inviteCodePlaceholder} /></label>
             {phoneCodeHint ? <p className="consumer-form-note">{phoneCodeHint}</p> : null}
-            <button className="consumer-form-submit" type="submit" disabled={phoneAuthLoading || !phoneForm.phoneNumber.trim() || phoneForm.verificationCode.length < 6}><SignIn size={21} />手机号登录</button>
+            <button className="consumer-form-submit" type="submit" disabled={phoneAuthLoading || !phoneNumberForSubmission || phoneForm.verificationCode.length < 6}><SignIn size={21} />{inviteCopy.signInWithPhone}</button>
           </form>
         )}
 
         {session ? (
           <section className="consumer-account-card">
             <IdentificationCard size={30} weight="duotone" />
-            <div><span>当前账户</span><strong>用户 {session.userId} · {session.countryCode}</strong></div>
-            <a href={`/bind?inviteCode=${encodeURIComponent(session.inviteCode)}`}>去绑定<CaretRight size={18} /></a>
+            <div><span>{inviteCopy.currentAccount}</span><strong>{inviteCopy.userAccount(session.userId, session.countryCode)}</strong></div>
+            <a href={`/bind?inviteCode=${encodeURIComponent(session.inviteCode)}`}>{inviteCopy.goToBinding}<CaretRight size={18} /></a>
           </section>
         ) : null}
 
-        <nav className="consumer-bottom-nav" aria-label="主要导航">
+        <nav className="consumer-bottom-nav" aria-label={inviteCopy.navigationLabel}>
           <a href="/earnings"><span><Diamond size={24} weight="duotone" /></span><small>{copy.navEarnings}</small></a>
           <a className="is-active" href="/invite"><span><UserPlus size={24} weight="duotone" /></span><small>{copy.navInvite}</small></a>
           <a href="/bind"><span><UserCircle size={24} weight="duotone" /></span><small>{copy.navBind}</small></a>

@@ -155,6 +155,41 @@ export type PhoneCodeResponse = {
   phoneNumber: string
   verificationCode?: string
   ttlMinutes: number
+  resendCooldownSeconds?: number
+}
+
+export type PhoneVerificationCodeListItem = {
+  id: number
+  phoneNumber: string
+  purpose: string
+  status: 'ACTIVE' | 'CONSUMED' | 'EXPIRED' | string
+  attempts: number
+  consumed: boolean
+  issuedAt: string
+  expiresAt: string
+  updatedAt: string
+}
+
+export type PhoneVerificationCodeListResponse = {
+  items: PhoneVerificationCodeListItem[]
+  total: number
+  page: number
+  size: number
+}
+
+export type PhoneVerificationCodeRevealResponse = {
+  id: number
+  verificationCode: string
+  status: string
+  expiresAt: string
+}
+
+export type SeedInviterResponse = {
+  userId: number
+  phoneNumber: string
+  countryCode: string
+  languageCode: string
+  inviteCode: string
 }
 
 export type PhoneLoginRequest = {
@@ -702,6 +737,45 @@ export function getAdminAuditLogs(adminSessionToken: string, filters?: {
     headers: {
       'X-Admin-Session': adminSessionToken,
     },
+  })
+}
+
+export function getAdminPhoneVerificationCodes(adminSessionToken: string, filters?: {
+  phoneNumber?: string
+  page?: number
+  size?: number
+}) {
+  const params = new URLSearchParams()
+  if (filters?.phoneNumber) params.set('phoneNumber', filters.phoneNumber)
+  if (filters?.page !== undefined) params.set('page', String(filters.page))
+  if (filters?.size !== undefined) params.set('size', String(filters.size))
+  const query = params.toString()
+  return request<PhoneVerificationCodeListResponse>(`/admin/distribution/phone-verification-codes${query ? `?${query}` : ''}`, {
+    headers: { 'X-Admin-Session': adminSessionToken },
+  })
+}
+
+export function revealAdminPhoneVerificationCode(adminSessionToken: string, id: number) {
+  return request<PhoneVerificationCodeRevealResponse>(`/admin/distribution/phone-verification-codes/${id}/reveal`, {
+    headers: { 'X-Admin-Session': adminSessionToken },
+  })
+}
+
+export function createAdminSeedInviter(adminSessionToken: string, payload: {
+  phoneNumber: string
+  countryCode: string
+  languageCode: string
+}) {
+  return request<SeedInviterResponse>('/admin/distribution/seed-inviters', {
+    method: 'POST',
+    headers: { 'X-Admin-Session': adminSessionToken },
+    body: JSON.stringify(payload),
+  })
+}
+
+export function getAdminPhoneVerificationCodeAudit(adminSessionToken: string, id: number) {
+  return request<AuditLogListResponse>(`/admin/distribution/phone-verification-codes/${id}/audit`, {
+    headers: { 'X-Admin-Session': adminSessionToken },
   })
 }
 
