@@ -8,11 +8,14 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.hamcrest.Matchers.containsString;
 
 @ActiveProfiles("test")
-@SpringBootTest
+@SpringBootTest(properties = "app.web.allowed-origins=https://bandeira.fandodo.online")
 @AutoConfigureMockMvc
 class FenxiaoApplicationTests {
 
@@ -31,5 +34,16 @@ class FenxiaoApplicationTests {
         mockMvc.perform(get("/actuator/health/readiness"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("UP"));
+    }
+
+    @Test
+    void adminAccountPatchPreflightShouldAllowTheProductionWebOrigin() throws Exception {
+        mockMvc.perform(options("/admin/accounts/1")
+                        .header("Origin", "https://bandeira.fandodo.online")
+                        .header("Access-Control-Request-Method", "PATCH")
+                        .header("Access-Control-Request-Headers", "content-type,x-admin-session"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "https://bandeira.fandodo.online"))
+                .andExpect(header().string("Access-Control-Allow-Methods", containsString("PATCH")));
     }
 }
