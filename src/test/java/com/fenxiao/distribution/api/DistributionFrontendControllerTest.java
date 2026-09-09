@@ -6,6 +6,8 @@ import com.fenxiao.reward.service.RewardCalculationService;
 import com.fenxiao.rule.entity.RewardRule;
 import com.fenxiao.rule.repository.RewardRuleRepository;
 import com.fenxiao.user.entity.UserDistributionProfile;
+import com.fenxiao.user.repository.UserDistributionProfileRepository;
+import com.fenxiao.identity.service.UserSessionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -43,6 +45,12 @@ class DistributionFrontendControllerTest {
 
     @Autowired
     private RewardRuleRepository rewardRuleRepository;
+
+    @Autowired
+    private UserDistributionProfileRepository userDistributionProfileRepository;
+
+    @Autowired
+    private UserSessionService userSessionService;
 
     @Test
     void shouldReturnDistributionHomeSummary() throws Exception {
@@ -141,22 +149,24 @@ class DistributionFrontendControllerTest {
     }
 
     @Test
-    void shouldReflectBindingRegistrationInHomeAndTeam() throws Exception {
+    void shouldKeepTheExistingInvitationRelationshipWhenLinkyAccountIsBound() throws Exception {
         UserDistributionProfile inviter = distributionBindingService.createProfile(23001L, "ID", "id", null);
         String inviteCode = inviter.getInviteCode();
-        distributionBindingService.ensureRootProfile(87654321L, "ID", "id");
+        UserDistributionProfile accountHolder = distributionBindingService.createProfile(23002L, "ID", "id", inviteCode);
+        accountHolder.bindPhoneNumber("+6281234567891");
+        userDistributionProfileRepository.save(accountHolder);
         linkyRegistrationEligibilityService.markEligible("87654321", "LINKY_DEFAULT_GUILD", "Linky Official Guild", 9001L, "prechecked");
+        String accessToken = userSessionService.issue(accountHolder.getUserId()).accessToken();
 
-        mockMvc.perform(post("/api/distribution/bindings/register")
+        mockMvc.perform(post("/api/distribution/bindings/users/{userId}", accountHolder.getUserId())
+                        .header("X-Distribution-Token", accessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
                                   \"productCode\": \"linky\",
-                                  \"inviteCode\": \"%s\",
-                                  \"whatsappNumber\": \"+6281234567891\",
                                   \"linkyAccount\": \"87654321\"
                                 }
-                                """.formatted(inviteCode)))
+                                """))
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/distribution/home/23001")
@@ -170,7 +180,7 @@ class DistributionFrontendControllerTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(1))
-                .andExpect(jsonPath("$.items[0].userId").value(87654321));
+                .andExpect(jsonPath("$.items[0].userId").value(23002));
     }
 
     private void seedRules() {

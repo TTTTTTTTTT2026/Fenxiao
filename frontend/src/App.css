@@ -3217,6 +3217,179 @@ code {
   overflow: hidden;
 }
 
+.consumer-account-overview,
+.consumer-settings-card,
+.consumer-platform-card,
+.consumer-platform-card > div,
+.consumer-account-overview > div:last-child {
+  display: flex;
+}
+
+.consumer-account-overview,
+.consumer-settings-card {
+  margin-top: 18px;
+  padding: 22px;
+  border: 1px solid rgba(39, 77, 153, 0.1);
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 16px 38px rgba(30, 61, 119, 0.08);
+}
+
+.consumer-account-overview {
+  gap: 14px;
+  align-items: center;
+}
+
+.consumer-account-overview-icon,
+.consumer-platform-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  place-items: center;
+  border-radius: 15px;
+  background: #edf2ff;
+  color: #2861e8;
+}
+
+.consumer-account-overview-icon svg,
+.consumer-platform-icon svg {
+  width: 27px;
+  height: 27px;
+}
+
+.consumer-account-overview > div:last-child {
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.consumer-account-overview span,
+.consumer-account-overview small,
+.consumer-settings-card p,
+.consumer-settings-card dt {
+  color: #718096;
+  font-size: 13px;
+}
+
+.consumer-account-overview strong {
+  color: #0c1933;
+}
+
+.consumer-settings-card {
+  flex-direction: column;
+  gap: 16px;
+}
+
+.consumer-settings-card h2,
+.consumer-settings-card p {
+  margin: 0;
+}
+
+.consumer-settings-card h2 {
+  color: #0c1933;
+  font-size: 17px;
+}
+
+.consumer-settings-card dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.consumer-settings-card dl div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px;
+  border-radius: 14px;
+  background: #f7f9fd;
+}
+
+.consumer-settings-card dd {
+  margin: 0;
+  color: #17243e;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+.consumer-platform-card {
+  gap: 16px;
+}
+
+.consumer-platform-card > div {
+  gap: 12px;
+}
+
+.consumer-platform-card > div > div {
+  display: grid;
+  gap: 5px;
+}
+
+.consumer-platform-card .consumer-primary-link {
+  margin-top: 0;
+}
+
+.consumer-security-card,
+.consumer-security-copy {
+  display: flex;
+}
+
+.consumer-security-card {
+  gap: 16px;
+}
+
+.consumer-security-copy {
+  gap: 12px;
+}
+
+.consumer-security-copy > div {
+  display: grid;
+  gap: 5px;
+}
+
+.consumer-security-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  place-items: center;
+  border-radius: 15px;
+  background: #fff3ef;
+  color: #dd4a17;
+}
+
+.consumer-security-icon svg {
+  width: 27px;
+  height: 27px;
+}
+
+.consumer-sign-out-button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+  border: 1px solid #f0b9a5;
+  border-radius: 13px;
+  background: #fff7f4;
+  color: #b93815;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 750;
+}
+
+.consumer-sign-out-button:hover:not(:disabled) {
+  background: #ffebe4;
+}
+
+.consumer-sign-out-button:disabled {
+  cursor: wait;
+  opacity: 0.66;
+}
+
 .consumer-phone-input {
   overflow: hidden;
 }
@@ -4610,6 +4783,10 @@ code {
 .consumer-shell.consumer-form-shell {
   overflow: visible;
   padding-bottom: max(150px, calc(112px + env(safe-area-inset-bottom)));
+}
+
+.consumer-shell.consumer-form-shell.consumer-login-shell {
+  padding-bottom: max(42px, calc(24px + env(safe-area-inset-bottom)));
 }
 
 .consumer-form-shell .consumer-bottom-nav {

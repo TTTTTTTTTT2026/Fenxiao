@@ -9,6 +9,8 @@ import com.fenxiao.distribution.service.LinkyRegistrationEligibilityService;
 import com.fenxiao.reward.entity.RewardRecord;
 import com.fenxiao.reward.repository.RewardRecordRepository;
 import com.fenxiao.user.entity.UserDistributionProfile;
+import com.fenxiao.user.repository.UserDistributionProfileRepository;
+import com.fenxiao.identity.service.UserSessionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -52,6 +54,12 @@ class DistributionControllerTest {
 
     @Autowired
     private PhoneVerificationCodeRepository phoneVerificationCodeRepository;
+
+    @Autowired
+    private UserDistributionProfileRepository userDistributionProfileRepository;
+
+    @Autowired
+    private UserSessionService userSessionService;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -165,21 +173,24 @@ class DistributionControllerTest {
     }
 
     @Test
-    void shouldRegisterInviteBindingUsingInviteCodeWhatsappAndLinkyAccount() throws Exception {
-        String inviteCode = distributionBindingService.createProfile(53001L, "ID", "id", null).getInviteCode();
+    void shouldBindLinkyAccountToTheAuthenticatedUser() throws Exception {
+        UserDistributionProfile inviter = distributionBindingService.createProfile(53001L, "ID", "id", null);
+        UserDistributionProfile accountHolder = distributionBindingService.createProfile(53002L, "ID", "id", inviter.getInviteCode());
+        accountHolder.bindPhoneNumber("+6281234567890");
+        userDistributionProfileRepository.save(accountHolder);
         linkyRegistrationEligibilityService.markEligible("12345678", "LINKY_DEFAULT_GUILD", "Linky Official Guild", 9001L, "prechecked");
+        String accessToken = userSessionService.issue(accountHolder.getUserId()).accessToken();
 
-        mockMvc.perform(post("/api/distribution/bindings/register")
+        mockMvc.perform(post("/api/distribution/bindings/users/{userId}", accountHolder.getUserId())
+                        .header("X-Distribution-Token", accessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "productCode", "linky",
-                                "inviteCode", inviteCode.toLowerCase(),
-                                "whatsappNumber", "+6281234567890",
                                 "linkyAccount", "12345678"
                         ))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.productCode").value("LINKY"))
-                .andExpect(jsonPath("$.inviteCode").value(inviteCode))
+                .andExpect(jsonPath("$.inviteCode").value(inviter.getInviteCode()))
                 .andExpect(jsonPath("$.inviterUserId").value(53001))
                 .andExpect(jsonPath("$.whatsappNumber").value("+6281234567890"))
                 .andExpect(jsonPath("$.linkyAccount").value("12345678"))
@@ -188,26 +199,27 @@ class DistributionControllerTest {
 
     @Test
     void shouldRejectDuplicateBindingRegistration() throws Exception {
-        String inviteCode = distributionBindingService.createProfile(53002L, "ID", "id", null).getInviteCode();
+        UserDistributionProfile accountHolder = distributionBindingService.createProfile(53003L, "ID", "id", null);
+        accountHolder.bindPhoneNumber("+628123450002");
+        userDistributionProfileRepository.save(accountHolder);
+        String accessToken = userSessionService.issue(accountHolder.getUserId()).accessToken();
         linkyRegistrationEligibilityService.markEligible("87654321", "LINKY_DEFAULT_GUILD", "Linky Official Guild", 9001L, "prechecked");
         linkyRegistrationEligibilityService.markEligible("12345678", "LINKY_DEFAULT_GUILD", "Linky Official Guild", 9001L, "prechecked");
 
-        mockMvc.perform(post("/api/distribution/bindings/register")
+        mockMvc.perform(post("/api/distribution/bindings/users/{userId}", accountHolder.getUserId())
+                        .header("X-Distribution-Token", accessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "productCode", "linky",
-                                "inviteCode", inviteCode,
-                                "whatsappNumber", "+628123450002",
                                 "linkyAccount", "87654321"
                         ))))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(post("/api/distribution/bindings/register")
+        mockMvc.perform(post("/api/distribution/bindings/users/{userId}", accountHolder.getUserId())
+                        .header("X-Distribution-Token", accessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "productCode", "linky",
-                                "inviteCode", inviteCode,
-                                "whatsappNumber", "+628123450002",
                                 "linkyAccount", "12345678"
                         ))))
                 .andExpect(status().isBadRequest())
@@ -216,16 +228,18 @@ class DistributionControllerTest {
 
     @Test
     void shouldRejectBindingRegistrationWhenLinkyAccountIsOutsideOurGuild() throws Exception {
-        String inviteCode = distributionBindingService.createProfile(53003L, "ID", "id", null).getInviteCode();
+        UserDistributionProfile accountHolder = distributionBindingService.createProfile(53004L, "ID", "id", null);
+        accountHolder.bindPhoneNumber("+628123450003");
+        userDistributionProfileRepository.save(accountHolder);
+        String accessToken = userSessionService.issue(accountHolder.getUserId()).accessToken();
         when(linkyGuildProbeClient.probe("23456789"))
                 .thenReturn(LinkyGuildProbeResult.notMatched("23456789", "probe empty result"));
 
-        mockMvc.perform(post("/api/distribution/bindings/register")
+        mockMvc.perform(post("/api/distribution/bindings/users/{userId}", accountHolder.getUserId())
+                        .header("X-Distribution-Token", accessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "productCode", "linky",
-                                "inviteCode", inviteCode,
-                                "whatsappNumber", "+628123450003",
                                 "linkyAccount", "23456789"
                         ))))
                 .andExpect(status().isBadRequest())

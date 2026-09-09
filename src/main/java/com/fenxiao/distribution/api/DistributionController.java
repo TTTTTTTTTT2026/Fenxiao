@@ -1,7 +1,6 @@
 package com.fenxiao.distribution.api;
 
 import com.fenxiao.common.security.DistributionAccessGuard;
-import com.fenxiao.distribution.api.dto.CreateInviteBindingRequest;
 import com.fenxiao.distribution.api.dto.CreateProfileRequest;
 import com.fenxiao.distribution.api.dto.DistributionHomeResponse;
 import com.fenxiao.distribution.api.dto.InviteBindingResponse;
@@ -10,6 +9,7 @@ import com.fenxiao.distribution.api.dto.IssueInviteCodeResponse;
 import com.fenxiao.distribution.api.dto.PhoneCodeRequest;
 import com.fenxiao.distribution.api.dto.PhoneLoginRequest;
 import com.fenxiao.distribution.api.dto.ProfileResponse;
+import com.fenxiao.distribution.api.dto.RegisterLinkyAccountRequest;
 import com.fenxiao.distribution.api.dto.TeamListResponse;
 import com.fenxiao.distribution.api.dto.TeamWeeklyIncomeResponse;
 import com.fenxiao.distribution.api.dto.WeeklyIncomeStatsResponse;
@@ -100,9 +100,12 @@ public class DistributionController {
         );
     }
 
-    @PostMapping("/bindings/register")
-    public InviteBindingResponse registerInviteBinding(@Valid @RequestBody CreateInviteBindingRequest request) {
-        InviteBindingRegistration registration = inviteBindingRegistrationService.register(request);
+    @PostMapping("/bindings/users/{userId}")
+    public InviteBindingResponse registerLinkyAccount(@RequestHeader("X-Distribution-Token") String accessToken,
+                                                      @PathVariable Long userId,
+                                                      @Valid @RequestBody RegisterLinkyAccountRequest request) {
+        distributionAccessGuard.assertUserAccess(userId, accessToken);
+        InviteBindingRegistration registration = inviteBindingRegistrationService.registerForUser(userId, request);
         return new InviteBindingResponse(
                 registration.getId(),
                 registration.getProductCode(),

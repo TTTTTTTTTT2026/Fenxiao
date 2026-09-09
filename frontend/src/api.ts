@@ -13,10 +13,8 @@ export type ProfileResponse = {
   accessToken: string
 }
 
-export type CreateInviteBindingRequest = {
+export type RegisterLinkyAccountRequest = {
   productCode: string
-  inviteCode: string
-  whatsappNumber: string
   linkyAccount: string
 }
 
@@ -475,9 +473,12 @@ export function createProfile(profileCreateToken: string, payload: CreateProfile
   })
 }
 
-export function registerInviteBinding(payload: CreateInviteBindingRequest) {
-  return request<InviteBindingResponse>('/api/distribution/bindings/register', {
+export function registerLinkyAccount(userId: number, accessToken: string, payload: RegisterLinkyAccountRequest) {
+  return request<InviteBindingResponse>(`/api/distribution/bindings/users/${userId}`, {
     method: 'POST',
+    headers: {
+      'X-Distribution-Token': accessToken,
+    },
     body: JSON.stringify(payload),
   })
 }
@@ -500,6 +501,15 @@ export function phoneLogin(payload: PhoneLoginRequest) {
   return request<ProfileResponse>('/api/distribution/auth/phone-login', {
     method: 'POST',
     body: JSON.stringify(payload),
+  })
+}
+
+export function logoutUserSession(accessToken: string) {
+  return request<void>('/api/distribution/auth/session/logout', {
+    method: 'POST',
+    headers: {
+      'X-Distribution-Token': accessToken,
+    },
   })
 }
 
