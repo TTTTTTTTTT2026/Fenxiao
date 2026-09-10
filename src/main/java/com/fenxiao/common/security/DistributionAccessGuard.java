@@ -165,6 +165,10 @@ public class DistributionAccessGuard {
         return adminSessionService.assertPermission(sessionToken, AdminPermission.SEED_INVITER_MANAGE);
     }
 
+    public AdminSessionService.AdminPrincipal assertPlatformMockManageAccess(String token, String sessionToken) {
+        return adminSessionService.assertPermission(sessionToken, AdminPermission.PLATFORM_MOCK_MANAGE);
+    }
+
     public AdminSessionService.AdminPrincipal assertAdminScopedAccess(String token,String sessionToken,String platform,String guild,String region){
         var principal=assertAdminAccess(token,sessionToken);principal.requireScope(platform,guild,region);return principal;
     }

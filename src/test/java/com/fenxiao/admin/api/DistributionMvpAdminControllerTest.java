@@ -907,6 +907,15 @@ class DistributionMvpAdminControllerTest {
                 .andExpect(jsonPath("$[1].targetGuilds.length()").value(3));
     }
 
+    @Test
+    void shouldExposeTheEffectivePlatformVerificationSourceWithoutExposingCredentials() throws Exception {
+        mockMvc.perform(get("/admin/platform-verification")
+                        .header("X-Admin-Session", loginAsAdmin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.source").value("MCN"))
+                .andExpect(jsonPath("$.mockManagementEnabled").value(false));
+    }
+
     private String loginAsAdmin() throws Exception {
         String response = mockMvc.perform(post("/admin/auth/session")
                         .contentType(MediaType.APPLICATION_JSON)

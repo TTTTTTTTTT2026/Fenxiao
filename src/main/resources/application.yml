@@ -40,6 +40,9 @@ fenxiao:
     default-freeze-days: 7
 
 app:
+  platform-verification:
+    # Production defaults to MCN. MOCK is rejected unless the local or test profile is active.
+    source: ${PLATFORM_VERIFICATION_SOURCE:MCN}
   distribution:
     lifecycle:
       shadow-only: ${LIFECYCLE_SHADOW_ONLY:true}

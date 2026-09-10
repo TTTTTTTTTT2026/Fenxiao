@@ -23,6 +23,9 @@ management:
         include: health,info
 
 app:
+  platform-verification:
+    # Local acceptance never reads MCN production data.
+    source: MOCK
   admin:
     token: ${ADMIN_TOKEN:local-admin-token}
     bootstrap-username: ${ADMIN_BOOTSTRAP_USERNAME:admin}
