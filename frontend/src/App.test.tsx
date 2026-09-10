@@ -118,7 +118,8 @@ describe('App external landing pages', () => {
 
     expect(markup).toContain('绑定 Timo 账号')
     expect(markup).toContain('Timo ID（12 位数字）')
-    expect(markup).toContain('pattern="[0-9]{12}"')
+    expect(markup).toContain('首位非 0')
+    expect(markup).toContain('pattern="[1-9][0-9]{11}"')
     expect(markup).toContain('maxLength="12"')
     expect(markup).toContain('consumer-commercial-hero consumer-bind-hero')
   })

@@ -73,12 +73,15 @@ class PlatformLifecycleServiceTest {
     }
 
     @Test
-    void shouldRequireExactlyTwelveDigitsForTimoId() {
+    void shouldRequireANonZeroTwelveDigitTimoId() {
         var root = bindingService.createProfile(71300L, "BR", "pt-br", null);
         var user = bindingService.createProfile(71301L, "BR", "pt-br", root.getInviteCode());
 
         assertThatThrownBy(() -> lifecycleService.submit(user.getUserId(), "TIMO", "12345678"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Timo id must be exactly 12 digits");
+                .hasMessage("Timo id must be exactly 12 digits and cannot start with zero");
+        assertThatThrownBy(() -> lifecycleService.submit(user.getUserId(), "TIMO", "012345678901"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Timo id must be exactly 12 digits and cannot start with zero");
     }
 }

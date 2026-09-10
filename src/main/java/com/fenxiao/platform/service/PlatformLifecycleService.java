@@ -93,6 +93,23 @@ public class PlatformLifecycleService {
         return binding;
     }
 
+    public PlatformAccountBinding markVerificationInProgress(PlatformAccountBinding binding, String sourceSystem, String reasonCode) {
+        if (binding.getBindingStatus() == PlatformBindingStatus.VERIFYING) return binding;
+        PlatformBindingStatus before = binding.getBindingStatus();
+        binding.startVerification();
+        historyRepository.save(PlatformBindingHistory.record(binding, before, reasonCode, null, sourceSystem, null, LocalDateTime.now(clock)));
+        return binding;
+    }
+
+    public PlatformAccountBinding rejectVerification(PlatformAccountBinding binding, String rejectionCode,
+                                                     String rejectionReason, String sourceSystem) {
+        PlatformBindingStatus before = binding.getBindingStatus();
+        binding.reject(rejectionCode, rejectionReason, sourceSystem);
+        historyRepository.save(PlatformBindingHistory.record(binding, before, rejectionCode, rejectionReason,
+                sourceSystem, null, LocalDateTime.now(clock)));
+        return binding;
+    }
+
     public PlatformLifecycleSnapshot ingest(PlatformBusinessFactRequest request) {
         if (factRepository.existsBySourceSystemAndSourceEventId(request.sourceSystem(), request.sourceEventId())) {
             PlatformAccountBinding existing = requireVerified(request.platformCode(), request.platformUserId());
@@ -178,8 +195,8 @@ public class PlatformLifecycleService {
     private String normalizePlatformUserId(String platform, String value) {
         if (value == null || !value.trim().matches("^[0-9]{5,32}$")) throw new IllegalArgumentException("platform user id must be numeric");
         String normalized = value.trim();
-        if ("TIMO".equals(platform) && !normalized.matches("^[0-9]{12}$")) {
-            throw new IllegalArgumentException("Timo id must be exactly 12 digits");
+        if ("TIMO".equals(platform) && !normalized.matches("^[1-9][0-9]{11}$")) {
+            throw new IllegalArgumentException("Timo id must be exactly 12 digits and cannot start with zero");
         }
         return normalized;
     }

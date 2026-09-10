@@ -75,8 +75,8 @@ public class PlatformVerificationMockAdminService {
     private String normalizeAccount(String platform, String value) {
         if (value == null || !value.trim().matches("^[0-9]{5,32}$")) throw new IllegalArgumentException("platform user id must be numeric");
         String normalized = value.trim();
-        if ("TIMO".equals(platform) && !normalized.matches("^[0-9]{12}$")) {
-            throw new IllegalArgumentException("Timo id must be exactly 12 digits");
+        if ("TIMO".equals(platform) && !normalized.matches("^[1-9][0-9]{11}$")) {
+            throw new IllegalArgumentException("Timo id must be exactly 12 digits and cannot start with zero");
         }
         return normalized;
     }
