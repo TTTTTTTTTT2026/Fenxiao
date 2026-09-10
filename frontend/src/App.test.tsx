@@ -94,6 +94,8 @@ describe('App external landing pages', () => {
     expect(markup).toContain('账户安全')
     expect(markup).toContain('退出登录')
     expect(markup).toContain('consumer-sign-out-button')
+    expect(markup).toContain('绑定平台账号')
+    expect(markup).toContain('绑定 Linky 账号')
     expect(markup).toContain('绑定 Timo 账号')
     expect(markup).toContain('href="/account/timo"')
     expect(markup).toContain('<a class="consumer-secondary-link" href="/account/timo"')
