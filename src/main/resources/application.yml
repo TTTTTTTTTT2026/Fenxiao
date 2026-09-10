@@ -45,14 +45,15 @@ app:
     source: ${PLATFORM_VERIFICATION_SOURCE:MCN}
     mcn:
       timo:
-        # Disabled until MCN finishes multi-credential support and a BANDEIRA-only secret is installed.
+        # Disabled until the BANDEIRA-only V3 secret is installed through the production secret manager.
         enabled: ${MCN_TIMO_VERIFICATION_ENABLED:false}
         base-url: ${MCN_TIMO_BASE_URL:}
         credential-id: ${MCN_TIMO_CREDENTIAL_ID:}
         hmac-secret: ${MCN_TIMO_HMAC_SECRET:}
         connect-timeout: ${MCN_TIMO_CONNECT_TIMEOUT:10s}
-        request-timeout: ${MCN_TIMO_REQUEST_TIMEOUT:25s}
-        retry-poll-interval: ${MCN_TIMO_RETRY_POLL_INTERVAL:60000}
+        request-timeout: ${MCN_TIMO_REQUEST_TIMEOUT:50s}
+        requests-per-minute: ${MCN_TIMO_REQUESTS_PER_MINUTE:30}
+        retry-poll-interval: ${MCN_TIMO_RETRY_POLL_INTERVAL:30000}
   distribution:
     lifecycle:
       shadow-only: ${LIFECYCLE_SHADOW_ONLY:true}

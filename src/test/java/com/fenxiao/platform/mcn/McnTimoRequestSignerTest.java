@@ -20,7 +20,7 @@ class McnTimoRequestSignerTest {
 
         assertThat(signed.rawBody()).isEqualTo("{\"platform\":\"TIMO\",\"lookupMode\":\"CURRENT_THEN_LIVE\",\"subjects\":[{\"subjectId\":\"999999999999\",\"expectedGuildId\":\"22000408\",\"expectedCountry\":\"Mexico\"}]}");
         assertThat(signed.bodyHash()).isEqualTo("66864e669b67875108e703d2158bb56ab1e32148e794631788606ff675d14105");
-        assertThat(signed.canonical()).isEqualTo("POST\n/api/external/timo/v2/joined-guild-at/batch-query\ntimo.joined_guild_at.read\n1700000000\nbandeira-test-nonce-0001\n018bdc4e-5b12-7a4f-9c01-000000000001\n66864e669b67875108e703d2158bb56ab1e32148e794631788606ff675d14105");
-        assertThat(signed.signature()).isEqualTo("4a3af39c3b7b3be9c3655915987c0f3e81dcdac0052af2b2f0c9e7d5ff6ec424");
+        assertThat(signed.canonical()).isEqualTo("POST\n/api/external/timo/v3/joined-guild-at/batch-query\ntimo.joined_guild_at.read\n1700000000\nbandeira-test-nonce-0001\n018bdc4e-5b12-7a4f-9c01-000000000001\n66864e669b67875108e703d2158bb56ab1e32148e794631788606ff675d14105");
+        assertThat(signed.signature()).isEqualTo("fddbcda3fe9ea36201ebab0bd51ab49b36949afb2ecc9151b6703ea944d86622");
     }
 }

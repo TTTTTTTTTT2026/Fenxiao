@@ -72,7 +72,7 @@ public class PlatformLifecycleService {
         PlatformBindingStatus before = binding.getBindingStatus();
         String rejectionCode = null;
         String rejectionReason = null;
-        if (request.globallySeenBeforeSubmission()) {
+        if (request.globallySeenBeforeSubmission() && !isMcnTimoVerification(platform, request.sourceSystem())) {
             rejectionCode = "PREEXISTING_GLOBAL_ID";
             rejectionReason = "platform id existed in an authoritative system before submission";
         } else if (!request.joinedTargetGuild()) {
@@ -193,6 +193,9 @@ public class PlatformLifecycleService {
         String platform = value.trim().toUpperCase(Locale.ROOT);
         if (!platform.matches("^[A-Z][A-Z0-9_]{1,31}$")) throw new IllegalArgumentException("platform code is invalid");
         return platform;
+    }
+    private boolean isMcnTimoVerification(String platform, String sourceSystem) {
+        return "TIMO".equals(platform) && "MCN_TIMO".equals(sourceSystem);
     }
     private String normalizePlatformUserId(String platform, String value) {
         if (value == null || !value.trim().matches("^[0-9]{5,32}$")) throw new IllegalArgumentException("platform user id must be numeric");

@@ -78,5 +78,6 @@ public class PlatformVerificationAttempt extends BaseEntity {
 
     public Long getBindingId() { return bindingId; }
     public boolean isRetryable() { return retryable; }
+    public String getErrorCode() { return errorCode; }
     public LocalDateTime getAttemptedAt() { return attemptedAt; }
 }

@@ -73,6 +73,19 @@ class PlatformLifecycleServiceTest {
     }
 
     @Test
+    void shouldUseTheTwentyFourHourRuleInsteadOfUnavailableGlobalHistoryForMcnTimo() {
+        var root = bindingService.createProfile(71350L, "BR", "pt-br", null);
+        var user = bindingService.createProfile(71351L, "BR", "pt-br", root.getInviteCode());
+        var submitted = lifecycleService.submit(user.getUserId(), "TIMO", "123456789015");
+
+        var verified = lifecycleService.verify(new VerifyPlatformBindingRequest(
+                "TIMO", "123456789015", true, true, "22000448", submitted.getSubmittedAt().plusHours(24),
+                "MCN_TIMO", "mcn:request-24-hours"));
+
+        assertThat(verified.getBindingStatus()).isEqualTo(PlatformBindingStatus.VERIFIED);
+    }
+
+    @Test
     void shouldAcceptAnOfficialJoinTimeExactlyTwentyFourHoursFromSubmission() {
         var root = bindingService.createProfile(71400L, "BR", "pt-br", null);
         var user = bindingService.createProfile(71401L, "BR", "pt-br", root.getInviteCode());

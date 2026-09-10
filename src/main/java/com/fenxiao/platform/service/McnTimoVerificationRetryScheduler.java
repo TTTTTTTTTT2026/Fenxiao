@@ -15,14 +15,14 @@ import org.springframework.stereotype.Component;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.List;
 
 @Component
 public class McnTimoVerificationRetryScheduler {
     private static final Logger log = LoggerFactory.getLogger(McnTimoVerificationRetryScheduler.class);
     private static final List<Duration> RETRY_DELAYS = List.of(
-            Duration.ofMinutes(1), Duration.ofMinutes(2), Duration.ofMinutes(4),
-            Duration.ofMinutes(8), Duration.ofMinutes(15));
+            Duration.ofSeconds(30), Duration.ofMinutes(2), Duration.ofMinutes(5));
     private final PlatformVerificationModeService mode;
     private final McnTimoVerificationClient client;
     private final PlatformAccountBindingRepository bindings;
@@ -58,12 +58,22 @@ public class McnTimoVerificationRetryScheduler {
             log.warn("MCN Timo verification retries exhausted for bindingId={}; manual review is required", binding.getId());
             return;
         }
-        Duration delay = RETRY_DELAYS.get((int) retryableAttempts - 1);
+        Duration delay = retryDelay(last, retryableAttempts);
         if (now.isBefore(last.getAttemptedAt().plus(delay))) return;
         try {
             verificationService.verifySubmittedBinding(binding.getUserId(), binding.getPlatformCode());
         } catch (RuntimeException exception) {
             log.warn("MCN Timo verification retry failed for bindingId={}: {}", binding.getId(), exception.getMessage());
         }
+    }
+
+    private Duration retryDelay(PlatformVerificationAttempt last, long retryableAttempts) {
+        if ("request_rate_limited".equals(last.getErrorCode()) || "live_rate_limited".equals(last.getErrorCode())
+                || "local_rate_limited".equals(last.getErrorCode())) {
+            return Duration.ofMinutes(1);
+        }
+        Duration base = RETRY_DELAYS.get((int) retryableAttempts - 1);
+        long jitterPercent = ThreadLocalRandom.current().nextLong(10, 31);
+        return base.plusMillis(base.toMillis() * jitterPercent / 100);
     }
 }
