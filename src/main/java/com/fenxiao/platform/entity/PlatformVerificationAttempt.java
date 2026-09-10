@@ -61,4 +61,22 @@ public class PlatformVerificationAttempt extends BaseEntity {
         value.attemptedAt = attemptedAt;
         return value;
     }
+
+    public static PlatformVerificationAttempt manualReviewRequired(PlatformAccountBinding binding, LocalDateTime attemptedAt) {
+        PlatformVerificationAttempt value = new PlatformVerificationAttempt();
+        value.bindingId = binding.getId();
+        value.userId = binding.getUserId();
+        value.platformCode = binding.getPlatformCode();
+        value.platformUserId = binding.getPlatformUserId();
+        value.sourceSystem = "MCN_TIMO";
+        value.outcome = "MANUAL_REVIEW_REQUIRED";
+        value.errorCode = "retry_exhausted";
+        value.retryable = false;
+        value.attemptedAt = attemptedAt;
+        return value;
+    }
+
+    public Long getBindingId() { return bindingId; }
+    public boolean isRetryable() { return retryable; }
+    public LocalDateTime getAttemptedAt() { return attemptedAt; }
 }

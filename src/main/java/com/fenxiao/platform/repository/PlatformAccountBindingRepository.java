@@ -1,6 +1,7 @@
 package com.fenxiao.platform.repository;
 
 import com.fenxiao.platform.entity.PlatformAccountBinding;
+import com.fenxiao.platform.domain.PlatformBindingStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Collection;
 import java.util.List;
@@ -10,4 +11,5 @@ public interface PlatformAccountBindingRepository extends JpaRepository<Platform
     Optional<PlatformAccountBinding> findByUserIdAndPlatformCode(Long userId, String platformCode);
     Optional<PlatformAccountBinding> findByPlatformCodeAndPlatformUserId(String platformCode, String platformUserId);
     List<PlatformAccountBinding> findByUserIdInAndPlatformCode(Collection<Long> userIds, String platformCode);
+    List<PlatformAccountBinding> findByBindingStatusAndPlatformCode(PlatformBindingStatus bindingStatus, String platformCode);
 }
