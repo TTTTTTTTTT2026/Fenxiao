@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 import java.time.Clock;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @ActiveProfiles("test")
 @SpringBootTest
@@ -69,5 +70,15 @@ class PlatformLifecycleServiceTest {
                 "MCN_TOOL", "verification-2"));
         assertThat(rejected.getBindingStatus()).isEqualTo(PlatformBindingStatus.REJECTED);
         assertThat(rejected.getRejectionCode()).isEqualTo("PREEXISTING_GLOBAL_ID");
+    }
+
+    @Test
+    void shouldRequireExactlyTwelveDigitsForTimoId() {
+        var root = bindingService.createProfile(71300L, "BR", "pt-br", null);
+        var user = bindingService.createProfile(71301L, "BR", "pt-br", root.getInviteCode());
+
+        assertThatThrownBy(() -> lifecycleService.submit(user.getUserId(), "TIMO", "12345678"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Timo id must be exactly 12 digits");
     }
 }

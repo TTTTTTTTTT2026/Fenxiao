@@ -68,6 +68,7 @@ import {
   getDistributionHome,
   getDistributionRewards,
   getDistributionRewardSummary,
+  getPlatformBinding,
   getDistributionTeam,
   getDistributionTeamWeeklyIncome,
   getWithdrawHistory,
@@ -88,6 +89,7 @@ import {
   rejectAdminWithdrawRequest,
   saveAdminGuildConfig,
   saveAdminPlatformVerificationMock,
+  submitPlatformBinding,
   updateAdminAccount,
   enrollExperimentParticipant,
   type AdminWithdrawRequestListResponse,
@@ -110,6 +112,7 @@ import {
   type OwnershipDetailResponse,
   type PhoneVerificationCodeListResponse,
   type PlatformIntegrationResponse,
+  type PlatformBindingResponse,
   type PlatformVerificationMockResponse,
   type PlatformVerificationRuntimeResponse,
   type ProfileResponse,
@@ -123,6 +126,7 @@ import {
   type TeamWeeklyIncomeResponse,
   type WithdrawHistoryListResponse,
   type WithdrawRequestResponse,
+  verifyPlatformBinding,
 } from './api'
 import {
   buildLinkyReplaySummary,
@@ -3959,6 +3963,18 @@ const externalPageCopyByLocale = {
   },
 } as const
 
+const timoBindingCopy: Record<ConsumerLocale, {
+  title: string; subtitle: string; summary: string; open: string; account: string; hint: string; placeholder: string
+  submit: string; verifying: string; verifyAgain: string; verified: string; submitted: string; pending: string; rejected: string
+  signInTitle: string; signInHint: string; signIn: string; failure: string
+}> = {
+  zh: { title: '绑定 Timo 账号', subtitle: '填写官方 Timo ID，核验归属后进入影子奖励计算。', summary: '使用官方 12 位 Timo ID 完成归属核验。', open: '绑定 Timo 账号', account: 'Timo ID（12 位数字）', hint: '请填写官方定义的 12 位数字 Timo ID；不能使用昵称、WhatsApp 或邀请码。', placeholder: '例如 123456789012', submit: '提交并核验 Timo ID', verifying: '核验中…', verifyAgain: '重新核验', verified: 'Timo 账号已完成核验。', submitted: 'Timo ID 已提交，等待核验。', pending: '账号已提交；当前核验尚未完成，请稍后重试。', rejected: '核验未通过', signInTitle: '登录后绑定 Timo 账号', signInHint: '请先使用手机号登录，再绑定官方 Timo ID。', signIn: '去手机号登录', failure: 'Timo 绑定失败' },
+  en: { title: 'Bind Timo account', subtitle: 'Enter the official Timo ID and verify account ownership before shadow reward calculation.', summary: 'Use the official 12-digit Timo ID for ownership verification.', open: 'Bind Timo account', account: 'Timo ID (12 digits)', hint: 'Enter the official 12-digit numeric Timo ID. Do not use a nickname, WhatsApp number, or invite code.', placeholder: 'e.g. 123456789012', submit: 'Submit and verify Timo ID', verifying: 'Verifying…', verifyAgain: 'Verify again', verified: 'Your Timo account has been verified.', submitted: 'Your Timo ID was submitted and is awaiting verification.', pending: 'The ID was submitted; verification has not completed yet. Try again later.', rejected: 'Verification was not approved', signInTitle: 'Sign in to bind Timo', signInHint: 'Sign in with your phone before binding the official Timo ID.', signIn: 'Sign in with phone', failure: 'Timo binding failed' },
+  es: { title: 'Vincular cuenta Timo', subtitle: 'Ingresa el ID oficial de Timo y verifica la titularidad antes del cálculo de recompensas en sombra.', summary: 'Usa el ID oficial de Timo de 12 dígitos para verificar la titularidad.', open: 'Vincular cuenta Timo', account: 'ID de Timo (12 dígitos)', hint: 'Ingresa el ID oficial numérico de Timo de 12 dígitos. No uses apodo, WhatsApp ni código de invitación.', placeholder: 'ej. 123456789012', submit: 'Enviar y verificar ID de Timo', verifying: 'Verificando…', verifyAgain: 'Verificar de nuevo', verified: 'Tu cuenta Timo fue verificada.', submitted: 'Tu ID de Timo fue enviado y espera verificación.', pending: 'El ID fue enviado; la verificación aún no termina. Inténtalo después.', rejected: 'La verificación no fue aprobada', signInTitle: 'Inicia sesión para vincular Timo', signInHint: 'Inicia sesión con tu teléfono antes de vincular el ID oficial de Timo.', signIn: 'Iniciar sesión', failure: 'Error al vincular Timo' },
+  id: { title: 'Hubungkan akun Timo', subtitle: 'Masukkan ID Timo resmi dan verifikasi kepemilikan sebelum perhitungan reward bayangan.', summary: 'Gunakan ID Timo resmi 12 digit untuk verifikasi kepemilikan.', open: 'Hubungkan akun Timo', account: 'ID Timo (12 digit)', hint: 'Masukkan ID Timo resmi 12 digit. Jangan gunakan nama panggilan, WhatsApp, atau kode undangan.', placeholder: 'contoh 123456789012', submit: 'Kirim dan verifikasi ID Timo', verifying: 'Memverifikasi…', verifyAgain: 'Verifikasi lagi', verified: 'Akun Timo kamu sudah diverifikasi.', submitted: 'ID Timo kamu sudah dikirim dan menunggu verifikasi.', pending: 'ID sudah dikirim; verifikasi belum selesai. Coba lagi nanti.', rejected: 'Verifikasi tidak disetujui', signInTitle: 'Masuk untuk menghubungkan Timo', signInHint: 'Masuk dengan ponsel sebelum menghubungkan ID Timo resmi.', signIn: 'Masuk dengan ponsel', failure: 'Gagal menghubungkan Timo' },
+  pt: { title: 'Vincular conta Timo', subtitle: 'Informe o ID oficial do Timo e valide a titularidade antes do cálculo de recompensas em modo sombra.', summary: 'Use o ID oficial do Timo com 12 dígitos para validar a titularidade.', open: 'Vincular conta Timo', account: 'ID Timo (12 dígitos)', hint: 'Informe o ID numérico oficial do Timo com 12 dígitos. Não use apelido, WhatsApp ou código de convite.', placeholder: 'ex. 123456789012', submit: 'Enviar e validar ID Timo', verifying: 'Validando…', verifyAgain: 'Validar novamente', verified: 'Sua conta Timo foi validada.', submitted: 'Seu ID Timo foi enviado e aguarda validação.', pending: 'O ID foi enviado; a validação ainda não terminou. Tente mais tarde.', rejected: 'A validação não foi aprovada', signInTitle: 'Entre para vincular o Timo', signInHint: 'Entre com o telefone antes de vincular o ID oficial do Timo.', signIn: 'Entrar com telefone', failure: 'Falha ao vincular Timo' },
+}
+
 const invitePageCopyByLocale = {
   zh: {
     shareTitle: 'BANDEIRA 邀请',
@@ -4472,6 +4488,7 @@ function AccountPage() {
   const [locale, setLocale] = useState<ConsumerLocale>(() => loadExternalLocale())
   const [signingOut, setSigningOut] = useState(false)
   const copy = consumerAccountCopy[locale]
+  const timoCopy = timoBindingCopy[locale]
 
   useEffect(() => {
     if (typeof window !== 'undefined') window.localStorage.setItem(EXTERNAL_LOCALE_KEY, locale)
@@ -4513,8 +4530,11 @@ function AccountPage() {
               <dl><div><dt>{copy.country}</dt><dd>{session.countryCode}</dd></div><div><dt>{copy.language}</dt><dd>{session.languageCode}</dd></div></dl>
             </section>
             <section className="consumer-settings-card consumer-platform-card">
-              <div><span className="consumer-platform-icon"><LinkSimple weight="bold" aria-hidden="true" /></span><div><h2>{copy.platform}</h2><strong>{copy.linkyTitle}</strong><p>{copy.linkyHint}</p></div></div>
-              <a className="consumer-primary-link" href="/account/linky">{copy.bindLinky}<ArrowRight weight="bold" aria-hidden="true" /></a>
+              <div className="consumer-platform-card-head"><span className="consumer-platform-icon"><LinkSimple weight="bold" aria-hidden="true" /></span><div><h2>{copy.platform}</h2><p>{copy.linkyHint}</p></div></div>
+              <div className="consumer-platform-account-list">
+                <div className="consumer-platform-account-row"><div><strong>{copy.linkyTitle}</strong><p>{copy.linkyHint}</p></div><a className="consumer-secondary-link" href="/account/linky">{copy.bindLinky}<ArrowRight weight="bold" aria-hidden="true" /></a></div>
+                <div className="consumer-platform-account-row"><div><strong>Timo</strong><p>{timoCopy.summary}</p></div><a className="consumer-primary-link" href="/account/timo">{timoCopy.open}<ArrowRight weight="bold" aria-hidden="true" /></a></div>
+              </div>
             </section>
             <section className="consumer-settings-card consumer-security-card">
               <div className="consumer-security-copy"><span className="consumer-security-icon"><ShieldCheck weight="duotone" aria-hidden="true" /></span><div><h2>{copy.security}</h2><p>{copy.signOutHint}</p></div></div>
@@ -4524,6 +4544,120 @@ function AccountPage() {
         ) : (
           <section className="consumer-auth-gate"><div className="consumer-auth-icon"><LockSimple weight="duotone" aria-hidden="true" /></div><h1>{copy.signInTitle}</h1><p>{copy.signInHint}</p><a className="consumer-primary-link" href="/invite#phone-login">{copy.signIn}<ArrowRight weight="bold" aria-hidden="true" /></a></section>
         )}
+        {session ? <ConsumerBottomNavigation locale={locale} active="account" /> : null}
+      </main>
+    </div>
+  )
+}
+
+function TimoBindingPage() {
+  const [session] = useState<SessionState | null>(() => loadJsonState<SessionState>(STORAGE_KEY))
+  const [locale, setLocale] = useState<ConsumerLocale>(() => loadExternalLocale())
+  const [timoId, setTimoId] = useState('')
+  const [binding, setBinding] = useState<PlatformBindingResponse | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const copy = timoBindingCopy[locale]
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') window.localStorage.setItem(EXTERNAL_LOCALE_KEY, locale)
+  }, [locale])
+
+  useEffect(() => {
+    if (!session) return
+    let active = true
+    void getPlatformBinding(session.userId, session.accessToken, 'TIMO')
+      .then((value) => { if (active) { setBinding(value); setTimoId(value.platformUserId) } })
+      .catch((err) => {
+        const message = err instanceof Error ? err.message.toLowerCase() : ''
+        if (active && !message.includes('platform binding not found')) setError(err instanceof Error ? err.message : copy.failure)
+      })
+    return () => { active = false }
+  }, [session, copy.failure])
+
+  useEffect(() => {
+    if (!success) return undefined
+    const timer = window.setTimeout(() => setSuccess(''), 5000)
+    return () => window.clearTimeout(timer)
+  }, [success])
+
+  async function verifyCurrentBinding(current: PlatformBindingResponse) {
+    if (!session) return
+    try {
+      const verified = await verifyPlatformBinding(session.userId, session.accessToken, 'TIMO')
+      setBinding(verified)
+      if (verified.status === 'VERIFIED') setSuccess(copy.verified)
+      else if (verified.status === 'REJECTED') setError(`${copy.rejected}${verified.rejectionReason ? `：${verified.rejectionReason}` : ''}`)
+      else setSuccess(copy.pending)
+    } catch (err) {
+      setBinding(current)
+      const message = err instanceof Error ? err.message.toLowerCase() : ''
+      if (message.includes('no enabled local mock verification record')) setSuccess(copy.pending)
+      else if (message.includes('mcn verification client is not configured')) setSuccess(copy.pending)
+      else setError(err instanceof Error ? err.message : copy.failure)
+    }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!session || !/^\d{12}$/.test(timoId)) return
+    setLoading(true)
+    setError('')
+    setSuccess('')
+    try {
+      const submitted = await submitPlatformBinding(session.userId, session.accessToken, { platformCode: 'TIMO', platformUserId: timoId })
+      setBinding(submitted)
+      setSuccess(copy.submitted)
+      await verifyCurrentBinding(submitted)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : copy.failure)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleRetryVerification() {
+    if (!binding || !session) return
+    setLoading(true)
+    setError('')
+    setSuccess('')
+    try {
+      await verifyCurrentBinding(binding)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const isVerified = binding?.status === 'VERIFIED'
+  const isRejected = binding?.status === 'REJECTED'
+
+  return (
+    <div className="consumer-app-page">
+      <main className="consumer-shell consumer-form-shell">
+        <header className="consumer-topbar">
+          <a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />BANDEIRA</a>
+          <div className="consumer-topbar-actions">
+            <select className="consumer-language" aria-label={externalPageCopyByLocale[locale].languageLabel} value={locale} onChange={(event) => setLocale(event.target.value as ConsumerLocale)}><option value="zh">中文</option><option value="en">EN</option><option value="es">ES</option><option value="id">ID</option><option value="pt">PT</option></select>
+            {session ? <ConsumerAccountLink locale={locale} /> : null}
+          </div>
+        </header>
+
+        {session ? <>
+          <section className="consumer-commercial-heading"><p><Diamond weight="fill" aria-hidden="true" /> BANDEIRA REWARDS</p><h1>{copy.title}</h1><span>{copy.subtitle}</span></section>
+          {error ? <div className="consumer-banner is-error" role="alert">{error}</div> : null}
+          {!error && success ? <div className="consumer-banner is-success" role="status"><CheckCircle size={20} weight="fill" />{success}</div> : null}
+          <section className="consumer-form-card">
+            <div className="consumer-form-card-heading"><div><h2>{copy.account}</h2><p>{copy.hint}</p></div><IdentificationCard size={28} weight="duotone" /></div>
+            {isVerified ? <div className="consumer-form-note"><CheckCircle size={20} weight="fill" />{copy.verified}<br />Timo ID · {binding?.platformUserId}</div> : !binding ? (
+              <form onSubmit={handleSubmit}>
+                <label className="consumer-field"><span>{copy.account}</span><input required value={timoId} onChange={(event) => setTimoId(event.target.value.replace(/\D/g, '').slice(0, 12))} placeholder={copy.placeholder} inputMode="numeric" autoComplete="off" pattern="[0-9]{12}" maxLength={12} /><small>{copy.hint}</small></label>
+                <button className="consumer-form-submit" type="submit" disabled={loading || timoId.length !== 12}>{loading ? copy.verifying : copy.submit}</button>
+              </form>
+            ) : null}
+            {binding && !isVerified ? <div className="consumer-form-note"><strong>{isRejected ? copy.rejected : copy.submitted}</strong><span>Timo ID · {binding.platformUserId}</span>{binding.rejectionReason ? <span>{binding.rejectionReason}</span> : null}<button className="consumer-secondary-link" type="button" onClick={() => void handleRetryVerification()} disabled={loading}>{loading ? copy.verifying : copy.verifyAgain}</button></div> : null}
+          </section>
+        </> : <section className="consumer-auth-gate"><div className="consumer-auth-icon"><LockSimple weight="duotone" aria-hidden="true" /></div><h1>{copy.signInTitle}</h1><p>{copy.signInHint}</p><a className="consumer-primary-link" href="/invite#phone-login">{copy.signIn}<ArrowRight weight="bold" aria-hidden="true" /></a></section>}
         {session ? <ConsumerBottomNavigation locale={locale} active="account" /> : null}
       </main>
     </div>
@@ -4762,7 +4896,7 @@ function EarningsPage() {
 
               <div className="consumer-task-list">
                 <a href="/invite"><span className="is-orange"><UserPlus weight="fill" /></span><div><strong>邀请新用户</strong><small>当前已邀请 {home?.directInvitedUsers ?? 0} 人</small></div><b>去邀请</b></a>
-                <a href="/account/linky"><span className="is-pink"><LinkSimple weight="bold" /></span><div><strong>完成平台绑定</strong><small>登记并验证 Timo / Linky ID</small></div><b>去绑定</b></a>
+                <a href="/account"><span className="is-pink"><LinkSimple weight="bold" /></span><div><strong>完成平台绑定</strong><small>登记并验证 Timo / Linky ID</small></div><b>去绑定</b></a>
                 <button type="button" onClick={() => setTeamDetailsOpen(true)}><span className="is-green"><UsersThree weight="fill" /></span><div><strong>跟进有效用户</strong><small>本期有效用户 {effectiveUsersThisView} 人</small></div><b>查看团队</b></button>
                 <button type="button" onClick={() => setRewardDetailsOpen(true)}><span className="is-purple"><Sparkle weight="fill" /></span><div><strong>查看奖励记录</strong><small>当前共 {rewardItems.length} 笔奖励</small></div><b>查看记录</b></button>
               </div>
@@ -4851,6 +4985,7 @@ function EarningsPage() {
 
 function App() {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '/'
+  if (pathname.startsWith('/account/timo')) return <TimoBindingPage />
   if (pathname.startsWith('/account/linky') || pathname.startsWith('/bind')) return <BindLandingPage />
   if (pathname.startsWith('/account')) return <AccountPage />
   if (pathname.startsWith('/invite')) return <InviteCodePage />

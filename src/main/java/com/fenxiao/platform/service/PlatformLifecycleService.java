@@ -51,7 +51,7 @@ public class PlatformLifecycleService {
     public PlatformAccountBinding submit(Long userId, String platformCode, String platformUserId) {
         userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("user not found"));
         String platform = normalizePlatform(platformCode);
-        String externalId = normalizePlatformUserId(platformUserId);
+        String externalId = normalizePlatformUserId(platform, platformUserId);
         bindingRepository.findByUserIdAndPlatformCode(userId, platform).ifPresent(value -> {
             throw new IllegalStateException("user already has a binding for platform " + platform);
         });
@@ -66,7 +66,7 @@ public class PlatformLifecycleService {
 
     public PlatformAccountBinding verify(VerifyPlatformBindingRequest request) {
         String platform = normalizePlatform(request.platformCode());
-        PlatformAccountBinding binding = bindingRepository.findByPlatformCodeAndPlatformUserId(platform, normalizePlatformUserId(request.platformUserId()))
+        PlatformAccountBinding binding = bindingRepository.findByPlatformCodeAndPlatformUserId(platform, normalizePlatformUserId(platform, request.platformUserId()))
                 .orElseThrow(() -> new IllegalArgumentException("platform binding not found"));
         PlatformBindingStatus before = binding.getBindingStatus();
         String rejectionCode = null;
@@ -164,7 +164,8 @@ public class PlatformLifecycleService {
     }
 
     private PlatformAccountBinding requireVerified(String platformCode, String platformUserId) {
-        return bindingRepository.findByPlatformCodeAndPlatformUserId(normalizePlatform(platformCode), normalizePlatformUserId(platformUserId))
+        String platform = normalizePlatform(platformCode);
+        return bindingRepository.findByPlatformCodeAndPlatformUserId(platform, normalizePlatformUserId(platform, platformUserId))
                 .filter(value -> value.getBindingStatus() == PlatformBindingStatus.VERIFIED)
                 .orElseThrow(() -> new IllegalStateException("platform binding is not verified"));
     }
@@ -174,9 +175,13 @@ public class PlatformLifecycleService {
         if (!platform.matches("^[A-Z][A-Z0-9_]{1,31}$")) throw new IllegalArgumentException("platform code is invalid");
         return platform;
     }
-    private String normalizePlatformUserId(String value) {
+    private String normalizePlatformUserId(String platform, String value) {
         if (value == null || !value.trim().matches("^[0-9]{5,32}$")) throw new IllegalArgumentException("platform user id must be numeric");
-        return value.trim();
+        String normalized = value.trim();
+        if ("TIMO".equals(platform) && !normalized.matches("^[0-9]{12}$")) {
+            throw new IllegalArgumentException("Timo id must be exactly 12 digits");
+        }
+        return normalized;
     }
     private String requireText(String value, String label) {
         if (value == null || value.isBlank()) throw new IllegalArgumentException(label + " is required");
