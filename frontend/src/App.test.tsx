@@ -96,6 +96,8 @@ describe('App external landing pages', () => {
     expect(markup).toContain('consumer-sign-out-button')
     expect(markup).toContain('绑定 Timo 账号')
     expect(markup).toContain('href="/account/timo"')
+    expect(markup).toContain('<a class="consumer-secondary-link" href="/account/timo"')
+    expect(markup).not.toContain('<a class="consumer-primary-link" href="/account/timo"')
   })
 
   it('renders a dedicated Timo binding page with a twelve-digit ID contract', () => {
@@ -114,6 +116,7 @@ describe('App external landing pages', () => {
     expect(markup).toContain('Timo ID（12 位数字）')
     expect(markup).toContain('pattern="[0-9]{12}"')
     expect(markup).toContain('maxLength="12"')
+    expect(markup).toContain('consumer-commercial-hero consumer-bind-hero')
   })
 
   it('does not show member navigation on the account page before sign-in', () => {

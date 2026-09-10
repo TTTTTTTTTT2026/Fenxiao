@@ -3975,6 +3975,14 @@ const timoBindingCopy: Record<ConsumerLocale, {
   pt: { title: 'Vincular conta Timo', subtitle: 'Informe o ID oficial do Timo e valide a titularidade antes do cálculo de recompensas em modo sombra.', summary: 'Use o ID oficial do Timo com 12 dígitos para validar a titularidade.', open: 'Vincular conta Timo', account: 'ID Timo (12 dígitos)', hint: 'Informe o ID numérico oficial do Timo com 12 dígitos. Não use apelido, WhatsApp ou código de convite.', placeholder: 'ex. 123456789012', submit: 'Enviar e validar ID Timo', verifying: 'Validando…', verifyAgain: 'Validar novamente', verified: 'Sua conta Timo foi validada.', submitted: 'Seu ID Timo foi enviado e aguarda validação.', pending: 'O ID foi enviado; a validação ainda não terminou. Tente mais tarde.', rejected: 'A validação não foi aprovada', signInTitle: 'Entre para vincular o Timo', signInHint: 'Entre com o telefone antes de vincular o ID oficial do Timo.', signIn: 'Entrar com telefone', failure: 'Falha ao vincular Timo' },
 }
 
+const platformBindingProofCopy: Record<ConsumerLocale, { ownership: string; traceable: string }> = {
+  zh: { ownership: '归属核验', traceable: '记录可追踪' },
+  en: { ownership: 'Ownership verification', traceable: 'Traceable record' },
+  es: { ownership: 'Verificación de titularidad', traceable: 'Registro rastreable' },
+  id: { ownership: 'Verifikasi kepemilikan', traceable: 'Catatan dapat dilacak' },
+  pt: { ownership: 'Verificação de titularidade', traceable: 'Registro rastreável' },
+}
+
 const invitePageCopyByLocale = {
   zh: {
     shareTitle: 'BANDEIRA 邀请',
@@ -4533,7 +4541,7 @@ function AccountPage() {
               <div className="consumer-platform-card-head"><span className="consumer-platform-icon"><LinkSimple weight="bold" aria-hidden="true" /></span><div><h2>{copy.platform}</h2><p>{copy.linkyHint}</p></div></div>
               <div className="consumer-platform-account-list">
                 <div className="consumer-platform-account-row"><div><strong>{copy.linkyTitle}</strong><p>{copy.linkyHint}</p></div><a className="consumer-secondary-link" href="/account/linky">{copy.bindLinky}<ArrowRight weight="bold" aria-hidden="true" /></a></div>
-                <div className="consumer-platform-account-row"><div><strong>Timo</strong><p>{timoCopy.summary}</p></div><a className="consumer-primary-link" href="/account/timo">{timoCopy.open}<ArrowRight weight="bold" aria-hidden="true" /></a></div>
+                <div className="consumer-platform-account-row"><div><strong>Timo</strong><p>{timoCopy.summary}</p></div><a className="consumer-secondary-link" href="/account/timo">{timoCopy.open}<ArrowRight weight="bold" aria-hidden="true" /></a></div>
               </div>
             </section>
             <section className="consumer-settings-card consumer-security-card">
@@ -4559,6 +4567,7 @@ function TimoBindingPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const copy = timoBindingCopy[locale]
+  const proofCopy = platformBindingProofCopy[locale]
 
   useEffect(() => {
     if (typeof window !== 'undefined') window.localStorage.setItem(EXTERNAL_LOCALE_KEY, locale)
@@ -4644,7 +4653,16 @@ function TimoBindingPage() {
         </header>
 
         {session ? <>
-          <section className="consumer-commercial-heading"><p><Diamond weight="fill" aria-hidden="true" /> BANDEIRA REWARDS</p><h1>{copy.title}</h1><span>{copy.subtitle}</span></section>
+          <section className="consumer-commercial-hero consumer-bind-hero">
+            <span className="consumer-visually-hidden">{copy.title}</span>
+            <div className="consumer-commercial-kicker"><Diamond weight="fill" aria-hidden="true" /> BANDEIRA REWARDS</div>
+            <h1>{copy.title}</h1>
+            <p>Timo · {copy.subtitle}</p>
+            <div className="consumer-commercial-proof">
+              <span><ShieldCheck weight="fill" aria-hidden="true" />{proofCopy.ownership}</span>
+              <span><LinkSimple weight="bold" aria-hidden="true" />{proofCopy.traceable}</span>
+            </div>
+          </section>
           {error ? <div className="consumer-banner is-error" role="alert">{error}</div> : null}
           {!error && success ? <div className="consumer-banner is-success" role="status"><CheckCircle size={20} weight="fill" />{success}</div> : null}
           <section className="consumer-form-card">
