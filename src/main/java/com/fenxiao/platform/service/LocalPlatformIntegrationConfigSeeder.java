@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Component
-@Profile("local")
+@Profile({"local", "test"})
 public class LocalPlatformIntegrationConfigSeeder implements CommandLineRunner {
     private final PlatformIntegrationConfigRepository platforms;
     private final PlatformTargetGuildRepository guilds;
