@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { applyAdminRiskEventBatchAction, applyAdminWithdrawBatchAction, approveAdminWithdrawRequest, approveWithdrawForPayment, correctAdminOwnership, createAdminSession, createExperiment, createWithdrawRequest, getAdminGuildConfigs, getAdminGuildWeeklyReport, getAdminOwnership, getAdminWithdrawRequests, getDistributionRewardSummary, getDistributionTeamWeeklyIncome, getExperimentDashboard, getWithdrawHistory, issuePhoneCode, logoutUserSession, phoneLogin, recordWithdrawPayment, refreshAdminLinkyEligibility, refreshAdminLinkyEligibilityBatch, rejectAdminWithdrawRequest, reverseWithdrawPayment, saveAdminGuildConfig } from './api'
+import { applyAdminRiskEventBatchAction, applyAdminWithdrawBatchAction, approveAdminWithdrawRequest, approveWithdrawForPayment, correctAdminOwnership, createAdminSession, createExperiment, createWithdrawRequest, getAdminGuildConfigs, getAdminGuildWeeklyReport, getAdminOwnership, getAdminSeedInviters, getAdminWithdrawRequests, getDistributionRewardSummary, getDistributionTeamWeeklyIncome, getExperimentDashboard, getWithdrawHistory, issuePhoneCode, logoutUserSession, phoneLogin, recordWithdrawPayment, refreshAdminLinkyEligibility, refreshAdminLinkyEligibilityBatch, rejectAdminWithdrawRequest, reverseWithdrawPayment, saveAdminGuildConfig } from './api'
 
 describe('ownership admin api', () => {
   afterEach(() => {
@@ -416,5 +416,22 @@ describe('ownership admin api', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(createAdminSession({ username: 'ops_admin', password: 'wrong-token' })).rejects.toThrow('admin login invalid')
+  })
+})
+
+describe('seed inviter admin api', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('lists seed inviters with admin session and pagination', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ items: [], total: 0, page: 0, size: 50 }) })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await getAdminSeedInviters('session-token', { page: 0, size: 50 })
+
+    expect(fetchMock).toHaveBeenCalledWith('/admin/distribution/seed-inviters?page=0&size=50', expect.objectContaining({
+      headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
+    }))
   })
 })

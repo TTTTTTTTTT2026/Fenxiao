@@ -864,6 +864,36 @@ class DistributionMvpAdminControllerTest {
                         && profile.getUserId().equals(log.getTargetId()));
     }
 
+    @Test
+    void shouldLetSuperAdminViewCreatedSeedInviters() throws Exception {
+        String adminSession = loginAsAdmin();
+        mockMvc.perform(post("/admin/distribution/seed-inviters")
+                        .header("X-Admin-Session", adminSession)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "phoneNumber": "+5511999990011",
+                                  "countryCode": "BR",
+                                  "languageCode": "pt-br"
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/admin/distribution/seed-inviters")
+                        .header("X-Admin-Session", adminSession))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.items[0].phoneNumber").value("+5511999990011"))
+                .andExpect(jsonPath("$.items[0].countryCode").value("BR"))
+                .andExpect(jsonPath("$.items[0].languageCode").value("pt-br"))
+                .andExpect(jsonPath("$.items[0].inviteCode").isNotEmpty())
+                .andExpect(jsonPath("$.items[0].accountStatus").value("ACTIVE"))
+                .andExpect(jsonPath("$.items[0].directInviteeCount").value(0));
+
+        org.assertj.core.api.Assertions.assertThat(operationAuditLogRepository.findAll())
+                .anyMatch(log -> "VIEW_SEED_INVITER_LIST".equals(log.getActionName()));
+    }
+
     private String loginAsAdmin() throws Exception {
         String response = mockMvc.perform(post("/admin/auth/session")
                         .contentType(MediaType.APPLICATION_JSON)

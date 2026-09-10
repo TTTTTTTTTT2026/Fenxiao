@@ -16,4 +16,6 @@ public interface DistributionRelationRepository extends JpaRepository<Distributi
     List<DistributionRelation> findByLevel2InviterIdOrderByIdDesc(Long level2InviterId);
 
     List<DistributionRelation> findByLevel3InviterIdOrderByIdDesc(Long level3InviterId);
+
+    long countByLevel1InviterId(Long level1InviterId);
 }
