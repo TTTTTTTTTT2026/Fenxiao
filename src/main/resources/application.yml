@@ -43,6 +43,16 @@ app:
   platform-verification:
     # Production defaults to MCN. MOCK is rejected unless the local or test profile is active.
     source: ${PLATFORM_VERIFICATION_SOURCE:MCN}
+    mcn:
+      timo:
+        # Disabled until MCN finishes multi-credential support and a BANDEIRA-only secret is installed.
+        enabled: ${MCN_TIMO_VERIFICATION_ENABLED:false}
+        base-url: ${MCN_TIMO_BASE_URL:}
+        credential-id: ${MCN_TIMO_CREDENTIAL_ID:}
+        hmac-secret: ${MCN_TIMO_HMAC_SECRET:}
+        connect-timeout: ${MCN_TIMO_CONNECT_TIMEOUT:10s}
+        request-timeout: ${MCN_TIMO_REQUEST_TIMEOUT:25s}
+        retry-poll-interval: ${MCN_TIMO_RETRY_POLL_INTERVAL:60000}
   distribution:
     lifecycle:
       shadow-only: ${LIFECYCLE_SHADOW_ONLY:true}

@@ -14,14 +14,15 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 @Service
 @Transactional
 public class PlatformLifecycleService {
+    private static final Duration MAX_BINDING_JOIN_TIME_GAP = Duration.ofHours(24);
     private final PlatformAccountBindingRepository bindingRepository;
     private final PlatformBindingHistoryRepository historyRepository;
     private final PlatformBusinessFactRepository factRepository;
@@ -58,7 +59,7 @@ public class PlatformLifecycleService {
         bindingRepository.findByPlatformCodeAndPlatformUserId(platform, externalId).ifPresent(value -> {
             throw new IllegalStateException("platform id has already been recorded");
         });
-        LocalDateTime now = LocalDateTime.now(clock);
+        LocalDateTime now = LocalDateTime.now(clock).withNano(0);
         PlatformAccountBinding binding = bindingRepository.save(PlatformAccountBinding.submit(userId, platform, externalId, now));
         historyRepository.save(PlatformBindingHistory.record(binding, null, "USER_SUBMITTED", null, "BANDEIRA", userId, now));
         return binding;
@@ -77,9 +78,10 @@ public class PlatformLifecycleService {
         } else if (!request.joinedTargetGuild()) {
             rejectionCode = "NOT_IN_TARGET_GUILD";
             rejectionReason = "platform id is not in the target guild";
-        } else if (Math.abs(ChronoUnit.DAYS.between(binding.getSubmittedAt().toLocalDate(), request.officialJoinedAt().toLocalDate())) > 1) {
-            rejectionCode = "JOIN_DATE_MISMATCH";
-            rejectionReason = "official guild join date is outside the submission date tolerance";
+        } else if (Duration.between(binding.getSubmittedAt(), request.officialJoinedAt()).abs()
+                .compareTo(MAX_BINDING_JOIN_TIME_GAP) > 0) {
+            rejectionCode = "JOIN_TIME_WINDOW_EXCEEDED";
+            rejectionReason = "official guild join time is more than 24 hours from the binding submission time";
         }
         LocalDateTime now = LocalDateTime.now(clock);
         if (rejectionCode != null) {
@@ -90,6 +92,23 @@ public class PlatformLifecycleService {
         binding.verify(request.officialGuildId(), request.officialJoinedAt(), request.sourceSystem(), request.sourceReference(), now);
         historyRepository.save(PlatformBindingHistory.record(binding, before, "AUTHORITATIVE_VERIFIED", null, request.sourceSystem(), null, now));
         evaluate(binding);
+        return binding;
+    }
+
+    public PlatformAccountBinding markVerificationInProgress(PlatformAccountBinding binding, String sourceSystem, String reasonCode) {
+        if (binding.getBindingStatus() == PlatformBindingStatus.VERIFYING) return binding;
+        PlatformBindingStatus before = binding.getBindingStatus();
+        binding.startVerification();
+        historyRepository.save(PlatformBindingHistory.record(binding, before, reasonCode, null, sourceSystem, null, LocalDateTime.now(clock)));
+        return binding;
+    }
+
+    public PlatformAccountBinding rejectVerification(PlatformAccountBinding binding, String rejectionCode,
+                                                     String rejectionReason, String sourceSystem) {
+        PlatformBindingStatus before = binding.getBindingStatus();
+        binding.reject(rejectionCode, rejectionReason, sourceSystem);
+        historyRepository.save(PlatformBindingHistory.record(binding, before, rejectionCode, rejectionReason,
+                sourceSystem, null, LocalDateTime.now(clock)));
         return binding;
     }
 
@@ -178,8 +197,8 @@ public class PlatformLifecycleService {
     private String normalizePlatformUserId(String platform, String value) {
         if (value == null || !value.trim().matches("^[0-9]{5,32}$")) throw new IllegalArgumentException("platform user id must be numeric");
         String normalized = value.trim();
-        if ("TIMO".equals(platform) && !normalized.matches("^[0-9]{12}$")) {
-            throw new IllegalArgumentException("Timo id must be exactly 12 digits");
+        if ("TIMO".equals(platform) && !normalized.matches("^[1-9][0-9]{11}$")) {
+            throw new IllegalArgumentException("Timo id must be exactly 12 digits and cannot start with zero");
         }
         return normalized;
     }

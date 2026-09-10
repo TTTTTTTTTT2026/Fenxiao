@@ -73,12 +73,42 @@ class PlatformLifecycleServiceTest {
     }
 
     @Test
-    void shouldRequireExactlyTwelveDigitsForTimoId() {
+    void shouldAcceptAnOfficialJoinTimeExactlyTwentyFourHoursFromSubmission() {
+        var root = bindingService.createProfile(71400L, "BR", "pt-br", null);
+        var user = bindingService.createProfile(71401L, "BR", "pt-br", root.getInviteCode());
+        var submitted = lifecycleService.submit(user.getUserId(), "TIMO", "123456789013");
+
+        var verified = lifecycleService.verify(new VerifyPlatformBindingRequest(
+                "TIMO", "123456789013", false, true, "TIMO_BR", submitted.getSubmittedAt().plusHours(24),
+                "MCN_TOOL", "verification-24-hours"));
+
+        assertThat(verified.getBindingStatus()).isEqualTo(PlatformBindingStatus.VERIFIED);
+    }
+
+    @Test
+    void shouldRejectAnOfficialJoinTimeMoreThanTwentyFourHoursFromSubmission() {
+        var root = bindingService.createProfile(71500L, "BR", "pt-br", null);
+        var user = bindingService.createProfile(71501L, "BR", "pt-br", root.getInviteCode());
+        var submitted = lifecycleService.submit(user.getUserId(), "TIMO", "123456789014");
+
+        var rejected = lifecycleService.verify(new VerifyPlatformBindingRequest(
+                "TIMO", "123456789014", false, true, "TIMO_BR", submitted.getSubmittedAt().plusHours(24).plusSeconds(1),
+                "MCN_TOOL", "verification-outside-24-hours"));
+
+        assertThat(rejected.getBindingStatus()).isEqualTo(PlatformBindingStatus.REJECTED);
+        assertThat(rejected.getRejectionCode()).isEqualTo("JOIN_TIME_WINDOW_EXCEEDED");
+    }
+
+    @Test
+    void shouldRequireANonZeroTwelveDigitTimoId() {
         var root = bindingService.createProfile(71300L, "BR", "pt-br", null);
         var user = bindingService.createProfile(71301L, "BR", "pt-br", root.getInviteCode());
 
         assertThatThrownBy(() -> lifecycleService.submit(user.getUserId(), "TIMO", "12345678"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Timo id must be exactly 12 digits");
+                .hasMessage("Timo id must be exactly 12 digits and cannot start with zero");
+        assertThatThrownBy(() -> lifecycleService.submit(user.getUserId(), "TIMO", "012345678901"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Timo id must be exactly 12 digits and cannot start with zero");
     }
 }

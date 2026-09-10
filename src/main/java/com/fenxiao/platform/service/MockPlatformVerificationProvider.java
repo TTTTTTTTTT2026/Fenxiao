@@ -1,6 +1,7 @@
 package com.fenxiao.platform.service;
 
 import com.fenxiao.platform.domain.PlatformVerificationSource;
+import com.fenxiao.platform.domain.PlatformVerificationOutcome;
 import com.fenxiao.platform.entity.PlatformVerificationMock;
 import com.fenxiao.platform.repository.PlatformVerificationMockRepository;
 import org.springframework.context.annotation.Profile;
@@ -21,13 +22,16 @@ public class MockPlatformVerificationProvider implements PlatformVerificationPro
     public PlatformVerificationSource source() { return PlatformVerificationSource.MOCK; }
 
     @Override
-    public PlatformVerificationResult verify(String platformCode, String platformUserId) {
-        PlatformVerificationMock mock = mocks.findByPlatformCodeAndPlatformUserId(normalizePlatform(platformCode), normalizeId(platformUserId))
+    public PlatformVerificationResult verify(PlatformVerificationRequest request) {
+        PlatformVerificationMock mock = mocks.findByPlatformCodeAndPlatformUserId(normalizePlatform(request.platformCode()), normalizeId(request.platformUserId()))
                 .filter(PlatformVerificationMock::isEnabled)
                 .orElseThrow(() -> new IllegalStateException("no enabled local mock verification record exists for this platform account"));
-        return new PlatformVerificationResult(mock.isGloballySeenBeforeSubmission(), mock.isJoinedTargetGuild(),
-                mock.getOfficialGuildId(), mock.getOfficialJoinedAt(), "LOCAL_MOCK",
-                mock.getSourceReference() == null ? "mock:" + mock.getId() : mock.getSourceReference());
+        return new PlatformVerificationResult(
+                mock.isJoinedTargetGuild() ? PlatformVerificationOutcome.FOUND : PlatformVerificationOutcome.NOT_FOUND,
+                mock.isGloballySeenBeforeSubmission(), mock.isJoinedTargetGuild(), mock.getOfficialGuildId(),
+                mock.getOfficialJoinedAt(), "LOCAL_MOCK",
+                mock.getSourceReference() == null ? "mock:" + mock.getId() : mock.getSourceReference(),
+                null, null, null, null, null, false);
     }
 
     private String normalizePlatform(String value) { return value.trim().toUpperCase(Locale.ROOT); }
