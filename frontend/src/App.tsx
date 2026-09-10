@@ -4538,10 +4538,10 @@ function AccountPage() {
               <dl><div><dt>{copy.country}</dt><dd>{session.countryCode}</dd></div><div><dt>{copy.language}</dt><dd>{session.languageCode}</dd></div></dl>
             </section>
             <section className="consumer-settings-card consumer-platform-card">
-              <div className="consumer-platform-card-head"><span className="consumer-platform-icon"><LinkSimple weight="bold" aria-hidden="true" /></span><div><h2>{copy.platform}</h2><p>{copy.linkyHint}</p></div></div>
+              <div className="consumer-platform-card-head"><span className="consumer-platform-icon"><LinkSimple weight="bold" aria-hidden="true" /></span><div><h2>{copy.platform}</h2></div></div>
               <div className="consumer-platform-account-list">
-                <div className="consumer-platform-account-row"><div><strong>{copy.linkyTitle}</strong><p>{copy.linkyHint}</p></div><a className="consumer-secondary-link" href="/account/linky">{copy.bindLinky}<ArrowRight weight="bold" aria-hidden="true" /></a></div>
-                <div className="consumer-platform-account-row"><div><strong>{timoCopy.open}</strong><p>{timoCopy.summary}</p></div><a className="consumer-secondary-link" href="/account/timo">{timoCopy.open}<ArrowRight weight="bold" aria-hidden="true" /></a></div>
+                <div className="consumer-platform-account-row"><div><strong>{copy.linkyTitle}</strong></div><a className="consumer-secondary-link" href="/account/linky">{copy.bindLinky}<ArrowRight weight="bold" aria-hidden="true" /></a></div>
+                <div className="consumer-platform-account-row"><div><strong>{timoCopy.open}</strong></div><a className="consumer-secondary-link" href="/account/timo">{timoCopy.open}<ArrowRight weight="bold" aria-hidden="true" /></a></div>
               </div>
             </section>
             <section className="consumer-settings-card consumer-security-card">

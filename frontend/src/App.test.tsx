@@ -97,6 +97,8 @@ describe('App external landing pages', () => {
     expect(markup).toContain('绑定平台账号')
     expect(markup).toContain('绑定 Linky 账号')
     expect(markup).toContain('绑定 Timo 账号')
+    expect(markup).not.toContain('绑定后，平台数据才能归入当前账户并进入奖励计算。')
+    expect(markup).not.toContain('使用官方 12 位 Timo ID 完成归属核验。')
     expect(markup).toContain('href="/account/timo"')
     expect(markup).toContain('<a class="consumer-secondary-link" href="/account/timo"')
     expect(markup).not.toContain('<a class="consumer-primary-link" href="/account/timo"')

@@ -3350,10 +3350,12 @@ code {
   display: grid;
   gap: 4px;
   min-width: 0;
+  align-self: center;
 }
 
 .consumer-platform-account-row strong {
   color: #17243e;
+  line-height: 1.4;
 }
 
 .consumer-platform-account-row p {
