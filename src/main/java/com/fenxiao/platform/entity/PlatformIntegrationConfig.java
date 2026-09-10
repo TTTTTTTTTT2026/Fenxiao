@@ -36,4 +36,19 @@ public class PlatformIntegrationConfig {
     public String getRevenueIngestionMode() { return revenueIngestionMode; }
     public String getRewardMode() { return rewardMode; }
     public boolean isEnabled() { return enabled; }
+
+    public static PlatformIntegrationConfig create(String platformCode, String displayName, String primaryAccountIdentifier,
+                                                   String accountIdentifierNote, String mcnIntegrationStatus,
+                                                   String revenueIngestionMode, String rewardMode, boolean enabled) {
+        PlatformIntegrationConfig value = new PlatformIntegrationConfig();
+        value.platformCode = platformCode;
+        value.displayName = displayName;
+        value.primaryAccountIdentifier = primaryAccountIdentifier;
+        value.accountIdentifierNote = accountIdentifierNote;
+        value.mcnIntegrationStatus = mcnIntegrationStatus;
+        value.revenueIngestionMode = revenueIngestionMode;
+        value.rewardMode = rewardMode;
+        value.enabled = enabled;
+        return value;
+    }
 }

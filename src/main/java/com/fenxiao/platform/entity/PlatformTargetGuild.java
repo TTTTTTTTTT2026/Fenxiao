@@ -34,4 +34,16 @@ public class PlatformTargetGuild {
     public String getOfficialGuildSid() { return officialGuildSid; }
     public String getGuildName() { return guildName; }
     public boolean isEnabled() { return enabled; }
+
+    public static PlatformTargetGuild create(String platformCode, String countryCode, String officialGuildId,
+                                             String officialGuildSid, String guildName, boolean enabled) {
+        PlatformTargetGuild value = new PlatformTargetGuild();
+        value.platformCode = platformCode;
+        value.countryCode = countryCode;
+        value.officialGuildId = officialGuildId;
+        value.officialGuildSid = officialGuildSid;
+        value.guildName = guildName;
+        value.enabled = enabled;
+        return value;
+    }
 }

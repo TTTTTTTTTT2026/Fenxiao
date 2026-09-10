@@ -1901,6 +1901,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   </InfoCard>
                 ))}
                 {!platformIntegrations ? <EmptyState title="平台配置待加载" description="进入本页会自动加载；也可以点击刷新配置。" /> : null}
+                {platformIntegrations?.length === 0 ? <EmptyState title="尚未初始化平台配置" description="本地环境请重启后端完成初始配置；生产环境请检查数据库迁移是否完成。" /> : null}
               </div>
             </PanelSection>
           ) : null}

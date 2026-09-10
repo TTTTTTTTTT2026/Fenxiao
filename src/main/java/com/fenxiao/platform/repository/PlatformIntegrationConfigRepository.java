@@ -7,4 +7,8 @@ import java.util.List;
 
 public interface PlatformIntegrationConfigRepository extends JpaRepository<PlatformIntegrationConfig, String> {
     List<PlatformIntegrationConfig> findAllByOrderByPlatformCodeAsc();
+
+    default void saveIfAbsent(PlatformIntegrationConfig config) {
+        if (!existsById(config.getPlatformCode())) save(config);
+    }
 }
