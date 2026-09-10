@@ -447,6 +447,16 @@ describe('Earnings landing page', () => {
     expect(markup).not.toContain('class="consumer-bottom-nav"')
   })
 
+  it('lists Timo as a shadow-only platform option in the operations console', () => {
+    window.location.pathname = '/admin'
+    window.location.hash = '#admin-settings'
+
+    const markup = renderToStaticMarkup(<ConsoleApp initialViewMode="admin" initialAdminSession={superAdminTestSession} />)
+
+    expect(markup).toContain('Timo（影子接入）')
+    expect(markup).toContain('平台接入')
+  })
+
   it('keeps team income available in a compact disclosure', () => {
     const markup = renderToStaticMarkup(<App />)
 

@@ -894,6 +894,19 @@ class DistributionMvpAdminControllerTest {
                 .anyMatch(log -> "VIEW_SEED_INVITER_LIST".equals(log.getActionName()));
     }
 
+    @Test
+    void shouldExposeSeededPlatformIntegrationConfiguration() throws Exception {
+        mockMvc.perform(get("/admin/platform-integrations")
+                        .header("X-Admin-Session", loginAsAdmin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].platformCode").value("LINKY"))
+                .andExpect(jsonPath("$[0].primaryAccountIdentifier").value("sid"))
+                .andExpect(jsonPath("$[1].platformCode").value("TIMO"))
+                .andExpect(jsonPath("$[1].mcnIntegrationStatus").value("CREDENTIAL_PENDING"))
+                .andExpect(jsonPath("$[1].rewardMode").value("SHADOW_ONLY"))
+                .andExpect(jsonPath("$[1].targetGuilds.length()").value(3));
+    }
+
     private String loginAsAdmin() throws Exception {
         String response = mockMvc.perform(post("/admin/auth/session")
                         .contentType(MediaType.APPLICATION_JSON)

@@ -55,6 +55,7 @@ import {
   getAdminOverview,
   getAdminPhoneVerificationCodeAudit,
   getAdminPhoneVerificationCodes,
+  getAdminPlatformIntegrations,
   getAdminSeedInviters,
   getAdminOwnership,
   getAdminRelation,
@@ -105,6 +106,7 @@ import {
   type OverviewReportResponse,
   type OwnershipDetailResponse,
   type PhoneVerificationCodeListResponse,
+  type PlatformIntegrationResponse,
   type ProfileResponse,
   type RelationDetailResponse,
   type RewardListResponse,
@@ -162,7 +164,7 @@ type AdminAuthState = {
   regionScope?: string
 }
 
-type AdminProductKey = 'ALL' | 'LINKY'
+type AdminProductKey = 'ALL' | 'LINKY' | 'TIMO'
 type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'rewards' | 'accounts' | 'settings'
 type RiskActionName = 'HANDLE' | 'IGNORE' | 'FREEZE_USER' | 'UNFREEZE_USER'
 type WithdrawActionName = 'approve' | 'reject' | 'paid' | 'failed' | 'reverse'
@@ -243,6 +245,7 @@ const LINKY_REPLAY_QUERY_KEY = 'fenxiao-linky-replay-query'
 const ADMIN_PRODUCT_OPTIONS: Array<{ value: AdminProductKey; label: string }> = [
   { value: 'ALL', label: '全部产品' },
   { value: 'LINKY', label: 'Linky' },
+  { value: 'TIMO', label: 'Timo（影子接入）' },
 ]
 const ADMIN_ROLE_OPTIONS = [
   { value: 'super_admin', label: '最高管理员' }, { value: 'admin', label: '管理员' },
@@ -376,7 +379,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [withdrawViewName, setWithdrawViewName] = useState('')
   const [selectedWithdrawViewId, setSelectedWithdrawViewId] = useState('')
   const [adminBindingView, setAdminBindingView] = useState<'users' | 'risks'>('users')
-  const [adminSettingsView, setAdminSettingsView] = useState<'experiment' | 'guilds' | 'advanced' | 'seedInviter' | 'phoneVerification'>('experiment')
+  const [adminSettingsView, setAdminSettingsView] = useState<'experiment' | 'guilds' | 'platforms' | 'advanced' | 'seedInviter' | 'phoneVerification'>('experiment')
+  const [platformIntegrations, setPlatformIntegrations] = useState<PlatformIntegrationResponse[] | null>(null)
   const [experimentCode, setExperimentCode] = useState('BANDEIRA_V1_100')
   const [experimentDashboard, setExperimentDashboard] = useState<ExperimentDashboardResponse | null>(null)
   const [experimentForm, setExperimentForm] = useState({ name: 'BANDEIRA V1 100人实验', primaryMetricCode: 'FIRST_INCOME', enrollmentStartsAt: '', enrollmentEndsAt: '', observationEndsAt: '' })
@@ -1355,6 +1359,19 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     }
   }
 
+  async function loadPlatformIntegrations() {
+    if (!adminSession) return
+    setLoading(true)
+    setError('')
+    try {
+      setPlatformIntegrations(await getAdminPlatformIntegrations(adminSession.sessionToken))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '加载平台接入配置失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   async function handleSaveGuildConfig() {
     if (!adminSession || !guildConfigForm.productCode.trim() || !guildConfigForm.guildId.trim() || !guildConfigForm.guildInviteCode.trim()) return
     setGuildConfigLoading(true)
@@ -1850,10 +1867,42 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             <div className="admin-view-tabs" role="tablist" aria-label="配置分类">
               <button className={adminSettingsView === 'experiment' ? 'is-active' : ''} onClick={() => setAdminSettingsView('experiment')} role="tab" aria-selected={adminSettingsView === 'experiment'}>100 人实验</button>
               <button className={adminSettingsView === 'guilds' ? 'is-active' : ''} onClick={() => setAdminSettingsView('guilds')} role="tab" aria-selected={adminSettingsView === 'guilds'}>公会配置</button>
+              <button className={adminSettingsView === 'platforms' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('platforms'); if (!platformIntegrations) void loadPlatformIntegrations() }} role="tab" aria-selected={adminSettingsView === 'platforms'}>平台接入</button>
               <button className={adminSettingsView === 'advanced' ? 'is-active' : ''} onClick={() => setAdminSettingsView('advanced')} role="tab" aria-selected={adminSettingsView === 'advanced'}>高级接入</button>
               {canManageSeedInviters ? <button className={adminSettingsView === 'seedInviter' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('seedInviter'); if (!seedInviters) void loadSeedInviters() }} role="tab" aria-selected={adminSettingsView === 'seedInviter'}>种子邀请人</button> : null}
               {canAuditPhoneVerification ? <button className={adminSettingsView === 'phoneVerification' ? 'is-active' : ''} onClick={() => setAdminSettingsView('phoneVerification')} role="tab" aria-selected={adminSettingsView === 'phoneVerification'}>验证码审查</button> : null}
             </div>
+          ) : null}
+
+          {activeAdminSection === 'settings' && adminSettingsView === 'platforms' ? (
+            <PanelSection
+              sectionId="admin-platform-integrations"
+              eyebrow="Platform integration"
+              title="平台接入配置"
+              description="平台账号主标识、公会范围和收益处理模式。Timo 当前仅允许保存事实与影子计算，不会触发真实发奖。"
+              action={<button className="primary-btn" onClick={() => void loadPlatformIntegrations()} disabled={loading}>{loading ? '刷新中…' : '刷新配置'}</button>}
+            >
+              <div className="stack-gap">
+                {(platformIntegrations ?? []).map((platform) => (
+                  <InfoCard key={platform.platformCode} title={`${platform.displayName} · ${platform.enabled ? '已启用' : '已停用'}`} tone={platform.platformCode === 'TIMO' ? 'success' : 'neutral'}>
+                    <div className="relation-grid">
+                      <RelationItem label="平台代码" value={platform.platformCode} />
+                      <RelationItem label="账号主标识" value={platform.primaryAccountIdentifier} />
+                      <RelationItem label="MCN 接入状态" value={platform.mcnIntegrationStatus} />
+                      <RelationItem label="收益接入模式" value={platform.revenueIngestionMode} />
+                      <RelationItem label="奖励模式" value={platform.rewardMode} />
+                    </div>
+                    <InlineHint text={platform.accountIdentifierNote} />
+                    <DataTable
+                      headers={['国家', '官方公会 ID', '公会名称', '状态']}
+                      rows={platform.targetGuilds.map((guild) => [guild.countryCode, guild.officialGuildId, guild.guildName, guild.enabled ? '启用' : '停用'])}
+                      emptyText="尚未配置目标公会。"
+                    />
+                  </InfoCard>
+                ))}
+                {!platformIntegrations ? <EmptyState title="平台配置待加载" description="进入本页会自动加载；也可以点击刷新配置。" /> : null}
+              </div>
+            </PanelSection>
           ) : null}
 
           {activeAdminSection === 'settings' ? (

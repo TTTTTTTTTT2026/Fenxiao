@@ -67,6 +67,17 @@ export type AdminAccountResponse = {
   lastLoginAt: string | null; passwordChangedAt: string | null; passwordExpiresAt: string | null; lockedUntil: string | null; activeSessions: number
 }
 export type AdminAccountCreatedResponse = { account: AdminAccountResponse; temporaryPassword: string }
+export type PlatformIntegrationResponse = {
+  platformCode: string
+  displayName: string
+  primaryAccountIdentifier: string
+  accountIdentifierNote: string
+  mcnIntegrationStatus: string
+  revenueIngestionMode: string
+  rewardMode: string
+  enabled: boolean
+  targetGuilds: Array<{ countryCode: string; officialGuildId: string; officialGuildSid: string | null; guildName: string; enabled: boolean }>
+}
 export type AdminDeviceSessionResponse = { id: number; current: boolean; rememberMe: boolean; issuedAt: string; lastSeenAt: string; expiresAt: string; ipAddress: string | null; userAgent: string | null }
 export type AdminSecurityEventResponse = { id: number; accountId: number | null; username: string | null; eventType: string; success: boolean; ipAddress: string | null; userAgent: string | null; detail: string | null; occurredAt: string }
 export type DistributionHomeResponse = {
@@ -806,6 +817,12 @@ export function getAdminSeedInviters(adminSessionToken: string, filters?: { page
   if (filters?.size !== undefined) params.set('size', String(filters.size))
   const query = params.toString()
   return request<SeedInviterListResponse>(`/admin/distribution/seed-inviters${query ? `?${query}` : ''}`, {
+    headers: { 'X-Admin-Session': adminSessionToken },
+  })
+}
+
+export function getAdminPlatformIntegrations(adminSessionToken: string) {
+  return request<PlatformIntegrationResponse[]>('/admin/platform-integrations', {
     headers: { 'X-Admin-Session': adminSessionToken },
   })
 }
