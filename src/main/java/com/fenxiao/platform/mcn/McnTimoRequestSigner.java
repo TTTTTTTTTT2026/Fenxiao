@@ -13,7 +13,7 @@ import java.util.HexFormat;
 
 @Component
 public class McnTimoRequestSigner {
-    public static final String PATH = "/api/external/timo/v2/joined-guild-at/batch-query";
+    public static final String PATH = "/api/external/timo/v3/joined-guild-at/batch-query";
     public static final String SCOPE = "timo.joined_guild_at.read";
     private final ObjectMapper objectMapper;
 

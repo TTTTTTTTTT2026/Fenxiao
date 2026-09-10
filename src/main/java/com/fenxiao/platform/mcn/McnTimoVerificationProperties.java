@@ -11,7 +11,8 @@ public class McnTimoVerificationProperties {
     private String credentialId = "";
     private String hmacSecret = "";
     private Duration connectTimeout = Duration.ofSeconds(10);
-    private Duration requestTimeout = Duration.ofSeconds(25);
+    private Duration requestTimeout = Duration.ofSeconds(50);
+    private int requestsPerMinute = 30;
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -25,6 +26,8 @@ public class McnTimoVerificationProperties {
     public void setConnectTimeout(Duration connectTimeout) { this.connectTimeout = connectTimeout; }
     public Duration getRequestTimeout() { return requestTimeout; }
     public void setRequestTimeout(Duration requestTimeout) { this.requestTimeout = requestTimeout; }
+    public int getRequestsPerMinute() { return requestsPerMinute; }
+    public void setRequestsPerMinute(int requestsPerMinute) { this.requestsPerMinute = requestsPerMinute; }
 
     public boolean isConfigured() {
         return enabled && hasText(baseUrl) && hasText(credentialId) && hasText(hmacSecret);

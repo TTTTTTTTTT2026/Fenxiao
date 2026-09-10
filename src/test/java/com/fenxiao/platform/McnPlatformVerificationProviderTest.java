@@ -18,7 +18,7 @@ class McnPlatformVerificationProviderTest {
     @Test
     void shouldMapAuthoritativeFoundEvidenceWithoutUsingAnUnavailableGlobalSeenFlag() {
         McnTimoVerificationClient client = mock(McnTimoVerificationClient.class);
-        when(client.query("923456789012", "22000448", "Brazil")).thenReturn(new McnTimoBatchResponse(true, "request-1", "TIMO", "2026-09-10T10:00:00Z", List.of(
+        when(client.query("923456789012", "22000448", "Brazil")).thenReturn(new McnTimoBatchResponse(true, "3", "request-1", "TIMO", "2026-09-10T10:00:00Z", List.of(
                 new McnTimoBatchResponse.Result("TIMO", "923456789012", "found",
                         new McnTimoBatchResponse.GuildScope("22000448", "guild-key", "Royal BR", "Brazil"),
                         "CURRENT_ROSTER", "2026-09-10 12:34:56", "2026-09-10T04:34:56Z", "generation-1", "sha256:proof", null))));
@@ -37,7 +37,7 @@ class McnPlatformVerificationProviderTest {
     @Test
     void shouldKeepStaleEvidenceRetryableInsteadOfConvertingItToNotFound() {
         McnTimoVerificationClient client = mock(McnTimoVerificationClient.class);
-        when(client.query("923456789012", "22000448", "Brazil")).thenReturn(new McnTimoBatchResponse(true, "request-2", "TIMO", "2026-09-10T10:00:00Z", List.of(
+        when(client.query("923456789012", "22000448", "Brazil")).thenReturn(new McnTimoBatchResponse(true, "3", "request-2", "TIMO", "2026-09-10T10:00:00Z", List.of(
                 new McnTimoBatchResponse.Result("TIMO", "923456789012", "source_stale",
                         new McnTimoBatchResponse.GuildScope("22000448", "guild-key", "Royal BR", "Brazil"),
                         "STALE", null, "2026-09-09T04:34:56Z", "generation-1", "sha256:proof",

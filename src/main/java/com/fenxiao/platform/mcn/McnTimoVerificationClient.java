@@ -2,6 +2,7 @@ package com.fenxiao.platform.mcn;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -12,6 +13,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.security.SecureRandom;
 import java.time.Clock;
+import java.nio.charset.StandardCharsets;
 import java.util.HexFormat;
 import java.util.UUID;
 
@@ -22,14 +24,26 @@ public class McnTimoVerificationClient {
     private final McnTimoRequestSigner signer;
     private final ObjectMapper objectMapper;
     private final Clock clock;
+    private final McnTimoRequestRateLimiter rateLimiter;
+    private final HttpClient httpClient;
     private final SecureRandom random = new SecureRandom();
 
+    @Autowired
     public McnTimoVerificationClient(McnTimoVerificationProperties properties, McnTimoRequestSigner signer,
-                                     ObjectMapper objectMapper, Clock clock) {
+                                     ObjectMapper objectMapper, Clock clock, McnTimoRequestRateLimiter rateLimiter) {
+        this(properties, signer, objectMapper, clock, rateLimiter,
+                HttpClient.newBuilder().connectTimeout(properties.getConnectTimeout()).build());
+    }
+
+    McnTimoVerificationClient(McnTimoVerificationProperties properties, McnTimoRequestSigner signer,
+                              ObjectMapper objectMapper, Clock clock, McnTimoRequestRateLimiter rateLimiter,
+                              HttpClient httpClient) {
         this.properties = properties;
         this.signer = signer;
         this.objectMapper = objectMapper;
         this.clock = clock;
+        this.rateLimiter = rateLimiter;
+        this.httpClient = httpClient;
     }
 
     public boolean isConfigured() { return properties.isConfigured(); }
@@ -37,6 +51,9 @@ public class McnTimoVerificationClient {
     public McnTimoBatchResponse query(String subjectId, String expectedGuildId, String expectedCountry) {
         requireConfigured();
         String requestId = UUID.randomUUID().toString();
+        if (!rateLimiter.tryAcquire(properties.getRequestsPerMinute())) {
+            throw new McnTimoTransportException(429, "local_rate_limited", true, requestId);
+        }
         String nonce = nextNonce();
         McnTimoBatchQuery body = new McnTimoBatchQuery("TIMO", "CURRENT_THEN_LIVE",
                 java.util.List.of(new McnTimoBatchQuery.Subject(subjectId, expectedGuildId, expectedCountry)));
@@ -44,7 +61,7 @@ public class McnTimoVerificationClient {
                 clock.instant().getEpochSecond(), nonce, requestId);
         HttpRequest request = HttpRequest.newBuilder(endpoint())
                 .timeout(properties.getRequestTimeout())
-                .header("Content-Type", "application/json")
+                .header("Content-Type", "application/json; charset=utf-8")
                 .header("X-MCN-Credential-Id", signed.credentialId())
                 .header("X-MCN-Scope", McnTimoRequestSigner.SCOPE)
                 .header("X-MCN-Timestamp", Long.toString(signed.timestamp()))
@@ -52,15 +69,18 @@ public class McnTimoVerificationClient {
                 .header("X-Request-Id", signed.requestId())
                 .header("X-Idempotency-Key", signed.requestId())
                 .header("X-MCN-Signature", signed.signature())
-                .POST(HttpRequest.BodyPublishers.ofString(signed.rawBody()))
+                .POST(HttpRequest.BodyPublishers.ofByteArray(signed.rawBody().getBytes(StandardCharsets.UTF_8)))
                 .build();
         try {
-            HttpResponse<String> response = HttpClient.newBuilder().connectTimeout(properties.getConnectTimeout()).build()
-                    .send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new McnTimoTransportException(response.statusCode(), extractErrorCode(response.body()), retryable(response.statusCode()), signed.requestId());
             }
-            return objectMapper.readValue(response.body(), McnTimoBatchResponse.class);
+            McnTimoBatchResponse parsed = objectMapper.readValue(response.body(), McnTimoBatchResponse.class);
+            if (!parsed.ok() || !"3".equals(parsed.apiVersion())) {
+                throw new McnTimoTransportException(502, "mcn_v3_response_invalid", false, signed.requestId());
+            }
+            return parsed;
         } catch (IOException exception) {
             throw new McnTimoTransportException(503, "transport_error", true, signed.requestId());
         } catch (InterruptedException exception) {

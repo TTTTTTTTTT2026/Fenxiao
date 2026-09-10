@@ -31,7 +31,7 @@ BANDEIRA 已确认第一期采用原始规则 A：
 BANDEIRA 将严格按以下方式调用：
 
 ```http
-POST /api/external/timo/v2/joined-guild-at/batch-query
+POST /api/external/timo/v3/joined-guild-at/batch-query
 ```
 
 请提供一个不含生产密钥、不含真实用户信息的 HMAC 验收向量，用于 BANDEIRA 单元测试验证签名实现。请包含：
