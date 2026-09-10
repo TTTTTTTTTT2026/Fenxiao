@@ -13,8 +13,7 @@ BANDEIRA 已完成 Timo 一期的离线接入基础建设：HMAC 签名、请求
 BANDEIRA 自行执行以下时间窗口规则，MCN 只提供可信事实证据：
 
 ```text
-ABS(DATE(joinedGuildAtBj, Asia/Shanghai)
-  - DATE(bindingSubmittedAt, Asia/Shanghai)) <= 1 个自然日
+ABS(joinedGuildAt - bindingSubmittedAt) <= 24 小时
 ```
 
 因此，MCN 不需要替 BANDEIRA 判断通过、拒绝或奖励资格；但 `joinedGuildAtBj` 必须是可信的 Timo 官方正式入会时间。

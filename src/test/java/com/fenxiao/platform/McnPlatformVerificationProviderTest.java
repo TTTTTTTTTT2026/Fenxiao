@@ -29,7 +29,7 @@ class McnPlatformVerificationProviderTest {
         assertThat(result.outcome()).isEqualTo(PlatformVerificationOutcome.FOUND);
         assertThat(result.globallySeenBeforeSubmission()).isFalse();
         assertThat(result.officialGuildId()).isEqualTo("22000448");
-        assertThat(result.officialJoinedAt()).isEqualTo(LocalDateTime.of(2026, 9, 10, 12, 34, 56));
+        assertThat(result.officialJoinedAt()).isEqualTo(LocalDateTime.of(2026, 9, 10, 4, 34, 56));
         assertThat(result.requestId()).isEqualTo("request-1");
         assertThat(result.checksum()).isEqualTo("sha256:proof");
     }

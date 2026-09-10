@@ -8,6 +8,9 @@ import com.fenxiao.platform.mcn.McnTimoVerificationClient;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Locale;
@@ -15,6 +18,7 @@ import java.util.Locale;
 @Component
 public class McnPlatformVerificationProvider implements PlatformVerificationProvider {
     private static final DateTimeFormatter BEIJING_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final ZoneId BEIJING_ZONE = ZoneId.of("Asia/Shanghai");
     private final McnTimoVerificationClient client;
 
     public McnPlatformVerificationProvider(McnTimoVerificationClient client) {
@@ -81,10 +85,11 @@ public class McnPlatformVerificationProvider implements PlatformVerificationProv
     private LocalDateTime parseJoinedAt(String value) {
         if (value == null || value.isBlank()) return null;
         try {
-            return LocalDateTime.parse(value, BEIJING_TIME);
+            return LocalDateTime.parse(value, BEIJING_TIME).atZone(BEIJING_ZONE)
+                    .withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
         } catch (DateTimeParseException ignored) {
             try {
-                return LocalDateTime.parse(value);
+                return OffsetDateTime.parse(value).withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime();
             } catch (DateTimeParseException invalid) {
                 return null;
             }

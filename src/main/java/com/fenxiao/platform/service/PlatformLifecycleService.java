@@ -14,14 +14,15 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 @Service
 @Transactional
 public class PlatformLifecycleService {
+    private static final Duration MAX_BINDING_JOIN_TIME_GAP = Duration.ofHours(24);
     private final PlatformAccountBindingRepository bindingRepository;
     private final PlatformBindingHistoryRepository historyRepository;
     private final PlatformBusinessFactRepository factRepository;
@@ -58,7 +59,7 @@ public class PlatformLifecycleService {
         bindingRepository.findByPlatformCodeAndPlatformUserId(platform, externalId).ifPresent(value -> {
             throw new IllegalStateException("platform id has already been recorded");
         });
-        LocalDateTime now = LocalDateTime.now(clock);
+        LocalDateTime now = LocalDateTime.now(clock).withNano(0);
         PlatformAccountBinding binding = bindingRepository.save(PlatformAccountBinding.submit(userId, platform, externalId, now));
         historyRepository.save(PlatformBindingHistory.record(binding, null, "USER_SUBMITTED", null, "BANDEIRA", userId, now));
         return binding;
@@ -77,9 +78,10 @@ public class PlatformLifecycleService {
         } else if (!request.joinedTargetGuild()) {
             rejectionCode = "NOT_IN_TARGET_GUILD";
             rejectionReason = "platform id is not in the target guild";
-        } else if (Math.abs(ChronoUnit.DAYS.between(binding.getSubmittedAt().toLocalDate(), request.officialJoinedAt().toLocalDate())) > 1) {
-            rejectionCode = "JOIN_DATE_MISMATCH";
-            rejectionReason = "official guild join date is outside the submission date tolerance";
+        } else if (Duration.between(binding.getSubmittedAt(), request.officialJoinedAt()).abs()
+                .compareTo(MAX_BINDING_JOIN_TIME_GAP) > 0) {
+            rejectionCode = "JOIN_TIME_WINDOW_EXCEEDED";
+            rejectionReason = "official guild join time is more than 24 hours from the binding submission time";
         }
         LocalDateTime now = LocalDateTime.now(clock);
         if (rejectionCode != null) {
