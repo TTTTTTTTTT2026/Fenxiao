@@ -21,6 +21,7 @@ import com.fenxiao.admin.api.dto.RiskEventListItem;
 import com.fenxiao.admin.api.dto.RiskEventListResponse;
 import com.fenxiao.admin.api.dto.RewardEngineReportResponse;
 import com.fenxiao.admin.api.dto.SeedInviterResponse;
+import com.fenxiao.admin.api.dto.SeedInviterListResponse;
 import com.fenxiao.admin.api.dto.WithdrawRequestActionRequest;
 import com.fenxiao.admin.api.dto.WithdrawRequestItemResponse;
 import com.fenxiao.admin.api.dto.WithdrawRequestListResponse;
@@ -148,6 +149,16 @@ public class DistributionAdminController {
                                                  HttpServletRequest httpServletRequest) {
         var principal = distributionAccessGuard.assertSeedInviterManageAccess(adminToken, adminSessionToken);
         return seedInviterAdminService.create(request, principal, httpServletRequest.getRemoteAddr());
+    }
+
+    @GetMapping("/seed-inviters")
+    public SeedInviterListResponse seedInviters(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
+                                                @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
+                                                @RequestParam(defaultValue = "0") int page,
+                                                @RequestParam(defaultValue = "20") int size,
+                                                HttpServletRequest httpServletRequest) {
+        var principal = distributionAccessGuard.assertSeedInviterManageAccess(adminToken, adminSessionToken);
+        return seedInviterAdminService.list(page, size, principal, httpServletRequest.getRemoteAddr());
     }
 
     @GetMapping("/phone-verification-codes/{id}/reveal")

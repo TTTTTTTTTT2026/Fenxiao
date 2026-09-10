@@ -190,6 +190,23 @@ export type SeedInviterResponse = {
   inviteCode: string
 }
 
+export type SeedInviterListItem = SeedInviterResponse & {
+  accountStatus: string
+  userStatus: string
+  effectiveUser: boolean
+  directInviteeCount: number
+  createdAt: string
+  createdBy: number
+  createdByRole: string
+}
+
+export type SeedInviterListResponse = {
+  items: SeedInviterListItem[]
+  total: number
+  page: number
+  size: number
+}
+
 export type PhoneLoginRequest = {
   phoneNumber: string
   verificationCode: string
@@ -780,6 +797,16 @@ export function createAdminSeedInviter(adminSessionToken: string, payload: {
     method: 'POST',
     headers: { 'X-Admin-Session': adminSessionToken },
     body: JSON.stringify(payload),
+  })
+}
+
+export function getAdminSeedInviters(adminSessionToken: string, filters?: { page?: number; size?: number }) {
+  const params = new URLSearchParams()
+  if (filters?.page !== undefined) params.set('page', String(filters.page))
+  if (filters?.size !== undefined) params.set('size', String(filters.size))
+  const query = params.toString()
+  return request<SeedInviterListResponse>(`/admin/distribution/seed-inviters${query ? `?${query}` : ''}`, {
+    headers: { 'X-Admin-Session': adminSessionToken },
   })
 }
 

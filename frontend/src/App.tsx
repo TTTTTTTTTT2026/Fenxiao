@@ -55,6 +55,7 @@ import {
   getAdminOverview,
   getAdminPhoneVerificationCodeAudit,
   getAdminPhoneVerificationCodes,
+  getAdminSeedInviters,
   getAdminOwnership,
   getAdminRelation,
   getAdminRewards,
@@ -110,6 +111,7 @@ import {
   type RewardSummaryResponse,
   type RiskEventListResponse,
   type SeedInviterResponse,
+  type SeedInviterListResponse,
   type TeamListResponse,
   type TeamWeeklyIncomeResponse,
   type WithdrawHistoryListResponse,
@@ -408,6 +410,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [phoneVerificationQuery, setPhoneVerificationQuery] = useState({ phoneNumber: '', page: '0', size: '20' })
   const [seedInviterForm, setSeedInviterForm] = useState({ phoneNumber: '', countryCode: 'BR', languageCode: 'pt-br' })
   const [createdSeedInviter, setCreatedSeedInviter] = useState<SeedInviterResponse | null>(null)
+  const [seedInviters, setSeedInviters] = useState<SeedInviterListResponse | null>(null)
   const [riskActionDrafts, setRiskActionDrafts] = useState<Record<number, string>>({})
   const [selectedRiskEventIds, setSelectedRiskEventIds] = useState<number[]>([])
   const [riskViews, setRiskViews] = useState(() => loadJsonState<NamedFilterView<RiskQuery>[]>(RISK_VIEWS_KEY) || [])
@@ -923,9 +926,24 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
         languageCode: seedInviterForm.languageCode.trim().toLowerCase(),
       })
       setCreatedSeedInviter(created)
+      await loadSeedInviters()
       setSuccessMessage('种子邀请人已创建。请复制邀请码，用它完成首批用户注册。')
     } catch (err) {
       setError(err instanceof Error ? err.message : '创建种子邀请人失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function loadSeedInviters() {
+    if (!adminSession || !canManageSeedInviters) return
+    setLoading(true)
+    setError('')
+    try {
+      const result = await getAdminSeedInviters(adminSession.sessionToken, { page: 0, size: 50 })
+      setSeedInviters(result)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '加载种子邀请人失败')
     } finally {
       setLoading(false)
     }
@@ -1833,7 +1851,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               <button className={adminSettingsView === 'experiment' ? 'is-active' : ''} onClick={() => setAdminSettingsView('experiment')} role="tab" aria-selected={adminSettingsView === 'experiment'}>100 人实验</button>
               <button className={adminSettingsView === 'guilds' ? 'is-active' : ''} onClick={() => setAdminSettingsView('guilds')} role="tab" aria-selected={adminSettingsView === 'guilds'}>公会配置</button>
               <button className={adminSettingsView === 'advanced' ? 'is-active' : ''} onClick={() => setAdminSettingsView('advanced')} role="tab" aria-selected={adminSettingsView === 'advanced'}>高级接入</button>
-              {canManageSeedInviters ? <button className={adminSettingsView === 'seedInviter' ? 'is-active' : ''} onClick={() => setAdminSettingsView('seedInviter')} role="tab" aria-selected={adminSettingsView === 'seedInviter'}>种子邀请人</button> : null}
+              {canManageSeedInviters ? <button className={adminSettingsView === 'seedInviter' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('seedInviter'); if (!seedInviters) void loadSeedInviters() }} role="tab" aria-selected={adminSettingsView === 'seedInviter'}>种子邀请人</button> : null}
               {canAuditPhoneVerification ? <button className={adminSettingsView === 'phoneVerification' ? 'is-active' : ''} onClick={() => setAdminSettingsView('phoneVerification')} role="tab" aria-selected={adminSettingsView === 'phoneVerification'}>验证码审查</button> : null}
             </div>
           ) : null}
@@ -1931,6 +1949,26 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                     <div className="action-row top-gap"><button className="ghost-btn small-btn" type="button" onClick={() => void handleCopyInviteCode(createdSeedInviter.inviteCode)}>复制邀请码</button></div>
                   </InfoCard>
                 ) : null}
+                <InfoCard title="种子邀请人列表" tone="neutral">
+                  <div className="action-row">
+                    <InlineHint text="仅展示由运营后台创建并留有审计记录的种子邀请人。" />
+                    <button className="ghost-btn small-btn" type="button" onClick={() => void loadSeedInviters()} disabled={loading}>{loading ? '刷新中…' : '刷新列表'}</button>
+                  </div>
+                  <DataTable
+                    headers={['用户 ID', '手机号', '国家 / 默认语言', '邀请码', '直接邀请', '账户状态', '创建信息']}
+                    rows={(seedInviters?.items ?? []).map((item) => [
+                      item.userId,
+                      item.phoneNumber,
+                      `${item.countryCode} / ${item.languageCode}`,
+                      item.inviteCode,
+                      `${item.directInviteeCount} 人${item.effectiveUser ? ' · 已有效' : ''}`,
+                      `${item.accountStatus} / ${item.userStatus}`,
+                      `${formatDateTime(item.createdAt)} · ${item.createdByRole} #${item.createdBy}`,
+                    ])}
+                    emptyText="暂无种子邀请人。创建后会自动出现在这里，也可以点击刷新列表查询历史记录。"
+                  />
+                  {seedInviters ? <InlineHint text={`共 ${seedInviters.total} 位种子邀请人；当前展示最近 ${seedInviters.items.length} 位。`} /> : null}
+                </InfoCard>
               </div>
             </PanelSection>
           ) : null}
