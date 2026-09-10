@@ -29,12 +29,12 @@ class PlatformBindingVerificationServiceTest {
         var timoUser = bindingService.createProfile(78101L, "BR", "pt-br", root.getInviteCode());
         var linkyUser = bindingService.createProfile(78102L, "BR", "pt-br", root.getInviteCode());
         LocalDateTime now = LocalDateTime.now().withNano(0);
-        mocks.save(PlatformVerificationMock.create("TIMO", "90000001", false, true,
+        mocks.save(PlatformVerificationMock.create("TIMO", "900000000001", false, true,
                 "22000448", now, "local-timo-verify", true));
         mocks.save(PlatformVerificationMock.create("LINKY", "90000002", false, true,
                 "BR_LINKY_1", now, "local-linky-verify", true));
 
-        lifecycleService.submit(timoUser.getUserId(), "TIMO", "90000001");
+        lifecycleService.submit(timoUser.getUserId(), "TIMO", "900000000001");
         lifecycleService.submit(linkyUser.getUserId(), "LINKY", "90000002");
 
         var timo = verificationService.verifySubmittedBinding(timoUser.getUserId(), "TIMO");
@@ -50,9 +50,9 @@ class PlatformBindingVerificationServiceTest {
     void shouldRejectMockRecordThatMarksThePlatformIdAsPreexisting() {
         var root = bindingService.createProfile(78200L, "BR", "pt-br", null);
         var user = bindingService.createProfile(78201L, "BR", "pt-br", root.getInviteCode());
-        mocks.save(PlatformVerificationMock.create("TIMO", "90000003", true, true,
+        mocks.save(PlatformVerificationMock.create("TIMO", "900000000003", true, true,
                 "22000448", LocalDateTime.now(), "local-preexisting", true));
-        lifecycleService.submit(user.getUserId(), "TIMO", "90000003");
+        lifecycleService.submit(user.getUserId(), "TIMO", "900000000003");
 
         var result = verificationService.verifySubmittedBinding(user.getUserId(), "TIMO");
 

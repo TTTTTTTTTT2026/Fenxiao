@@ -3331,6 +3331,43 @@ code {
   margin-top: 0;
 }
 
+.consumer-platform-card .consumer-platform-account-list {
+  display: grid;
+  gap: 10px;
+}
+
+.consumer-platform-account-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 16px;
+  background: #f7f9fd;
+}
+
+.consumer-platform-account-row > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.consumer-platform-account-row strong {
+  color: #17243e;
+}
+
+.consumer-platform-account-row p {
+  line-height: 1.45;
+}
+
+.consumer-platform-account-row .consumer-primary-link,
+.consumer-platform-account-row .consumer-secondary-link {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
 .consumer-security-card,
 .consumer-security-copy {
   display: flex;
