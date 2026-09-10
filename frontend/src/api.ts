@@ -78,6 +78,20 @@ export type PlatformIntegrationResponse = {
   enabled: boolean
   targetGuilds: Array<{ countryCode: string; officialGuildId: string; officialGuildSid: string | null; guildName: string; enabled: boolean }>
 }
+
+export type PlatformBindingResponse = {
+  id: number
+  userId: number
+  platformCode: string
+  platformUserId: string
+  status: 'SUBMITTED' | 'VERIFYING' | 'VERIFIED' | 'REJECTED' | 'UNBOUND' | string
+  submittedAt: string
+  officialGuildId: string | null
+  officialJoinedAt: string | null
+  rejectionCode: string | null
+  rejectionReason: string | null
+  version: number
+}
 export type PlatformVerificationRuntimeResponse = {
   source: 'MOCK' | 'MCN' | 'DISABLED' | string
   mockManagementEnabled: boolean
@@ -524,6 +538,27 @@ export function registerLinkyAccount(userId: number, accessToken: string, payloa
       'X-Distribution-Token': accessToken,
     },
     body: JSON.stringify(payload),
+  })
+}
+
+export function submitPlatformBinding(userId: number, accessToken: string, payload: { platformCode: string; platformUserId: string }) {
+  return request<PlatformBindingResponse>(`/api/distribution/platform-bindings/${userId}`, {
+    method: 'POST',
+    headers: { 'X-Distribution-Token': accessToken },
+    body: JSON.stringify(payload),
+  })
+}
+
+export function getPlatformBinding(userId: number, accessToken: string, platformCode: string) {
+  return request<PlatformBindingResponse>(`/api/distribution/platform-bindings/${userId}/${encodeURIComponent(platformCode)}`, {
+    headers: { 'X-Distribution-Token': accessToken },
+  })
+}
+
+export function verifyPlatformBinding(userId: number, accessToken: string, platformCode: string) {
+  return request<PlatformBindingResponse>(`/api/distribution/platform-bindings/${userId}/${encodeURIComponent(platformCode)}/verify`, {
+    method: 'POST',
+    headers: { 'X-Distribution-Token': accessToken },
   })
 }
 

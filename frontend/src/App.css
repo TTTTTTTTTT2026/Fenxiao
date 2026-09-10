@@ -3331,6 +3331,69 @@ code {
   margin-top: 0;
 }
 
+.consumer-platform-card .consumer-platform-account-list {
+  display: grid;
+  gap: 10px;
+}
+
+.consumer-platform-account-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 16px;
+  background: #f7f9fd;
+}
+
+.consumer-platform-account-row > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  align-self: center;
+}
+
+.consumer-platform-account-row strong {
+  color: #17243e;
+  line-height: 1.4;
+}
+
+.consumer-platform-account-row p {
+  line-height: 1.45;
+}
+
+.consumer-platform-account-row .consumer-primary-link,
+.consumer-platform-account-row .consumer-secondary-link {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 148px;
+  min-height: 42px;
+  margin: 0;
+  padding: 0 15px;
+  gap: 6px;
+  border: 1px solid rgba(240, 90, 32, 0.25);
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(170, 83, 44, 0.09);
+  color: #d84a15;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.consumer-platform-account-row .consumer-secondary-link svg {
+  width: 16px;
+  height: 16px;
+}
+
+@media (max-width: 440px) {
+  .consumer-platform-account-row {
+    grid-template-columns: 1fr;
+  }
+
+  .consumer-platform-account-row .consumer-secondary-link {
+    width: 100%;
+  }
+}
+
 .consumer-security-card,
 .consumer-security-copy {
   display: flex;

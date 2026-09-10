@@ -94,6 +94,33 @@ describe('App external landing pages', () => {
     expect(markup).toContain('账户安全')
     expect(markup).toContain('退出登录')
     expect(markup).toContain('consumer-sign-out-button')
+    expect(markup).toContain('绑定平台账号')
+    expect(markup).toContain('绑定 Linky 账号')
+    expect(markup).toContain('绑定 Timo 账号')
+    expect(markup).not.toContain('绑定后，平台数据才能归入当前账户并进入奖励计算。')
+    expect(markup).not.toContain('使用官方 12 位 Timo ID 完成归属核验。')
+    expect(markup).toContain('href="/account/timo"')
+    expect(markup).toContain('<a class="consumer-secondary-link" href="/account/timo"')
+    expect(markup).not.toContain('<a class="consumer-primary-link" href="/account/timo"')
+  })
+
+  it('renders a dedicated Timo binding page with a twelve-digit ID contract', () => {
+    const localStorage = createStorage()
+    localStorage.setItem('fenxiao-web-session', JSON.stringify({
+      userId: 10001, inviteCode: 'ABCD1234', countryCode: 'BR', languageCode: 'pt', accessToken: 'token-1',
+    }))
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: { location: { pathname: '/account/timo', search: '', origin: 'http://127.0.0.1:4173' }, localStorage },
+    })
+
+    const markup = renderToStaticMarkup(<App />)
+
+    expect(markup).toContain('绑定 Timo 账号')
+    expect(markup).toContain('Timo ID（12 位数字）')
+    expect(markup).toContain('pattern="[0-9]{12}"')
+    expect(markup).toContain('maxLength="12"')
+    expect(markup).toContain('consumer-commercial-hero consumer-bind-hero')
   })
 
   it('does not show member navigation on the account page before sign-in', () => {

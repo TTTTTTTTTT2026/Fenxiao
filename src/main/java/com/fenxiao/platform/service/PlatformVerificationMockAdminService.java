@@ -49,7 +49,7 @@ public class PlatformVerificationMockAdminService {
                                                   AdminSessionService.AdminPrincipal actor, String requestIp) {
         mode.requireMockManagement();
         String platform = normalizePlatform(request.platformCode());
-        String account = normalizeAccount(request.platformUserId());
+        String account = normalizeAccount(platform, request.platformUserId());
         PlatformVerificationMock existing = mocks.findByPlatformCodeAndPlatformUserId(platform, account).orElse(null);
         String before = existing == null ? null : snapshot(existing);
         PlatformVerificationMock value;
@@ -72,9 +72,13 @@ public class PlatformVerificationMockAdminService {
         if (value == null || !value.trim().matches("^[A-Za-z][A-Za-z0-9_]{1,31}$")) throw new IllegalArgumentException("platform code is invalid");
         return value.trim().toUpperCase(Locale.ROOT);
     }
-    private String normalizeAccount(String value) {
+    private String normalizeAccount(String platform, String value) {
         if (value == null || !value.trim().matches("^[0-9]{5,32}$")) throw new IllegalArgumentException("platform user id must be numeric");
-        return value.trim();
+        String normalized = value.trim();
+        if ("TIMO".equals(platform) && !normalized.matches("^[0-9]{12}$")) {
+            throw new IllegalArgumentException("Timo id must be exactly 12 digits");
+        }
+        return normalized;
     }
     private String snapshot(PlatformVerificationMock value) {
         return "{\"platformCode\":\"" + value.getPlatformCode() + "\",\"platformUserId\":\"" + value.getPlatformUserId()
