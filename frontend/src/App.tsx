@@ -55,6 +55,9 @@ import {
   getAdminOverview,
   getAdminPhoneVerificationCodeAudit,
   getAdminPhoneVerificationCodes,
+  getAdminPlatformIntegrations,
+  getAdminPlatformVerificationMocks,
+  getAdminPlatformVerificationRuntime,
   getAdminSeedInviters,
   getAdminOwnership,
   getAdminRelation,
@@ -84,6 +87,7 @@ import {
   revokeAdminDeviceSession,
   rejectAdminWithdrawRequest,
   saveAdminGuildConfig,
+  saveAdminPlatformVerificationMock,
   updateAdminAccount,
   enrollExperimentParticipant,
   type AdminWithdrawRequestListResponse,
@@ -105,6 +109,9 @@ import {
   type OverviewReportResponse,
   type OwnershipDetailResponse,
   type PhoneVerificationCodeListResponse,
+  type PlatformIntegrationResponse,
+  type PlatformVerificationMockResponse,
+  type PlatformVerificationRuntimeResponse,
   type ProfileResponse,
   type RelationDetailResponse,
   type RewardListResponse,
@@ -162,7 +169,7 @@ type AdminAuthState = {
   regionScope?: string
 }
 
-type AdminProductKey = 'ALL' | 'LINKY'
+type AdminProductKey = 'ALL' | 'LINKY' | 'TIMO'
 type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'rewards' | 'accounts' | 'settings'
 type RiskActionName = 'HANDLE' | 'IGNORE' | 'FREEZE_USER' | 'UNFREEZE_USER'
 type WithdrawActionName = 'approve' | 'reject' | 'paid' | 'failed' | 'reverse'
@@ -243,6 +250,7 @@ const LINKY_REPLAY_QUERY_KEY = 'fenxiao-linky-replay-query'
 const ADMIN_PRODUCT_OPTIONS: Array<{ value: AdminProductKey; label: string }> = [
   { value: 'ALL', label: '全部产品' },
   { value: 'LINKY', label: 'Linky' },
+  { value: 'TIMO', label: 'Timo（影子接入）' },
 ]
 const ADMIN_ROLE_OPTIONS = [
   { value: 'super_admin', label: '最高管理员' }, { value: 'admin', label: '管理员' },
@@ -376,7 +384,14 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [withdrawViewName, setWithdrawViewName] = useState('')
   const [selectedWithdrawViewId, setSelectedWithdrawViewId] = useState('')
   const [adminBindingView, setAdminBindingView] = useState<'users' | 'risks'>('users')
-  const [adminSettingsView, setAdminSettingsView] = useState<'experiment' | 'guilds' | 'advanced' | 'seedInviter' | 'phoneVerification'>('experiment')
+  const [adminSettingsView, setAdminSettingsView] = useState<'experiment' | 'guilds' | 'platforms' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification'>('experiment')
+  const [platformIntegrations, setPlatformIntegrations] = useState<PlatformIntegrationResponse[] | null>(null)
+  const [platformVerificationRuntime, setPlatformVerificationRuntime] = useState<PlatformVerificationRuntimeResponse | null>(null)
+  const [platformVerificationMocks, setPlatformVerificationMocks] = useState<PlatformVerificationMockResponse[] | null>(null)
+  const [platformVerificationMockForm, setPlatformVerificationMockForm] = useState({
+    platformCode: 'TIMO', platformUserId: '', globallySeenBeforeSubmission: false, joinedTargetGuild: true,
+    officialGuildId: '22000448', officialJoinedAt: '', sourceReference: '', enabled: true,
+  })
   const [experimentCode, setExperimentCode] = useState('BANDEIRA_V1_100')
   const [experimentDashboard, setExperimentDashboard] = useState<ExperimentDashboardResponse | null>(null)
   const [experimentForm, setExperimentForm] = useState({ name: 'BANDEIRA V1 100人实验', primaryMetricCode: 'FIRST_INCOME', enrollmentStartsAt: '', enrollmentEndsAt: '', observationEndsAt: '' })
@@ -468,6 +483,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const currentAdminProductLabel = ADMIN_PRODUCT_OPTIONS.find((item) => item.value === adminProduct)?.label ?? '全部产品'
   const canAuditPhoneVerification = adminSession?.role?.toLowerCase() === 'super_admin'
   const canManageSeedInviters = adminSession?.role?.toLowerCase() === 'super_admin'
+  const canManagePlatformMocks = adminSession?.role?.toLowerCase() === 'super_admin'
   const seedInviterCountry = phoneCountries.find((country) => country.countryCode === seedInviterForm.countryCode) ?? phoneCountries[0]
   const activeAdminProductCode = adminProduct === 'ALL' ? undefined : adminProduct
   const adminSectionLinks = useMemo(() => buildAdminSectionLinks(adminSession?.role), [adminSession?.role])
@@ -1355,6 +1371,68 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     }
   }
 
+  async function loadPlatformIntegrations() {
+    if (!adminSession) return
+    setLoading(true)
+    setError('')
+    try {
+      setPlatformIntegrations(await getAdminPlatformIntegrations(adminSession.sessionToken))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '加载平台接入配置失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function loadPlatformVerificationRuntime(loadMocks = false) {
+    if (!adminSession) return
+    setLoading(true)
+    setError('')
+    try {
+      const runtime = await getAdminPlatformVerificationRuntime(adminSession.sessionToken)
+      setPlatformVerificationRuntime(runtime)
+      if (loadMocks && runtime.mockManagementEnabled && canManagePlatformMocks) {
+        setPlatformVerificationMocks(await getAdminPlatformVerificationMocks(adminSession.sessionToken))
+      } else if (!runtime.mockManagementEnabled) {
+        setPlatformVerificationMocks(null)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '加载平台核验通道失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleSavePlatformVerificationMock(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!adminSession || !canManagePlatformMocks || !platformVerificationRuntime?.mockManagementEnabled) return
+    setLoading(true)
+    setError('')
+    setSuccessMessage('')
+    try {
+      const saved = await saveAdminPlatformVerificationMock(adminSession.sessionToken, {
+        platformCode: platformVerificationMockForm.platformCode.trim().toUpperCase(),
+        platformUserId: platformVerificationMockForm.platformUserId.trim(),
+        globallySeenBeforeSubmission: platformVerificationMockForm.globallySeenBeforeSubmission,
+        joinedTargetGuild: platformVerificationMockForm.joinedTargetGuild,
+        officialGuildId: platformVerificationMockForm.officialGuildId.trim(),
+        officialJoinedAt: new Date(platformVerificationMockForm.officialJoinedAt).toISOString(),
+        sourceReference: platformVerificationMockForm.sourceReference.trim() || undefined,
+        enabled: platformVerificationMockForm.enabled,
+      })
+      setPlatformVerificationMocks((current) => {
+        const existing = current || []
+        return [...existing.filter((item) => item.id !== saved.id), saved]
+          .sort((left, right) => `${left.platformCode}:${left.platformUserId}`.localeCompare(`${right.platformCode}:${right.platformUserId}`))
+      })
+      setSuccessMessage(`本地 Mock 核验记录已保存：${saved.platformCode} / ${saved.platformUserId}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '保存本地 Mock 核验记录失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   async function handleSaveGuildConfig() {
     if (!adminSession || !guildConfigForm.productCode.trim() || !guildConfigForm.guildId.trim() || !guildConfigForm.guildInviteCode.trim()) return
     setGuildConfigLoading(true)
@@ -1850,10 +1928,93 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             <div className="admin-view-tabs" role="tablist" aria-label="配置分类">
               <button className={adminSettingsView === 'experiment' ? 'is-active' : ''} onClick={() => setAdminSettingsView('experiment')} role="tab" aria-selected={adminSettingsView === 'experiment'}>100 人实验</button>
               <button className={adminSettingsView === 'guilds' ? 'is-active' : ''} onClick={() => setAdminSettingsView('guilds')} role="tab" aria-selected={adminSettingsView === 'guilds'}>公会配置</button>
+              <button className={adminSettingsView === 'platforms' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('platforms'); if (!platformIntegrations) void loadPlatformIntegrations(); if (!platformVerificationRuntime) void loadPlatformVerificationRuntime() }} role="tab" aria-selected={adminSettingsView === 'platforms'}>平台接入</button>
+              {canManagePlatformMocks ? <button className={adminSettingsView === 'mockVerification' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('mockVerification'); void loadPlatformVerificationRuntime(true) }} role="tab" aria-selected={adminSettingsView === 'mockVerification'}>本地 Mock 核验</button> : null}
               <button className={adminSettingsView === 'advanced' ? 'is-active' : ''} onClick={() => setAdminSettingsView('advanced')} role="tab" aria-selected={adminSettingsView === 'advanced'}>高级接入</button>
               {canManageSeedInviters ? <button className={adminSettingsView === 'seedInviter' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('seedInviter'); if (!seedInviters) void loadSeedInviters() }} role="tab" aria-selected={adminSettingsView === 'seedInviter'}>种子邀请人</button> : null}
               {canAuditPhoneVerification ? <button className={adminSettingsView === 'phoneVerification' ? 'is-active' : ''} onClick={() => setAdminSettingsView('phoneVerification')} role="tab" aria-selected={adminSettingsView === 'phoneVerification'}>验证码审查</button> : null}
             </div>
+          ) : null}
+
+          {activeAdminSection === 'settings' && adminSettingsView === 'platforms' ? (
+            <PanelSection
+              sectionId="admin-platform-integrations"
+              eyebrow="Platform integration"
+              title="平台接入配置"
+              description="平台账号主标识、公会范围和收益处理模式。Timo 当前仅允许保存事实与影子计算，不会触发真实发奖。"
+              action={<button className="primary-btn" onClick={() => void loadPlatformIntegrations()} disabled={loading}>{loading ? '刷新中…' : '刷新配置'}</button>}
+            >
+              <div className="stack-gap">
+                {platformVerificationRuntime ? <InfoCard title={`核验通道 · ${platformVerificationRuntime.source}`} tone={platformVerificationRuntime.source === 'MOCK' ? 'success' : 'neutral'}>
+                  <div className="relation-grid">
+                    <RelationItem label="有效数据源" value={platformVerificationRuntime.source} />
+                    <RelationItem label="Mock 管理" value={platformVerificationRuntime.mockManagementEnabled ? '可用（仅本地 / 测试）' : '不可用'} />
+                  </div>
+                  <InlineHint text={platformVerificationRuntime.explanation} />
+                </InfoCard> : null}
+                {(platformIntegrations ?? []).map((platform) => (
+                  <InfoCard key={platform.platformCode} title={`${platform.displayName} · ${platform.enabled ? '已启用' : '已停用'}`} tone={platform.platformCode === 'TIMO' ? 'success' : 'neutral'}>
+                    <div className="relation-grid">
+                      <RelationItem label="平台代码" value={platform.platformCode} />
+                      <RelationItem label="账号主标识" value={platform.primaryAccountIdentifier} />
+                      <RelationItem label="MCN 接入状态" value={platform.mcnIntegrationStatus} />
+                      <RelationItem label="收益接入模式" value={platform.revenueIngestionMode} />
+                      <RelationItem label="奖励模式" value={platform.rewardMode} />
+                    </div>
+                    <InlineHint text={platform.accountIdentifierNote} />
+                    <DataTable
+                      headers={['国家', '官方公会 ID', '公会名称', '状态']}
+                      rows={platform.targetGuilds.map((guild) => [guild.countryCode, guild.officialGuildId, guild.guildName, guild.enabled ? '启用' : '停用'])}
+                      emptyText="尚未配置目标公会。"
+                    />
+                  </InfoCard>
+                ))}
+                {!platformIntegrations ? <EmptyState title="平台配置待加载" description="进入本页会自动加载；也可以点击刷新配置。" /> : null}
+                {platformIntegrations?.length === 0 ? <EmptyState title="尚未初始化平台配置" description="本地环境请重启后端完成初始配置；生产环境请检查数据库迁移是否完成。" /> : null}
+              </div>
+            </PanelSection>
+          ) : null}
+
+          {activeAdminSection === 'settings' && canManagePlatformMocks && adminSettingsView === 'mockVerification' ? (
+            <PanelSection
+              sectionId="admin-platform-verification-mock"
+              eyebrow="Local acceptance only"
+              title="本地 Mock 核验数据"
+              description="为 Linky / Timo 建立可重复使用的模拟核验结果。此数据只在本地或测试环境可用，绝不会请求 MCN 或形成真实发奖。"
+              action={<button className="primary-btn" onClick={() => void loadPlatformVerificationRuntime(true)} disabled={loading}>{loading ? '刷新中…' : '刷新记录'}</button>}
+            >
+              <div className="stack-gap">
+                {platformVerificationRuntime ? <InfoCard title={`当前通道：${platformVerificationRuntime.source}`} tone={platformVerificationRuntime.mockManagementEnabled ? 'success' : 'neutral'}>
+                  <InlineHint text={platformVerificationRuntime.explanation} />
+                </InfoCard> : <EmptyState title="核验通道待加载" description="进入本页会读取当前环境的核验通道状态。" />}
+                {platformVerificationRuntime?.mockManagementEnabled ? <>
+                  <InfoCard title="新增或更新模拟账号核验" tone="neutral">
+                    <form className="grid-form compact-form exception-filter-grid" onSubmit={handleSavePlatformVerificationMock}>
+                      <label>平台<select value={platformVerificationMockForm.platformCode} onChange={(event) => setPlatformVerificationMockForm({ ...platformVerificationMockForm, platformCode: event.target.value })}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label>
+                      <label>平台主账号<input required inputMode="numeric" pattern="[0-9]{5,32}" value={platformVerificationMockForm.platformUserId} onChange={(event) => setPlatformVerificationMockForm({ ...platformVerificationMockForm, platformUserId: event.target.value.replace(/\D/g, '') })} placeholder="Timo timo_id / Linky sid" /></label>
+                      <label>官方公会 ID<input required value={platformVerificationMockForm.officialGuildId} onChange={(event) => setPlatformVerificationMockForm({ ...platformVerificationMockForm, officialGuildId: event.target.value })} placeholder="例如 22000448" /></label>
+                      <label>入会时间<input required type="datetime-local" value={platformVerificationMockForm.officialJoinedAt} onChange={(event) => setPlatformVerificationMockForm({ ...platformVerificationMockForm, officialJoinedAt: event.target.value })} /></label>
+                      <label>追踪备注<input value={platformVerificationMockForm.sourceReference} onChange={(event) => setPlatformVerificationMockForm({ ...platformVerificationMockForm, sourceReference: event.target.value })} placeholder="例如 UAT-TIMO-001" /></label>
+                      <label className="checkbox-label"><input type="checkbox" checked={platformVerificationMockForm.joinedTargetGuild} onChange={(event) => setPlatformVerificationMockForm({ ...platformVerificationMockForm, joinedTargetGuild: event.target.checked })} /> 属于目标公会</label>
+                      <label className="checkbox-label"><input type="checkbox" checked={platformVerificationMockForm.globallySeenBeforeSubmission} onChange={(event) => setPlatformVerificationMockForm({ ...platformVerificationMockForm, globallySeenBeforeSubmission: event.target.checked })} /> 模拟为预先已存在账号</label>
+                      <label className="checkbox-label"><input type="checkbox" checked={platformVerificationMockForm.enabled} onChange={(event) => setPlatformVerificationMockForm({ ...platformVerificationMockForm, enabled: event.target.checked })} /> 启用此模拟记录</label>
+                      <button className="primary-btn" type="submit" disabled={loading || !platformVerificationMockForm.platformUserId || !platformVerificationMockForm.officialGuildId || !platformVerificationMockForm.officialJoinedAt}>保存 Mock 核验记录</button>
+                    </form>
+                  </InfoCard>
+                  <InfoCard title="已配置的模拟核验记录" tone="neutral">
+                    <DataTable
+                      headers={['平台', '平台主账号', '目标公会', '入会时间', '模拟结果', '状态', '追踪备注']}
+                      rows={(platformVerificationMocks ?? []).map((item) => [
+                        item.platformCode, item.platformUserId, item.officialGuildId, formatDateTime(item.officialJoinedAt),
+                        item.globallySeenBeforeSubmission ? '预先存在（将拒绝）' : (item.joinedTargetGuild ? '通过' : '不在目标公会（将拒绝）'),
+                        item.enabled ? '启用' : '停用', item.sourceReference || '—',
+                      ])}
+                      emptyText="暂无模拟记录。先创建一个 Timo 或 Linky 平台主账号的核验结果。"
+                    />
+                  </InfoCard>
+                </> : null}
+              </div>
+            </PanelSection>
           ) : null}
 
           {activeAdminSection === 'settings' ? (

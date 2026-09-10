@@ -67,6 +67,33 @@ export type AdminAccountResponse = {
   lastLoginAt: string | null; passwordChangedAt: string | null; passwordExpiresAt: string | null; lockedUntil: string | null; activeSessions: number
 }
 export type AdminAccountCreatedResponse = { account: AdminAccountResponse; temporaryPassword: string }
+export type PlatformIntegrationResponse = {
+  platformCode: string
+  displayName: string
+  primaryAccountIdentifier: string
+  accountIdentifierNote: string
+  mcnIntegrationStatus: string
+  revenueIngestionMode: string
+  rewardMode: string
+  enabled: boolean
+  targetGuilds: Array<{ countryCode: string; officialGuildId: string; officialGuildSid: string | null; guildName: string; enabled: boolean }>
+}
+export type PlatformVerificationRuntimeResponse = {
+  source: 'MOCK' | 'MCN' | 'DISABLED' | string
+  mockManagementEnabled: boolean
+  explanation: string
+}
+export type PlatformVerificationMockResponse = {
+  id: number
+  platformCode: string
+  platformUserId: string
+  globallySeenBeforeSubmission: boolean
+  joinedTargetGuild: boolean
+  officialGuildId: string
+  officialJoinedAt: string
+  sourceReference: string | null
+  enabled: boolean
+}
 export type AdminDeviceSessionResponse = { id: number; current: boolean; rememberMe: boolean; issuedAt: string; lastSeenAt: string; expiresAt: string; ipAddress: string | null; userAgent: string | null }
 export type AdminSecurityEventResponse = { id: number; accountId: number | null; username: string | null; eventType: string; success: boolean; ipAddress: string | null; userAgent: string | null; detail: string | null; occurredAt: string }
 export type DistributionHomeResponse = {
@@ -807,6 +834,41 @@ export function getAdminSeedInviters(adminSessionToken: string, filters?: { page
   const query = params.toString()
   return request<SeedInviterListResponse>(`/admin/distribution/seed-inviters${query ? `?${query}` : ''}`, {
     headers: { 'X-Admin-Session': adminSessionToken },
+  })
+}
+
+export function getAdminPlatformIntegrations(adminSessionToken: string) {
+  return request<PlatformIntegrationResponse[]>('/admin/platform-integrations', {
+    headers: { 'X-Admin-Session': adminSessionToken },
+  })
+}
+
+export function getAdminPlatformVerificationRuntime(adminSessionToken: string) {
+  return request<PlatformVerificationRuntimeResponse>('/admin/platform-verification', {
+    headers: { 'X-Admin-Session': adminSessionToken },
+  })
+}
+
+export function getAdminPlatformVerificationMocks(adminSessionToken: string) {
+  return request<PlatformVerificationMockResponse[]>('/admin/platform-verification/mock-records', {
+    headers: { 'X-Admin-Session': adminSessionToken },
+  })
+}
+
+export function saveAdminPlatformVerificationMock(adminSessionToken: string, payload: {
+  platformCode: string
+  platformUserId: string
+  globallySeenBeforeSubmission: boolean
+  joinedTargetGuild: boolean
+  officialGuildId: string
+  officialJoinedAt: string
+  sourceReference?: string
+  enabled: boolean
+}) {
+  return request<PlatformVerificationMockResponse>('/admin/platform-verification/mock-records', {
+    method: 'POST',
+    headers: { 'X-Admin-Session': adminSessionToken },
+    body: JSON.stringify(payload),
   })
 }
 

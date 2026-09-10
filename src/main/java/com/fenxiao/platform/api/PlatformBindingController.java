@@ -2,6 +2,7 @@ package com.fenxiao.platform.api;
 
 import com.fenxiao.common.security.DistributionAccessGuard;
 import com.fenxiao.platform.dto.*;
+import com.fenxiao.platform.service.PlatformBindingVerificationService;
 import com.fenxiao.platform.service.PlatformLifecycleService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -10,8 +11,10 @@ import org.springframework.web.bind.annotation.*;
 public class PlatformBindingController {
     private final DistributionAccessGuard accessGuard;
     private final PlatformLifecycleService service;
-    public PlatformBindingController(DistributionAccessGuard accessGuard, PlatformLifecycleService service) {
-        this.accessGuard = accessGuard; this.service = service;
+    private final PlatformBindingVerificationService bindingVerificationService;
+    public PlatformBindingController(DistributionAccessGuard accessGuard, PlatformLifecycleService service,
+                                     PlatformBindingVerificationService bindingVerificationService) {
+        this.accessGuard = accessGuard; this.service = service; this.bindingVerificationService = bindingVerificationService;
     }
 
     @PostMapping("/api/distribution/platform-bindings/{userId}")
@@ -35,6 +38,13 @@ public class PlatformBindingController {
                                            @PathVariable Long userId, @PathVariable String platformCode) {
         accessGuard.assertUserAccess(userId, token);
         return PlatformBindingResponse.from(service.getBinding(userId, platformCode));
+    }
+
+    @PostMapping("/api/distribution/platform-bindings/{userId}/{platformCode}/verify")
+    public PlatformBindingResponse verifySubmittedBinding(@RequestHeader("X-Distribution-Token") String token,
+                                                           @PathVariable Long userId, @PathVariable String platformCode) {
+        accessGuard.assertUserAccess(userId, token);
+        return PlatformBindingResponse.from(bindingVerificationService.verifySubmittedBinding(userId, platformCode));
     }
 
     @PostMapping("/internal/distribution/platform-bindings/verify")
