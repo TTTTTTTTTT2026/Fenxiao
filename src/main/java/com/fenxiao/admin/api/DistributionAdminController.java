@@ -50,6 +50,7 @@ import com.fenxiao.distribution.entity.WithdrawRequest;
 import com.fenxiao.distribution.service.DistributionQueryService;
 import com.fenxiao.distribution.service.GuildAccountConfigService;
 import com.fenxiao.distribution.service.LinkyRegistrationEligibilityService;
+import com.fenxiao.distribution.service.LinkyVerificationModeService;
 import com.fenxiao.distribution.service.WithdrawRequestService;
 import com.fenxiao.reward.api.dto.RewardListResponse;
 import com.fenxiao.reward.domain.RewardStatus;
@@ -100,6 +101,7 @@ public class DistributionAdminController {
     private final SeedInviterAdminService seedInviterAdminService;
     private final UserPlatformProfileAdminService userPlatformProfileAdminService;
     private final LinkyInvitationGuildAttributionService linkyInvitationGuildAttributionService;
+    private final LinkyVerificationModeService linkyVerificationModeService;
 
     public DistributionAdminController(RewardCalculationService rewardCalculationService,
                                        DistributionQueryService distributionQueryService,
@@ -119,7 +121,8 @@ public class DistributionAdminController {
                                        PhoneVerificationAuditService phoneVerificationAuditService,
                                        SeedInviterAdminService seedInviterAdminService,
                                        UserPlatformProfileAdminService userPlatformProfileAdminService,
-                                       LinkyInvitationGuildAttributionService linkyInvitationGuildAttributionService) {
+                                       LinkyInvitationGuildAttributionService linkyInvitationGuildAttributionService,
+                                       LinkyVerificationModeService linkyVerificationModeService) {
         this.rewardCalculationService = rewardCalculationService;
         this.distributionQueryService = distributionQueryService;
         this.distributionReportService = distributionReportService;
@@ -139,6 +142,7 @@ public class DistributionAdminController {
         this.seedInviterAdminService = seedInviterAdminService;
         this.userPlatformProfileAdminService = userPlatformProfileAdminService;
         this.linkyInvitationGuildAttributionService = linkyInvitationGuildAttributionService;
+        this.linkyVerificationModeService = linkyVerificationModeService;
     }
 
     @GetMapping("/phone-verification-codes")
@@ -414,6 +418,7 @@ public class DistributionAdminController {
                                                                  @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
                                                                  @PathVariable String linkyAccount) {
         var principal = distributionAccessGuard.assertAdminScopedWriteAccess(adminToken, adminSessionToken, "LINKY", null, null);
+        assertLegacyLinkyProbeMode();
         LinkyAccountBinding binding = linkyRegistrationEligibilityService.refreshEligibilityFromProbe(linkyAccount, principal.accountId());
         return toLinkyEligibilityCheckResponse(binding);
     }
@@ -437,6 +442,7 @@ public class DistributionAdminController {
     public LinkyBatchRefreshResponse batchRefreshLinkyEligibility(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
                                                                   @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken) {
         var principal = distributionAccessGuard.assertAdminScopedWriteAccess(adminToken, adminSessionToken, "LINKY", null, null);
+        assertLegacyLinkyProbeMode();
         LinkyRegistrationEligibilityService.BatchRefreshResult result = linkyRegistrationEligibilityService.refreshAllEligibility(principal.accountId());
         var failures = result.failures().stream()
                 .map(failure -> new LinkyBatchRefreshResponse.FailureItem(
@@ -603,6 +609,13 @@ public class DistributionAdminController {
         return exception.getMessage() == null || exception.getMessage().isBlank()
                 ? "operation failed"
                 : exception.getMessage();
+    }
+
+    private void assertLegacyLinkyProbeMode() {
+        if (linkyVerificationModeService.source() != com.fenxiao.distribution.domain.LinkyVerificationSource.LEGACY) {
+            throw new IllegalStateException("Legacy Linky probe refresh is disabled while the selected verification source is "
+                    + linkyVerificationModeService.source() + ".");
+        }
     }
 
     private LinkyEligibilityCheckResponse toLinkyEligibilityCheckResponse(LinkyAccountBinding binding) {

@@ -23,6 +23,9 @@ management:
         include: health,info
 
 app:
+  linky-verification:
+    # Local acceptance uses data configured in the platform verification mock table, never MCN production data.
+    source: ${LINKY_VERIFICATION_SOURCE:MOCK}
   platform-verification:
     # Local acceptance never reads MCN production data.
     source: MOCK

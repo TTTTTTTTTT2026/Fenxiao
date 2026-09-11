@@ -4,6 +4,8 @@
 
 BANDEIRA 已完成 Timo V3 的最小化生产只读联调与验收。现启动 **Linky P0：账号绑定时的目标公会归属核验**。本文件请求 MCN 提供接口契约、接入条件与受控联调条件，供双方先完成“可绑定 / 不可绑定 / 暂不能判断”的安全闭环。
 
+> 更新说明（2026-09-11）：BANDEIRA 已完成站内 Linky 邀请链归属改造。本版明确区分“MCN 提供的实际平台公会事实”与“BANDEIRA 决定的邀请链目标公会”；MCN 只需按每次请求给出的 `expectedGuildId` 返回权威事实，**不需要也不得推导邀请码关系、上级关系或奖励归属**。
+
 请勿在回复正文、普通邮件、Git、工单、截图、应用日志或示例请求中提供生产 Secret、Token、Cookie、签名原文、真实手机号、邀请码、WhatsApp 或未经授权的平台账号资料。凭据必须独立、安全交付。
 
 ## 一、本期目标与明确边界
@@ -23,26 +25,35 @@ subjectId = sid = BANDEIRA 现有 linky_account
 
 ### 1.2 BANDEIRA 本期业务规则
 
-1. BANDEIRA 会根据邀请码关系确定用户应加入的 Linky 目标公会 `expectedGuildId`。用户完成本站 Linky 核验后，其核验到的实际公会会自动成为该用户未来邀请下级的默认归属；运营可因邀请人换公会而人工覆盖该归属。若邀请链上尚无已核验或人工覆盖的归属，BANDEIRA 才沿上级链继承或使用默认公会兜底。该归属解析完全由 BANDEIRA 负责，MCN 无需维护邀请码或邀请关系。
-2. 只有账号当前属于该 `expectedGuildId` 时，BANDEIRA 才允许完成绑定。
-3. 当前属于其他公会、未加入目标公会或未命中目标范围时，BANDEIRA 不允许完成绑定；可向用户展示其应加入的公会邀请码。
-4. 数据不完整、快照过期、来源异常、限流或无法形成权威结论时，BANDEIRA 必须保持“核验中”或提示稍后重试，**不得自动通过、不得自动发奖**。
-5. 本期不要求 Linky 的“入会时间与绑定提交时间相差不超过 24 小时”规则；该严格 24 小时规则目前仅适用于 Timo。若 Linky 后续需要同类规则，将由 BANDEIRA 另行提出。
-6. 同一个 Linky SID 在 BANDEIRA 只能归属一个用户；发现既有绑定冲突时由 BANDEIRA 拒绝或转人工，MCN 不需要判断奖励归属。
+#### 两类数据必须严格分离
+
+| 数据 | 责任方 | 含义与使用方式 |
+|---|---|---|
+| 实际平台公会事实 | MCN | 某个 Linky SID 在本次权威快照中实际所属的公会、快照时间与证据状态。MCN 不应从 BANDEIRA 接收的邀请码、上级或运营配置推导它。 |
+| 邀请链目标公会 `expectedGuildId` | BANDEIRA | BANDEIRA 在每次绑定提交时自行计算，并随请求传给 MCN。它只是“本次需要核验的目标”，不是 MCN 要保存或反向推导的用户归属。 |
+
+1. BANDEIRA 会根据邀请码关系解析 `expectedGuildId`。优先级为：该直接邀请人的有效人工覆盖归属 → 历史人工专属配置（过渡兼容）→ 该邀请人已核验的实际 Linky 公会 → 沿上级邀请链继续继承 → 系统默认公会。
+2. 用户完成本站 Linky 核验后，BANDEIRA 会把 MCN 返回的实际公会写为该用户未来邀请下级的默认邀请链归属；若运营因邀请人换公会作了人工覆盖，人工覆盖优先，且不会被后续核验静默改写。
+3. 用户尚未完成 Linky 核验时仍可注册和邀请。此时 BANDEIRA 可使用“继承上级”或“系统默认”的兜底目标发起核验，并在本站记录来源为 `FALLBACK_INHERITED` 或 `SYSTEM_DEFAULT`；**兜底只决定本次要查询的目标，不构成通过依据**。
+4. 因此，只有 MCN 能以完整、新鲜且无矛盾的事实确认 SID 当前属于请求内的 `expectedGuildId` 时，BANDEIRA 才允许完成绑定。当前属于其他公会、未加入目标公会或未命中目标范围时，BANDEIRA 不允许完成绑定；可向用户展示应加入的公会邀请码。
+5. 数据不完整、快照过期、来源异常、限流或无法形成权威结论时，BANDEIRA 必须保持“核验中”或提示稍后重试，**不得因邀请链兜底而自动通过、不得自动发奖**。
+6. 本期不要求 Linky 的“入会时间与绑定提交时间相差不超过 24 小时”规则；该严格 24 小时规则目前仅适用于 Timo。若 Linky 后续需要同类规则，将由 BANDEIRA 另行提出。
+7. 同一个 Linky SID 在 BANDEIRA 只能归属一个用户；发现既有绑定冲突时由 BANDEIRA 拒绝或转人工，MCN 不需要判断奖励归属。
 
 ### 1.3 不属于本期范围
 
 - Linky 收益、流水、订单、结算、退款、撤销或收入快照；
 - CRM 写入、用户创建、自动绑定、自动更改邀请码关系；
 - 真实奖励计算、提现、支付或任何资金动作；
+- 解析、保存或同步邀请码、邀请人、邀请链归属、人工覆盖、默认公会与奖励归属；
 - 直接调用 Linky 官方平台或交付其官方凭据；
 - 将 Timo 凭据、接口或数据与 Linky 共用。
 
-## 二、建议的最小只读接口契约
+## 二、已确认的最小只读接口契约
 
-请 MCN 优先提供与 Timo V3 一致的安全与可审计设计；具体 URL 可由 MCN 决定，但请明确版本号且避免未来破坏性变更。
+以下内容已由 MCN 的《Linky P0 生产接入规范》确认，并作为 BANDEIRA 的实现基线。
 
-建议请求语义：
+请求语义：
 
 ```text
 按 Linky SID 批量查询“是否处于指定目标公会”的当前权威事实。
@@ -53,12 +64,10 @@ subjectId = sid = BANDEIRA 现有 linky_account
 ```json
 {
   "platform": "LINKY",
-  "lookupMode": "CURRENT_THEN_LIVE",
   "subjects": [
     {
       "subjectId": "12345678",
-      "expectedGuildId": "BANDEIRA_EXPECTED_GUILD",
-      "expectedCountry": "BR"
+      "expectedGuildId": "39694876"
     }
   ]
 }
@@ -66,18 +75,21 @@ subjectId = sid = BANDEIRA 现有 linky_account
 
 其中：
 
-- `subjectId` 和 `expectedGuildId` 为必填。
-- 若 Linky 的公会范围不依赖国家，请明确 `expectedCountry` 是否应省略、置空或保留为审计维度。
+- 正式 Base URL：`https://mcnserver.timetrade.club`；路径：`POST /api/external/linky/v1/guild-membership/batch-query`；`apiVersion` 固定为 `"1"`。
+- `subjectId` 和 `expectedGuildId` 为必填，均为 8 位纯数字；请求最多 10 个 subject。`expectedCountry` 与 `lookupMode` **不得发送**。
+- `expectedGuildId` 是 BANDEIRA 在**本次请求时**计算出的业务目标。MCN 必须直接按该值查询或比对当前事实；不要缓存它为 SID 的固有属性，也不要尝试以历史请求、用户关系或国家替换该值。
+- `FALLBACK_INHERITED`、`SYSTEM_DEFAULT`、`VERIFIED_BINDING`、`ADMIN_OVERRIDE` 等归属来源仅为 BANDEIRA 站内审计字段，**不要求 MCN 接收、保存或在响应中推导**。
+- MCN 服务端固定使用 `LIVE_REQUIRED` 口径；BANDEIRA 不传国家或查询模式。
 - BANDEIRA 每次业务核验会使用新的 Request ID、Idempotency Key、Timestamp、Nonce 与 Signature。
 
-请确认或提出替代的响应字段。每个 subject 至少应返回：
+每个 subject 的响应至少包含：
 
 ```json
 {
   "subjectId": "12345678",
-  "status": "found | not_found | source_stale | error",
+  "status": "found | not_found | error",
   "membershipStatus": "IN_EXPECTED_GUILD | OTHER_GUILD | NOT_IN_TARGET_SCOPE | UNKNOWN",
-  "guildScope": {
+  "observedGuildScope": {
     "guildId": "...",
     "guildName": "..."
   },
@@ -91,10 +103,12 @@ subjectId = sid = BANDEIRA 现有 linky_account
 }
 ```
 
+说明：当 `membershipStatus = IN_EXPECTED_GUILD` 时，`observedGuildScope.guildId` 必须返回实际命中的公会 ID，且应等于请求的 `expectedGuildId`；同时 `snapshotAt`、`sourceGeneration` 和 `checksum` 三项证据必须非空。BANDEIRA 只在这些条件全部满足时保存实际平台事实。若 SID 不在目标公会，MCN 会最小化返回其他公会资料，BANDEIRA 不会尝试推断或放行。
+
 数据最小化要求：
 
 - 当 SID 不在期望公会时，若返回其他公会信息会泄露不必要事实，请 MCN 说明是否只返回 `OTHER_GUILD` 而不返回其他公会名称/ID。
-- `not_found` 只能在目标查询范围完整且快照新鲜时返回；证据不足必须返回 `source_stale` 或 `error`。
+- `not_found` 只能在目标查询范围完整且快照新鲜时返回；证据不足必须以 `membershipStatus = UNKNOWN` 或可重试 `error` 返回。
 - 若同一 SID 同时出现在多个公会或来源互相矛盾，必须返回不可自动通过的非重试错误码，例如 `subject_multiple_guilds`。
 - 请定义 `snapshotAt` 的时区、精度、最大可接受陈旧时间，以及“完整名册”的判定依据。
 
@@ -115,13 +129,13 @@ subjectId = sid = BANDEIRA 现有 linky_account
 
 | 用例 | MCN 应确认的事实 | BANDEIRA 预期处理 |
 |---|---|---|
-| `found` | 8 位 SID 当前在指定目标公会；快照完整、新鲜 | 绑定核验通过 |
+| `found` | 8 位 SID 当前在指定目标公会；快照完整、新鲜，并返回实际命中的公会 ID | 绑定核验通过；BANDEIRA 写入实际公会事实与后续邀请链默认归属 |
 | `other_guild` 或等价事实 | SID 已在非期望公会，或至少能确定未在期望公会 | 拒绝绑定，并展示应加入目标公会的引导 |
 | `not_found` | SID 在完整、新鲜的目标范围内未命中 | 拒绝绑定或按明确规则提示未加入目标公会 |
-| `source_stale` / 可重试 `error` | 不要求在生产制造故障；可由契约/Mock 覆盖 | 保持核验中，按退避重试 |
+| `membershipStatus = UNKNOWN` / 可重试 `error` | 不要求在生产制造故障；可由契约/Mock 覆盖 | 保持核验中，按退避重试 |
 | 不可重试错误 | 例如多公会冲突、主体格式不合规或事实矛盾 | 不自动通过，转人工或明确拒绝 |
 
-每个真实联调请求都将由 BANDEIRA 记录：请求时间、HTTP 状态、MCN 原始小写 `status`、错误码、耗时、快照信息与 `X-Request-Id`。BANDEIRA 不会回传 Secret、完整 Signature、Cookie、Token、手机号、邀请码或未经脱敏的请求 Body。
+每个真实联调请求都将由 BANDEIRA 记录：请求时间、HTTP 状态、请求中的 `expectedGuildId`、MCN 原始小写 `status`、错误码、耗时、快照信息与 `X-Request-Id`。BANDEIRA 不会回传 Secret、完整 Signature、Cookie、Token、手机号、邀请码或未经脱敏的请求 Body。
 
 ## 五、旧 Linky 流程迁移边界
 
@@ -139,7 +153,7 @@ BANDEIRA 当前存在基于旧 OAuth/probe 的 Linky 公会探测与基于旧 we
 2. 正式 Base URL / 接口路径 / API 版本：
 3. 请求与响应字段契约：
 4. 目标公会、国家与名册完整性口径：
-5. 状态、错误码与 retryable 口径：
+5. 状态、错误码与 retryable 口径，以及 `IN_EXPECTED_GUILD` 时实际公会字段的返回保证：
 6. Credential、Scope、签名与安全交付：
 7. 超时、限流、重试与审计查询：
 8. 受控 found / other_guild / not_found 联调样本：
