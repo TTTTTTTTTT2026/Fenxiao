@@ -9,6 +9,7 @@ import com.fenxiao.distribution.repository.DistributionRelationRepository;
 import com.fenxiao.distribution.repository.GuildAccountConfigRepository;
 import com.fenxiao.distribution.repository.LinkyAccountBindingRepository;
 import com.fenxiao.distribution.repository.LinkyInvitationGuildAttributionRepository;
+import com.fenxiao.distribution.repository.LinkyVerificationAttemptRepository;
 import com.fenxiao.platform.entity.PlatformAccountBinding;
 import com.fenxiao.platform.repository.PlatformAccountBindingRepository;
 import com.fenxiao.user.entity.UserDistributionProfile;
@@ -34,19 +35,22 @@ public class UserPlatformProfileAdminService {
     private final PlatformAccountBindingRepository platformBindings;
     private final LinkyInvitationGuildAttributionRepository invitationGuilds;
     private final GuildAccountConfigRepository legacyGuildConfigs;
+    private final LinkyVerificationAttemptRepository linkyVerificationAttempts;
 
     public UserPlatformProfileAdminService(UserDistributionProfileRepository users,
                                            DistributionRelationRepository relations,
                                            LinkyAccountBindingRepository linkyBindings,
                                            PlatformAccountBindingRepository platformBindings,
                                            LinkyInvitationGuildAttributionRepository invitationGuilds,
-                                           GuildAccountConfigRepository legacyGuildConfigs) {
+                                           GuildAccountConfigRepository legacyGuildConfigs,
+                                           LinkyVerificationAttemptRepository linkyVerificationAttempts) {
         this.users = users;
         this.relations = relations;
         this.linkyBindings = linkyBindings;
         this.platformBindings = platformBindings;
         this.invitationGuilds = invitationGuilds;
         this.legacyGuildConfigs = legacyGuildConfigs;
+        this.linkyVerificationAttempts = linkyVerificationAttempts;
     }
 
     public UserPlatformProfileListResponse list(Long userId, int page, int size) {
@@ -75,7 +79,12 @@ public class UserPlatformProfileAdminService {
         if (value == null) return null;
         return new UserPlatformProfileListResponse.PlatformBinding(value.getLinkyAccount(), value.getRegistrationEligibility(),
                 value.getGuildId(), value.getGuildName(), value.getCheckedAt() == null ? null : value.getCheckedAt().toString(),
-                "LEGACY_PROBE", value.getExpectedGuildSource());
+                linkyVerificationAttempts.findFirstByLinkyAccountOrderByIdDesc(value.getLinkyAccount())
+                        .map(attempt -> switch (attempt.getVerificationSource()) {
+                            case "MCN" -> "MCN_LINKY";
+                            case "MOCK" -> "LOCAL_MOCK";
+                            default -> "LEGACY_PROBE";
+                        }).orElse("LEGACY_PROBE"), value.getExpectedGuildSource());
     }
     private UserPlatformProfileListResponse.PlatformBinding timo(PlatformAccountBinding value) {
         if (value == null) return null;

@@ -21,6 +21,7 @@ public class InviteBindingRegistrationService {
     private final DistributionRelationRepository distributionRelationRepository;
     private final UserProductOwnershipService userProductOwnershipService;
     private final LinkyRegistrationEligibilityService linkyRegistrationEligibilityService;
+    private final LinkyBindingVerificationService linkyBindingVerificationService;
     private final LinkyInvitationGuildAttributionService invitationGuildAttributionService;
 
     public InviteBindingRegistrationService(UserDistributionProfileRepository userDistributionProfileRepository,
@@ -28,12 +29,14 @@ public class InviteBindingRegistrationService {
                                             DistributionRelationRepository distributionRelationRepository,
                                             UserProductOwnershipService userProductOwnershipService,
                                             LinkyRegistrationEligibilityService linkyRegistrationEligibilityService,
+                                            LinkyBindingVerificationService linkyBindingVerificationService,
                                             LinkyInvitationGuildAttributionService invitationGuildAttributionService) {
         this.userDistributionProfileRepository = userDistributionProfileRepository;
         this.inviteBindingRegistrationRepository = inviteBindingRegistrationRepository;
         this.distributionRelationRepository = distributionRelationRepository;
         this.userProductOwnershipService = userProductOwnershipService;
         this.linkyRegistrationEligibilityService = linkyRegistrationEligibilityService;
+        this.linkyBindingVerificationService = linkyBindingVerificationService;
         this.invitationGuildAttributionService = invitationGuildAttributionService;
     }
 
@@ -62,7 +65,8 @@ public class InviteBindingRegistrationService {
         }
         LinkyInvitationGuildAttributionService.ResolvedGuild expectedGuild = invitationGuildAttributionService
                 .resolveExpectedGuildForBinding(userId);
-        linkyRegistrationEligibilityService.assertEligibleForExpectedGuild(
+        linkyBindingVerificationService.assertEligibleForExpectedGuild(
+                userId,
                 normalizedLinkyAccount,
                 expectedGuild.guildId(),
                 expectedGuild.guildName(),

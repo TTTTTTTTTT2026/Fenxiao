@@ -40,6 +40,18 @@ fenxiao:
     default-freeze-days: 7
 
 app:
+  linky-verification:
+    # The legacy probe remains the production default until each invitation route is mapped to an active MCN guild.
+    source: ${LINKY_VERIFICATION_SOURCE:LEGACY}
+    mcn:
+      # Disabled by default. A production secret and explicit route mappings are both required before switching to MCN.
+      enabled: ${MCN_LINKY_VERIFICATION_ENABLED:false}
+      base-url: ${MCN_LINKY_BASE_URL:}
+      credential-id: ${MCN_LINKY_CREDENTIAL_ID:}
+      hmac-secret: ${MCN_LINKY_HMAC_SECRET:}
+      connect-timeout: ${MCN_LINKY_CONNECT_TIMEOUT:5s}
+      request-timeout: ${MCN_LINKY_REQUEST_TIMEOUT:60s}
+      requests-per-minute: ${MCN_LINKY_REQUESTS_PER_MINUTE:10}
   platform-verification:
     # Production defaults to MCN. MOCK is rejected unless the local or test profile is active.
     source: ${PLATFORM_VERIFICATION_SOURCE:MCN}
