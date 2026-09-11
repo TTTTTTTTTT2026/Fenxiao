@@ -148,9 +148,9 @@ public class DistributionAdminController {
     @GetMapping("/phone-verification-codes")
     public PhoneVerificationCodeListResponse phoneVerificationCodes(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
                                                                      @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
-                                                                     @RequestParam(required = false) String phoneNumber,
-                                                                     @RequestParam(defaultValue = "0") int page,
-                                                                     @RequestParam(defaultValue = "20") int size,
+                                                                     @RequestParam(name = "phoneNumber", required = false) String phoneNumber,
+                                                                     @RequestParam(name = "page", defaultValue = "0") int page,
+                                                                     @RequestParam(name = "size", defaultValue = "20") int size,
                                                                      HttpServletRequest httpServletRequest) {
         var principal = distributionAccessGuard.assertPhoneVerificationAuditAccess(adminToken, adminSessionToken);
         return phoneVerificationAuditService.list(phoneNumber, page, size, principal, httpServletRequest.getRemoteAddr());
@@ -168,8 +168,8 @@ public class DistributionAdminController {
     @GetMapping("/seed-inviters")
     public SeedInviterListResponse seedInviters(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
                                                 @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
-                                                @RequestParam(defaultValue = "0") int page,
-                                                @RequestParam(defaultValue = "20") int size,
+                                                @RequestParam(name = "page", defaultValue = "0") int page,
+                                                @RequestParam(name = "size", defaultValue = "20") int size,
                                                 HttpServletRequest httpServletRequest) {
         var principal = distributionAccessGuard.assertSeedInviterManageAccess(adminToken, adminSessionToken);
         return seedInviterAdminService.list(page, size, principal, httpServletRequest.getRemoteAddr());
@@ -178,9 +178,9 @@ public class DistributionAdminController {
     @GetMapping("/user-platform-profiles")
     public UserPlatformProfileListResponse userPlatformProfiles(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
                                                                  @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
-                                                                 @RequestParam(required = false) Long userId,
-                                                                 @RequestParam(defaultValue = "0") int page,
-                                                                 @RequestParam(defaultValue = "20") int size) {
+                                                                 @RequestParam(name = "userId", required = false) Long userId,
+                                                                 @RequestParam(name = "page", defaultValue = "0") int page,
+                                                                 @RequestParam(name = "size", defaultValue = "20") int size) {
         distributionAccessGuard.assertAdminAccess(adminToken, adminSessionToken);
         return userPlatformProfileAdminService.list(userId, page, size);
     }
@@ -189,7 +189,7 @@ public class DistributionAdminController {
     public UserPlatformProfileListResponse.InvitationGuild updateLinkyInvitationGuild(
             @RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
             @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
-            @PathVariable Long userId,
+            @PathVariable(name = "userId") Long userId,
             @Valid @RequestBody UpdateLinkyInvitationGuildRequest request,
             HttpServletRequest httpServletRequest) {
         var principal = distributionAccessGuard.assertAdminWriteAccess(adminToken, adminSessionToken);
@@ -203,7 +203,7 @@ public class DistributionAdminController {
     @GetMapping("/phone-verification-codes/{id}/reveal")
     public PhoneVerificationCodeRevealResponse revealPhoneVerificationCode(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
                                                                              @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
-                                                                             @PathVariable long id,
+                                                                             @PathVariable(name = "id") long id,
                                                                              HttpServletRequest httpServletRequest) {
         var principal = distributionAccessGuard.assertPhoneVerificationAuditAccess(adminToken, adminSessionToken);
         return phoneVerificationAuditService.reveal(id, principal, httpServletRequest.getRemoteAddr());
@@ -212,9 +212,9 @@ public class DistributionAdminController {
     @GetMapping("/phone-verification-codes/{id}/audit")
     public AuditLogListResponse phoneVerificationCodeAudit(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
                                                             @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
-                                                            @PathVariable long id,
-                                                            @RequestParam(defaultValue = "0") int page,
-                                                            @RequestParam(defaultValue = "20") int size) {
+                                                            @PathVariable(name = "id") long id,
+                                                            @RequestParam(name = "page", defaultValue = "0") int page,
+                                                            @RequestParam(name = "size", defaultValue = "20") int size) {
         distributionAccessGuard.assertPhoneVerificationAuditAccess(adminToken, adminSessionToken);
         return phoneVerificationAuditService.auditTrail(id, page, size);
     }
@@ -233,8 +233,8 @@ public class DistributionAdminController {
     @GetMapping("/relation/{userId}")
     public RelationDetailResponse relationDetail(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
                                                  @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
-                                                 @PathVariable Long userId,
-                                                 @RequestParam(required = false) String product) {
+                                                 @PathVariable(name = "userId") Long userId,
+                                                 @RequestParam(name = "product", required = false) String product) {
         distributionAccessGuard.assertAdminScopedAccess(adminToken, adminSessionToken, product, null, null);
         return distributionQueryService.getRelationDetail(userId, product);
     }
@@ -242,8 +242,8 @@ public class DistributionAdminController {
     @PostMapping("/relation/{userId}/adjustments")
     public RelationDetailResponse adjustRelation(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
                                                  @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
-                                                 @PathVariable Long userId,
-                                                 @RequestParam(required = false) String product,
+                                                 @PathVariable(name = "userId") Long userId,
+                                                 @RequestParam(name = "product", required = false) String product,
                                                  @Valid @RequestBody ManualRelationAdjustmentRequest request,
                                                  HttpServletRequest httpServletRequest) {
         var principal = distributionAccessGuard.assertAdminAccountManageAccess(adminToken, adminSessionToken);
@@ -261,7 +261,7 @@ public class DistributionAdminController {
     @GetMapping("/ownership/{userId}")
     public OwnershipDetailResponse ownershipDetail(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
                                                    @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
-                                                   @PathVariable Long userId) {
+                                                   @PathVariable(name = "userId") Long userId) {
         distributionAccessGuard.assertAdminAccess(adminToken, adminSessionToken);
         return ownershipAdminService.getOwnership(userId);
     }
@@ -269,7 +269,7 @@ public class DistributionAdminController {
     @PostMapping("/ownership/{userId}/corrections")
     public OwnershipDetailResponse correctOwnership(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
                                                     @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
-                                                    @PathVariable Long userId,
+                                                    @PathVariable(name = "userId") Long userId,
                                                     @Valid @RequestBody ManualOwnershipCorrectionRequest request,
                                                     HttpServletRequest httpServletRequest) {
         var principal = distributionAccessGuard.assertAdminScopedWriteAccess(adminToken, adminSessionToken, request.productCode(), null, null);
@@ -285,13 +285,13 @@ public class DistributionAdminController {
     @GetMapping("/rewards")
     public RewardListResponse listRewards(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
                                           @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
-                                          @RequestParam(required = false) Long beneficiaryUserId,
-                                          @RequestParam(required = false) RewardStatus status,
-                                          @RequestParam(required = false) String product,
-                                          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startAt,
-                                          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endAt,
-                                          @RequestParam(defaultValue = "0") int page,
-                                          @RequestParam(defaultValue = "20") int size) {
+                                          @RequestParam(name = "beneficiaryUserId", required = false) Long beneficiaryUserId,
+                                          @RequestParam(name = "status", required = false) RewardStatus status,
+                                          @RequestParam(name = "product", required = false) String product,
+                                          @RequestParam(name = "startAt", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startAt,
+                                          @RequestParam(name = "endAt", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endAt,
+                                          @RequestParam(name = "page", defaultValue = "0") int page,
+                                          @RequestParam(name = "size", defaultValue = "20") int size) {
         distributionAccessGuard.assertAdminScopedAccess(adminToken, adminSessionToken, product, null, null);
         return rewardCalculationService.getRecentRewards(beneficiaryUserId, status, startAt, endAt, page, size, product);
     }
@@ -299,13 +299,13 @@ public class DistributionAdminController {
     @GetMapping("/risk-events")
     public RiskEventListResponse listRiskEvents(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
                                                 @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
-                                                @RequestParam(required = false) Long userId,
-                                                @RequestParam(required = false) RiskStatus riskStatus,
-                                                @RequestParam(required = false) String product,
-                                                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startAt,
-                                                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endAt,
-                                                @RequestParam(defaultValue = "0") int page,
-                                                @RequestParam(defaultValue = "20") int size) {
+                                                @RequestParam(name = "userId", required = false) Long userId,
+                                                @RequestParam(name = "riskStatus", required = false) RiskStatus riskStatus,
+                                                @RequestParam(name = "product", required = false) String product,
+                                                @RequestParam(name = "startAt", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startAt,
+                                                @RequestParam(name = "endAt", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endAt,
+                                                @RequestParam(name = "page", defaultValue = "0") int page,
+                                                @RequestParam(name = "size", defaultValue = "20") int size) {
         distributionAccessGuard.assertAdminScopedAccess(adminToken, adminSessionToken, product, null, null);
         return riskEventQueryService.getRiskEvents(userId, riskStatus, startAt, endAt, page, size, product);
     }
@@ -313,7 +313,7 @@ public class DistributionAdminController {
     @PostMapping("/risk-events/{riskEventId}/actions")
     public RiskEventListItem applyRiskEventAction(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
                                                   @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
-                                                  @PathVariable Long riskEventId,
+                                                  @PathVariable(name = "riskEventId") Long riskEventId,
                                                   @Valid @RequestBody RiskEventActionRequest request,
                                                   HttpServletRequest httpServletRequest) {
         var principal = distributionAccessGuard.assertAdminWriteAccess(adminToken, adminSessionToken);
@@ -365,9 +365,9 @@ public class DistributionAdminController {
     @GetMapping("/audit-logs")
     public AuditLogListResponse listAuditLogs(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
                                               @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
-                                              @RequestParam(required = false) String moduleName,
-                                              @RequestParam(defaultValue = "0") int page,
-                                              @RequestParam(defaultValue = "20") int size) {
+                                              @RequestParam(name = "moduleName", required = false) String moduleName,
+                                              @RequestParam(name = "page", defaultValue = "0") int page,
+                                              @RequestParam(name = "size", defaultValue = "20") int size) {
         distributionAccessGuard.assertAdminAccess(adminToken, adminSessionToken);
         return auditLogQueryService.getAuditLogs(moduleName, page, size);
     }
@@ -375,12 +375,12 @@ public class DistributionAdminController {
     @GetMapping("/linky-webhook-logs")
     public LinkyWebhookLogListResponse listLinkyWebhookLogs(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
                                                             @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
-                                                            @RequestParam(required = false) String linkyOrderId,
-                                                            @RequestParam(required = false) Long userId,
-                                                            @RequestParam(required = false) String requestStatus,
-                                                            @RequestParam(required = false) String product,
-                                                            @RequestParam(defaultValue = "0") int page,
-                                                            @RequestParam(defaultValue = "20") int size) {
+                                                            @RequestParam(name = "linkyOrderId", required = false) String linkyOrderId,
+                                                            @RequestParam(name = "userId", required = false) Long userId,
+                                                            @RequestParam(name = "requestStatus", required = false) String requestStatus,
+                                                            @RequestParam(name = "product", required = false) String product,
+                                                            @RequestParam(name = "page", defaultValue = "0") int page,
+                                                            @RequestParam(name = "size", defaultValue = "20") int size) {
         distributionAccessGuard.assertAdminScopedAccess(adminToken, adminSessionToken, product, null, null);
         return linkyWebhookLogService.getLogs(linkyOrderId, userId, requestStatus, page, size, product);
     }
@@ -388,11 +388,11 @@ public class DistributionAdminController {
     @GetMapping("/linky-replay-records")
     public LinkyReplayRecordListResponse listLinkyReplayRecords(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
                                                                 @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
-                                                                @RequestParam(required = false) String linkyOrderId,
-                                                                @RequestParam(required = false) Long userId,
-                                                                @RequestParam(required = false) String product,
-                                                                @RequestParam(defaultValue = "0") int page,
-                                                                @RequestParam(defaultValue = "20") int size) {
+                                                                @RequestParam(name = "linkyOrderId", required = false) String linkyOrderId,
+                                                                @RequestParam(name = "userId", required = false) Long userId,
+                                                                @RequestParam(name = "product", required = false) String product,
+                                                                @RequestParam(name = "page", defaultValue = "0") int page,
+                                                                @RequestParam(name = "size", defaultValue = "20") int size) {
         distributionAccessGuard.assertAdminScopedAccess(adminToken, adminSessionToken, product, null, null);
         return linkyReplayRecordService.getRecords(linkyOrderId, userId, page, size, product);
     }
@@ -400,7 +400,7 @@ public class DistributionAdminController {
     @GetMapping("/reports/overview")
     public OverviewReportResponse overview(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
                                            @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
-                                           @RequestParam(required = false) String product) {
+                                           @RequestParam(name = "product", required = false) String product) {
         distributionAccessGuard.assertAdminScopedAccess(adminToken, adminSessionToken, product, null, null);
         return distributionReportService.getOverview(product);
     }
@@ -416,7 +416,7 @@ public class DistributionAdminController {
     @PostMapping("/linky-eligibility-checks/{linkyAccount}/refresh")
     public LinkyEligibilityCheckResponse refreshLinkyEligibility(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
                                                                  @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
-                                                                 @PathVariable String linkyAccount) {
+                                                                 @PathVariable(name = "linkyAccount") String linkyAccount) {
         var principal = distributionAccessGuard.assertAdminScopedWriteAccess(adminToken, adminSessionToken, "LINKY", null, null);
         assertLegacyLinkyProbeMode();
         LinkyAccountBinding binding = linkyRegistrationEligibilityService.refreshEligibilityFromProbe(linkyAccount, principal.accountId());
@@ -457,7 +457,7 @@ public class DistributionAdminController {
     @GetMapping("/guild-configs")
     public java.util.List<GuildConfigResponse> listGuildConfigs(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
                                                                 @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
-                                                                @RequestParam(defaultValue = "LINKY") String product) {
+                                                                @RequestParam(name = "product", defaultValue = "LINKY") String product) {
         distributionAccessGuard.assertAdminScopedAccess(adminToken, adminSessionToken, product, null, null);
         return guildAccountConfigService.list(product).stream().map(c -> new GuildConfigResponse(c.getId(), c.getProductCode(), c.getInviterUserId(), c.getGuildId(), c.getGuildName(), c.getGuildInviteCode(), c.isEnabled())).toList();
     }
@@ -474,9 +474,9 @@ public class DistributionAdminController {
     @GetMapping("/guild-configs/{guildId}/weekly-report")
     public GuildWeeklyReportResponse guildWeeklyReport(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
                                                        @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
-                                                       @PathVariable String guildId,
-                                                       @RequestParam(defaultValue = "LINKY") String product,
-                                                       @RequestParam(defaultValue = "CURRENT") String week) {
+                                                       @PathVariable(name = "guildId") String guildId,
+                                                       @RequestParam(name = "product", defaultValue = "LINKY") String product,
+                                                       @RequestParam(name = "week", defaultValue = "CURRENT") String week) {
         distributionAccessGuard.assertAdminScopedAccess(adminToken, adminSessionToken, product, guildId, null);
         return guildAccountConfigService.weeklyReport(product, guildId, week);
     }
@@ -484,9 +484,9 @@ public class DistributionAdminController {
     @GetMapping("/guild-configs/{guildId}/weekly-report/export")
     public ResponseEntity<byte[]> exportGuildWeeklyReport(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
                                                           @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
-                                                          @PathVariable String guildId,
-                                                          @RequestParam(defaultValue = "LINKY") String product,
-                                                          @RequestParam(defaultValue = "CURRENT") String week) {
+                                                          @PathVariable(name = "guildId") String guildId,
+                                                          @RequestParam(name = "product", defaultValue = "LINKY") String product,
+                                                          @RequestParam(name = "week", defaultValue = "CURRENT") String week) {
         distributionAccessGuard.assertAdminScopedAccess(adminToken, adminSessionToken, product, guildId, null);
         GuildWeeklyReportResponse report = guildAccountConfigService.weeklyReport(product, guildId, week);
         String csv = "productCode,guildId,week,registeredUsers,incomeAmount,rewardAmount\n"
@@ -501,10 +501,10 @@ public class DistributionAdminController {
     @GetMapping("/withdraw-requests")
     public WithdrawRequestListResponse listWithdrawRequests(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
                                                             @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
-                                                            @RequestParam(required = false) Long userId,
-                                                            @RequestParam(required = false) String status,
-                                                            @RequestParam(defaultValue = "0") int page,
-                                                            @RequestParam(defaultValue = "20") int size) {
+                                                            @RequestParam(name = "userId", required = false) Long userId,
+                                                            @RequestParam(name = "status", required = false) String status,
+                                                            @RequestParam(name = "page", defaultValue = "0") int page,
+                                                            @RequestParam(name = "size", defaultValue = "20") int size) {
         distributionAccessGuard.assertAdminAccess(adminToken, adminSessionToken);
         var requestPage = withdrawRequestService.listRequests(userId, status, page, size);
         var items = requestPage.getContent().stream()
@@ -516,7 +516,7 @@ public class DistributionAdminController {
     @PostMapping("/withdraw-requests/{requestNo}/approve")
     public WithdrawRequestItemResponse approveWithdrawRequest(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
                                                               @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
-                                                              @PathVariable String requestNo,
+                                                              @PathVariable(name = "requestNo") String requestNo,
                                                               @RequestBody(required = false) WithdrawRequestActionRequest request) {
         var principal = distributionAccessGuard.assertFinanceAccess(adminToken, adminSessionToken);
         WithdrawRequest withdrawRequest = withdrawRequestService.approveForPayment(
@@ -530,7 +530,7 @@ public class DistributionAdminController {
     @PostMapping("/withdraw-requests/{requestNo}/reject")
     public WithdrawRequestItemResponse rejectWithdrawRequest(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
                                                              @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
-                                                             @PathVariable String requestNo,
+                                                             @PathVariable(name = "requestNo") String requestNo,
                                                              @RequestBody(required = false) WithdrawRequestActionRequest request) {
         var principal = distributionAccessGuard.assertFinanceAccess(adminToken, adminSessionToken);
         WithdrawRequest withdrawRequest = withdrawRequestService.rejectRequest(
@@ -574,8 +574,8 @@ public class DistributionAdminController {
     @GetMapping("/withdraw-requests/export")
     public ResponseEntity<byte[]> exportWithdrawRequests(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
                                                          @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
-                                                         @RequestParam(required = false) Long userId,
-                                                         @RequestParam(required = false) String status) {
+                                                         @RequestParam(name = "userId", required = false) Long userId,
+                                                         @RequestParam(name = "status", required = false) String status) {
         distributionAccessGuard.assertAdminAccess(adminToken, adminSessionToken);
         var requestPage = withdrawRequestService.listRequests(userId, status, 0, 100);
         StringBuilder csv = new StringBuilder("requestNo,userId,amount,status,week,requestedAt\n");
