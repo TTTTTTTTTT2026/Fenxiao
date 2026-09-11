@@ -1,6 +1,7 @@
 package com.fenxiao.platform.entity;
 
 import com.fenxiao.common.entity.BaseEntity;
+import com.fenxiao.platform.service.McnGuildDirectorySnapshot;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -16,15 +17,22 @@ public class PlatformGuildSyncRun extends BaseEntity {
     @Column(name = "upserted_count", nullable = false) private int upsertedCount;
     @Column(name = "missing_count", nullable = false) private int missingCount;
     @Column(name = "source_version", length = 128) private String sourceVersion;
+    @Column(name = "directory_scope", length = 64) private String directoryScope;
+    @Column(name = "snapshot_id", length = 255) private String snapshotId;
+    @Column(name = "snapshot_checksum", length = 255) private String snapshotChecksum;
+    @Column(name = "snapshot_at") private LocalDateTime snapshotAt;
+    @Column(name = "snapshot_expires_at") private LocalDateTime snapshotExpiresAt;
     @Column(name = "started_at", nullable = false) private LocalDateTime startedAt;
     @Column(name = "completed_at") private LocalDateTime completedAt;
     @Column(name = "error_code", length = 128) private String errorCode;
     @Column(name = "error_message", length = 512) private String errorMessage;
     protected PlatformGuildSyncRun() {}
-    public static PlatformGuildSyncRun completed(String runId, String platform, String version, int received, int upserted, int missing, LocalDateTime now) {
-        PlatformGuildSyncRun value = new PlatformGuildSyncRun(); value.runId = runId; value.platformCode = platform;
+    public static PlatformGuildSyncRun completed(String runId, McnGuildDirectorySnapshot snapshot, int received, int upserted, int missing, LocalDateTime now) {
+        PlatformGuildSyncRun value = new PlatformGuildSyncRun(); value.runId = runId; value.platformCode = snapshot.platformCode();
         value.syncStatus = "SUCCESS"; value.snapshotComplete = true; value.receivedCount = received; value.upsertedCount = upserted;
-        value.missingCount = missing; value.sourceVersion = version; value.startedAt = now; value.completedAt = now; return value;
+        value.missingCount = missing; value.sourceVersion = snapshot.snapshotVersion(); value.directoryScope = snapshot.directoryScope();
+        value.snapshotId = snapshot.snapshotId(); value.snapshotChecksum = snapshot.snapshotChecksum(); value.snapshotAt = snapshot.snapshotAt(); value.snapshotExpiresAt = snapshot.snapshotExpiresAt();
+        value.startedAt = now; value.completedAt = now; return value;
     }
     public static PlatformGuildSyncRun failed(String runId, String platform, String errorCode, String errorMessage, LocalDateTime now) {
         PlatformGuildSyncRun value = new PlatformGuildSyncRun(); value.runId = runId; value.platformCode = platform;

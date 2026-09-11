@@ -13,7 +13,9 @@ public class PlatformGuildDirectory extends BaseEntity {
     @Column(name = "external_guild_id", nullable = false, length = 64) private String externalGuildId;
     @Column(name = "guild_name", nullable = false, length = 128) private String guildName;
     @Column(name = "guild_status", nullable = false, length = 32) private String guildStatus;
+    @Column(name = "country", length = 64) private String country;
     @Column(name = "directory_status", nullable = false, length = 32) private String directoryStatus;
+    @Column(name = "mcn_record_updated_at") private LocalDateTime mcnRecordUpdatedAt;
     @Column(name = "official_updated_at") private LocalDateTime officialUpdatedAt;
     @Column(name = "last_seen_at", nullable = false) private LocalDateTime lastSeenAt;
     @Column(name = "last_sync_run_id", nullable = false, length = 64) private String lastSyncRunId;
@@ -26,7 +28,8 @@ public class PlatformGuildDirectory extends BaseEntity {
         value.platformCode = platform; value.externalGuildId = item.guildId(); value.apply(item, runId, now); return value;
     }
     public void apply(McnGuildDirectoryItem item, String runId, LocalDateTime now) {
-        guildName = item.guildName(); guildStatus = item.guildStatus(); directoryStatus = "NORMAL";
+        guildName = item.guildName(); guildStatus = item.guildStatus(); country = item.country(); directoryStatus = "NORMAL";
+        mcnRecordUpdatedAt = item.recordUpdatedAt();
         officialUpdatedAt = item.officialUpdatedAt(); lastSeenAt = now; lastSyncRunId = runId;
         sourceVersion = item.sourceVersion(); joinInstruction = item.joinInstruction(); missingSince = null;
     }
@@ -34,6 +37,7 @@ public class PlatformGuildDirectory extends BaseEntity {
     public Long getId() { return id; } public String getPlatformCode() { return platformCode; }
     public String getExternalGuildId() { return externalGuildId; } public String getGuildName() { return guildName; }
     public String getGuildStatus() { return guildStatus; } public String getDirectoryStatus() { return directoryStatus; }
+    public String getCountry() { return country; } public LocalDateTime getMcnRecordUpdatedAt() { return mcnRecordUpdatedAt; }
     public LocalDateTime getOfficialUpdatedAt() { return officialUpdatedAt; } public LocalDateTime getLastSeenAt() { return lastSeenAt; }
     public String getLastSyncRunId() { return lastSyncRunId; } public String getSourceVersion() { return sourceVersion; }
     public String getJoinInstruction() { return joinInstruction; } public LocalDateTime getMissingSince() { return missingSince; }

@@ -47,7 +47,7 @@ public class PlatformGuildDirectoryService {
         List<PlatformGuildDirectory> absent = repository.findByPlatformCodeAndLastSyncRunIdNot(platform, runId);
         absent.forEach(value -> value.markMissing(now));
         repository.saveAll(absent);
-        syncRuns.save(PlatformGuildSyncRun.completed(runId, platform, snapshot.sourceVersion(), items.size(), upserted, absent.size(), now));
+        syncRuns.save(PlatformGuildSyncRun.completed(runId, snapshot, items.size(), upserted, absent.size(), now));
         return new SyncOutcome(platform, runId, items.size(), upserted, absent.size(), now);
     }
 

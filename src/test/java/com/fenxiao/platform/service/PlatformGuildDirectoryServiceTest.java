@@ -30,13 +30,13 @@ class PlatformGuildDirectoryServiceTest {
     @Test
     void marksOnlyRecordsMissingFromACompleteSnapshot() {
         PlatformGuildDirectory old = PlatformGuildDirectory.seen("LINKY",
-                new McnGuildDirectoryItem("11111111", "Old", "ACTIVE", null, null, null), "older-run", java.time.LocalDateTime.now());
+                new McnGuildDirectoryItem("11111111", "Old", "ACTIVE", null, null, null, null, null), "older-run", java.time.LocalDateTime.now());
         when(directory.findByPlatformCodeAndExternalGuildId("LINKY", "22222222")).thenReturn(Optional.empty());
         when(directory.findByPlatformCodeAndLastSyncRunIdNot(eq("LINKY"), anyString())).thenReturn(List.of(old));
         PlatformGuildDirectoryService service = service();
 
-        var result = service.applyCompleteSnapshot(new McnGuildDirectorySnapshot("LINKY", true, "v2", List.of(
-                new McnGuildDirectoryItem("22222222", "New", "ACTIVE", null, "v2", "JOIN-NEW")
+        var result = service.applyCompleteSnapshot(new McnGuildDirectorySnapshot("LINKY", true, "MCN_MANAGED_GUILDS", "snapshot-1", "v2", "sha256:test", null, null, List.of(
+                new McnGuildDirectoryItem("22222222", "New", "ACTIVE", "Brazil", null, null, "v2", "JOIN-NEW")
         )));
 
         assertThat(result.missingCount()).isEqualTo(1);
@@ -48,7 +48,7 @@ class PlatformGuildDirectoryServiceTest {
     void rejectsPartialSnapshotBeforeAnyDirectoryMutation() {
         PlatformGuildDirectoryService service = service();
 
-        assertThatThrownBy(() -> service.applyCompleteSnapshot(new McnGuildDirectorySnapshot("TIMO", false, "v3", List.of())))
+        assertThatThrownBy(() -> service.applyCompleteSnapshot(new McnGuildDirectorySnapshot("TIMO", false, null, null, "v3", null, null, null, List.of())))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("complete");
 
