@@ -6,6 +6,7 @@ import com.fenxiao.platform.entity.PlatformGuildSyncRun;
 import com.fenxiao.platform.repository.PlatformGuildDirectoryRepository;
 import com.fenxiao.platform.repository.PlatformGuildSyncRunRepository;
 import jakarta.transaction.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -21,6 +22,7 @@ public class PlatformGuildDirectoryService {
     private final PlatformGuildSyncRunRepository syncRuns;
     private final Clock clock;
 
+    @Autowired
     public PlatformGuildDirectoryService(PlatformGuildDirectoryRepository repository, PlatformGuildSyncRunRepository syncRuns) {
         this(repository, syncRuns, Clock.systemUTC());
     }
