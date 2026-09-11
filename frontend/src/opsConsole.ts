@@ -159,6 +159,11 @@ export function buildAdminSectionLinks(role?: string): AdminSectionLink[] {
       href: '#admin-bindings',
     },
     {
+      label: '用户管理',
+      description: '查询用户资料与平台归属。',
+      href: '#admin-users',
+    },
+    {
       label: '收益提现',
       description: '收益记录和提现审批。',
       href: '#admin-rewards',
@@ -181,11 +186,11 @@ export function buildAdminSectionLinks(role?: string): AdminSectionLink[] {
 
   const roleSections: Record<string, string[]> = {
     finance: ['#admin-overview', '#admin-rewards', '#admin-accounts'],
-    operations: ['#admin-overview', '#admin-channel-entries', '#admin-bindings', '#admin-accounts'],
-    operator: ['#admin-overview', '#admin-channel-entries', '#admin-bindings', '#admin-accounts'],
-    customer_support: ['#admin-overview', '#admin-bindings', '#admin-accounts'],
-    mentor: ['#admin-overview', '#admin-bindings', '#admin-accounts'],
-    team_leader: ['#admin-overview', '#admin-bindings', '#admin-accounts'],
+    operations: ['#admin-overview', '#admin-channel-entries', '#admin-bindings', '#admin-users', '#admin-accounts'],
+    operator: ['#admin-overview', '#admin-channel-entries', '#admin-bindings', '#admin-users', '#admin-accounts'],
+    customer_support: ['#admin-overview', '#admin-bindings', '#admin-users', '#admin-accounts'],
+    mentor: ['#admin-overview', '#admin-bindings', '#admin-users', '#admin-accounts'],
+    team_leader: ['#admin-overview', '#admin-bindings', '#admin-users', '#admin-accounts'],
   }
   const visibleSections = roleSections[normalizedRole] ?? ['#admin-overview', '#admin-accounts']
   return links.filter((item) => visibleSections.includes(item.href))

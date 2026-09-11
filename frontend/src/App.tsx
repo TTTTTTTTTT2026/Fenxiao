@@ -177,7 +177,7 @@ type AdminAuthState = {
 }
 
 type AdminProductKey = 'ALL' | 'LINKY' | 'TIMO'
-type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'rewards' | 'accounts' | 'settings'
+type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'users' | 'rewards' | 'accounts' | 'settings'
 type RiskActionName = 'HANDLE' | 'IGNORE' | 'FREEZE_USER' | 'UNFREEZE_USER'
 type WithdrawActionName = 'approve' | 'reject' | 'paid' | 'failed' | 'reverse'
 type WithdrawQuery = { userId: string; status: string; page: string; size: string }
@@ -190,6 +190,7 @@ const ADMIN_SECTION_HASHES: Record<AdminSectionKey, string> = {
   overview: '#admin-overview',
   channel: '#admin-channel-entries',
   bindings: '#admin-bindings',
+  users: '#admin-users',
   rewards: '#admin-rewards',
   accounts: '#admin-accounts',
   settings: '#admin-settings',
@@ -201,7 +202,8 @@ function resolveAdminSectionFromHash(hash?: string): AdminSectionKey {
   if (match) return match[0]
   if (normalized === '#admin-invite-ops') return 'channel'
   if (normalized === '#admin-withdraw-requests') return 'rewards'
-  if (normalized === '#admin-onboarding' || normalized === '#admin-user-facts') return 'settings'
+  if (normalized === '#admin-user-facts' || normalized === '#admin-user-platform-profiles') return 'users'
+  if (normalized === '#admin-onboarding') return 'settings'
   return 'overview'
 }
 
@@ -391,7 +393,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [withdrawViewName, setWithdrawViewName] = useState('')
   const [selectedWithdrawViewId, setSelectedWithdrawViewId] = useState('')
   const [adminBindingView, setAdminBindingView] = useState<'users' | 'risks'>('users')
-  const [adminSettingsView, setAdminSettingsView] = useState<'experiment' | 'guilds' | 'platforms' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification' | 'userPlatforms'>('experiment')
+  const [adminSettingsView, setAdminSettingsView] = useState<'experiment' | 'guilds' | 'platforms' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification'>('experiment')
   const [platformIntegrations, setPlatformIntegrations] = useState<PlatformIntegrationResponse[] | null>(null)
   const [platformVerificationRuntime, setPlatformVerificationRuntime] = useState<PlatformVerificationRuntimeResponse | null>(null)
   const [platformVerificationMocks, setPlatformVerificationMocks] = useState<PlatformVerificationMockResponse[] | null>(null)
@@ -1910,7 +1912,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
       <aside className="admin-sidebar">
         <div className="admin-nav-strip" id="admin-modules" aria-label="后台模块导航">
           {adminSectionLinks.map((item) => (
-            <a key={item.label} className={`admin-nav-chip ${item.href === ADMIN_SECTION_HASHES[activeAdminSection] ? 'is-active' : ''}`} href={item.href} aria-current={item.href === ADMIN_SECTION_HASHES[activeAdminSection] ? 'page' : undefined}>
+            <a key={item.label} className={`admin-nav-chip ${item.href === ADMIN_SECTION_HASHES[activeAdminSection] ? 'is-active' : ''}`} href={item.href} aria-current={item.href === ADMIN_SECTION_HASHES[activeAdminSection] ? 'page' : undefined} onClick={() => { if (item.href === ADMIN_SECTION_HASHES.users && !userPlatformProfiles) void loadUserPlatformProfiles() }}>
               <AdminNavIcon label={item.label} />
               <span>{item.label}</span>
             </a>
@@ -1983,7 +1985,6 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               <button className={adminSettingsView === 'platforms' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('platforms'); if (!platformIntegrations) void loadPlatformIntegrations(); if (!platformVerificationRuntime) void loadPlatformVerificationRuntime() }} role="tab" aria-selected={adminSettingsView === 'platforms'}>平台接入</button>
               {canManagePlatformMocks ? <button className={adminSettingsView === 'mockVerification' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('mockVerification'); void loadPlatformVerificationRuntime(true) }} role="tab" aria-selected={adminSettingsView === 'mockVerification'}>本地 Mock 核验</button> : null}
               <button className={adminSettingsView === 'advanced' ? 'is-active' : ''} onClick={() => setAdminSettingsView('advanced')} role="tab" aria-selected={adminSettingsView === 'advanced'}>高级接入</button>
-              <button className={adminSettingsView === 'userPlatforms' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('userPlatforms'); if (!userPlatformProfiles) void loadUserPlatformProfiles() }} role="tab" aria-selected={adminSettingsView === 'userPlatforms'}>用户平台归属</button>
               {canManageSeedInviters ? <button className={adminSettingsView === 'seedInviter' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('seedInviter'); if (!seedInviters) void loadSeedInviters() }} role="tab" aria-selected={adminSettingsView === 'seedInviter'}>种子邀请人</button> : null}
               {canAuditPhoneVerification ? <button className={adminSettingsView === 'phoneVerification' ? 'is-active' : ''} onClick={() => setAdminSettingsView('phoneVerification')} role="tab" aria-selected={adminSettingsView === 'phoneVerification'}>验证码审查</button> : null}
             </div>
@@ -2187,16 +2188,16 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </PanelSection>
           ) : null}
 
-          {activeAdminSection === 'settings' && adminSettingsView === 'userPlatforms' ? (
+          {activeAdminSection === 'users' ? (
             <PanelSection
-              sectionId="admin-user-platform-profiles"
-              eyebrow="User platform attribution"
-              title="用户平台归属"
-              description="查看用户的实际平台核验事实与 Linky 邀请链归属。人工调整仅改变该用户未来下级的 Linky 目标公会。"
+              sectionId="admin-users"
+              eyebrow="User directory"
+              title="用户信息与平台归属"
+              description="集中查询用户资料、邀请码关系、平台绑定事实与 Linky 邀请链归属。人工调整仅改变该用户未来下级的 Linky 目标公会。"
               action={<button className="primary-btn" onClick={() => void loadUserPlatformProfiles()} disabled={loading}>{loading ? '查询中…' : '查询用户'}</button>}
             >
               <div className="stack-gap">
-                <InfoCard title="查询用户" tone="neutral">
+                <InfoCard title="查询用户信息" tone="neutral">
                   <div className="grid-form compact-form exception-filter-grid">
                     <label>用户 ID（留空查看列表）<input inputMode="numeric" value={userPlatformQuery.userId} onChange={(event) => setUserPlatformQuery({ ...userPlatformQuery, userId: event.target.value.replace(/\D/g, ''), page: '0' })} placeholder="例如 1001" /></label>
                     <label>每页数量<select value={userPlatformQuery.size} onChange={(event) => setUserPlatformQuery({ ...userPlatformQuery, size: event.target.value, page: '0' })}><option value="20">20</option><option value="50">50</option><option value="100">100</option></select></label>
@@ -2896,6 +2897,7 @@ function AdminNavIcon({ label }: { label: string }) {
   if (label === '分销概览') return <House {...props} />
   if (label === '渠道入口') return <Megaphone {...props} />
   if (label === '绑定关系') return <LinkSimple {...props} />
+  if (label === '用户管理') return <IdentificationCard {...props} />
   if (label === '收益提现') return <Wallet {...props} />
   if (label === '账号中心') return <UsersThree {...props} />
   return <GearSix {...props} />
