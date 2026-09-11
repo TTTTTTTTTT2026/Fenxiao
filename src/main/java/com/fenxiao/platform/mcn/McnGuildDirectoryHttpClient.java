@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fenxiao.platform.entity.McnGuildDirectoryItem;
 import com.fenxiao.platform.service.McnGuildDirectoryClient;
 import com.fenxiao.platform.service.McnGuildDirectorySnapshot;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Component;
 import javax.crypto.Mac;
@@ -22,6 +23,7 @@ import java.util.*;
 public class McnGuildDirectoryHttpClient implements McnGuildDirectoryClient {
     private static final String PATH = "/api/external/guild-directory/v1/snapshots/"; private static final String SCOPE = "guild_directory.read";
     private final McnGuildDirectoryProperties properties; private final ObjectMapper json; private final Clock clock; private final HttpClient http; private final SecureRandom random = new SecureRandom();
+    @Autowired
     public McnGuildDirectoryHttpClient(McnGuildDirectoryProperties p, ObjectMapper json, Clock clock) { this(p, json, clock, HttpClient.newBuilder().connectTimeout(p.getConnectTimeout()).build()); }
     McnGuildDirectoryHttpClient(McnGuildDirectoryProperties p, ObjectMapper json, Clock clock, HttpClient http) { this.properties = p; this.json = json; this.clock = clock; this.http = http; }
     @Override public boolean enabled() { return properties.isConfigured(); }
