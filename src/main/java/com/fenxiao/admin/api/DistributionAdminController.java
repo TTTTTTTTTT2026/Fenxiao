@@ -27,6 +27,7 @@ import com.fenxiao.admin.api.dto.WithdrawRequestItemResponse;
 import com.fenxiao.admin.api.dto.WithdrawRequestListResponse;
 import com.fenxiao.admin.api.dto.UserPlatformProfileListResponse;
 import com.fenxiao.admin.api.dto.UpdateLinkyInvitationGuildRequest;
+import com.fenxiao.admin.api.dto.PlatformGuildDirectoryResponse;
 import com.fenxiao.distribution.api.dto.GuildConfigRequest;
 import com.fenxiao.distribution.api.dto.GuildConfigResponse;
 import com.fenxiao.distribution.api.dto.GuildWeeklyReportResponse;
@@ -52,6 +53,7 @@ import com.fenxiao.distribution.service.GuildAccountConfigService;
 import com.fenxiao.distribution.service.LinkyRegistrationEligibilityService;
 import com.fenxiao.distribution.service.LinkyVerificationModeService;
 import com.fenxiao.distribution.service.WithdrawRequestService;
+import com.fenxiao.platform.service.PlatformGuildDirectoryService;
 import com.fenxiao.reward.api.dto.RewardListResponse;
 import com.fenxiao.reward.domain.RewardStatus;
 import com.fenxiao.reward.service.RewardCalculationService;
@@ -102,6 +104,7 @@ public class DistributionAdminController {
     private final UserPlatformProfileAdminService userPlatformProfileAdminService;
     private final LinkyInvitationGuildAttributionService linkyInvitationGuildAttributionService;
     private final LinkyVerificationModeService linkyVerificationModeService;
+    private final PlatformGuildDirectoryService platformGuildDirectoryService;
 
     public DistributionAdminController(RewardCalculationService rewardCalculationService,
                                        DistributionQueryService distributionQueryService,
@@ -122,7 +125,8 @@ public class DistributionAdminController {
                                        SeedInviterAdminService seedInviterAdminService,
                                        UserPlatformProfileAdminService userPlatformProfileAdminService,
                                        LinkyInvitationGuildAttributionService linkyInvitationGuildAttributionService,
-                                       LinkyVerificationModeService linkyVerificationModeService) {
+                                       LinkyVerificationModeService linkyVerificationModeService,
+                                       PlatformGuildDirectoryService platformGuildDirectoryService) {
         this.rewardCalculationService = rewardCalculationService;
         this.distributionQueryService = distributionQueryService;
         this.distributionReportService = distributionReportService;
@@ -143,6 +147,7 @@ public class DistributionAdminController {
         this.userPlatformProfileAdminService = userPlatformProfileAdminService;
         this.linkyInvitationGuildAttributionService = linkyInvitationGuildAttributionService;
         this.linkyVerificationModeService = linkyVerificationModeService;
+        this.platformGuildDirectoryService = platformGuildDirectoryService;
     }
 
     @GetMapping("/phone-verification-codes")
@@ -460,6 +465,24 @@ public class DistributionAdminController {
                                                                 @RequestParam(defaultValue = "LINKY") String product) {
         distributionAccessGuard.assertAdminScopedAccess(adminToken, adminSessionToken, product, null, null);
         return guildAccountConfigService.list(product).stream().map(c -> new GuildConfigResponse(c.getId(), c.getProductCode(), c.getInviterUserId(), c.getGuildId(), c.getGuildName(), c.getGuildInviteCode(), c.isEnabled())).toList();
+    }
+
+    @GetMapping("/platform-guild-directory")
+    public java.util.List<PlatformGuildDirectoryResponse> listPlatformGuildDirectory(
+            @RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
+            @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
+            @RequestParam(name = "platform", defaultValue = "LINKY") String platform) {
+        distributionAccessGuard.assertAdminScopedAccess(adminToken, adminSessionToken, platform, null, null);
+        return platformGuildDirectoryService.list(platform).stream().map(PlatformGuildDirectoryResponse::from).toList();
+    }
+
+    @GetMapping("/platform-guild-directory/sync-runs")
+    public java.util.List<PlatformGuildDirectoryResponse.SyncRun> listPlatformGuildDirectorySyncRuns(
+            @RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
+            @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
+            @RequestParam(name = "platform", defaultValue = "LINKY") String platform) {
+        distributionAccessGuard.assertAdminScopedAccess(adminToken, adminSessionToken, platform, null, null);
+        return platformGuildDirectoryService.recentRuns(platform).stream().map(PlatformGuildDirectoryResponse.SyncRun::from).toList();
     }
 
     @PostMapping("/guild-configs")

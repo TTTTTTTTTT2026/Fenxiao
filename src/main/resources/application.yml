@@ -66,6 +66,16 @@ app:
         request-timeout: ${MCN_TIMO_REQUEST_TIMEOUT:50s}
         requests-per-minute: ${MCN_TIMO_REQUESTS_PER_MINUTE:30}
         retry-poll-interval: ${MCN_TIMO_RETRY_POLL_INTERVAL:30000}
+  platform-guild-directory:
+    mcn:
+      # Kept off until MCN publishes the V1 endpoint and supplies the dedicated read-only credential.
+      enabled: ${MCN_GUILD_DIRECTORY_ENABLED:false}
+      base-url: ${MCN_GUILD_DIRECTORY_BASE_URL:}
+      credential-id: ${MCN_GUILD_DIRECTORY_CREDENTIAL_ID:}
+      hmac-secret: ${MCN_GUILD_DIRECTORY_HMAC_SECRET:}
+      connect-timeout: ${MCN_GUILD_DIRECTORY_CONNECT_TIMEOUT:5s}
+      request-timeout: ${MCN_GUILD_DIRECTORY_REQUEST_TIMEOUT:15s}
+      page-size: ${MCN_GUILD_DIRECTORY_PAGE_SIZE:100}
   distribution:
     lifecycle:
       shadow-only: ${LIFECYCLE_SHADOW_ONLY:true}
