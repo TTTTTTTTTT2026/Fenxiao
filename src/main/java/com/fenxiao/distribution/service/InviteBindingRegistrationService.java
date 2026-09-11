@@ -3,7 +3,6 @@ package com.fenxiao.distribution.service;
 import com.fenxiao.distribution.api.dto.RegisterLinkyAccountRequest;
 import com.fenxiao.distribution.entity.DistributionRelation;
 import com.fenxiao.distribution.entity.InviteBindingRegistration;
-import com.fenxiao.distribution.entity.GuildAccountConfig;
 import com.fenxiao.distribution.repository.DistributionRelationRepository;
 import com.fenxiao.distribution.repository.InviteBindingRegistrationRepository;
 import com.fenxiao.user.entity.UserDistributionProfile;
@@ -22,20 +21,20 @@ public class InviteBindingRegistrationService {
     private final DistributionRelationRepository distributionRelationRepository;
     private final UserProductOwnershipService userProductOwnershipService;
     private final LinkyRegistrationEligibilityService linkyRegistrationEligibilityService;
-    private final GuildAccountConfigService guildAccountConfigService;
+    private final LinkyInvitationGuildAttributionService invitationGuildAttributionService;
 
     public InviteBindingRegistrationService(UserDistributionProfileRepository userDistributionProfileRepository,
                                             InviteBindingRegistrationRepository inviteBindingRegistrationRepository,
                                             DistributionRelationRepository distributionRelationRepository,
                                             UserProductOwnershipService userProductOwnershipService,
                                             LinkyRegistrationEligibilityService linkyRegistrationEligibilityService,
-                                            GuildAccountConfigService guildAccountConfigService) {
+                                            LinkyInvitationGuildAttributionService invitationGuildAttributionService) {
         this.userDistributionProfileRepository = userDistributionProfileRepository;
         this.inviteBindingRegistrationRepository = inviteBindingRegistrationRepository;
         this.distributionRelationRepository = distributionRelationRepository;
         this.userProductOwnershipService = userProductOwnershipService;
         this.linkyRegistrationEligibilityService = linkyRegistrationEligibilityService;
-        this.guildAccountConfigService = guildAccountConfigService;
+        this.invitationGuildAttributionService = invitationGuildAttributionService;
     }
 
     public InviteBindingRegistration registerForUser(Long userId, RegisterLinkyAccountRequest request) {
@@ -61,12 +60,14 @@ public class InviteBindingRegistrationService {
         if (inviteBindingRegistrationRepository.existsByLinkyAccount(normalizedLinkyAccount)) {
             throw new IllegalStateException("linky account already registered");
         }
-        GuildAccountConfig expectedGuild = guildAccountConfigService.expectedGuild(normalizedProductCode, attributionProfile.getUserId());
+        LinkyInvitationGuildAttributionService.ResolvedGuild expectedGuild = invitationGuildAttributionService
+                .resolveExpectedGuildForBinding(userId);
         linkyRegistrationEligibilityService.assertEligibleForExpectedGuild(
                 normalizedLinkyAccount,
-                expectedGuild.getGuildId(),
-                expectedGuild.getGuildName(),
-                expectedGuild.getGuildInviteCode()
+                expectedGuild.guildId(),
+                expectedGuild.guildName(),
+                expectedGuild.guildInviteCode(),
+                expectedGuild.source().name()
         );
 
         InviteBindingRegistration registration = InviteBindingRegistration.createActive(
@@ -84,12 +85,14 @@ public class InviteBindingRegistrationService {
                 "INVITE_BINDING_REGISTRATION",
                 saved.getId()
         );
-        linkyRegistrationEligibilityService.attachRegisteredUser(
+        var verifiedBinding = linkyRegistrationEligibilityService.attachRegisteredUser(
                 normalizedLinkyAccount,
                 userId,
                 normalizedWhatsappNumber,
                 attributionProfile.getInviteCode()
         );
+        invitationGuildAttributionService.recordVerifiedBinding(userId, verifiedBinding.getGuildId(),
+                verifiedBinding.getGuildName(), expectedGuild.guildInviteCode());
         return saved;
     }
 

@@ -68,10 +68,11 @@ public class LinkyRegistrationEligibilityService {
         return binding;
     }
 
-    public LinkyAccountBinding assertEligibleForExpectedGuild(String linkyAccount, String expectedGuildId, String expectedGuildName, String expectedGuildInviteCode) {
+    public LinkyAccountBinding assertEligibleForExpectedGuild(String linkyAccount, String expectedGuildId, String expectedGuildName,
+                                                               String expectedGuildInviteCode, String expectedGuildSource) {
         LinkyAccountBinding binding = linkyAccountBindingRepository.findByLinkyAccount(linkyAccount)
                 .orElseGet(() -> refreshEligibilityFromProbe(linkyAccount));
-        binding.setExpectedGuild(expectedGuildId, expectedGuildName, expectedGuildInviteCode);
+        binding.setExpectedGuild(expectedGuildId, expectedGuildName, expectedGuildInviteCode, expectedGuildSource);
         linkyAccountBindingRepository.save(binding);
         if (!"ELIGIBLE".equals(binding.getRegistrationEligibility()) || binding.getGuildId() == null) {
             throw new IllegalStateException("Please join expected Linky guild with invite code " + expectedGuildInviteCode + " before binding.");

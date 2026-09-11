@@ -59,6 +59,7 @@ import {
   getAdminPlatformVerificationMocks,
   getAdminPlatformVerificationRuntime,
   getAdminSeedInviters,
+  getAdminUserPlatformProfiles,
   getAdminOwnership,
   getAdminRelation,
   getAdminRewards,
@@ -91,6 +92,7 @@ import {
   saveAdminPlatformVerificationMock,
   submitPlatformBinding,
   updateAdminAccount,
+  updateAdminLinkyInvitationGuild,
   enrollExperimentParticipant,
   type AdminWithdrawRequestListResponse,
   type BatchOperationResultResponse,
@@ -122,6 +124,7 @@ import {
   type RiskEventListResponse,
   type SeedInviterResponse,
   type SeedInviterListResponse,
+  type UserPlatformProfileListResponse,
   type TeamListResponse,
   type TeamWeeklyIncomeResponse,
   type WithdrawHistoryListResponse,
@@ -388,7 +391,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [withdrawViewName, setWithdrawViewName] = useState('')
   const [selectedWithdrawViewId, setSelectedWithdrawViewId] = useState('')
   const [adminBindingView, setAdminBindingView] = useState<'users' | 'risks'>('users')
-  const [adminSettingsView, setAdminSettingsView] = useState<'experiment' | 'guilds' | 'platforms' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification'>('experiment')
+  const [adminSettingsView, setAdminSettingsView] = useState<'experiment' | 'guilds' | 'platforms' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification' | 'userPlatforms'>('experiment')
   const [platformIntegrations, setPlatformIntegrations] = useState<PlatformIntegrationResponse[] | null>(null)
   const [platformVerificationRuntime, setPlatformVerificationRuntime] = useState<PlatformVerificationRuntimeResponse | null>(null)
   const [platformVerificationMocks, setPlatformVerificationMocks] = useState<PlatformVerificationMockResponse[] | null>(null)
@@ -430,6 +433,9 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [seedInviterForm, setSeedInviterForm] = useState({ phoneNumber: '', countryCode: 'BR', languageCode: 'pt-br' })
   const [createdSeedInviter, setCreatedSeedInviter] = useState<SeedInviterResponse | null>(null)
   const [seedInviters, setSeedInviters] = useState<SeedInviterListResponse | null>(null)
+  const [userPlatformProfiles, setUserPlatformProfiles] = useState<UserPlatformProfileListResponse | null>(null)
+  const [userPlatformQuery, setUserPlatformQuery] = useState({ userId: '', page: '0', size: '20' })
+  const [linkyInvitationGuildOverride, setLinkyInvitationGuildOverride] = useState({ userId: '', guildId: '', guildName: '', guildInviteCode: '', reason: '' })
   const [riskActionDrafts, setRiskActionDrafts] = useState<Record<number, string>>({})
   const [selectedRiskEventIds, setSelectedRiskEventIds] = useState<number[]>([])
   const [riskViews, setRiskViews] = useState(() => loadJsonState<NamedFilterView<RiskQuery>[]>(RISK_VIEWS_KEY) || [])
@@ -488,6 +494,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const canAuditPhoneVerification = adminSession?.role?.toLowerCase() === 'super_admin'
   const canManageSeedInviters = adminSession?.role?.toLowerCase() === 'super_admin'
   const canManagePlatformMocks = adminSession?.role?.toLowerCase() === 'super_admin'
+  const canManageLinkyInvitationGuild = ['super_admin', 'admin'].includes(adminSession?.role?.toLowerCase() ?? '')
   const seedInviterCountry = phoneCountries.find((country) => country.countryCode === seedInviterForm.countryCode) ?? phoneCountries[0]
   const activeAdminProductCode = adminProduct === 'ALL' ? undefined : adminProduct
   const adminSectionLinks = useMemo(() => buildAdminSectionLinks(adminSession?.role), [adminSession?.role])
@@ -964,6 +971,47 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
       setSeedInviters(result)
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载种子邀请人失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function loadUserPlatformProfiles(query = userPlatformQuery) {
+    if (!adminSession) return
+    setLoading(true)
+    setError('')
+    try {
+      const result = await getAdminUserPlatformProfiles(adminSession.sessionToken, {
+        userId: query.userId.trim() ? Number(query.userId) : undefined,
+        page: Number(query.page || 0),
+        size: Number(query.size || 20),
+      })
+      setUserPlatformProfiles(result)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '加载用户平台归属失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleUpdateLinkyInvitationGuild(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!adminSession || !canManageLinkyInvitationGuild || !linkyInvitationGuildOverride.userId.trim()) return
+    setLoading(true)
+    setError('')
+    setSuccessMessage('')
+    try {
+      await updateAdminLinkyInvitationGuild(adminSession.sessionToken, Number(linkyInvitationGuildOverride.userId), {
+        guildId: linkyInvitationGuildOverride.guildId.trim(),
+        guildName: linkyInvitationGuildOverride.guildName.trim(),
+        guildInviteCode: linkyInvitationGuildOverride.guildInviteCode.trim() || undefined,
+        reason: linkyInvitationGuildOverride.reason.trim(),
+      })
+      await loadUserPlatformProfiles()
+      setSuccessMessage('Linky 邀请链归属已调整；只影响该用户后续邀请的新下级，不会修改既有绑定、邀请或奖励。')
+      setLinkyInvitationGuildOverride((current) => ({ ...current, reason: '' }))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '调整 Linky 邀请链归属失败')
     } finally {
       setLoading(false)
     }
@@ -1935,6 +1983,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               <button className={adminSettingsView === 'platforms' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('platforms'); if (!platformIntegrations) void loadPlatformIntegrations(); if (!platformVerificationRuntime) void loadPlatformVerificationRuntime() }} role="tab" aria-selected={adminSettingsView === 'platforms'}>平台接入</button>
               {canManagePlatformMocks ? <button className={adminSettingsView === 'mockVerification' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('mockVerification'); void loadPlatformVerificationRuntime(true) }} role="tab" aria-selected={adminSettingsView === 'mockVerification'}>本地 Mock 核验</button> : null}
               <button className={adminSettingsView === 'advanced' ? 'is-active' : ''} onClick={() => setAdminSettingsView('advanced')} role="tab" aria-selected={adminSettingsView === 'advanced'}>高级接入</button>
+              <button className={adminSettingsView === 'userPlatforms' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('userPlatforms'); if (!userPlatformProfiles) void loadUserPlatformProfiles() }} role="tab" aria-selected={adminSettingsView === 'userPlatforms'}>用户平台归属</button>
               {canManageSeedInviters ? <button className={adminSettingsView === 'seedInviter' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('seedInviter'); if (!seedInviters) void loadSeedInviters() }} role="tab" aria-selected={adminSettingsView === 'seedInviter'}>种子邀请人</button> : null}
               {canAuditPhoneVerification ? <button className={adminSettingsView === 'phoneVerification' ? 'is-active' : ''} onClick={() => setAdminSettingsView('phoneVerification')} role="tab" aria-selected={adminSettingsView === 'phoneVerification'}>验证码审查</button> : null}
             </div>
@@ -2134,6 +2183,52 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   />
                   {seedInviters ? <InlineHint text={`共 ${seedInviters.total} 位种子邀请人；当前展示最近 ${seedInviters.items.length} 位。`} /> : null}
                 </InfoCard>
+              </div>
+            </PanelSection>
+          ) : null}
+
+          {activeAdminSection === 'settings' && adminSettingsView === 'userPlatforms' ? (
+            <PanelSection
+              sectionId="admin-user-platform-profiles"
+              eyebrow="User platform attribution"
+              title="用户平台归属"
+              description="查看用户的实际平台核验事实与 Linky 邀请链归属。人工调整仅改变该用户未来下级的 Linky 目标公会。"
+              action={<button className="primary-btn" onClick={() => void loadUserPlatformProfiles()} disabled={loading}>{loading ? '查询中…' : '查询用户'}</button>}
+            >
+              <div className="stack-gap">
+                <InfoCard title="查询用户" tone="neutral">
+                  <div className="grid-form compact-form exception-filter-grid">
+                    <label>用户 ID（留空查看列表）<input inputMode="numeric" value={userPlatformQuery.userId} onChange={(event) => setUserPlatformQuery({ ...userPlatformQuery, userId: event.target.value.replace(/\D/g, ''), page: '0' })} placeholder="例如 1001" /></label>
+                    <label>每页数量<select value={userPlatformQuery.size} onChange={(event) => setUserPlatformQuery({ ...userPlatformQuery, size: event.target.value, page: '0' })}><option value="20">20</option><option value="50">50</option><option value="100">100</option></select></label>
+                  </div>
+                  <InlineHint text="实际 Linky / Timo 公会是平台核验事实；“邀请链归属”才是该用户邀请新下级时使用的 Linky 目标公会。" />
+                </InfoCard>
+                <InfoCard title="用户与平台核验信息" tone="neutral">
+                  <DataTable
+                    headers={['用户 / 邀请码', '直接邀请人', 'Linky 实际绑定', 'Timo 实际绑定', 'Linky 邀请链归属', '操作']}
+                    rows={(userPlatformProfiles?.items ?? []).map((item) => [
+                      <div className="stack-gap small"><strong>#{item.userId}</strong><span>{item.inviteCode} · {item.countryCode}</span></div>,
+                      item.directInviterUserId == null ? '根节点' : `#${item.directInviterUserId}`,
+                      item.linky ? <div className="stack-gap small"><strong>{item.linky.accountId}</strong><span>{item.linky.status} · {item.linky.guildName || item.linky.guildId || '未返回公会'}{item.linky.expectedGuildSource ? ` · 目标来源 ${item.linky.expectedGuildSource}` : ''}</span></div> : '未绑定',
+                      item.timo ? <div className="stack-gap small"><strong>{item.timo.accountId}</strong><span>{item.timo.status} · {item.timo.guildId || '未返回公会'}</span></div> : '未绑定',
+                      item.invitationGuild ? <div className="stack-gap small"><strong>{item.invitationGuild.guildName} · {item.invitationGuild.guildId}</strong><span>{item.invitationGuild.source}{item.invitationGuild.inheritedFromUserId ? ` · 继承自 #${item.invitationGuild.inheritedFromUserId}` : ''}</span></div> : '待首次 Linky 核验',
+                      canManageLinkyInvitationGuild ? <button className="ghost-btn small-btn" onClick={() => setLinkyInvitationGuildOverride({ userId: String(item.userId), guildId: item.invitationGuild?.guildId ?? '', guildName: item.invitationGuild?.guildName ?? '', guildInviteCode: item.invitationGuild?.guildInviteCode ?? '', reason: '' })}>调整归属</button> : '只读',
+                    ])}
+                    emptyText="输入用户 ID 后查询，或直接查询查看近期用户。"
+                  />
+                  {userPlatformProfiles ? <InlineHint text={`共 ${userPlatformProfiles.total} 位用户；当前第 ${userPlatformProfiles.page + 1} 页。`} /> : null}
+                </InfoCard>
+                {canManageLinkyInvitationGuild ? <InfoCard title="人工调整 Linky 邀请链归属" tone="success">
+                  <form className="grid-form compact-form exception-filter-grid" onSubmit={handleUpdateLinkyInvitationGuild}>
+                    <label>用户 ID<input required inputMode="numeric" value={linkyInvitationGuildOverride.userId} onChange={(event) => setLinkyInvitationGuildOverride({ ...linkyInvitationGuildOverride, userId: event.target.value.replace(/\D/g, '') })} /></label>
+                    <label>目标公会 ID<input required value={linkyInvitationGuildOverride.guildId} onChange={(event) => setLinkyInvitationGuildOverride({ ...linkyInvitationGuildOverride, guildId: event.target.value })} /></label>
+                    <label>目标公会名称<input required value={linkyInvitationGuildOverride.guildName} onChange={(event) => setLinkyInvitationGuildOverride({ ...linkyInvitationGuildOverride, guildName: event.target.value })} /></label>
+                    <label>公会邀请码（可选）<input value={linkyInvitationGuildOverride.guildInviteCode} onChange={(event) => setLinkyInvitationGuildOverride({ ...linkyInvitationGuildOverride, guildInviteCode: event.target.value })} /></label>
+                    <label>调整原因<input required value={linkyInvitationGuildOverride.reason} onChange={(event) => setLinkyInvitationGuildOverride({ ...linkyInvitationGuildOverride, reason: event.target.value })} placeholder="例如邀请人已更换公会" /></label>
+                    <button className="primary-btn" type="submit" disabled={loading || !linkyInvitationGuildOverride.userId || !linkyInvitationGuildOverride.guildId.trim() || !linkyInvitationGuildOverride.guildName.trim() || !linkyInvitationGuildOverride.reason.trim()}>保存人工归属</button>
+                  </form>
+                  <InlineHint text="保存后会写入操作人、原因、时间和修改前后内容的审计记录。不会覆盖用户已核验到的实际 Linky 公会事实。" />
+                </InfoCard> : null}
               </div>
             </PanelSection>
           ) : null}
