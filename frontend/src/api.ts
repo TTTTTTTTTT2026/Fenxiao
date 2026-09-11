@@ -79,6 +79,36 @@ export type PlatformIntegrationResponse = {
   targetGuilds: Array<{ countryCode: string; officialGuildId: string; officialGuildSid: string | null; guildName: string; enabled: boolean }>
 }
 
+export type PlatformGuildDirectoryItem = {
+  platformCode: 'LINKY' | 'TIMO' | string
+  guildId: string
+  guildName: string
+  guildStatus: string
+  country: string | null
+  directoryStatus: string
+  mcnRecordUpdatedAt: string | null
+  officialUpdatedAt: string | null
+  lastSeenAt: string
+  sourceVersion: string | null
+  joinInstruction: string | null
+  missingSince: string | null
+}
+
+export type PlatformGuildDirectorySyncRun = {
+  runId: string
+  platformCode: 'LINKY' | 'TIMO' | string
+  syncStatus: string
+  snapshotComplete: boolean
+  receivedCount: number
+  upsertedCount: number
+  missingCount: number
+  sourceVersion: string | null
+  startedAt: string
+  completedAt: string | null
+  errorCode: string | null
+  errorMessage: string | null
+}
+
 export type PlatformBindingResponse = {
   id: number
   userId: number
@@ -935,6 +965,18 @@ export function updateAdminLinkyInvitationGuild(adminSessionToken: string, userI
 
 export function getAdminPlatformIntegrations(adminSessionToken: string) {
   return request<PlatformIntegrationResponse[]>('/admin/platform-integrations', {
+    headers: { 'X-Admin-Session': adminSessionToken },
+  })
+}
+
+export function getAdminPlatformGuildDirectory(adminSessionToken: string, platform: 'LINKY' | 'TIMO') {
+  return request<PlatformGuildDirectoryItem[]>(`/admin/distribution/platform-guild-directory?platform=${platform}`, {
+    headers: { 'X-Admin-Session': adminSessionToken },
+  })
+}
+
+export function getAdminPlatformGuildDirectorySyncRuns(adminSessionToken: string, platform: 'LINKY' | 'TIMO') {
+  return request<PlatformGuildDirectorySyncRun[]>(`/admin/distribution/platform-guild-directory/sync-runs?platform=${platform}`, {
     headers: { 'X-Admin-Session': adminSessionToken },
   })
 }

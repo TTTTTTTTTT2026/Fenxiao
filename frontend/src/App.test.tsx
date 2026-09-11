@@ -414,6 +414,16 @@ describe('Earnings landing page', () => {
     expect(markup).toContain('维护公会映射。')
   })
 
+  it('renders a first-level platform guild directory workspace', () => {
+    window.location.hash = '#admin-platform-guild-directory'
+    const markup = renderToStaticMarkup(<ConsoleApp initialViewMode="admin" initialAdminSession={adminTestSession} />)
+
+    expect(markup).toContain('平台公会目录')
+    expect(markup).toContain('MCN 同步公会')
+    expect(markup).toContain('最近同步批次')
+    expect(markup).toContain('MCN 已缺失')
+  })
+
   it('renders a finished withdraw approval workspace with operator audit controls in admin mode', () => {
     window.location.hash = '#admin-rewards'
     const markup = renderToStaticMarkup(<ConsoleApp initialViewMode="admin" initialAdminSession={adminTestSession} />)

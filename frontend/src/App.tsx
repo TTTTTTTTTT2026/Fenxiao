@@ -56,6 +56,8 @@ import {
   getAdminPhoneVerificationCodeAudit,
   getAdminPhoneVerificationCodes,
   getAdminPlatformIntegrations,
+  getAdminPlatformGuildDirectory,
+  getAdminPlatformGuildDirectorySyncRuns,
   getAdminPlatformVerificationMocks,
   getAdminPlatformVerificationRuntime,
   getAdminSeedInviters,
@@ -114,6 +116,8 @@ import {
   type OwnershipDetailResponse,
   type PhoneVerificationCodeListResponse,
   type PlatformIntegrationResponse,
+  type PlatformGuildDirectoryItem,
+  type PlatformGuildDirectorySyncRun,
   type PlatformBindingResponse,
   type PlatformVerificationMockResponse,
   type PlatformVerificationRuntimeResponse,
@@ -177,7 +181,7 @@ type AdminAuthState = {
 }
 
 type AdminProductKey = 'ALL' | 'LINKY' | 'TIMO'
-type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'users' | 'rewards' | 'accounts' | 'settings'
+type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'users' | 'platformGuildDirectory' | 'rewards' | 'accounts' | 'settings'
 type RiskActionName = 'HANDLE' | 'IGNORE' | 'FREEZE_USER' | 'UNFREEZE_USER'
 type WithdrawActionName = 'approve' | 'reject' | 'paid' | 'failed' | 'reverse'
 type WithdrawQuery = { userId: string; status: string; page: string; size: string }
@@ -191,6 +195,7 @@ const ADMIN_SECTION_HASHES: Record<AdminSectionKey, string> = {
   channel: '#admin-channel-entries',
   bindings: '#admin-bindings',
   users: '#admin-users',
+  platformGuildDirectory: '#admin-platform-guild-directory',
   rewards: '#admin-rewards',
   accounts: '#admin-accounts',
   settings: '#admin-settings',
@@ -437,6 +442,10 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [seedInviters, setSeedInviters] = useState<SeedInviterListResponse | null>(null)
   const [userPlatformProfiles, setUserPlatformProfiles] = useState<UserPlatformProfileListResponse | null>(null)
   const [userPlatformQuery, setUserPlatformQuery] = useState({ userId: '', page: '0', size: '20' })
+  const [platformGuildDirectoryPlatform, setPlatformGuildDirectoryPlatform] = useState<'LINKY' | 'TIMO'>('LINKY')
+  const [platformGuildDirectory, setPlatformGuildDirectory] = useState<PlatformGuildDirectoryItem[] | null>(null)
+  const [platformGuildDirectorySyncRuns, setPlatformGuildDirectorySyncRuns] = useState<PlatformGuildDirectorySyncRun[] | null>(null)
+  const [platformGuildDirectoryLoading, setPlatformGuildDirectoryLoading] = useState(false)
   const [linkyInvitationGuildOverride, setLinkyInvitationGuildOverride] = useState({ userId: '', guildId: '', guildName: '', guildInviteCode: '', reason: '' })
   const [isLinkyInvitationGuildDialogOpen, setIsLinkyInvitationGuildDialogOpen] = useState(false)
   const [riskActionDrafts, setRiskActionDrafts] = useState<Record<number, string>>({})
@@ -1003,6 +1012,31 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     } finally {
       setLoading(false)
     }
+  }
+
+  async function loadPlatformGuildDirectory(platform = platformGuildDirectoryPlatform) {
+    if (!adminSession) return
+    setPlatformGuildDirectoryLoading(true)
+    setError('')
+    try {
+      const [directory, syncRuns] = await Promise.all([
+        getAdminPlatformGuildDirectory(adminSession.sessionToken, platform),
+        getAdminPlatformGuildDirectorySyncRuns(adminSession.sessionToken, platform),
+      ])
+      setPlatformGuildDirectory(directory)
+      setPlatformGuildDirectorySyncRuns(syncRuns)
+    } catch (err) {
+      setPlatformGuildDirectory(null)
+      setPlatformGuildDirectorySyncRuns(null)
+      setError(err instanceof Error ? err.message : '加载平台公会目录失败')
+    } finally {
+      setPlatformGuildDirectoryLoading(false)
+    }
+  }
+
+  function switchPlatformGuildDirectory(platform: 'LINKY' | 'TIMO') {
+    setPlatformGuildDirectoryPlatform(platform)
+    void loadPlatformGuildDirectory(platform)
   }
 
   async function saveLinkyInvitationGuildOverride() {
@@ -1952,7 +1986,10 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
       <aside className="admin-sidebar">
         <div className="admin-nav-strip" id="admin-modules" aria-label="后台模块导航">
           {adminSectionLinks.map((item) => (
-            <a key={item.label} className={`admin-nav-chip ${item.href === ADMIN_SECTION_HASHES[activeAdminSection] ? 'is-active' : ''}`} href={item.href} aria-current={item.href === ADMIN_SECTION_HASHES[activeAdminSection] ? 'page' : undefined} onClick={() => { if (item.href === ADMIN_SECTION_HASHES.users && !userPlatformProfiles) void loadUserPlatformProfiles() }}>
+            <a key={item.label} className={`admin-nav-chip ${item.href === ADMIN_SECTION_HASHES[activeAdminSection] ? 'is-active' : ''}`} href={item.href} aria-current={item.href === ADMIN_SECTION_HASHES[activeAdminSection] ? 'page' : undefined} onClick={() => {
+              if (item.href === ADMIN_SECTION_HASHES.users && !userPlatformProfiles) void loadUserPlatformProfiles()
+              if (item.href === ADMIN_SECTION_HASHES.platformGuildDirectory && !platformGuildDirectory) void loadPlatformGuildDirectory()
+            }}>
               <AdminNavIcon label={item.label} />
               <span>{item.label}</span>
             </a>
@@ -2258,6 +2295,59 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                     emptyText="输入用户 ID 后查询，或直接查询查看近期用户。"
                   />
                   {userPlatformProfiles ? <InlineHint text={`共 ${userPlatformProfiles.total} 位用户；当前第 ${userPlatformProfiles.page + 1} 页。`} /> : null}
+                </InfoCard>
+              </div>
+            </PanelSection>
+          ) : null}
+
+          {activeAdminSection === 'platformGuildDirectory' ? (
+            <PanelSection
+              sectionId="admin-platform-guild-directory"
+              eyebrow="MCN authoritative directory"
+              title="平台公会目录"
+              description="只读查看 MCN 同步的 Linky 与 Timo 公会事实、异常状态及同步批次。BANDEIRA 不在此编辑权威公会资料。"
+              action={<button className="primary-btn" onClick={() => void loadPlatformGuildDirectory()} disabled={platformGuildDirectoryLoading}>{platformGuildDirectoryLoading ? '刷新中…' : '刷新目录'}</button>}
+            >
+              <div className="stack-gap">
+                <div className="admin-view-tabs" role="tablist" aria-label="平台公会目录平台选择">
+                  {(['LINKY', 'TIMO'] as const).map((platform) => <button key={platform} className={platformGuildDirectoryPlatform === platform ? 'is-active' : ''} onClick={() => switchPlatformGuildDirectory(platform)} role="tab" aria-selected={platformGuildDirectoryPlatform === platform}>{platform}</button>)}
+                </div>
+                <InfoCard title={`${platformGuildDirectoryPlatform} 目录状态`} tone="neutral">
+                  {platformGuildDirectory ? <div className="relation-grid">
+                    <RelationItem label="已同步公会" value={`${platformGuildDirectory.length} 个`} />
+                    <RelationItem label="正常" value={`${platformGuildDirectory.filter((item) => item.directoryStatus === 'NORMAL').length} 个`} />
+                    <RelationItem label="MCN 已缺失" value={`${platformGuildDirectory.filter((item) => item.directoryStatus === 'MISSING_ON_MCN').length} 个`} />
+                    <RelationItem label="最后同步" value={formatDateTime(platformGuildDirectorySyncRuns?.[0]?.completedAt || platformGuildDirectory?.[0]?.lastSeenAt)} />
+                  </div> : <EmptyState title="尚未加载公会目录" description="点击“刷新目录”读取当前已同步的 MCN 权威目录。" actionLabel="目录只读，不可在此编辑" />}
+                </InfoCard>
+                <InfoCard title="MCN 同步公会" tone="neutral">
+                  <DataTable
+                    headers={['公会 ID / 名称', '国家', '平台状态', '目录状态', 'MCN 更新时间', '最后同步']}
+                    rows={(platformGuildDirectory ?? []).map((item) => [
+                      <div className="stack-gap small"><strong>{item.guildName}</strong><span>{item.guildId}</span></div>,
+                      item.country || '-',
+                      renderStatusBadge(item.guildStatus),
+                      renderStatusBadge(item.directoryStatus),
+                      formatDateTime(item.mcnRecordUpdatedAt || item.officialUpdatedAt || undefined),
+                      formatDateTime(item.lastSeenAt),
+                    ])}
+                    emptyText={platformGuildDirectoryLoading ? '正在读取 MCN 同步目录…' : '当前平台还没有同步的公会。请检查最近同步批次。'}
+                  />
+                </InfoCard>
+                <InfoCard title="最近同步批次" tone="neutral">
+                  <DataTable
+                    headers={['平台', '结果', '接收 / 写入 / 缺失', '开始时间', '完成时间', '异常']}
+                    rows={(platformGuildDirectorySyncRuns ?? []).map((item) => [
+                      item.platformCode,
+                      renderStatusBadge(item.syncStatus),
+                      `${item.receivedCount} / ${item.upsertedCount} / ${item.missingCount}`,
+                      formatDateTime(item.startedAt),
+                      formatDateTime(item.completedAt || undefined),
+                      item.errorCode ? `${item.errorCode}${item.errorMessage ? ` · ${item.errorMessage}` : ''}` : '-',
+                    ])}
+                    emptyText={platformGuildDirectoryLoading ? '正在读取同步批次…' : '暂无同步批次；请确认 MCN 目录同步开关已启用。'}
+                  />
+                  <InlineHint text="若出现“MCN 已缺失”或失败批次，请先核对 MCN 目录事实；系统不会自动删除本地历史记录。" />
                 </InfoCard>
               </div>
             </PanelSection>
@@ -3139,6 +3229,11 @@ function StatusBadge({ status }: { status: string }) {
     REVERSED: { label: '已冲正', tone: 'neutral' },
     HANDLED: { label: '已处理', tone: 'success' },
     PROCESSED: { label: '已处理', tone: 'success' },
+    SUCCESS: { label: '成功', tone: 'success' },
+    NORMAL: { label: '正常', tone: 'success' },
+    ACTIVE: { label: '启用', tone: 'success' },
+    DISABLED: { label: '停用', tone: 'neutral' },
+    MISSING_ON_MCN: { label: 'MCN 已缺失', tone: 'danger' },
     IGNORED: { label: '已忽略', tone: 'neutral' },
     PENDING: { label: '待处理', tone: 'primary' },
     LOCKED: { label: '已锁定', tone: 'warning' },
