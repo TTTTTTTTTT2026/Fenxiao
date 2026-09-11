@@ -438,6 +438,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [userPlatformProfiles, setUserPlatformProfiles] = useState<UserPlatformProfileListResponse | null>(null)
   const [userPlatformQuery, setUserPlatformQuery] = useState({ userId: '', page: '0', size: '20' })
   const [linkyInvitationGuildOverride, setLinkyInvitationGuildOverride] = useState({ userId: '', guildId: '', guildName: '', guildInviteCode: '', reason: '' })
+  const linkyInvitationGuildFormRef = useRef<HTMLFormElement>(null)
   const [riskActionDrafts, setRiskActionDrafts] = useState<Record<number, string>>({})
   const [selectedRiskEventIds, setSelectedRiskEventIds] = useState<number[]>([])
   const [riskViews, setRiskViews] = useState(() => loadJsonState<NamedFilterView<RiskQuery>[]>(RISK_VIEWS_KEY) || [])
@@ -1017,6 +1018,21 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     } finally {
       setLoading(false)
     }
+  }
+
+  function openLinkyInvitationGuildOverride(item: UserPlatformProfileListResponse['items'][number]) {
+    setLinkyInvitationGuildOverride({
+      userId: String(item.userId),
+      guildId: item.invitationGuild?.guildId ?? '',
+      guildName: item.invitationGuild?.guildName ?? '',
+      guildInviteCode: item.invitationGuild?.guildInviteCode ?? '',
+      reason: '',
+    })
+    window.requestAnimationFrame(() => {
+      const form = linkyInvitationGuildFormRef.current
+      form?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      form?.querySelector<HTMLInputElement>('input')?.focus()
+    })
   }
 
   async function loadLinkyWebhookLogs(query = linkyWebhookQuery) {
@@ -2213,14 +2229,19 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                       item.linky ? <div className="stack-gap small"><strong>{item.linky.accountId}</strong><span>{item.linky.status} · {item.linky.guildName || item.linky.guildId || '未返回公会'}{item.linky.expectedGuildSource ? ` · 目标来源 ${item.linky.expectedGuildSource}` : ''}</span></div> : '未绑定',
                       item.timo ? <div className="stack-gap small"><strong>{item.timo.accountId}</strong><span>{item.timo.status} · {item.timo.guildId || '未返回公会'}</span></div> : '未绑定',
                       item.invitationGuild ? <div className="stack-gap small"><strong>{item.invitationGuild.guildName} · {item.invitationGuild.guildId}</strong><span>{item.invitationGuild.source}{item.invitationGuild.inheritedFromUserId ? ` · 继承自 #${item.invitationGuild.inheritedFromUserId}` : ''}</span></div> : '待首次 Linky 核验',
-                      canManageLinkyInvitationGuild ? <button className="ghost-btn small-btn" onClick={() => setLinkyInvitationGuildOverride({ userId: String(item.userId), guildId: item.invitationGuild?.guildId ?? '', guildName: item.invitationGuild?.guildName ?? '', guildInviteCode: item.invitationGuild?.guildInviteCode ?? '', reason: '' })}>调整归属</button> : '只读',
+                      canManageLinkyInvitationGuild ? <button className="ghost-btn small-btn" onClick={() => openLinkyInvitationGuildOverride(item)}>调整归属</button> : '只读',
                     ])}
                     emptyText="输入用户 ID 后查询，或直接查询查看近期用户。"
                   />
                   {userPlatformProfiles ? <InlineHint text={`共 ${userPlatformProfiles.total} 位用户；当前第 ${userPlatformProfiles.page + 1} 页。`} /> : null}
                 </InfoCard>
                 {canManageLinkyInvitationGuild ? <InfoCard title="人工调整 Linky 邀请链归属" tone="success">
-                  <form className="grid-form compact-form exception-filter-grid" onSubmit={handleUpdateLinkyInvitationGuild}>
+                  {linkyInvitationGuildOverride.userId ? <div className="alert-banner info" role="status" aria-live="polite">
+                    <strong>正在调整用户 #{linkyInvitationGuildOverride.userId} 的邀请链归属</strong>
+                    <span>请补充目标公会和调整原因后保存。</span>
+                    <button className="ghost-btn small-btn" type="button" onClick={() => setLinkyInvitationGuildOverride({ userId: '', guildId: '', guildName: '', guildInviteCode: '', reason: '' })}>取消调整</button>
+                  </div> : <InlineHint text="在上方用户列表中点击“调整归属”后，系统会带入该用户当前的邀请链归属。" />}
+                  <form ref={linkyInvitationGuildFormRef} className="grid-form compact-form exception-filter-grid" onSubmit={handleUpdateLinkyInvitationGuild}>
                     <label>用户 ID<input required inputMode="numeric" value={linkyInvitationGuildOverride.userId} onChange={(event) => setLinkyInvitationGuildOverride({ ...linkyInvitationGuildOverride, userId: event.target.value.replace(/\D/g, '') })} /></label>
                     <label>目标公会 ID<input required value={linkyInvitationGuildOverride.guildId} onChange={(event) => setLinkyInvitationGuildOverride({ ...linkyInvitationGuildOverride, guildId: event.target.value })} /></label>
                     <label>目标公会名称<input required value={linkyInvitationGuildOverride.guildName} onChange={(event) => setLinkyInvitationGuildOverride({ ...linkyInvitationGuildOverride, guildName: event.target.value })} /></label>
