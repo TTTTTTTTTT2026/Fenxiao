@@ -7,6 +7,7 @@ import java.util.Optional;
 
 public interface GuildAccountConfigRepository extends JpaRepository<GuildAccountConfig, Long> {
     Optional<GuildAccountConfig> findByProductCodeAndInviterUserIdAndEnabledTrue(String productCode, Long inviterUserId);
+    List<GuildAccountConfig> findByProductCodeAndInviterUserIdInAndEnabledTrue(String productCode, java.util.Collection<Long> inviterUserIds);
     Optional<GuildAccountConfig> findByProductCodeAndInviterUserIdIsNullAndEnabledTrue(String productCode);
     List<GuildAccountConfig> findByProductCodeOrderByIdDesc(String productCode);
 }

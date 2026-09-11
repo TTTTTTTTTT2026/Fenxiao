@@ -2,6 +2,8 @@ package com.fenxiao.user.repository;
 
 import com.fenxiao.user.entity.UserDistributionProfile;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.Collection;
 import java.util.List;
@@ -15,4 +17,5 @@ public interface UserDistributionProfileRepository extends JpaRepository<UserDis
     long countByUserIdIn(Collection<Long> userIds);
     long countByUserIdInAndEffectiveUserTrue(Collection<Long> userIds);
     List<UserDistributionProfile> findByUserIdIn(Collection<Long> userIds);
+    Page<UserDistributionProfile> findAllByOrderByUserIdAsc(Pageable pageable);
 }

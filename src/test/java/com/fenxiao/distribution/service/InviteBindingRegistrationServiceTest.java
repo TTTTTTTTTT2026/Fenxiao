@@ -4,10 +4,12 @@ import com.fenxiao.distribution.api.dto.RegisterLinkyAccountRequest;
 import com.fenxiao.distribution.entity.DistributionRelation;
 import com.fenxiao.distribution.entity.InviteBindingRegistration;
 import com.fenxiao.distribution.entity.LinkyAccountBinding;
+import com.fenxiao.distribution.domain.LinkyInvitationGuildSource;
 import com.fenxiao.distribution.entity.UserProductOwnership;
 import com.fenxiao.distribution.repository.DistributionRelationRepository;
 import com.fenxiao.distribution.repository.InviteBindingRegistrationRepository;
 import com.fenxiao.distribution.repository.LinkyAccountBindingRepository;
+import com.fenxiao.distribution.repository.LinkyInvitationGuildAttributionRepository;
 import com.fenxiao.distribution.repository.UserProductOwnershipRepository;
 import com.fenxiao.user.entity.UserDistributionProfile;
 import com.fenxiao.user.repository.UserDistributionProfileRepository;
@@ -49,6 +51,12 @@ class InviteBindingRegistrationServiceTest {
     @Autowired
     private LinkyAccountBindingRepository linkyAccountBindingRepository;
 
+    @Autowired
+    private LinkyInvitationGuildAttributionRepository linkyInvitationGuildAttributionRepository;
+
+    @Autowired
+    private LinkyInvitationGuildAttributionService linkyInvitationGuildAttributionService;
+
     @Test
     void shouldBindLinkyAccountToTheAuthenticatedPhoneProfile() {
         UserDistributionProfile inviter = distributionBindingService.createProfile(51001L, "ID", "id", null);
@@ -82,6 +90,10 @@ class InviteBindingRegistrationServiceTest {
         assertThat(binding.getRegistrationEligibility()).isEqualTo("ELIGIBLE");
         assertThat(binding.getExpectedGuildId()).isEqualTo("LINKY_DEFAULT_GUILD");
         assertThat(binding.getExpectedGuildInviteCode()).isEqualTo("JOIN-LINKY");
+        assertThat(binding.getExpectedGuildSource()).isEqualTo("SYSTEM_DEFAULT");
+        var attribution = linkyInvitationGuildAttributionRepository.findById(accountHolder.getUserId()).orElseThrow();
+        assertThat(attribution.getGuildId()).isEqualTo("LINKY_DEFAULT_GUILD");
+        assertThat(attribution.getAttributionSource()).isEqualTo(LinkyInvitationGuildSource.VERIFIED_BINDING);
     }
 
     @Test
@@ -105,6 +117,27 @@ class InviteBindingRegistrationServiceTest {
                 "LINKY", "87654321"
         ))).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("linky account already registered");
+    }
+
+    @Test
+    void shouldUseAdminInvitationGuildForFutureDownlineWithoutOverwritingActualBindingFact() {
+        UserDistributionProfile inviter = distributionBindingService.createProfile(51006L, "ID", "id", null);
+        UserDistributionProfile downline = distributionBindingService.createProfile(51007L, "ID", "id", inviter.getInviteCode());
+
+        linkyInvitationGuildAttributionService.override(inviter.getUserId(), "GUILD-MOVED", "Moved Guild", "JOIN-MOVED",
+                "inviter changed guild", 9001L, "super_admin", "127.0.0.1");
+
+        var target = linkyInvitationGuildAttributionService.resolveExpectedGuildForBinding(downline.getUserId());
+
+        assertThat(target.guildId()).isEqualTo("GUILD-MOVED");
+        var fallback = linkyInvitationGuildAttributionRepository.findById(downline.getUserId()).orElseThrow();
+        assertThat(fallback.getAttributionSource()).isEqualTo(LinkyInvitationGuildSource.FALLBACK_INHERITED);
+        assertThat(fallback.getInheritedFromUserId()).isEqualTo(inviter.getUserId());
+
+        linkyInvitationGuildAttributionService.recordVerifiedBinding(inviter.getUserId(), "GUILD-ACTUAL", "Actual Guild", "JOIN-ACTUAL");
+        var override = linkyInvitationGuildAttributionRepository.findById(inviter.getUserId()).orElseThrow();
+        assertThat(override.getGuildId()).isEqualTo("GUILD-MOVED");
+        assertThat(override.getAttributionSource()).isEqualTo(LinkyInvitationGuildSource.ADMIN_OVERRIDE);
     }
 
     @Test

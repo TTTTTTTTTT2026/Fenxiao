@@ -25,6 +25,8 @@ import com.fenxiao.admin.api.dto.SeedInviterListResponse;
 import com.fenxiao.admin.api.dto.WithdrawRequestActionRequest;
 import com.fenxiao.admin.api.dto.WithdrawRequestItemResponse;
 import com.fenxiao.admin.api.dto.WithdrawRequestListResponse;
+import com.fenxiao.admin.api.dto.UserPlatformProfileListResponse;
+import com.fenxiao.admin.api.dto.UpdateLinkyInvitationGuildRequest;
 import com.fenxiao.distribution.api.dto.GuildConfigRequest;
 import com.fenxiao.distribution.api.dto.GuildConfigResponse;
 import com.fenxiao.distribution.api.dto.GuildWeeklyReportResponse;
@@ -40,6 +42,8 @@ import com.fenxiao.admin.service.RiskEventActionService;
 import com.fenxiao.admin.service.RiskEventQueryService;
 import com.fenxiao.admin.service.RewardEngineReportService;
 import com.fenxiao.admin.service.SeedInviterAdminService;
+import com.fenxiao.admin.service.UserPlatformProfileAdminService;
+import com.fenxiao.distribution.service.LinkyInvitationGuildAttributionService;
 import com.fenxiao.common.security.DistributionAccessGuard;
 import com.fenxiao.distribution.entity.LinkyAccountBinding;
 import com.fenxiao.distribution.entity.WithdrawRequest;
@@ -94,6 +98,8 @@ public class DistributionAdminController {
     private final RewardEngineReportService rewardEngineReportService;
     private final PhoneVerificationAuditService phoneVerificationAuditService;
     private final SeedInviterAdminService seedInviterAdminService;
+    private final UserPlatformProfileAdminService userPlatformProfileAdminService;
+    private final LinkyInvitationGuildAttributionService linkyInvitationGuildAttributionService;
 
     public DistributionAdminController(RewardCalculationService rewardCalculationService,
                                        DistributionQueryService distributionQueryService,
@@ -111,7 +117,9 @@ public class DistributionAdminController {
                                        DistributionAccessGuard distributionAccessGuard,
                                        RewardEngineReportService rewardEngineReportService,
                                        PhoneVerificationAuditService phoneVerificationAuditService,
-                                       SeedInviterAdminService seedInviterAdminService) {
+                                       SeedInviterAdminService seedInviterAdminService,
+                                       UserPlatformProfileAdminService userPlatformProfileAdminService,
+                                       LinkyInvitationGuildAttributionService linkyInvitationGuildAttributionService) {
         this.rewardCalculationService = rewardCalculationService;
         this.distributionQueryService = distributionQueryService;
         this.distributionReportService = distributionReportService;
@@ -129,6 +137,8 @@ public class DistributionAdminController {
         this.rewardEngineReportService = rewardEngineReportService;
         this.phoneVerificationAuditService = phoneVerificationAuditService;
         this.seedInviterAdminService = seedInviterAdminService;
+        this.userPlatformProfileAdminService = userPlatformProfileAdminService;
+        this.linkyInvitationGuildAttributionService = linkyInvitationGuildAttributionService;
     }
 
     @GetMapping("/phone-verification-codes")
@@ -159,6 +169,31 @@ public class DistributionAdminController {
                                                 HttpServletRequest httpServletRequest) {
         var principal = distributionAccessGuard.assertSeedInviterManageAccess(adminToken, adminSessionToken);
         return seedInviterAdminService.list(page, size, principal, httpServletRequest.getRemoteAddr());
+    }
+
+    @GetMapping("/user-platform-profiles")
+    public UserPlatformProfileListResponse userPlatformProfiles(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
+                                                                 @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
+                                                                 @RequestParam(required = false) Long userId,
+                                                                 @RequestParam(defaultValue = "0") int page,
+                                                                 @RequestParam(defaultValue = "20") int size) {
+        distributionAccessGuard.assertAdminAccess(adminToken, adminSessionToken);
+        return userPlatformProfileAdminService.list(userId, page, size);
+    }
+
+    @PostMapping("/user-platform-profiles/{userId}/linky-invitation-guild")
+    public UserPlatformProfileListResponse.InvitationGuild updateLinkyInvitationGuild(
+            @RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
+            @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
+            @PathVariable Long userId,
+            @Valid @RequestBody UpdateLinkyInvitationGuildRequest request,
+            HttpServletRequest httpServletRequest) {
+        var principal = distributionAccessGuard.assertAdminWriteAccess(adminToken, adminSessionToken);
+        var saved = linkyInvitationGuildAttributionService.override(userId, request.guildId(), request.guildName(),
+                request.guildInviteCode(), request.reason(), principal.accountId(), principal.role(), httpServletRequest.getRemoteAddr());
+        return new UserPlatformProfileListResponse.InvitationGuild(saved.getGuildId(), saved.getGuildName(),
+                saved.getGuildInviteCode(), saved.getAttributionSource().name(), saved.getInheritedFromUserId(),
+                saved.getEffectiveAt().toString(), saved.getChangeReason());
     }
 
     @GetMapping("/phone-verification-codes/{id}/reveal")
