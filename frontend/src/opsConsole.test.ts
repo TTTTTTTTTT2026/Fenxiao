@@ -84,6 +84,16 @@ describe('buildAdminTaskCards', () => {
   })
 })
 
+describe('buildAdminSectionLinks', () => {
+  it('exposes a dedicated user directory to operational read roles', () => {
+    expect(buildAdminSectionLinks('operations')).toContainEqual({
+      label: '用户管理',
+      description: '查询用户资料与平台归属。',
+      href: '#admin-users',
+    })
+  })
+})
+
 describe('buildAdminWorkspaceShortcuts', () => {
   it('guides operators through login, overview, invite entry and main distribution routing before admin data exists', () => {
     expect(buildAdminWorkspaceShortcuts({
@@ -161,6 +171,11 @@ describe('buildAdminSectionLinks', () => {
         href: '#admin-bindings',
       },
       {
+        label: '用户管理',
+        description: '查询用户资料与平台归属。',
+        href: '#admin-users',
+      },
+      {
         label: '收益提现',
         description: '收益记录和提现审批。',
         href: '#admin-rewards',
@@ -184,9 +199,9 @@ describe('buildAdminSectionLinks', () => {
     ])
   })
 
-  it('keeps configuration and staff management out of customer support navigation', () => {
+  it('keeps configuration and staff management out of customer support navigation while retaining user lookup', () => {
     expect(buildAdminSectionLinks('customer_support').map((item) => item.href)).toEqual([
-      '#admin-overview', '#admin-bindings', '#admin-accounts',
+      '#admin-overview', '#admin-bindings', '#admin-users', '#admin-accounts',
     ])
   })
 })
