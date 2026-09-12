@@ -28,6 +28,7 @@ import java.time.LocalDateTime;
 import java.util.Map;
 
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -195,6 +196,31 @@ class DistributionControllerTest {
                 .andExpect(jsonPath("$.whatsappNumber").value("+6281234567890"))
                 .andExpect(jsonPath("$.linkyAccount").value("12345678"))
                 .andExpect(jsonPath("$.bindStatus").value("ACTIVE"));
+    }
+
+    @Test
+    void shouldReturnVerifiedLinkyBindingForTheAuthenticatedUser() throws Exception {
+        UserDistributionProfile accountHolder = distributionBindingService.createProfile(53012L, "ID", "id", null);
+        accountHolder.bindPhoneNumber("+6281234567812");
+        userDistributionProfileRepository.save(accountHolder);
+        linkyRegistrationEligibilityService.markEligible("12345670", "LINKY_DEFAULT_GUILD", "Linky Official Guild", 9001L, "prechecked");
+        String accessToken = userSessionService.issue(accountHolder.getUserId()).accessToken();
+
+        mockMvc.perform(post("/api/distribution/bindings/users/{userId}", accountHolder.getUserId())
+                        .header("X-Distribution-Token", accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "productCode", "linky",
+                                "linkyAccount", "12345670"
+                        ))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/distribution/bindings/users/{userId}/linky", accountHolder.getUserId())
+                        .header("X-Distribution-Token", accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userId").value(53012))
+                .andExpect(jsonPath("$.linkyAccount").value("12345670"))
+                .andExpect(jsonPath("$.status").value("VERIFIED"));
     }
 
     @Test

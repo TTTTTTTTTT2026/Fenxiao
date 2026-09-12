@@ -13,6 +13,9 @@ import java.util.Optional;
 public interface LinkyAccountBindingRepository extends JpaRepository<LinkyAccountBinding, Long> {
     Optional<LinkyAccountBinding> findByLinkyAccount(String linkyAccount);
 
+    Optional<LinkyAccountBinding> findFirstByUserIdAndRegistrationEligibilityAndGuildCheckStatusOrderByIdDesc(
+            Long userId, String registrationEligibility, String guildCheckStatus);
+
     Page<LinkyAccountBinding> findByUserIdIsNotNullOrderByIdAsc(Pageable pageable);
     List<LinkyAccountBinding> findByUserIdIn(Collection<Long> userIds);
 

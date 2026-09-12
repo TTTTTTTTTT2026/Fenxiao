@@ -3384,6 +3384,28 @@ code {
   height: 16px;
 }
 
+.consumer-platform-account-bound {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  min-width: 148px;
+  color: #087c51;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.consumer-platform-account-bound svg {
+  width: 18px;
+  height: 18px;
+}
+
+.consumer-platform-account-bound strong {
+  color: #17243e;
+  font-variant-numeric: tabular-nums;
+}
+
 @media (max-width: 440px) {
   .consumer-platform-account-row {
     grid-template-columns: 1fr;
@@ -3391,6 +3413,10 @@ code {
 
   .consumer-platform-account-row .consumer-secondary-link {
     width: 100%;
+  }
+
+  .consumer-platform-account-bound {
+    justify-content: flex-start;
   }
 }
 
