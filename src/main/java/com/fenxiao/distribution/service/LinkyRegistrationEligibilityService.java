@@ -116,6 +116,12 @@ public class LinkyRegistrationEligibilityService {
         return linkyAccountBindingRepository.save(binding);
     }
 
+    public LinkyAccountBinding getVerifiedBindingForUser(Long userId) {
+        return linkyAccountBindingRepository
+                .findFirstByUserIdAndRegistrationEligibilityAndGuildCheckStatusOrderByIdDesc(userId, "ELIGIBLE", "MATCHED_OURS")
+                .orElseThrow(() -> new IllegalArgumentException("verified Linky binding not found"));
+    }
+
     public record BatchRefreshResult(long successCount, long failureCount, List<BatchRefreshFailure> failures) {}
 
     public record BatchRefreshFailure(String linkyAccount, String guildCheckStatus, String remark) {}

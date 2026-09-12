@@ -35,6 +35,13 @@ export type InviteBindingResponse = {
   submittedAt: string
 }
 
+export type LinkyAccountBindingResponse = {
+  userId: number
+  linkyAccount: string
+  status: 'VERIFIED' | string
+  verifiedAt: string | null
+}
+
 export type IssueInviteCodeResponse = {
   userId: number
   productCode: string
@@ -605,6 +612,14 @@ export function registerLinkyAccount(userId: number, accessToken: string, payloa
       'X-Distribution-Token': accessToken,
     },
     body: JSON.stringify(payload),
+  })
+}
+
+export function getVerifiedLinkyAccountBinding(userId: number, accessToken: string) {
+  return request<LinkyAccountBindingResponse>(`/api/distribution/bindings/users/${userId}/linky`, {
+    headers: {
+      'X-Distribution-Token': accessToken,
+    },
   })
 }
 

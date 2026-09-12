@@ -6,6 +6,7 @@ import com.fenxiao.distribution.api.dto.DistributionHomeResponse;
 import com.fenxiao.distribution.api.dto.InviteBindingResponse;
 import com.fenxiao.distribution.api.dto.IssueInviteCodeRequest;
 import com.fenxiao.distribution.api.dto.IssueInviteCodeResponse;
+import com.fenxiao.distribution.api.dto.LinkyAccountBindingResponse;
 import com.fenxiao.distribution.api.dto.PhoneCodeRequest;
 import com.fenxiao.distribution.api.dto.PhoneLoginRequest;
 import com.fenxiao.distribution.api.dto.ProfileResponse;
@@ -21,6 +22,7 @@ import com.fenxiao.distribution.service.DistributionBindingService;
 import com.fenxiao.distribution.service.DistributionFrontendService;
 import com.fenxiao.distribution.service.InviteBindingRegistrationService;
 import com.fenxiao.distribution.service.InviteCodeIssueService;
+import com.fenxiao.distribution.service.LinkyRegistrationEligibilityService;
 import com.fenxiao.distribution.service.PhoneAuthService;
 import com.fenxiao.distribution.service.WithdrawRequestService;
 import com.fenxiao.reward.api.dto.RewardListResponse;
@@ -47,6 +49,7 @@ public class DistributionController {
     private final DistributionBindingService distributionBindingService;
     private final DistributionFrontendService distributionFrontendService;
     private final InviteBindingRegistrationService inviteBindingRegistrationService;
+    private final LinkyRegistrationEligibilityService linkyRegistrationEligibilityService;
     private final InviteCodeIssueService inviteCodeIssueService;
     private final WithdrawRequestService withdrawRequestService;
     private final PhoneAuthService phoneAuthService;
@@ -56,6 +59,7 @@ public class DistributionController {
     public DistributionController(DistributionBindingService distributionBindingService,
                                   DistributionFrontendService distributionFrontendService,
                                   InviteBindingRegistrationService inviteBindingRegistrationService,
+                                  LinkyRegistrationEligibilityService linkyRegistrationEligibilityService,
                                   InviteCodeIssueService inviteCodeIssueService,
                                   WithdrawRequestService withdrawRequestService,
                                   PhoneAuthService phoneAuthService,
@@ -64,6 +68,7 @@ public class DistributionController {
         this.distributionBindingService = distributionBindingService;
         this.distributionFrontendService = distributionFrontendService;
         this.inviteBindingRegistrationService = inviteBindingRegistrationService;
+        this.linkyRegistrationEligibilityService = linkyRegistrationEligibilityService;
         this.inviteCodeIssueService = inviteCodeIssueService;
         this.withdrawRequestService = withdrawRequestService;
         this.phoneAuthService = phoneAuthService;
@@ -116,6 +121,13 @@ public class DistributionController {
                 registration.getBindStatus(),
                 registration.getSubmittedAt().toString()
         );
+    }
+
+    @GetMapping("/bindings/users/{userId}/linky")
+    public LinkyAccountBindingResponse getVerifiedLinkyAccount(@RequestHeader("X-Distribution-Token") String accessToken,
+                                                                @PathVariable Long userId) {
+        distributionAccessGuard.assertUserAccess(userId, accessToken);
+        return LinkyAccountBindingResponse.verified(linkyRegistrationEligibilityService.getVerifiedBindingForUser(userId));
     }
 
     @PostMapping("/invite-codes/issue")
