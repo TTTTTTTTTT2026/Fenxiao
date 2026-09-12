@@ -446,6 +446,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [platformGuildDirectory, setPlatformGuildDirectory] = useState<PlatformGuildDirectoryItem[] | null>(null)
   const [platformGuildDirectorySyncRuns, setPlatformGuildDirectorySyncRuns] = useState<PlatformGuildDirectorySyncRun[] | null>(null)
   const [platformGuildDirectoryLoading, setPlatformGuildDirectoryLoading] = useState(false)
+  const [linkyInvitationGuildOptions, setLinkyInvitationGuildOptions] = useState<PlatformGuildDirectoryItem[] | null>(null)
+  const [linkyInvitationGuildOptionsLoading, setLinkyInvitationGuildOptionsLoading] = useState(false)
   const [linkyInvitationGuildOverride, setLinkyInvitationGuildOverride] = useState({ userId: '', guildId: '', guildName: '', guildInviteCode: '', reason: '' })
   const [isLinkyInvitationGuildDialogOpen, setIsLinkyInvitationGuildDialogOpen] = useState(false)
   const [riskActionDrafts, setRiskActionDrafts] = useState<Record<number, string>>({})
@@ -508,12 +510,10 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const canManagePlatformMocks = adminSession?.role?.toLowerCase() === 'super_admin'
   const canManageLinkyInvitationGuild = ['super_admin', 'admin'].includes(adminSession?.role?.toLowerCase() ?? '')
   const linkyGuildOptions = useMemo(() => {
-    const optionsByGuildId = new Map<string, GuildConfigResponse>()
-    ;(guildConfigs ?? []).filter((item) => item.enabled && item.productCode.toUpperCase() === 'LINKY').forEach((item) => {
-      if (!optionsByGuildId.has(item.guildId)) optionsByGuildId.set(item.guildId, item)
-    })
-    return [...optionsByGuildId.values()]
-  }, [guildConfigs])
+    return (linkyInvitationGuildOptions ?? [])
+      .filter((item) => item.directoryStatus === 'NORMAL' && ['ACTIVE', 'ENABLED'].includes(item.guildStatus.toUpperCase()))
+      .sort((left, right) => left.guildName.localeCompare(right.guildName))
+  }, [linkyInvitationGuildOptions])
   const selectedLinkyInvitationGuildOption = linkyGuildOptions.find((item) => item.guildId === linkyInvitationGuildOverride.guildId) ?? null
   const seedInviterCountry = phoneCountries.find((country) => country.countryCode === seedInviterForm.countryCode) ?? phoneCountries[0]
   const activeAdminProductCode = adminProduct === 'ALL' ? undefined : adminProduct
@@ -1049,7 +1049,6 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
       await updateAdminLinkyInvitationGuild(adminSession.sessionToken, Number(linkyInvitationGuildOverride.userId), {
         guildId: selectedLinkyInvitationGuildOption.guildId,
         guildName: selectedLinkyInvitationGuildOption.guildName,
-        guildInviteCode: selectedLinkyInvitationGuildOption.guildInviteCode || undefined,
         reason: linkyInvitationGuildOverride.reason.trim(),
       })
       await loadUserPlatformProfiles()
@@ -1082,14 +1081,14 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
 
   async function loadLinkyInvitationGuildOptions() {
     if (!adminSession) return
-    setGuildConfigLoading(true)
+    setLinkyInvitationGuildOptionsLoading(true)
     try {
-      setGuildConfigs(await getAdminGuildConfigs(adminSession.sessionToken))
+      setLinkyInvitationGuildOptions(await getAdminPlatformGuildDirectory(adminSession.sessionToken, 'LINKY'))
     } catch (err) {
-      setGuildConfigs(null)
-      setError(err instanceof Error ? err.message : '加载可选 Linky 公会失败')
+      setLinkyInvitationGuildOptions(null)
+      setError(err instanceof Error ? err.message : '加载 MCN Linky 公会目录失败')
     } finally {
-      setGuildConfigLoading(false)
+      setLinkyInvitationGuildOptionsLoading(false)
     }
   }
 
@@ -2906,7 +2905,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           tone="success"
           confirmText="保存人工归属"
           loading={loading}
-          confirmDisabled={guildConfigLoading || !selectedLinkyInvitationGuildOption || !linkyInvitationGuildOverride.reason.trim()}
+          confirmDisabled={linkyInvitationGuildOptionsLoading || !selectedLinkyInvitationGuildOption || !linkyInvitationGuildOverride.reason.trim()}
           onCancel={closeLinkyInvitationGuildDialog}
           onConfirm={() => void saveLinkyInvitationGuildOverride()}
         >
@@ -2915,25 +2914,26 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             目标 Linky 公会 ID
             <select
               value={linkyInvitationGuildOverride.guildId}
-              disabled={guildConfigLoading}
+              disabled={linkyInvitationGuildOptionsLoading}
               onChange={(event) => {
                 const selected = linkyGuildOptions.find((item) => item.guildId === event.target.value)
                 setLinkyInvitationGuildOverride((current) => ({
                   ...current,
                   guildId: selected?.guildId ?? '',
                   guildName: selected?.guildName ?? '',
-                  guildInviteCode: selected?.guildInviteCode ?? '',
+                  guildInviteCode: '',
                 }))
               }}
             >
-              <option value="">{guildConfigLoading ? '正在加载可选公会…' : '请选择目标公会'}</option>
-              {linkyGuildOptions.map((item) => <option key={item.guildId} value={item.guildId}>{item.guildId} · {item.guildName}</option>)}
+              <option value="">{linkyInvitationGuildOptionsLoading ? '正在加载可选公会…' : '请选择目标公会'}</option>
+              {linkyGuildOptions.map((item) => <option key={item.guildId} value={item.guildId}>{item.guildName} · {item.guildId}</option>)}
             </select>
           </label>
           {selectedLinkyInvitationGuildOption ? <>
             <InfoRow label="公会名称" value={selectedLinkyInvitationGuildOption.guildName} />
-            <InfoRow label="公会邀请码" value={selectedLinkyInvitationGuildOption.guildInviteCode || '未配置'} />
-          </> : !guildConfigLoading ? <InlineHint text="没有可选的启用 Linky 公会。请先在“配置 → 公会配置”维护可用于邀请链归属的公会。" /> : null}
+            <InfoRow label="国家 / 平台状态" value={`${selectedLinkyInvitationGuildOption.country || '未标注'} / ${selectedLinkyInvitationGuildOption.guildStatus}`} />
+            <InfoRow label="目录状态" value={renderStatusBadge(selectedLinkyInvitationGuildOption.directoryStatus)} />
+          </> : !linkyInvitationGuildOptionsLoading ? <InlineHint text="没有可选的正常 Linky 公会。请先在“平台公会目录”确认 MCN 同步已成功，并确认公会处于启用状态。" /> : null}
           <label className="dialog-field">调整原因<input required value={linkyInvitationGuildOverride.reason} onChange={(event) => setLinkyInvitationGuildOverride((current) => ({ ...current, reason: event.target.value }))} placeholder="例如邀请人已更换公会" /></label>
           <InlineHint text="保存后会写入操作人、原因、时间和修改前后内容的审计记录；不会覆盖用户已核验到的实际 Linky 公会事实。" />
         </ConfirmDialog>
