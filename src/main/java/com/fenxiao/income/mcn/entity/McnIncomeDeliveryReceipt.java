@@ -8,7 +8,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Entity
 @Table(name = "mcn_income_delivery_receipt")
@@ -24,6 +24,9 @@ public class McnIncomeDeliveryReceipt extends BaseEntity {
     @Column(name = "delivery_id", nullable = false, length = 128)
     private String deliveryId;
 
+    @Column(name = "platform_code", nullable = false, length = 32)
+    private String platformCode;
+
     @Column(name = "payload_hash", nullable = false, length = 64)
     private String payloadHash;
 
@@ -31,19 +34,30 @@ public class McnIncomeDeliveryReceipt extends BaseEntity {
     private int factCount;
 
     @Column(name = "accepted_at", nullable = false)
-    private LocalDateTime acceptedAt;
+    private Instant acceptedAt;
+
+    @Column(name = "snapshot_at")
+    private Instant snapshotAt;
+
+    @Lob
+    @Column(name = "source_watermark", columnDefinition = "LONGTEXT")
+    private String sourceWatermark;
 
     protected McnIncomeDeliveryReceipt() {
     }
 
-    public static McnIncomeDeliveryReceipt accept(String sourceSystem, String deliveryId, String payloadHash,
-                                                  int factCount, LocalDateTime acceptedAt) {
+    public static McnIncomeDeliveryReceipt accept(String sourceSystem, String deliveryId, String platformCode,
+                                                  String payloadHash, int factCount, Instant acceptedAt,
+                                                  Instant snapshotAt, String sourceWatermark) {
         McnIncomeDeliveryReceipt receipt = new McnIncomeDeliveryReceipt();
         receipt.sourceSystem = sourceSystem;
         receipt.deliveryId = deliveryId;
+        receipt.platformCode = platformCode;
         receipt.payloadHash = payloadHash;
         receipt.factCount = factCount;
         receipt.acceptedAt = acceptedAt;
+        receipt.snapshotAt = snapshotAt;
+        receipt.sourceWatermark = sourceWatermark;
         return receipt;
     }
 

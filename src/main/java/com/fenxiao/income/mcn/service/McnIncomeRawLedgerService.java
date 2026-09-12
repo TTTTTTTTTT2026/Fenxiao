@@ -3,6 +3,7 @@ package com.fenxiao.income.mcn.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fenxiao.income.mcn.domain.McnIncomeResolutionStatus;
+import com.fenxiao.income.mcn.domain.McnIncomeEventType;
 import com.fenxiao.income.mcn.dto.McnIncomeDeliveryRequest;
 import com.fenxiao.income.mcn.dto.McnIncomeDeliveryResponse;
 import com.fenxiao.income.mcn.dto.McnIncomeFactRequest;
@@ -18,7 +19,7 @@ import org.springframework.stereotype.Service;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Locale;
 
 /**
@@ -67,8 +68,9 @@ public class McnIncomeRawLedgerService {
         int newFacts = 0;
         int duplicateFacts = 0;
         int unmatchedFacts = 0;
-        LocalDateTime receivedAt = LocalDateTime.now(clock).withNano(0);
+        Instant receivedAt = clock.instant();
         for (McnIncomeFactRequest fact : request.facts()) {
+            validateV1DailyFact(platformCode, fact);
             String eventId = require(fact.sourceEventId(), "source event id");
             String revision = require(fact.sourceRevision(), "source revision");
             String factPayload = json(fact.sourcePayload());
@@ -97,15 +99,18 @@ public class McnIncomeRawLedgerService {
                 unmatchedFacts++;
             }
             eventRepository.save(McnIncomeRawLedgerEvent.record(
-                    sourceSystem, deliveryId, platformCode, eventId, revision,
+                    sourceSystem, deliveryId, platformCode, require(fact.factGranularity(), "fact granularity"), eventId, revision,
                     trimToNull(fact.originalSourceEventId()), platformUserId, resolvedUserId,
                     resolutionStatus, resolutionReason, fact.eventType(), fact.settlementStatus(), fact.amount(),
-                    require(fact.currencyCode(), "currency code").toUpperCase(Locale.ROOT), fact.occurredAt(),
-                    fact.settledAt(), fact.sourceUpdatedAt(), trimToNull(fact.guildId()), factHash, factPayload, receivedAt));
+                    require(fact.currencyCode(), "currency code").toUpperCase(Locale.ROOT),
+                    require(fact.amountUnit(), "amount unit").toUpperCase(Locale.ROOT), fact.businessDate(),
+                    require(fact.sourceTimezone(), "source timezone"), fact.periodStart(), fact.periodEnd(),
+                    fact.occurredAt(), fact.settledAt(), fact.sourceUpdatedAt(), trimToNull(fact.guildId()), factHash,
+                    factPayload, receivedAt, trimToNull(fact.settlementBasis())));
             newFacts++;
         }
-        receiptRepository.save(McnIncomeDeliveryReceipt.accept(sourceSystem, deliveryId, deliveryHash,
-                request.facts().size(), receivedAt));
+        receiptRepository.save(McnIncomeDeliveryReceipt.accept(sourceSystem, deliveryId, platformCode, deliveryHash,
+                request.facts().size(), receivedAt, request.snapshotAt(), json(request.sourceWatermark())));
         return new McnIncomeDeliveryResponse(deliveryId, "ACCEPTED", request.facts().size(), newFacts,
                 duplicateFacts, unmatchedFacts);
     }
@@ -124,6 +129,32 @@ public class McnIncomeRawLedgerService {
             throw new IllegalArgumentException("income platform must be TIMO or LINKY");
         }
         return platform;
+    }
+
+    private void validateV1DailyFact(String platformCode, McnIncomeFactRequest fact) {
+        if (!"ACCOUNT_GUILD_DAY".equals(require(fact.factGranularity(), "fact granularity"))) {
+            throw new IllegalArgumentException("MCN income fact granularity must be ACCOUNT_GUILD_DAY");
+        }
+        String expectedUnit = platformCode + "_DIAMOND";
+        if (!expectedUnit.equals(require(fact.amountUnit(), "amount unit").toUpperCase(Locale.ROOT))) {
+            throw new IllegalArgumentException("income amount unit does not match platform");
+        }
+        if (!fact.periodStart().isBefore(fact.periodEnd())) {
+            throw new IllegalArgumentException("income fact period is invalid");
+        }
+        if (!"XXX".equals(require(fact.currencyCode(), "currency code").toUpperCase(Locale.ROOT))) {
+            throw new IllegalArgumentException("MCN V1 income currency code must be XXX");
+        }
+        if (!fact.occurredAt().equals(fact.periodStart())) {
+            throw new IllegalArgumentException("daily income fact occurredAt must equal periodStart");
+        }
+        if ((fact.eventType() == McnIncomeEventType.ADJUSTMENT || fact.eventType() == McnIncomeEventType.REVERSAL)
+                && trimToNull(fact.originalSourceEventId()) == null) {
+            throw new IllegalArgumentException("adjustment or reversal must reference original source event id");
+        }
+        if (fact.eventType() == McnIncomeEventType.REVERSAL && fact.amount().signum() != 0) {
+            throw new IllegalArgumentException("daily income reversal amount must be zero");
+        }
     }
 
     private String json(Object value) {

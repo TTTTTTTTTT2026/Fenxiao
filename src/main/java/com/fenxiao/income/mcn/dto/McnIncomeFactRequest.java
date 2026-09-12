@@ -7,21 +7,29 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.LocalDate;
 
 public record McnIncomeFactRequest(
         @NotBlank String sourceEventId,
         @NotBlank String sourceRevision,
         String originalSourceEventId,
         @NotBlank String platformUserId,
+        @NotBlank String factGranularity,
         @NotNull McnIncomeEventType eventType,
         @NotNull McnIncomeSettlementStatus settlementStatus,
         @NotNull BigDecimal amount,
         @NotBlank String currencyCode,
-        @NotNull LocalDateTime occurredAt,
-        LocalDateTime settledAt,
-        @NotNull LocalDateTime sourceUpdatedAt,
+        @NotBlank String amountUnit,
+        @NotNull LocalDate businessDate,
+        @NotBlank String sourceTimezone,
+        @NotNull Instant periodStart,
+        @NotNull Instant periodEnd,
+        @NotNull Instant occurredAt,
+        Instant settledAt,
+        @NotNull Instant sourceUpdatedAt,
         String guildId,
+        String settlementBasis,
         @NotNull JsonNode sourcePayload
 ) {
 }
