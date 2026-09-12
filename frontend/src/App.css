@@ -3384,8 +3384,9 @@ code {
   height: 16px;
 }
 
-.consumer-platform-account-bound {
+.consumer-platform-account-row > .consumer-platform-account-bound {
   display: inline-flex;
+  grid-template-columns: none;
   align-items: center;
   justify-content: flex-end;
   gap: 7px;
@@ -3415,7 +3416,7 @@ code {
     width: 100%;
   }
 
-  .consumer-platform-account-bound {
+  .consumer-platform-account-row > .consumer-platform-account-bound {
     justify-content: flex-start;
   }
 }
