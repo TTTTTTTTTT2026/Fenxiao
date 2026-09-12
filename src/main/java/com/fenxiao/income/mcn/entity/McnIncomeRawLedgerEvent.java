@@ -15,7 +15,8 @@ import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.LocalDate;
 
 /**
  * Append-only evidence received from MCN. No reward, wallet or withdrawal state is represented here.
@@ -36,6 +37,9 @@ public class McnIncomeRawLedgerEvent extends BaseEntity {
 
     @Column(name = "platform_code", nullable = false, length = 32)
     private String platformCode;
+
+    @Column(name = "fact_granularity", nullable = false, length = 32)
+    private String factGranularity;
 
     @Column(name = "source_event_id", nullable = false, length = 128)
     private String sourceEventId;
@@ -67,20 +71,38 @@ public class McnIncomeRawLedgerEvent extends BaseEntity {
     @Column(name = "settlement_status", nullable = false, length = 32)
     private McnIncomeSettlementStatus settlementStatus;
 
+    @Column(name = "settlement_basis", length = 64)
+    private String settlementBasis;
+
     @Column(name = "amount", nullable = false, precision = 18, scale = 6)
     private BigDecimal amount;
 
     @Column(name = "currency_code", nullable = false, length = 16)
     private String currencyCode;
 
+    @Column(name = "amount_unit", nullable = false, length = 32)
+    private String amountUnit;
+
+    @Column(name = "business_date", nullable = false)
+    private LocalDate businessDate;
+
+    @Column(name = "source_timezone", nullable = false, length = 64)
+    private String sourceTimezone;
+
+    @Column(name = "period_start", nullable = false)
+    private Instant periodStart;
+
+    @Column(name = "period_end", nullable = false)
+    private Instant periodEnd;
+
     @Column(name = "occurred_at", nullable = false)
-    private LocalDateTime occurredAt;
+    private Instant occurredAt;
 
     @Column(name = "settled_at")
-    private LocalDateTime settledAt;
+    private Instant settledAt;
 
     @Column(name = "source_updated_at", nullable = false)
-    private LocalDateTime sourceUpdatedAt;
+    private Instant sourceUpdatedAt;
 
     @Column(name = "guild_id", length = 64)
     private String guildId;
@@ -93,25 +115,28 @@ public class McnIncomeRawLedgerEvent extends BaseEntity {
     private String sourcePayload;
 
     @Column(name = "received_at", nullable = false)
-    private LocalDateTime receivedAt;
+    private Instant receivedAt;
 
     protected McnIncomeRawLedgerEvent() {
     }
 
     public static McnIncomeRawLedgerEvent record(String sourceSystem, String deliveryId, String platformCode,
+                                                   String factGranularity,
                                                    String sourceEventId, String sourceRevision,
                                                    String originalSourceEventId, String platformUserId,
                                                    Long resolvedUserId, McnIncomeResolutionStatus resolutionStatus,
                                                    String resolutionReason, McnIncomeEventType eventType,
                                                    McnIncomeSettlementStatus settlementStatus, BigDecimal amount,
-                                                   String currencyCode, LocalDateTime occurredAt,
-                                                   LocalDateTime settledAt, LocalDateTime sourceUpdatedAt,
+                                                   String currencyCode, String amountUnit, LocalDate businessDate,
+                                                   String sourceTimezone, Instant periodStart, Instant periodEnd,
+                                                   Instant occurredAt, Instant settledAt, Instant sourceUpdatedAt,
                                                    String guildId, String payloadHash, String sourcePayload,
-                                                   LocalDateTime receivedAt) {
+                                                   Instant receivedAt, String settlementBasis) {
         McnIncomeRawLedgerEvent event = new McnIncomeRawLedgerEvent();
         event.sourceSystem = sourceSystem;
         event.deliveryId = deliveryId;
         event.platformCode = platformCode;
+        event.factGranularity = factGranularity;
         event.sourceEventId = sourceEventId;
         event.sourceRevision = sourceRevision;
         event.originalSourceEventId = originalSourceEventId;
@@ -121,8 +146,14 @@ public class McnIncomeRawLedgerEvent extends BaseEntity {
         event.resolutionReason = resolutionReason;
         event.eventType = eventType;
         event.settlementStatus = settlementStatus;
+        event.settlementBasis = settlementBasis;
         event.amount = amount;
         event.currencyCode = currencyCode;
+        event.amountUnit = amountUnit;
+        event.businessDate = businessDate;
+        event.sourceTimezone = sourceTimezone;
+        event.periodStart = periodStart;
+        event.periodEnd = periodEnd;
         event.occurredAt = occurredAt;
         event.settledAt = settledAt;
         event.sourceUpdatedAt = sourceUpdatedAt;
@@ -137,6 +168,7 @@ public class McnIncomeRawLedgerEvent extends BaseEntity {
     public String getSourceEventId() { return sourceEventId; }
     public String getSourceRevision() { return sourceRevision; }
     public String getPlatformCode() { return platformCode; }
+    public String getFactGranularity() { return factGranularity; }
     public String getPlatformUserId() { return platformUserId; }
     public Long getResolvedUserId() { return resolvedUserId; }
     public McnIncomeResolutionStatus getResolutionStatus() { return resolutionStatus; }

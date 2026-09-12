@@ -40,6 +40,17 @@ fenxiao:
     default-freeze-days: 7
 
 app:
+  mcn-income-facts:
+    # Disabled until MCN publishes the V1 pull API and delivers a dedicated credential and HMAC secret.
+    enabled: ${MCN_INCOME_FACTS_ENABLED:false}
+    base-url: ${MCN_INCOME_FACTS_BASE_URL:}
+    credential-id: ${MCN_INCOME_FACTS_CREDENTIAL_ID:}
+    hmac-secret: ${MCN_INCOME_FACTS_HMAC_SECRET:}
+    connect-timeout: ${MCN_INCOME_FACTS_CONNECT_TIMEOUT:5s}
+    request-timeout: ${MCN_INCOME_FACTS_REQUEST_TIMEOUT:20s}
+    page-size: ${MCN_INCOME_FACTS_PAGE_SIZE:200}
+    max-pages-per-run: ${MCN_INCOME_FACTS_MAX_PAGES_PER_RUN:10}
+    sync-interval: ${MCN_INCOME_FACTS_SYNC_INTERVAL:300000}
   linky-verification:
     # Production only reads Linky membership facts from the MCN authority. Local acceptance overrides this to MOCK.
     source: ${LINKY_VERIFICATION_SOURCE:MCN}
