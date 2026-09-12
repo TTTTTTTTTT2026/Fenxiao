@@ -15,7 +15,7 @@ public class McnIncomePullScheduler {
         this.pullService = pullService;
     }
 
-    @Scheduled(fixedDelayString = "${app.mcn-income-facts.sync-interval:5m}")
+    @Scheduled(fixedDelayString = "${app.mcn-income-facts.sync-interval:300000}")
     public void pullIncrementalFacts() {
         if (!client.enabled()) return;
         pullService.pullNextPage("TIMO");
