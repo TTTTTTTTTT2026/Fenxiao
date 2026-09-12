@@ -103,19 +103,19 @@ class McnIncomeRawLedgerControllerTest {
                 "deliveryId", deliveryId,
                 "sourceSystem", "MCN",
                 "platformCode", platformCode,
-                "facts", List.of(Map.of(
-                        "sourceEventId", sourceEventId,
-                        "sourceRevision", revision,
-                        "platformUserId", platformUserId,
-                        "eventType", "INCOME",
-                        "settlementStatus", "SETTLED",
-                        "amount", new BigDecimal("88.25"),
-                        "currencyCode", "USD",
-                        "occurredAt", "2026-09-12T07:30:00",
-                        "settledAt", "2026-09-12T08:30:00",
-                        "sourceUpdatedAt", "2026-09-12T08:31:00",
-                        "guildId", "22000448",
-                        "sourcePayload", new java.util.LinkedHashMap<>(Map.of("upstreamOrderId", sourceEventId))
+                "facts", List.of(Map.ofEntries(
+                        Map.entry("sourceEventId", sourceEventId),
+                        Map.entry("sourceRevision", revision),
+                        Map.entry("platformUserId", platformUserId),
+                        Map.entry("eventType", "INCOME"),
+                        Map.entry("settlementStatus", "SETTLED"),
+                        Map.entry("amount", new BigDecimal("88.25")),
+                        Map.entry("currencyCode", "USD"),
+                        Map.entry("occurredAt", "2026-09-12T07:30:00"),
+                        Map.entry("settledAt", "2026-09-12T08:30:00"),
+                        Map.entry("sourceUpdatedAt", "2026-09-12T08:31:00"),
+                        Map.entry("guildId", "22000448"),
+                        Map.entry("sourcePayload", new java.util.LinkedHashMap<>(Map.of("upstreamOrderId", sourceEventId)))
                 ))
         );
     }
