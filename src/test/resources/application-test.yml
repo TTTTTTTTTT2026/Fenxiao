@@ -17,3 +17,6 @@ spring:
 app:
   distribution:
     legacy-user-token-enabled: true
+  linky-verification:
+    # Existing Spring integration fixtures use the legacy double; production is configured separately to MCN.
+    source: LEGACY

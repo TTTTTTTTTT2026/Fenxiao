@@ -41,11 +41,11 @@ fenxiao:
 
 app:
   linky-verification:
-    # The legacy probe remains the production default until each invitation route is mapped to an active MCN guild.
-    source: ${LINKY_VERIFICATION_SOURCE:LEGACY}
+    # Production only reads Linky membership facts from the MCN authority. Local acceptance overrides this to MOCK.
+    source: ${LINKY_VERIFICATION_SOURCE:MCN}
     mcn:
-      # Disabled by default. A production secret and explicit route mappings are both required before switching to MCN.
-      enabled: ${MCN_LINKY_VERIFICATION_ENABLED:false}
+      # Fail closed until the independently provisioned MCN credential and HMAC secret are present.
+      enabled: ${MCN_LINKY_VERIFICATION_ENABLED:true}
       base-url: ${MCN_LINKY_BASE_URL:}
       credential-id: ${MCN_LINKY_CREDENTIAL_ID:}
       hmac-secret: ${MCN_LINKY_HMAC_SECRET:}

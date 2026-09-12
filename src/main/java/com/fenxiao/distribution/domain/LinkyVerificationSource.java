@@ -8,7 +8,7 @@ public enum LinkyVerificationSource {
     MCN;
 
     public static LinkyVerificationSource parse(String value) {
-        if (value == null || value.isBlank()) return LEGACY;
+        if (value == null || value.isBlank()) return MCN;
         try {
             return valueOf(value.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException exception) {
