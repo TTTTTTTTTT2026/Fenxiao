@@ -1,5 +1,6 @@
 package com.fenxiao.distribution.service;
 
+import com.fenxiao.common.api.ServiceUnavailableException;
 import com.fenxiao.distribution.entity.LinkyAccountBinding;
 import com.fenxiao.distribution.repository.LinkyAccountBindingRepository;
 import org.junit.jupiter.api.Test;
@@ -50,6 +51,20 @@ class LinkyRegistrationEligibilityServiceTest {
                 .hasMessageContaining("linky account is not eligible for registration");
 
         verify(repository).save(any(LinkyAccountBinding.class));
+    }
+
+    @Test
+    void shouldReturnSafeUnavailableMessageWhenGuildProbeCannotRun() {
+        LinkyAccountBindingRepository repository = mock(LinkyAccountBindingRepository.class);
+        LinkyGuildProbeClient probeClient = mock(LinkyGuildProbeClient.class);
+        when(repository.findByLinkyAccount("unavailable-linky")).thenReturn(Optional.empty());
+        when(probeClient.probe("unavailable-linky")).thenReturn(LinkyGuildProbeResult.unavailable("unavailable-linky", "python3 missing"));
+
+        LinkyRegistrationEligibilityService service = new LinkyRegistrationEligibilityService(repository, probeClient);
+
+        assertThatThrownBy(() -> service.assertEligibleForRegistration("unavailable-linky"))
+                .isInstanceOf(ServiceUnavailableException.class)
+                .hasMessage("Linky 核验服务暂不可用，请稍后再试");
     }
 
     @Test

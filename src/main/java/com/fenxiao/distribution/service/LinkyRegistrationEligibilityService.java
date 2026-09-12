@@ -1,5 +1,6 @@
 package com.fenxiao.distribution.service;
 
+import com.fenxiao.common.api.ServiceUnavailableException;
 import com.fenxiao.distribution.entity.LinkyAccountBinding;
 import com.fenxiao.distribution.repository.LinkyAccountBindingRepository;
 import jakarta.transaction.Transactional;
@@ -46,9 +47,7 @@ public class LinkyRegistrationEligibilityService {
     public LinkyAccountBinding refreshEligibilityFromProbe(String linkyAccount, Long checkedBy) {
         LinkyGuildProbeResult result = linkyGuildProbeClient.probe(linkyAccount);
         if (!result.available()) {
-            throw new IllegalStateException(result.remark() == null || result.remark().isBlank()
-                    ? "guild probe unavailable"
-                    : result.remark());
+            throw new ServiceUnavailableException("Linky 核验服务暂不可用，请稍后再试");
         }
         if (result.matchedOurs()) {
             return markEligible(linkyAccount, result.guildId(), result.guildName(), checkedBy, result.remark());

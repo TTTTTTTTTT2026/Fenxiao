@@ -7,8 +7,9 @@ RUN mvn -q -DskipTests package
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
+    && apt-get install -y --no-install-recommends curl python3 \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/target/fenxiao-0.0.1-SNAPSHOT.jar app.jar
+COPY scripts ./scripts
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "/app/app.jar", "--spring.profiles.active=prod"]
