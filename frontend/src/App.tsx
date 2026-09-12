@@ -3176,13 +3176,24 @@ function ConfirmDialog({
   onConfirm: () => void
 }) {
   const dialogRef = useRef<HTMLDivElement>(null)
+  const onCancelRef = useRef(onCancel)
+  const loadingRef = useRef(loading)
+
+  useEffect(() => {
+    onCancelRef.current = onCancel
+  }, [onCancel])
+
+  useEffect(() => {
+    loadingRef.current = loading
+  }, [loading])
+
   useEffect(() => {
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     dialogRef.current?.querySelector<HTMLButtonElement>('button')?.focus()
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !loading) onCancel()
+      if (event.key === 'Escape' && !loadingRef.current) onCancelRef.current()
       if (event.key !== 'Tab' || !dialogRef.current) return
       const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])'))
       if (!focusable.length) return
@@ -3197,7 +3208,7 @@ function ConfirmDialog({
       document.body.style.overflow = previousOverflow
       previousFocus?.focus()
     }
-  }, [loading, onCancel])
+  }, [])
 
   return (
     <div className="dialog-backdrop" role="presentation">
