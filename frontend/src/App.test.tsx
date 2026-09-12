@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
-import App, { ConsoleApp, buildBindGuildInviteGuidance, formatBusinessRewardLevel, localizeInviteOperationError } from './App'
+import App, { ConsoleApp, formatBusinessRewardLevel, isLinkyGuildMismatch, localizeInviteOperationError, localizeLinkyBindingError } from './App'
 
 type FakeStorage = {
   getItem: (key: string) => string | null
@@ -141,17 +141,20 @@ describe('App external landing pages', () => {
   })
 })
 
-describe('bind guild invite guidance', () => {
-  it('extracts the expected Linky guild invite code from backend errors', () => {
-    expect(buildBindGuildInviteGuidance('Please join expected Linky guild with invite code GUILD-88 before binding.')).toEqual({
-      title: '请先加入指定 Linky 公会',
-      inviteCode: 'GUILD-88',
-      description: '这个 Linky ID 还没有命中上级对应公会。请先用公会邀请码 GUILD-88 加入指定公会，再回来提交绑定。',
-    })
+describe('Linky guild mismatch feedback', () => {
+  it('recognizes expected-guild mismatches without exposing backend invite-code details', () => {
+    expect(isLinkyGuildMismatch('Please join expected Linky guild with invite code GUILD-88 before binding.')).toBe(true)
+    expect(isLinkyGuildMismatch('Linky account is not in the expected guild Royal ID. Please join using invite code null.')).toBe(true)
   })
 
-  it('returns null for ordinary bind errors', () => {
-    expect(buildBindGuildInviteGuidance('WhatsApp number already exists')).toBeNull()
+  it('does not classify ordinary binding errors as a guild mismatch', () => {
+    expect(isLinkyGuildMismatch('WhatsApp number already exists')).toBe(false)
+  })
+
+  it('uses the selected language for Linky guild mismatches', () => {
+    const sourceError = 'Linky account is not in the expected guild Royal ID. Please join using invite code null.'
+    expect(localizeLinkyBindingError(sourceError, 'zh')).toBe('当前账号与被邀请人不属于同一个公会，绑定失败')
+    expect(localizeLinkyBindingError(sourceError, 'pt')).toBe('Esta conta e quem fez o convite não pertencem à mesma guilda. A vinculação falhou.')
   })
 })
 

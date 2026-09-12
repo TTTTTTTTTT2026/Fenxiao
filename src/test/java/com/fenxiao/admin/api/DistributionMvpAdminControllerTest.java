@@ -102,6 +102,23 @@ class DistributionMvpAdminControllerTest {
     }
 
     @Test
+    void shouldIncludePhoneNumberInUserPlatformProfiles() throws Exception {
+        UserDistributionProfile profile = distributionBindingService.createProfile(10011L, "ID", "id", null);
+        profile.bindPhoneNumber("+6281234567890");
+        userDistributionProfileRepository.save(profile);
+
+        mockMvc.perform(get("/admin/distribution/user-platform-profiles")
+                        .header("X-Admin-Session", loginAsAdmin())
+                        .param("userId", "10011"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].userId").value(10011))
+                .andExpect(jsonPath("$.items[0].phoneNumber").value("+6281234567890"))
+                .andExpect(jsonPath("$.items[0].linky").isEmpty())
+                .andExpect(jsonPath("$.items[0].timo").isEmpty())
+                .andExpect(jsonPath("$.items[0].invitationGuild").isEmpty());
+    }
+
+    @Test
     void shouldRestrictRelationDetailByProductCode() throws Exception {
         String linkyRootCode = inviteCodeIssueService.issue(new IssueInviteCodeRequest("LINKY", "+628****5101", "10101")).record().getInviteCode();
         distributionBindingService.createProfile(10102L, "ID", "id", linkyRootCode);
