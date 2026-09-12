@@ -67,7 +67,7 @@ public class UserPlatformProfileAdminService {
                 legacyGuildConfigs.findByProductCodeAndInviterUserIdInAndEnabledTrue("LINKY", ids), GuildAccountConfig::getInviterUserId);
         List<UserPlatformProfileListResponse.Item> items = result.getContent().stream().map(profile -> {
             var relation = relations.findByUserId(profile.getUserId()).orElse(null);
-            return new UserPlatformProfileListResponse.Item(profile.getUserId(), profile.getInviteCode(), profile.getCountryCode(),
+            return new UserPlatformProfileListResponse.Item(profile.getUserId(), profile.getInviteCode(), profile.getCountryCode(), profile.getPhoneNumber(),
                     relation == null ? null : relation.getLevel1InviterId(),
                     linky(linkyByUser.get(profile.getUserId())), timo(timoByUser.get(profile.getUserId())),
                     invitationGuild(guildByUser.get(profile.getUserId()), legacyGuildByUser.get(profile.getUserId())));

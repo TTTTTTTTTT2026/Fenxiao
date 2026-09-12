@@ -2284,13 +2284,14 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                 </InfoCard>
                 <InfoCard title="用户与平台核验信息" tone="neutral">
                   <DataTable
-                    headers={['用户 / 邀请码', '直接邀请人', 'Linky 实际绑定', 'Timo 实际绑定', 'Linky 邀请链归属', '操作']}
+                    headers={['用户 / 邀请码', '手机号', '直接邀请人', 'Linky 实际绑定', 'Timo 实际绑定', 'Linky 邀请链归属', '操作']}
                     rows={(userPlatformProfiles?.items ?? []).map((item) => [
                       <div className="stack-gap small"><strong>#{item.userId}</strong><span>{item.inviteCode} · {item.countryCode}</span></div>,
+                      item.phoneNumber || '-',
                       item.directInviterUserId == null ? '根节点' : `#${item.directInviterUserId}`,
-                      item.linky ? <div className="stack-gap small"><strong>{item.linky.accountId}</strong><span>{item.linky.status} · {item.linky.guildName || item.linky.guildId || '未返回公会'}{item.linky.expectedGuildSource ? ` · 目标来源 ${item.linky.expectedGuildSource}` : ''}</span></div> : '未绑定',
-                      item.timo ? <div className="stack-gap small"><strong>{item.timo.accountId}</strong><span>{item.timo.status} · {item.timo.guildId || '未返回公会'}</span></div> : '未绑定',
-                      item.invitationGuild ? <div className="stack-gap small"><strong>{item.invitationGuild.guildName} · {item.invitationGuild.guildId}</strong><span>{item.invitationGuild.source}{item.invitationGuild.inheritedFromUserId ? ` · 继承自 #${item.invitationGuild.inheritedFromUserId}` : ''}</span></div> : '待首次 Linky 核验',
+                      item.linky ? <div className="stack-gap small"><strong>{item.linky.accountId}</strong><span>{item.linky.status} · {item.linky.guildName || item.linky.guildId || '未返回公会'}{item.linky.expectedGuildSource ? ` · 目标来源 ${item.linky.expectedGuildSource}` : ''}</span></div> : '-',
+                      item.timo ? <div className="stack-gap small"><strong>{item.timo.accountId}</strong><span>{item.timo.status} · {item.timo.guildId || '未返回公会'}</span></div> : '-',
+                      item.invitationGuild ? <div className="stack-gap small"><strong>{item.invitationGuild.guildName} · {item.invitationGuild.guildId}</strong><span>{item.invitationGuild.source}{item.invitationGuild.inheritedFromUserId ? ` · 继承自 #${item.invitationGuild.inheritedFromUserId}` : ''}</span></div> : '-',
                       canManageLinkyInvitationGuild ? <button className="ghost-btn small-btn" onClick={() => openLinkyInvitationGuildOverride(item)}>调整归属</button> : '只读',
                     ])}
                     emptyText="输入用户 ID 后查询，或直接查询查看近期用户。"
@@ -3470,16 +3471,22 @@ function formatAdminRole(role: string) {
   return labels[role.toLowerCase()] ?? role
 }
 
+const linkyGuildMismatchCopy: Record<ConsumerLocale, string> = {
+  zh: '当前账号与被邀请人不属于同一个公会，绑定失败',
+  en: 'This account and the inviting user are not in the same guild. Binding failed.',
+  es: 'Esta cuenta y la persona que invitó no pertenecen al mismo gremio. La vinculación falló.',
+  id: 'Akun ini dan pengundang tidak berada di guild yang sama. Pengikatan gagal.',
+  pt: 'Esta conta e quem fez o convite não pertencem à mesma guilda. A vinculação falhou.',
+}
+
 // eslint-disable-next-line react-refresh/only-export-components
-export function buildBindGuildInviteGuidance(message: string) {
-  const inviteCodeMatch = message.match(/invite code\s+([A-Za-z0-9_-]+)/i)
-  if (!inviteCodeMatch) return null
-  const inviteCode = inviteCodeMatch[1].replace(/[.。]$/, '')
-  return {
-    title: '请先加入指定 Linky 公会',
-    inviteCode,
-    description: `这个 Linky ID 还没有命中上级对应公会。请先用公会邀请码 ${inviteCode} 加入指定公会，再回来提交绑定。`,
-  }
+export function isLinkyGuildMismatch(message: string) {
+  return /Linky account is not in (?:the )?expected guild|Please join expected Linky guild|Linky account joined another guild/i.test(message)
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function localizeLinkyBindingError(message: string, locale: ConsumerLocale) {
+  return isLinkyGuildMismatch(message) ? linkyGuildMismatchCopy[locale] : message
 }
 
 function BindLandingPage() {
@@ -3706,7 +3713,8 @@ function BindLandingPage() {
 
   const copy = copyByLocale[locale]
   const accountCopy = consumerAccountCopy[locale]
-  const guildInviteGuidance = error ? buildBindGuildInviteGuidance(error) : null
+  const guildMismatch = error ? isLinkyGuildMismatch(error) : false
+  const localizedBindingError = error ? localizeLinkyBindingError(error, locale) : ''
   const canSubmit = Boolean(session && linkyAccount.length === 8)
 
   useEffect(() => {
@@ -3763,9 +3771,8 @@ function BindLandingPage() {
 
         {error ? (
           <section className="consumer-banner is-error" role="alert">
-            <strong>{guildInviteGuidance?.title ?? copy.failure}</strong>
-            <span>{guildInviteGuidance?.description ?? error}</span>
-            {guildInviteGuidance ? <span>公会邀请码：<strong>{guildInviteGuidance.inviteCode}</strong></span> : null}
+            <strong>{guildMismatch ? localizedBindingError : copy.failure}</strong>
+            {!guildMismatch ? <span>{localizedBindingError}</span> : null}
           </section>
         ) : result ? (
           <section className="consumer-banner is-success" role="status"><strong>{copy.success}</strong><span>{accountCopy.bindingSuccess}</span></section>

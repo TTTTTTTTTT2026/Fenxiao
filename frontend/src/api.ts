@@ -309,6 +309,7 @@ export type UserPlatformProfileItem = {
   userId: number
   inviteCode: string
   countryCode: string
+  phoneNumber: string | null
   directInviterUserId: number | null
   linky: UserPlatformProfileBinding | null
   timo: UserPlatformProfileBinding | null
