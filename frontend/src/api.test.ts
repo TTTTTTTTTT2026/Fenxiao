@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { applyAdminRiskEventBatchAction, applyAdminWithdrawBatchAction, approveAdminWithdrawRequest, approveWithdrawForPayment, correctAdminOwnership, createAdminSession, createExperiment, createWithdrawRequest, getAdminGuildConfigs, getAdminGuildWeeklyReport, getAdminOwnership, getAdminPlatformIntegrations, getAdminSeedInviters, getAdminWithdrawRequests, getDistributionRewardSummary, getDistributionTeamWeeklyIncome, getExperimentDashboard, getWithdrawHistory, issuePhoneCode, logoutUserSession, phoneLogin, recordWithdrawPayment, refreshAdminLinkyEligibility, refreshAdminLinkyEligibilityBatch, rejectAdminWithdrawRequest, reverseWithdrawPayment, saveAdminGuildConfig } from './api'
+import { applyAdminRiskEventBatchAction, applyAdminWithdrawBatchAction, approveAdminWithdrawRequest, approveWithdrawForPayment, correctAdminOwnership, createAdminSession, createExperiment, createWithdrawRequest, getAdminGuildConfigs, getAdminGuildWeeklyReport, getAdminOwnership, getAdminPlatformGuildDirectory, getAdminPlatformGuildDirectorySyncRuns, getAdminPlatformIntegrations, getAdminSeedInviters, getAdminWithdrawRequests, getDistributionRewardSummary, getDistributionTeamWeeklyIncome, getExperimentDashboard, getWithdrawHistory, issuePhoneCode, logoutUserSession, phoneLogin, recordWithdrawPayment, refreshAdminLinkyEligibility, refreshAdminLinkyEligibilityBatch, rejectAdminWithdrawRequest, reverseWithdrawPayment, saveAdminGuildConfig } from './api'
 
 describe('ownership admin api', () => {
   afterEach(() => {
@@ -450,5 +450,16 @@ describe('platform integration admin api', () => {
     expect(fetchMock).toHaveBeenCalledWith('/admin/platform-integrations', expect.objectContaining({
       headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
     }))
+  })
+
+  it('loads the MCN-backed platform guild directory and its sync runs', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => [] })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await getAdminPlatformGuildDirectory('session-token', 'LINKY')
+    await getAdminPlatformGuildDirectorySyncRuns('session-token', 'TIMO')
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/admin/distribution/platform-guild-directory?platform=LINKY', expect.objectContaining({ headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }) }))
+    expect(fetchMock).toHaveBeenNthCalledWith(2, '/admin/distribution/platform-guild-directory/sync-runs?platform=TIMO', expect.objectContaining({ headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }) }))
   })
 })

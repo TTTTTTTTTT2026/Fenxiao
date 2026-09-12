@@ -164,6 +164,11 @@ export function buildAdminSectionLinks(role?: string): AdminSectionLink[] {
       href: '#admin-users',
     },
     {
+      label: '平台公会目录',
+      description: '查看 MCN 同步的公会状态。',
+      href: '#admin-platform-guild-directory',
+    },
+    {
       label: '收益提现',
       description: '收益记录和提现审批。',
       href: '#admin-rewards',
@@ -186,8 +191,8 @@ export function buildAdminSectionLinks(role?: string): AdminSectionLink[] {
 
   const roleSections: Record<string, string[]> = {
     finance: ['#admin-overview', '#admin-rewards', '#admin-accounts'],
-    operations: ['#admin-overview', '#admin-channel-entries', '#admin-bindings', '#admin-users', '#admin-accounts'],
-    operator: ['#admin-overview', '#admin-channel-entries', '#admin-bindings', '#admin-users', '#admin-accounts'],
+    operations: ['#admin-overview', '#admin-channel-entries', '#admin-bindings', '#admin-users', '#admin-platform-guild-directory', '#admin-accounts'],
+    operator: ['#admin-overview', '#admin-channel-entries', '#admin-bindings', '#admin-users', '#admin-platform-guild-directory', '#admin-accounts'],
     customer_support: ['#admin-overview', '#admin-bindings', '#admin-users', '#admin-accounts'],
     mentor: ['#admin-overview', '#admin-bindings', '#admin-users', '#admin-accounts'],
     team_leader: ['#admin-overview', '#admin-bindings', '#admin-users', '#admin-accounts'],

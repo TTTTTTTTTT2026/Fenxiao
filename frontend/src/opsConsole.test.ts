@@ -176,6 +176,11 @@ describe('buildAdminSectionLinks', () => {
         href: '#admin-users',
       },
       {
+        label: '平台公会目录',
+        description: '查看 MCN 同步的公会状态。',
+        href: '#admin-platform-guild-directory',
+      },
+      {
         label: '收益提现',
         description: '收益记录和提现审批。',
         href: '#admin-rewards',
