@@ -11,7 +11,7 @@ public class LinkyVerificationModeService {
     private final LinkyVerificationSource source;
     private final Environment environment;
 
-    public LinkyVerificationModeService(@Value("${app.linky-verification.source:LEGACY}") String source,
+    public LinkyVerificationModeService(@Value("${app.linky-verification.source:MCN}") String source,
                                         Environment environment) {
         this.source = LinkyVerificationSource.parse(source);
         this.environment = environment;
@@ -19,8 +19,9 @@ public class LinkyVerificationModeService {
 
     @PostConstruct
     void validateEnvironment() {
-        if (source == LinkyVerificationSource.MOCK && !environment.matchesProfiles("local | test")) {
-            throw new IllegalStateException("MOCK Linky verification is allowed only in the local or test profile");
+        if ((source == LinkyVerificationSource.MOCK || source == LinkyVerificationSource.LEGACY)
+                && !environment.matchesProfiles("local | test")) {
+            throw new IllegalStateException("Only MCN Linky verification is allowed outside the local or test profile");
         }
     }
 
