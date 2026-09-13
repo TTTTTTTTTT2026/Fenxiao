@@ -1632,11 +1632,12 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     if (!adminSession || !canRunControlledIncome) return
     setLoading(true); setError(''); setSuccessMessage('')
     try {
-      const [quality, exceptions] = await Promise.all([
+      const [summary, quality, exceptions] = await Promise.all([
+        getAdminIncomeShadowLedgerSummary(adminSession.sessionToken, incomeShadowForm.platformCode, incomeShadowForm.businessDate),
         getAdminIncomeDataQuality(adminSession.sessionToken, incomeShadowForm.platformCode, incomeShadowForm.businessDate),
         getAdminIncomeDataQualityExceptions(adminSession.sessionToken, incomeShadowForm.platformCode, incomeShadowForm.businessDate),
       ])
-      setIncomeDataQuality(quality); setIncomeDataQualityExceptions(exceptions)
+      setIncomeShadowResult(summary); setIncomeDataQuality(quality); setIncomeDataQualityExceptions(exceptions)
       setSuccessMessage('已读取数据质量结果；该操作不会变更任何收入、奖励或钱包数据。')
     } catch (err) {
       setError(err instanceof Error ? err.message : '读取收入数据质量失败')
@@ -2288,7 +2289,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                 </div><InlineHint text="“已绑定且已定稿”仅表示可进入后续规则核对，不代表已经产生任何奖励或可提现余额。" /></InfoCard> : <EmptyState title="尚未生成影子账本" description="选择已完成受控对账的业务日后刷新。" />}
                 {incomeDataQuality ? <InfoCard title="数据质量与待处理项" tone={incomeDataQuality.projectionStatus === 'COMPLETE' ? 'success' : 'neutral'}><div className="relation-grid">
                   <RelationItem label="投影完整性" value={`${incomeDataQuality.projectionStatus} · ${incomeDataQuality.projectedFactCount} / ${incomeDataQuality.latestFactCount}`} />
-                  <RelationItem label="已归属覆盖率" value={`${incomeDataQuality.bindingCoveragePercent}%`} />
+                  <RelationItem label="已归属覆盖率" value={`${incomeDataQuality.boundFinalCount} / ${incomeDataQuality.latestFactCount}（${incomeDataQuality.latestFactCount === 0 ? '0' : ((incomeDataQuality.boundFinalCount / incomeDataQuality.latestFactCount) * 100).toFixed(2)}%）`} />
                   <RelationItem label="未归属 / 等待定稿" value={`${incomeDataQuality.unmatchedCount} / ${incomeDataQuality.awaitingFinalityCount}`} />
                   <RelationItem label="作废事实" value={incomeDataQuality.voidedCount} />
                 </div><InlineHint text="COMPLETE 表示最新 MCN 事实均已写入本地影子投影；未归属和等待定稿必须在进入任何后续账本规则前处理或确认。" />
