@@ -1,6 +1,8 @@
 package com.fenxiao.income.mcn.service;
 
 import com.fenxiao.income.mcn.api.dto.McnIncomeShadowLedgerSummaryResponse;
+import com.fenxiao.income.mcn.api.dto.McnIncomeDataQualityExceptionResponse;
+import com.fenxiao.income.mcn.api.dto.McnIncomeDataQualityResponse;
 import com.fenxiao.income.mcn.domain.McnIncomeEventType;
 import com.fenxiao.income.mcn.domain.McnIncomeSettlementStatus;
 import com.fenxiao.income.mcn.entity.McnIncomeRawLedgerEvent;
@@ -67,6 +69,44 @@ public class McnIncomeShadowLedgerService {
         String platform = platform(platformCode);
         List<McnIncomeShadowLedgerSummaryResponse> rows = jdbc.query("SELECT source_fact_count, latest_fact_count, bound_final_count, unmatched_count, awaiting_finality_count, voided_count, run_id FROM mcn_income_shadow_ledger_run WHERE platform_code=? AND business_date=? ORDER BY id DESC LIMIT 1", (rs, row) -> new McnIncomeShadowLedgerSummaryResponse(platform, businessDate, rs.getInt(1), rs.getInt(2), rs.getInt(3), rs.getInt(4), rs.getInt(5), rs.getInt(6), rs.getString(7)), platform, businessDate);
         return rows.isEmpty() ? new McnIncomeShadowLedgerSummaryResponse(platform, businessDate, 0, 0, 0, 0, 0, 0, null) : rows.getFirst();
+    }
+
+    /**
+     * Read-only quality evidence for operators. A projection is complete only when
+     * every latest MCN fact for the selected day has a current shadow projection.
+     */
+    @Transactional
+    public McnIncomeDataQualityResponse quality(String platformCode, LocalDate businessDate) {
+        McnIncomeShadowLedgerSummaryResponse summary = summary(platformCode, businessDate);
+        int projected = count("SELECT COUNT(*) FROM mcn_income_shadow_ledger_projection WHERE source_system='MCN' AND platform_code=? AND business_date=?", summary.platformCode(), businessDate);
+        int bound = count("SELECT COUNT(*) FROM mcn_income_shadow_ledger_projection WHERE source_system='MCN' AND platform_code=? AND business_date=? AND shadow_status='BOUND_FINAL'", summary.platformCode(), businessDate);
+        int unmatched = count("SELECT COUNT(*) FROM mcn_income_shadow_ledger_projection WHERE source_system='MCN' AND platform_code=? AND business_date=? AND shadow_status='UNMATCHED'", summary.platformCode(), businessDate);
+        int awaiting = count("SELECT COUNT(*) FROM mcn_income_shadow_ledger_projection WHERE source_system='MCN' AND platform_code=? AND business_date=? AND shadow_status='AWAITING_FINALITY'", summary.platformCode(), businessDate);
+        int voided = count("SELECT COUNT(*) FROM mcn_income_shadow_ledger_projection WHERE source_system='MCN' AND platform_code=? AND business_date=? AND shadow_status='VOIDED'", summary.platformCode(), businessDate);
+        int latest = summary.latestFactCount();
+        String projectionStatus = summary.latestRunId() == null ? "NOT_REFRESHED" : projected == latest ? "COMPLETE" : "INCOMPLETE";
+        int coverage = latest == 0 ? 0 : Math.toIntExact(Math.round((bound * 100.0d) / latest));
+        return new McnIncomeDataQualityResponse(summary.platformCode(), businessDate, latest, projected, bound, unmatched, awaiting, voided, coverage, projectionStatus, summary.latestRunId());
+    }
+
+    @Transactional
+    public List<McnIncomeDataQualityExceptionResponse> exceptions(String platformCode, LocalDate businessDate, int limit) {
+        String platform = platform(platformCode);
+        int safeLimit = Math.max(1, Math.min(limit, 100));
+        return jdbc.query("""
+                SELECT source_event_id, business_date, guild_id, shadow_status, settlement_status, event_type, source_revision, source_updated_at
+                FROM mcn_income_shadow_ledger_projection
+                WHERE source_system='MCN' AND platform_code=? AND business_date=? AND shadow_status IN ('UNMATCHED', 'AWAITING_FINALITY')
+                ORDER BY CASE shadow_status WHEN 'UNMATCHED' THEN 0 ELSE 1 END, source_updated_at DESC
+                LIMIT ?
+                """, (rs, row) -> new McnIncomeDataQualityExceptionResponse(
+                rs.getString(1), rs.getObject(2, LocalDate.class), rs.getString(3), rs.getString(4), rs.getString(5),
+                rs.getString(6), rs.getString(7), rs.getTimestamp(8).toInstant()), platform, businessDate, safeLimit);
+    }
+
+    private int count(String sql, String platform, LocalDate businessDate) {
+        Integer result = jdbc.queryForObject(sql, Integer.class, platform, businessDate);
+        return result == null ? 0 : result;
     }
 
     private McnIncomeRawLedgerEvent newer(McnIncomeRawLedgerEvent left, McnIncomeRawLedgerEvent right) {
