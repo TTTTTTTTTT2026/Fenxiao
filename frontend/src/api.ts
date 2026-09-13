@@ -74,6 +74,33 @@ export type AdminAccountResponse = {
   lastLoginAt: string | null; passwordChangedAt: string | null; passwordExpiresAt: string | null; lockedUntil: string | null; activeSessions: number
 }
 export type AdminAccountCreatedResponse = { account: AdminAccountResponse; temporaryPassword: string }
+export type McnIncomeControlledChangesResponse = {
+  runId: string
+  requestId: string
+  httpStatus: number
+  latencyMillis: number
+  sourceStatus: string
+  deliveryHash: string | null
+  factCount: number
+  newFactCount: number
+  duplicateFactCount: number
+  unmatchedFactCount: number
+  hasMore: boolean
+  nextCursor: string | null
+  nextCursorHash: string | null
+  cursorPersisted: boolean
+  retryAfterSeconds: number | null
+}
+export type McnIncomeControlledReconciliationResponse = {
+  runId: string
+  requestId: string
+  sourceStatus: string
+  comparisonStatus: string
+  mcnGroupCount: number
+  banDeiraGroupCount: number
+  mismatchGroupCount: number
+  retryAfterSeconds: number | null
+}
 export type PlatformIntegrationResponse = {
   platformCode: string
   displayName: string
@@ -686,6 +713,16 @@ export function getCurrentAdminSession() { return request<AdminSessionResponse>(
 export function logoutAdminSession() { return request<void>('/admin/auth/session/logout', { method: 'POST' }) }
 export function logoutAllAdminSessions() { return request<void>('/admin/auth/session/logout-all', { method: 'POST' }) }
 export function changeAdminPassword(payload: { currentPassword: string; newPassword: string }) { return request<void>('/admin/auth/password', { method: 'POST', body: JSON.stringify(payload) }) }
+export function runAdminIncomeControlledChanges(adminSessionToken: string, payload: { platformCode: string; cursor?: string | null; businessDateFrom: string; businessDateTo: string; pageSize: number; requestId?: string }) {
+  return request<McnIncomeControlledChangesResponse>('/admin/income-facts/controlled-read-only/changes', {
+    method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload),
+  })
+}
+export function runAdminIncomeControlledReconciliation(adminSessionToken: string, payload: { platformCode: string; businessDateFrom: string; businessDateTo: string; guildIds: string[] }) {
+  return request<McnIncomeControlledReconciliationResponse>('/admin/income-facts/controlled-read-only/reconciliation', {
+    method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload),
+  })
+}
 export function getAdminAccounts() { return request<AdminAccountResponse[]>('/admin/accounts') }
 export function createAdminAccount(payload: { username: string; displayName: string; role: string; platformScope?: string; guildScope?: string; regionScope?: string }) { return request<AdminAccountCreatedResponse>('/admin/accounts', { method: 'POST', body: JSON.stringify(payload) }) }
 export function updateAdminAccount(id: number, payload: { displayName: string; role: string; enabled: boolean; platformScope?: string; guildScope?: string; regionScope?: string }) { return request<AdminAccountResponse>(`/admin/accounts/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }) }

@@ -88,6 +88,8 @@ import {
   revealAdminPhoneVerificationCode,
   reverseWithdrawPayment,
   resetAdminPassword,
+  runAdminIncomeControlledChanges,
+  runAdminIncomeControlledReconciliation,
   unlockAdminAccount,
   revokeAdminDeviceSession,
   rejectAdminWithdrawRequest,
@@ -114,6 +116,8 @@ import {
   type LinkyAccountBindingResponse,
   type LinkyReplayRecordListResponse,
   type LinkyWebhookLogListResponse,
+  type McnIncomeControlledChangesResponse,
+  type McnIncomeControlledReconciliationResponse,
   type OverviewReportResponse,
   type OwnershipDetailResponse,
   type PhoneVerificationCodeListResponse,
@@ -400,10 +404,16 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [withdrawViewName, setWithdrawViewName] = useState('')
   const [selectedWithdrawViewId, setSelectedWithdrawViewId] = useState('')
   const [adminBindingView, setAdminBindingView] = useState<'users' | 'risks'>('users')
-  const [adminSettingsView, setAdminSettingsView] = useState<'experiment' | 'guilds' | 'platforms' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification'>('experiment')
+  const [adminSettingsView, setAdminSettingsView] = useState<'experiment' | 'guilds' | 'platforms' | 'incomeControlled' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification'>('experiment')
   const [platformIntegrations, setPlatformIntegrations] = useState<PlatformIntegrationResponse[] | null>(null)
   const [platformVerificationRuntime, setPlatformVerificationRuntime] = useState<PlatformVerificationRuntimeResponse | null>(null)
   const [platformVerificationMocks, setPlatformVerificationMocks] = useState<PlatformVerificationMockResponse[] | null>(null)
+  const [controlledIncomeForm, setControlledIncomeForm] = useState({ platformCode: 'LINKY', businessDate: '2026-09-11', pageSize: '200' })
+  const [controlledIncomeResult, setControlledIncomeResult] = useState<McnIncomeControlledChangesResponse | null>(null)
+  const [controlledIncomeReconciliation, setControlledIncomeReconciliation] = useState<McnIncomeControlledReconciliationResponse | null>(null)
+  const [controlledIncomeCursor, setControlledIncomeCursor] = useState<string | null>(null)
+  const [controlledIncomeLastRequest, setControlledIncomeLastRequest] = useState<{ cursor: string | null; requestId: string } | null>(null)
+  const [controlledIncomeLoading, setControlledIncomeLoading] = useState(false)
   const [platformVerificationMockForm, setPlatformVerificationMockForm] = useState({
     platformCode: 'TIMO', platformUserId: '', globallySeenBeforeSubmission: false, joinedTargetGuild: true,
     officialGuildId: '22000448', officialJoinedAt: '', sourceReference: '', enabled: true,
@@ -510,6 +520,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const canAuditPhoneVerification = adminSession?.role?.toLowerCase() === 'super_admin'
   const canManageSeedInviters = adminSession?.role?.toLowerCase() === 'super_admin'
   const canManagePlatformMocks = adminSession?.role?.toLowerCase() === 'super_admin'
+  const canRunControlledIncome = ['super_admin', 'finance'].includes(adminSession?.role?.toLowerCase() ?? '')
   const canManageLinkyInvitationGuild = ['super_admin', 'admin'].includes(adminSession?.role?.toLowerCase() ?? '')
   const linkyGuildOptions = useMemo(() => {
     return (linkyInvitationGuildOptions ?? [])
@@ -1532,6 +1543,60 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     }
   }
 
+  async function handleRunControlledIncome(cursor: string | null, requestId?: string) {
+    if (!adminSession || !canRunControlledIncome) return
+    const businessDate = controlledIncomeForm.businessDate.trim()
+    const pageSize = Number(controlledIncomeForm.pageSize)
+    if (!businessDate || !Number.isInteger(pageSize) || pageSize < 1 || pageSize > 500) {
+      setError('请填写有效的业务日期和 1 至 500 的页大小。')
+      return
+    }
+    setControlledIncomeLoading(true)
+    setError('')
+    setSuccessMessage('')
+    try {
+      const result = await runAdminIncomeControlledChanges(adminSession.sessionToken, {
+        platformCode: controlledIncomeForm.platformCode,
+        cursor,
+        businessDateFrom: businessDate,
+        businessDateTo: businessDate,
+        pageSize,
+        requestId,
+      })
+      setControlledIncomeResult(result)
+      setControlledIncomeCursor(result.hasMore ? result.nextCursor : null)
+      setControlledIncomeLastRequest({ cursor, requestId: result.requestId })
+      setControlledIncomeReconciliation(null)
+      setSuccessMessage(`${result.sourceStatus}：已完成一页受控只读读取，接收 ${result.factCount} 条事实。`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '收入事实受控读取失败')
+    } finally {
+      setControlledIncomeLoading(false)
+    }
+  }
+
+  async function handleReconcileControlledIncome() {
+    if (!adminSession || !canRunControlledIncome || !controlledIncomeResult || controlledIncomeResult.hasMore) return
+    const businessDate = controlledIncomeForm.businessDate.trim()
+    setControlledIncomeLoading(true)
+    setError('')
+    setSuccessMessage('')
+    try {
+      const result = await runAdminIncomeControlledReconciliation(adminSession.sessionToken, {
+        platformCode: controlledIncomeForm.platformCode,
+        businessDateFrom: businessDate,
+        businessDateTo: businessDate,
+        guildIds: [],
+      })
+      setControlledIncomeReconciliation(result)
+      setSuccessMessage(`${result.sourceStatus}：受控对账已完成，结果 ${result.comparisonStatus}。`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '收入事实受控对账失败')
+    } finally {
+      setControlledIncomeLoading(false)
+    }
+  }
+
   async function handleSavePlatformVerificationMock(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!adminSession || !canManagePlatformMocks || !platformVerificationRuntime?.mockManagementEnabled) return
@@ -2062,6 +2127,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               <button className={adminSettingsView === 'experiment' ? 'is-active' : ''} onClick={() => setAdminSettingsView('experiment')} role="tab" aria-selected={adminSettingsView === 'experiment'}>100 人实验</button>
               <button className={adminSettingsView === 'guilds' ? 'is-active' : ''} onClick={() => setAdminSettingsView('guilds')} role="tab" aria-selected={adminSettingsView === 'guilds'}>公会配置</button>
               <button className={adminSettingsView === 'platforms' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('platforms'); if (!platformIntegrations) void loadPlatformIntegrations(); if (!platformVerificationRuntime) void loadPlatformVerificationRuntime() }} role="tab" aria-selected={adminSettingsView === 'platforms'}>平台接入</button>
+              {canRunControlledIncome ? <button className={adminSettingsView === 'incomeControlled' ? 'is-active' : ''} onClick={() => setAdminSettingsView('incomeControlled')} role="tab" aria-selected={adminSettingsView === 'incomeControlled'}>收入受控联调</button> : null}
               {canManagePlatformMocks ? <button className={adminSettingsView === 'mockVerification' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('mockVerification'); void loadPlatformVerificationRuntime(true) }} role="tab" aria-selected={adminSettingsView === 'mockVerification'}>本地 Mock 核验</button> : null}
               <button className={adminSettingsView === 'advanced' ? 'is-active' : ''} onClick={() => setAdminSettingsView('advanced')} role="tab" aria-selected={adminSettingsView === 'advanced'}>高级接入</button>
               {canManageSeedInviters ? <button className={adminSettingsView === 'seedInviter' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('seedInviter'); if (!seedInviters) void loadSeedInviters() }} role="tab" aria-selected={adminSettingsView === 'seedInviter'}>种子邀请人</button> : null}
@@ -2104,6 +2170,54 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                 ))}
                 {!platformIntegrations ? <EmptyState title="平台配置待加载" description="进入本页会自动加载；也可以点击刷新配置。" /> : null}
                 {platformIntegrations?.length === 0 ? <EmptyState title="尚未初始化平台配置" description="本地环境请重启后端完成初始配置；生产环境请检查数据库迁移是否完成。" /> : null}
+              </div>
+            </PanelSection>
+          ) : null}
+
+          {activeAdminSection === 'settings' && canRunControlledIncome && adminSettingsView === 'incomeControlled' ? (
+            <PanelSection
+              sectionId="admin-income-controlled-readonly"
+              eyebrow="MCN production · controlled read-only"
+              title="收入事实受控联调"
+              description="只读取并留存 MCN 收入事实的原始账本证据；不会开启持续消费、奖励计算、钱包入账、提现或付款。界面不会显示平台账号、事实明细、游标或密钥。"
+            >
+              <div className="stack-gap">
+                <InfoCard title="执行门禁" tone="neutral">
+                  <InlineHint text="仅在 MCN 已确认的窗口内操作。完成 Linky 分页、重读和对账后，请关闭服务器上的受控只读开关；正式收入消费开关必须保持关闭。" />
+                </InfoCard>
+                <InfoCard title="本次读取范围" tone="neutral">
+                  <div className="grid-form compact-form exception-filter-grid">
+                    <label>平台<select value={controlledIncomeForm.platformCode} onChange={(event) => { setControlledIncomeForm({ ...controlledIncomeForm, platformCode: event.target.value }); setControlledIncomeResult(null); setControlledIncomeReconciliation(null); setControlledIncomeCursor(null); setControlledIncomeLastRequest(null) }}><option value="LINKY">Linky</option><option value="TIMO">Timo</option></select></label>
+                    <label>业务日期<input type="date" value={controlledIncomeForm.businessDate} onChange={(event) => { setControlledIncomeForm({ ...controlledIncomeForm, businessDate: event.target.value }); setControlledIncomeResult(null); setControlledIncomeReconciliation(null); setControlledIncomeCursor(null); setControlledIncomeLastRequest(null) }} /></label>
+                    <label>单页数量<input type="number" min="1" max="500" value={controlledIncomeForm.pageSize} onChange={(event) => setControlledIncomeForm({ ...controlledIncomeForm, pageSize: event.target.value })} /></label>
+                  </div>
+                  <div className="action-row top-gap">
+                    <button className="primary-btn small-btn" onClick={() => void handleRunControlledIncome(null)} disabled={controlledIncomeLoading || Boolean(controlledIncomeResult)}>读取首页</button>
+                    <button className="ghost-btn small-btn" onClick={() => void handleRunControlledIncome(controlledIncomeLastRequest?.cursor ?? null, controlledIncomeLastRequest?.requestId)} disabled={controlledIncomeLoading || !controlledIncomeLastRequest}>重读本页</button>
+                    <button className="ghost-btn small-btn" onClick={() => void handleRunControlledIncome(controlledIncomeCursor)} disabled={controlledIncomeLoading || !controlledIncomeResult?.hasMore || !controlledIncomeCursor}>读取下一页</button>
+                    <button className="ghost-btn small-btn" onClick={() => void handleReconcileControlledIncome()} disabled={controlledIncomeLoading || !controlledIncomeResult || controlledIncomeResult.hasMore}>完成分页后对账</button>
+                  </div>
+                </InfoCard>
+                {controlledIncomeResult ? <InfoCard title="最近一次受控读取结果" tone={controlledIncomeResult.sourceStatus === 'READY' ? 'success' : 'neutral'}>
+                  <div className="relation-grid">
+                    <RelationItem label="来源状态" value={controlledIncomeResult.sourceStatus} />
+                    <RelationItem label="HTTP 状态" value={controlledIncomeResult.httpStatus} />
+                    <RelationItem label="接收 / 新增 / 去重" value={`${controlledIncomeResult.factCount} / ${controlledIncomeResult.newFactCount} / ${controlledIncomeResult.duplicateFactCount}`} />
+                    <RelationItem label="未匹配数量" value={controlledIncomeResult.unmatchedFactCount} />
+                    <RelationItem label="是否还有下一页" value={controlledIncomeResult.hasMore ? '是' : '否'} />
+                    <RelationItem label="请求关联号" value={controlledIncomeResult.requestId} />
+                  </div>
+                  {controlledIncomeResult.retryAfterSeconds ? <InlineHint text={`MCN 当前未就绪，请在 ${controlledIncomeResult.retryAfterSeconds} 秒后重试；这不表示零收入。`} /> : null}
+                </InfoCard> : null}
+                {controlledIncomeReconciliation ? <InfoCard title="受控对账结果" tone={controlledIncomeReconciliation.comparisonStatus === 'MATCHED' ? 'success' : 'neutral'}>
+                  <div className="relation-grid">
+                    <RelationItem label="来源状态" value={controlledIncomeReconciliation.sourceStatus} />
+                    <RelationItem label="对账结果" value={controlledIncomeReconciliation.comparisonStatus} />
+                    <RelationItem label="MCN / 本地聚合组" value={`${controlledIncomeReconciliation.mcnGroupCount} / ${controlledIncomeReconciliation.banDeiraGroupCount}`} />
+                    <RelationItem label="差异组数量" value={controlledIncomeReconciliation.mismatchGroupCount} />
+                    <RelationItem label="请求关联号" value={controlledIncomeReconciliation.requestId} />
+                  </div>
+                </InfoCard> : null}
               </div>
             </PanelSection>
           ) : null}
