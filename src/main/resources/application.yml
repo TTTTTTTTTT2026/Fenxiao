@@ -41,8 +41,10 @@ fenxiao:
 
 app:
   mcn-income-facts:
-    # Disabled until MCN publishes the V1 pull API and delivers a dedicated credential and HMAC secret.
+    # This is the continuous consumer switch. It remains false until joint read-only reconciliation and business approval.
     enabled: ${MCN_INCOME_FACTS_ENABLED:false}
+    # Allows only a super-admin / finance controlled smoke endpoint; it never starts the scheduler.
+    controlled-read-only-enabled: ${MCN_INCOME_FACTS_CONTROLLED_READ_ONLY_ENABLED:false}
     base-url: ${MCN_INCOME_FACTS_BASE_URL:}
     credential-id: ${MCN_INCOME_FACTS_CREDENTIAL_ID:}
     hmac-secret: ${MCN_INCOME_FACTS_HMAC_SECRET:}

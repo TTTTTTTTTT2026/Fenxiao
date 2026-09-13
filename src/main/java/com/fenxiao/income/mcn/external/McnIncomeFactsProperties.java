@@ -7,6 +7,11 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = "app.mcn-income-facts")
 public class McnIncomeFactsProperties {
     private boolean enabled;
+    /**
+     * Allows an authorised administrator to run an explicitly date-bounded, read-only
+     * production smoke test. It never starts the scheduled consumer.
+     */
+    private boolean controlledReadOnlyEnabled;
     private String baseUrl = "";
     private String credentialId = "";
     private String hmacSecret = "";
@@ -18,6 +23,8 @@ public class McnIncomeFactsProperties {
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
+    public boolean isControlledReadOnlyEnabled() { return controlledReadOnlyEnabled; }
+    public void setControlledReadOnlyEnabled(boolean controlledReadOnlyEnabled) { this.controlledReadOnlyEnabled = controlledReadOnlyEnabled; }
     public String getBaseUrl() { return baseUrl; }
     public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
     public String getCredentialId() { return credentialId; }
@@ -35,9 +42,14 @@ public class McnIncomeFactsProperties {
     public Duration getSyncInterval() { return syncInterval; }
     public void setSyncInterval(Duration syncInterval) { this.syncInterval = syncInterval; }
 
-    public boolean isConfigured() {
-        return enabled && hasText(baseUrl) && hasText(credentialId) && hasText(hmacSecret);
+    /** A credential may be installed while both execution switches remain off. */
+    public boolean isCredentialConfigured() {
+        return hasText(baseUrl) && hasText(credentialId) && hasText(hmacSecret);
     }
+
+    public boolean isContinuousPullEnabled() { return enabled && isCredentialConfigured(); }
+
+    public boolean isControlledReadOnlyConfigured() { return controlledReadOnlyEnabled && isCredentialConfigured(); }
 
     private boolean hasText(String value) { return value != null && !value.isBlank(); }
 }
