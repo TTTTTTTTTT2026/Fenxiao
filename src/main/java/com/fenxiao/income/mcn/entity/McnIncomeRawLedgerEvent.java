@@ -44,7 +44,7 @@ public class McnIncomeRawLedgerEvent extends BaseEntity {
     @Column(name = "source_event_id", nullable = false, length = 128)
     private String sourceEventId;
 
-    @Column(name = "source_revision", nullable = false, length = 64)
+    @Column(name = "source_revision", nullable = false, length = 512)
     private String sourceRevision;
 
     @Column(name = "original_source_event_id", length = 128)
