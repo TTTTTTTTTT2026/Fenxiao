@@ -1,0 +1,42 @@
+CREATE TABLE mcn_income_shadow_ledger_projection (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    source_system VARCHAR(32) NOT NULL,
+    platform_code VARCHAR(32) NOT NULL,
+    source_event_id VARCHAR(128) NOT NULL,
+    raw_ledger_event_id BIGINT NOT NULL,
+    source_revision VARCHAR(512) NOT NULL,
+    business_date DATE NOT NULL,
+    guild_id VARCHAR(64),
+    resolved_user_id BIGINT,
+    settlement_status VARCHAR(32) NOT NULL,
+    event_type VARCHAR(32) NOT NULL,
+    amount DECIMAL(18,6) NOT NULL,
+    amount_unit VARCHAR(32) NOT NULL,
+    currency_code VARCHAR(16) NOT NULL,
+    shadow_status VARCHAR(32) NOT NULL,
+    source_updated_at TIMESTAMP NOT NULL,
+    projected_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_mcn_income_shadow_projection UNIQUE (source_system, platform_code, source_event_id),
+    INDEX idx_mcn_income_shadow_day_status (platform_code, business_date, shadow_status)
+);
+
+CREATE TABLE mcn_income_shadow_ledger_run (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    run_id VARCHAR(64) NOT NULL,
+    platform_code VARCHAR(32) NOT NULL,
+    business_date DATE NOT NULL,
+    source_fact_count INT NOT NULL,
+    latest_fact_count INT NOT NULL,
+    bound_final_count INT NOT NULL,
+    unmatched_count INT NOT NULL,
+    awaiting_finality_count INT NOT NULL,
+    voided_count INT NOT NULL,
+    started_at TIMESTAMP NOT NULL,
+    completed_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_mcn_income_shadow_run UNIQUE (run_id),
+    INDEX idx_mcn_income_shadow_run_day (platform_code, business_date, completed_at)
+);

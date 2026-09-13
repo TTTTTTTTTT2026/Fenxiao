@@ -90,6 +90,8 @@ import {
   resetAdminPassword,
   runAdminIncomeControlledChanges,
   runAdminIncomeControlledReconciliation,
+  refreshAdminIncomeShadowLedger,
+  getAdminIncomeShadowLedgerSummary,
   unlockAdminAccount,
   revokeAdminDeviceSession,
   rejectAdminWithdrawRequest,
@@ -118,6 +120,7 @@ import {
   type LinkyWebhookLogListResponse,
   type McnIncomeControlledChangesResponse,
   type McnIncomeControlledReconciliationResponse,
+  type McnIncomeShadowLedgerSummaryResponse,
   type OverviewReportResponse,
   type OwnershipDetailResponse,
   type PhoneVerificationCodeListResponse,
@@ -404,7 +407,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [withdrawViewName, setWithdrawViewName] = useState('')
   const [selectedWithdrawViewId, setSelectedWithdrawViewId] = useState('')
   const [adminBindingView, setAdminBindingView] = useState<'users' | 'risks'>('users')
-  const [adminSettingsView, setAdminSettingsView] = useState<'experiment' | 'guilds' | 'platforms' | 'incomeControlled' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification'>('experiment')
+  const [adminSettingsView, setAdminSettingsView] = useState<'experiment' | 'guilds' | 'platforms' | 'incomeControlled' | 'incomeShadow' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification'>('experiment')
   const [platformIntegrations, setPlatformIntegrations] = useState<PlatformIntegrationResponse[] | null>(null)
   const [platformVerificationRuntime, setPlatformVerificationRuntime] = useState<PlatformVerificationRuntimeResponse | null>(null)
   const [platformVerificationMocks, setPlatformVerificationMocks] = useState<PlatformVerificationMockResponse[] | null>(null)
@@ -414,6 +417,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [controlledIncomeCursor, setControlledIncomeCursor] = useState<string | null>(null)
   const [controlledIncomeLastRequest, setControlledIncomeLastRequest] = useState<{ cursor: string | null; requestId: string } | null>(null)
   const [controlledIncomeLoading, setControlledIncomeLoading] = useState(false)
+  const [incomeShadowForm, setIncomeShadowForm] = useState({ platformCode: 'TIMO', businessDate: '2026-09-11' })
+  const [incomeShadowResult, setIncomeShadowResult] = useState<McnIncomeShadowLedgerSummaryResponse | null>(null)
   const [platformVerificationMockForm, setPlatformVerificationMockForm] = useState({
     platformCode: 'TIMO', platformUserId: '', globallySeenBeforeSubmission: false, joinedTargetGuild: true,
     officialGuildId: '22000448', officialJoinedAt: '', sourceReference: '', enabled: true,
@@ -1597,6 +1602,26 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     }
   }
 
+  async function handleRefreshIncomeShadowLedger() {
+    if (!adminSession || !canRunControlledIncome) return
+    setLoading(true); setError(''); setSuccessMessage('')
+    try {
+      const result = await refreshAdminIncomeShadowLedger(adminSession.sessionToken, incomeShadowForm)
+      setIncomeShadowResult(result)
+      setSuccessMessage('影子账本已按最新修订刷新；未产生任何奖励、钱包或提现结果。')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '刷新影子账本失败')
+    } finally { setLoading(false) }
+  }
+
+  async function handleLoadIncomeShadowLedger() {
+    if (!adminSession || !canRunControlledIncome) return
+    setLoading(true); setError('')
+    try { setIncomeShadowResult(await getAdminIncomeShadowLedgerSummary(adminSession.sessionToken, incomeShadowForm.platformCode, incomeShadowForm.businessDate)) }
+    catch (err) { setError(err instanceof Error ? err.message : '读取影子账本摘要失败') }
+    finally { setLoading(false) }
+  }
+
   async function handleSavePlatformVerificationMock(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!adminSession || !canManagePlatformMocks || !platformVerificationRuntime?.mockManagementEnabled) return
@@ -2128,6 +2153,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               <button className={adminSettingsView === 'guilds' ? 'is-active' : ''} onClick={() => setAdminSettingsView('guilds')} role="tab" aria-selected={adminSettingsView === 'guilds'}>公会配置</button>
               <button className={adminSettingsView === 'platforms' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('platforms'); if (!platformIntegrations) void loadPlatformIntegrations(); if (!platformVerificationRuntime) void loadPlatformVerificationRuntime() }} role="tab" aria-selected={adminSettingsView === 'platforms'}>平台接入</button>
               {canRunControlledIncome ? <button className={adminSettingsView === 'incomeControlled' ? 'is-active' : ''} onClick={() => setAdminSettingsView('incomeControlled')} role="tab" aria-selected={adminSettingsView === 'incomeControlled'}>收入受控联调</button> : null}
+              {canRunControlledIncome ? <button className={adminSettingsView === 'incomeShadow' ? 'is-active' : ''} onClick={() => setAdminSettingsView('incomeShadow')} role="tab" aria-selected={adminSettingsView === 'incomeShadow'}>收入影子账本</button> : null}
               {canManagePlatformMocks ? <button className={adminSettingsView === 'mockVerification' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('mockVerification'); void loadPlatformVerificationRuntime(true) }} role="tab" aria-selected={adminSettingsView === 'mockVerification'}>本地 Mock 核验</button> : null}
               <button className={adminSettingsView === 'advanced' ? 'is-active' : ''} onClick={() => setAdminSettingsView('advanced')} role="tab" aria-selected={adminSettingsView === 'advanced'}>高级接入</button>
               {canManageSeedInviters ? <button className={adminSettingsView === 'seedInviter' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('seedInviter'); if (!seedInviters) void loadSeedInviters() }} role="tab" aria-selected={adminSettingsView === 'seedInviter'}>种子邀请人</button> : null}
@@ -2218,6 +2244,27 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                     <RelationItem label="请求关联号" value={controlledIncomeReconciliation.requestId} />
                   </div>
                 </InfoCard> : null}
+              </div>
+            </PanelSection>
+          ) : null}
+
+          {activeAdminSection === 'settings' && canRunControlledIncome && adminSettingsView === 'incomeShadow' ? (
+            <PanelSection sectionId="admin-income-shadow-ledger" eyebrow="MCN evidence · no financial effect" title="收入影子账本" description="把已保留的 MCN 原始收入事实按最新修订整理为可核对记录。这里只检查数据归属与定稿状态，绝不计算或发放奖励。">
+              <div className="stack-gap">
+                <InfoCard title="核对范围" tone="neutral">
+                  <div className="grid-form compact-form exception-filter-grid">
+                    <label>平台<select value={incomeShadowForm.platformCode} onChange={(event) => { setIncomeShadowForm({ ...incomeShadowForm, platformCode: event.target.value }); setIncomeShadowResult(null) }}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label>
+                    <label>业务日期<input type="date" value={incomeShadowForm.businessDate} onChange={(event) => { setIncomeShadowForm({ ...incomeShadowForm, businessDate: event.target.value }); setIncomeShadowResult(null) }} /></label>
+                  </div>
+                  <div className="action-row top-gap"><button className="primary-btn small-btn" onClick={() => void handleRefreshIncomeShadowLedger()} disabled={loading}>按最新修订刷新</button><button className="ghost-btn small-btn" onClick={() => void handleLoadIncomeShadowLedger()} disabled={loading}>读取已有结果</button></div>
+                </InfoCard>
+                {incomeShadowResult ? <InfoCard title="影子账本核对结果" tone="success"><div className="relation-grid">
+                  <RelationItem label="来源事实 / 最新事实" value={`${incomeShadowResult.sourceFactCount} / ${incomeShadowResult.latestFactCount}`} />
+                  <RelationItem label="已绑定且已定稿" value={incomeShadowResult.boundFinalCount} />
+                  <RelationItem label="未匹配平台账号" value={incomeShadowResult.unmatchedCount} />
+                  <RelationItem label="等待定稿" value={incomeShadowResult.awaitingFinalityCount} />
+                  <RelationItem label="已撤销或作废" value={incomeShadowResult.voidedCount} />
+                </div><InlineHint text="“已绑定且已定稿”仅表示可进入后续规则核对，不代表已经产生任何奖励或可提现余额。" /></InfoCard> : <EmptyState title="尚未生成影子账本" description="选择已完成受控对账的业务日后刷新。" />}
               </div>
             </PanelSection>
           ) : null}

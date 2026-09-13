@@ -1,0 +1,83 @@
+package com.fenxiao.income.mcn.service;
+
+import com.fenxiao.income.mcn.api.dto.McnIncomeShadowLedgerSummaryResponse;
+import com.fenxiao.income.mcn.domain.McnIncomeEventType;
+import com.fenxiao.income.mcn.domain.McnIncomeResolutionStatus;
+import com.fenxiao.income.mcn.domain.McnIncomeSettlementStatus;
+import com.fenxiao.income.mcn.entity.McnIncomeRawLedgerEvent;
+import com.fenxiao.income.mcn.repository.McnIncomeRawLedgerEventRepository;
+import jakarta.transaction.Transactional;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+
+import java.sql.Timestamp;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
+
+/**
+ * A non-financial projection over immutable MCN evidence. It never invokes reward, wallet,
+ * withdrawal or payment services; its sole purpose is to make data completeness reviewable.
+ */
+@Service
+@Transactional
+public class McnIncomeShadowLedgerService {
+    private final McnIncomeRawLedgerEventRepository rawEvents;
+    private final JdbcTemplate jdbc;
+    private final Clock clock;
+
+    public McnIncomeShadowLedgerService(McnIncomeRawLedgerEventRepository rawEvents, JdbcTemplate jdbc, Clock clock) {
+        this.rawEvents = rawEvents; this.jdbc = jdbc; this.clock = clock;
+    }
+
+    public McnIncomeShadowLedgerSummaryResponse refresh(String platformCode, LocalDate businessDate) {
+        String platform = platform(platformCode);
+        List<McnIncomeRawLedgerEvent> facts = rawEvents.findBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", platform, businessDate, businessDate);
+        Map<String, McnIncomeRawLedgerEvent> latest = new HashMap<>();
+        for (McnIncomeRawLedgerEvent fact : facts) latest.merge(fact.getSourceEventId(), fact, this::newer);
+        Counts counts = new Counts();
+        Instant now = clock.instant();
+        for (McnIncomeRawLedgerEvent fact : latest.values()) {
+            String status = status(fact); counts.add(status);
+            jdbc.update("""
+                    INSERT INTO mcn_income_shadow_ledger_projection
+                    (source_system, platform_code, source_event_id, raw_ledger_event_id, source_revision, business_date, guild_id, resolved_user_id, settlement_status, event_type, amount, amount_unit, currency_code, shadow_status, source_updated_at, projected_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE raw_ledger_event_id=VALUES(raw_ledger_event_id), source_revision=VALUES(source_revision), business_date=VALUES(business_date), guild_id=VALUES(guild_id), resolved_user_id=VALUES(resolved_user_id), settlement_status=VALUES(settlement_status), event_type=VALUES(event_type), amount=VALUES(amount), amount_unit=VALUES(amount_unit), currency_code=VALUES(currency_code), shadow_status=VALUES(shadow_status), source_updated_at=VALUES(source_updated_at), projected_at=VALUES(projected_at)
+                    """, fact.getSourceSystem(), platform, fact.getSourceEventId(), fact.getId(), fact.getSourceRevision(), businessDate,
+                    fact.getGuildId(), fact.getResolvedUserId(), fact.getSettlementStatus().name(), fact.getEventType().name(), fact.getAmount(),
+                    fact.getAmountUnit(), fact.getCurrencyCode(), status, Timestamp.from(fact.getSourceUpdatedAt()), Timestamp.from(now));
+        }
+        String runId = UUID.randomUUID().toString();
+        jdbc.update("INSERT INTO mcn_income_shadow_ledger_run (run_id, platform_code, business_date, source_fact_count, latest_fact_count, bound_final_count, unmatched_count, awaiting_finality_count, voided_count, started_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                runId, platform, businessDate, facts.size(), latest.size(), counts.boundFinal, counts.unmatched, counts.awaitingFinality, counts.voided, Timestamp.from(now), Timestamp.from(now));
+        return response(platform, businessDate, facts.size(), latest.size(), counts, runId);
+    }
+
+    @Transactional
+    public McnIncomeShadowLedgerSummaryResponse summary(String platformCode, LocalDate businessDate) {
+        String platform = platform(platformCode);
+        List<McnIncomeShadowLedgerSummaryResponse> rows = jdbc.query("SELECT source_fact_count, latest_fact_count, bound_final_count, unmatched_count, awaiting_finality_count, voided_count, run_id FROM mcn_income_shadow_ledger_run WHERE platform_code=? AND business_date=? ORDER BY id DESC LIMIT 1", (rs, row) -> new McnIncomeShadowLedgerSummaryResponse(platform, businessDate, rs.getInt(1), rs.getInt(2), rs.getInt(3), rs.getInt(4), rs.getInt(5), rs.getInt(6), rs.getString(7)), platform, businessDate);
+        return rows.isEmpty() ? new McnIncomeShadowLedgerSummaryResponse(platform, businessDate, 0, 0, 0, 0, 0, 0, null) : rows.getFirst();
+    }
+
+    private McnIncomeRawLedgerEvent newer(McnIncomeRawLedgerEvent left, McnIncomeRawLedgerEvent right) {
+        Comparator<McnIncomeRawLedgerEvent> order = Comparator.comparing(McnIncomeRawLedgerEvent::getSourceUpdatedAt).thenComparing(McnIncomeRawLedgerEvent::getSourceRevision);
+        return order.compare(left, right) >= 0 ? left : right;
+    }
+    private String status(McnIncomeRawLedgerEvent fact) {
+        if (fact.getResolutionStatus() == McnIncomeResolutionStatus.UNMATCHED) return "UNMATCHED";
+        if (fact.getEventType() == McnIncomeEventType.REVERSAL || fact.getSettlementStatus() == McnIncomeSettlementStatus.REVERSED || fact.getSettlementStatus() == McnIncomeSettlementStatus.CANCELLED) return "VOIDED";
+        if (fact.getSettlementStatus() != McnIncomeSettlementStatus.SETTLED) return "AWAITING_FINALITY";
+        return "BOUND_FINAL";
+    }
+    private String platform(String value) { String v = value == null ? "" : value.trim().toUpperCase(Locale.ROOT); if (!"TIMO".equals(v) && !"LINKY".equals(v)) throw new IllegalArgumentException("income platform must be TIMO or LINKY"); return v; }
+    private McnIncomeShadowLedgerSummaryResponse response(String platform, LocalDate day, int source, int latest, Counts c, String runId) { return new McnIncomeShadowLedgerSummaryResponse(platform, day, source, latest, c.boundFinal, c.unmatched, c.awaitingFinality, c.voided, runId); }
+    private static class Counts { int boundFinal; int unmatched; int awaitingFinality; int voided; void add(String status) { switch (status) { case "BOUND_FINAL" -> boundFinal++; case "UNMATCHED" -> unmatched++; case "AWAITING_FINALITY" -> awaitingFinality++; case "VOIDED" -> voided++; default -> throw new IllegalStateException("unknown shadow status"); } } }
+}
