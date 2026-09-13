@@ -173,4 +173,12 @@ public class McnIncomeRawLedgerEvent extends BaseEntity {
     public Long getResolvedUserId() { return resolvedUserId; }
     public McnIncomeResolutionStatus getResolutionStatus() { return resolutionStatus; }
     public String getPayloadHash() { return payloadHash; }
+    public String getSourceSystem() { return sourceSystem; }
+    public String getGuildId() { return guildId; }
+    public McnIncomeSettlementStatus getSettlementStatus() { return settlementStatus; }
+    public String getAmountUnit() { return amountUnit; }
+    public String getCurrencyCode() { return currencyCode; }
+    public BigDecimal getAmount() { return amount; }
+    public LocalDate getBusinessDate() { return businessDate; }
+    public Instant getSourceUpdatedAt() { return sourceUpdatedAt; }
 }

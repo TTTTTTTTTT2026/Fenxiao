@@ -48,8 +48,8 @@ public class McnIncomePullService {
 
     public synchronized McnIncomePullResult pullNextPage(String requestedPlatform) {
         String platform = normalizePlatform(requestedPlatform);
-        if (!client.enabled()) {
-            throw new IllegalStateException("MCN income facts pull is disabled or not configured");
+        if (!properties.isContinuousPullEnabled()) {
+            throw new IllegalStateException("MCN income facts continuous pull is disabled or not configured");
         }
         McnIncomeSyncCheckpoint checkpoint = checkpointRepository.findById(platform)
                 .orElseGet(() -> McnIncomeSyncCheckpoint.initial(platform));
