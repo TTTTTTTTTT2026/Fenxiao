@@ -101,6 +101,10 @@ export type McnIncomeControlledReconciliationResponse = {
   mismatchGroupCount: number
   retryAfterSeconds: number | null
 }
+export type McnIncomeShadowLedgerSummaryResponse = {
+  platformCode: string; businessDate: string; sourceFactCount: number; latestFactCount: number
+  boundFinalCount: number; unmatchedCount: number; awaitingFinalityCount: number; voidedCount: number; latestRunId: string | null
+}
 export type PlatformIntegrationResponse = {
   platformCode: string
   displayName: string
@@ -722,6 +726,12 @@ export function runAdminIncomeControlledReconciliation(adminSessionToken: string
   return request<McnIncomeControlledReconciliationResponse>('/admin/income-facts/controlled-read-only/reconciliation', {
     method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload),
   })
+}
+export function refreshAdminIncomeShadowLedger(adminSessionToken: string, payload: { platformCode: string; businessDate: string }) {
+  return request<McnIncomeShadowLedgerSummaryResponse>('/admin/income-facts/shadow-ledger/refresh', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) })
+}
+export function getAdminIncomeShadowLedgerSummary(adminSessionToken: string, platformCode: string, businessDate: string) {
+  return request<McnIncomeShadowLedgerSummaryResponse>(`/admin/income-facts/shadow-ledger/summary?platformCode=${encodeURIComponent(platformCode)}&businessDate=${encodeURIComponent(businessDate)}`, { headers: { 'X-Admin-Session': adminSessionToken } })
 }
 export function getAdminAccounts() { return request<AdminAccountResponse[]>('/admin/accounts') }
 export function createAdminAccount(payload: { username: string; displayName: string; role: string; platformScope?: string; guildScope?: string; regionScope?: string }) { return request<AdminAccountCreatedResponse>('/admin/accounts', { method: 'POST', body: JSON.stringify(payload) }) }

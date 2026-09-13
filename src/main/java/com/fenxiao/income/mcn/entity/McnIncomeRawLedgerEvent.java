@@ -176,6 +176,7 @@ public class McnIncomeRawLedgerEvent extends BaseEntity {
     public String getSourceSystem() { return sourceSystem; }
     public String getGuildId() { return guildId; }
     public McnIncomeSettlementStatus getSettlementStatus() { return settlementStatus; }
+    public McnIncomeEventType getEventType() { return eventType; }
     public String getAmountUnit() { return amountUnit; }
     public String getCurrencyCode() { return currencyCode; }
     public BigDecimal getAmount() { return amount; }
