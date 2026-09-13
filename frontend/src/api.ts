@@ -105,6 +105,15 @@ export type McnIncomeShadowLedgerSummaryResponse = {
   platformCode: string; businessDate: string; sourceFactCount: number; latestFactCount: number
   boundFinalCount: number; unmatchedCount: number; awaitingFinalityCount: number; voidedCount: number; latestRunId: string | null
 }
+export type McnIncomeDataQualityResponse = {
+  platformCode: string; businessDate: string; latestFactCount: number; projectedFactCount: number
+  boundFinalCount: number; unmatchedCount: number; awaitingFinalityCount: number; voidedCount: number
+  bindingCoveragePercent: number; projectionStatus: 'NOT_REFRESHED' | 'COMPLETE' | 'INCOMPLETE' | string; latestRunId: string | null
+}
+export type McnIncomeDataQualityExceptionResponse = {
+  sourceEventReference: string; businessDate: string; guildId: string | null; status: string; settlementStatus: string
+  eventType: string; sourceRevision: string; sourceUpdatedAt: string
+}
 export type PlatformIntegrationResponse = {
   platformCode: string
   displayName: string
@@ -732,6 +741,12 @@ export function refreshAdminIncomeShadowLedger(adminSessionToken: string, payloa
 }
 export function getAdminIncomeShadowLedgerSummary(adminSessionToken: string, platformCode: string, businessDate: string) {
   return request<McnIncomeShadowLedgerSummaryResponse>(`/admin/income-facts/shadow-ledger/summary?platformCode=${encodeURIComponent(platformCode)}&businessDate=${encodeURIComponent(businessDate)}`, { headers: { 'X-Admin-Session': adminSessionToken } })
+}
+export function getAdminIncomeDataQuality(adminSessionToken: string, platformCode: string, businessDate: string) {
+  return request<McnIncomeDataQualityResponse>(`/admin/income-facts/shadow-ledger/quality?platformCode=${encodeURIComponent(platformCode)}&businessDate=${encodeURIComponent(businessDate)}`, { headers: { 'X-Admin-Session': adminSessionToken } })
+}
+export function getAdminIncomeDataQualityExceptions(adminSessionToken: string, platformCode: string, businessDate: string) {
+  return request<McnIncomeDataQualityExceptionResponse[]>(`/admin/income-facts/shadow-ledger/exceptions?platformCode=${encodeURIComponent(platformCode)}&businessDate=${encodeURIComponent(businessDate)}&limit=50`, { headers: { 'X-Admin-Session': adminSessionToken } })
 }
 export function getAdminAccounts() { return request<AdminAccountResponse[]>('/admin/accounts') }
 export function createAdminAccount(payload: { username: string; displayName: string; role: string; platformScope?: string; guildScope?: string; regionScope?: string }) { return request<AdminAccountCreatedResponse>('/admin/accounts', { method: 'POST', body: JSON.stringify(payload) }) }

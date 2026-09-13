@@ -92,6 +92,8 @@ import {
   runAdminIncomeControlledReconciliation,
   refreshAdminIncomeShadowLedger,
   getAdminIncomeShadowLedgerSummary,
+  getAdminIncomeDataQuality,
+  getAdminIncomeDataQualityExceptions,
   unlockAdminAccount,
   revokeAdminDeviceSession,
   rejectAdminWithdrawRequest,
@@ -121,6 +123,8 @@ import {
   type McnIncomeControlledChangesResponse,
   type McnIncomeControlledReconciliationResponse,
   type McnIncomeShadowLedgerSummaryResponse,
+  type McnIncomeDataQualityResponse,
+  type McnIncomeDataQualityExceptionResponse,
   type OverviewReportResponse,
   type OwnershipDetailResponse,
   type PhoneVerificationCodeListResponse,
@@ -419,6 +423,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [controlledIncomeLoading, setControlledIncomeLoading] = useState(false)
   const [incomeShadowForm, setIncomeShadowForm] = useState({ platformCode: 'TIMO', businessDate: '2026-09-11' })
   const [incomeShadowResult, setIncomeShadowResult] = useState<McnIncomeShadowLedgerSummaryResponse | null>(null)
+  const [incomeDataQuality, setIncomeDataQuality] = useState<McnIncomeDataQualityResponse | null>(null)
+  const [incomeDataQualityExceptions, setIncomeDataQualityExceptions] = useState<McnIncomeDataQualityExceptionResponse[]>([])
   const [platformVerificationMockForm, setPlatformVerificationMockForm] = useState({
     platformCode: 'TIMO', platformUserId: '', globallySeenBeforeSubmission: false, joinedTargetGuild: true,
     officialGuildId: '22000448', officialJoinedAt: '', sourceReference: '', enabled: true,
@@ -1607,7 +1613,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     setLoading(true); setError(''); setSuccessMessage('')
     try {
       const result = await refreshAdminIncomeShadowLedger(adminSession.sessionToken, incomeShadowForm)
-      setIncomeShadowResult(result)
+      setIncomeShadowResult(result); setIncomeDataQuality(null); setIncomeDataQualityExceptions([])
       setSuccessMessage('影子账本已按最新修订刷新；未产生任何奖励、钱包或提现结果。')
     } catch (err) {
       setError(err instanceof Error ? err.message : '刷新影子账本失败')
@@ -1620,6 +1626,21 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     try { setIncomeShadowResult(await getAdminIncomeShadowLedgerSummary(adminSession.sessionToken, incomeShadowForm.platformCode, incomeShadowForm.businessDate)) }
     catch (err) { setError(err instanceof Error ? err.message : '读取影子账本摘要失败') }
     finally { setLoading(false) }
+  }
+
+  async function handleLoadIncomeDataQuality() {
+    if (!adminSession || !canRunControlledIncome) return
+    setLoading(true); setError(''); setSuccessMessage('')
+    try {
+      const [quality, exceptions] = await Promise.all([
+        getAdminIncomeDataQuality(adminSession.sessionToken, incomeShadowForm.platformCode, incomeShadowForm.businessDate),
+        getAdminIncomeDataQualityExceptions(adminSession.sessionToken, incomeShadowForm.platformCode, incomeShadowForm.businessDate),
+      ])
+      setIncomeDataQuality(quality); setIncomeDataQualityExceptions(exceptions)
+      setSuccessMessage('已读取数据质量结果；该操作不会变更任何收入、奖励或钱包数据。')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '读取收入数据质量失败')
+    } finally { setLoading(false) }
   }
 
   async function handleSavePlatformVerificationMock(event: FormEvent<HTMLFormElement>) {
@@ -2253,10 +2274,10 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               <div className="stack-gap">
                 <InfoCard title="核对范围" tone="neutral">
                   <div className="grid-form compact-form exception-filter-grid">
-                    <label>平台<select value={incomeShadowForm.platformCode} onChange={(event) => { setIncomeShadowForm({ ...incomeShadowForm, platformCode: event.target.value }); setIncomeShadowResult(null) }}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label>
-                    <label>业务日期<input type="date" value={incomeShadowForm.businessDate} onChange={(event) => { setIncomeShadowForm({ ...incomeShadowForm, businessDate: event.target.value }); setIncomeShadowResult(null) }} /></label>
+                    <label>平台<select value={incomeShadowForm.platformCode} onChange={(event) => { setIncomeShadowForm({ ...incomeShadowForm, platformCode: event.target.value }); setIncomeShadowResult(null); setIncomeDataQuality(null); setIncomeDataQualityExceptions([]) }}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label>
+                    <label>业务日期<input type="date" value={incomeShadowForm.businessDate} onChange={(event) => { setIncomeShadowForm({ ...incomeShadowForm, businessDate: event.target.value }); setIncomeShadowResult(null); setIncomeDataQuality(null); setIncomeDataQualityExceptions([]) }} /></label>
                   </div>
-                  <div className="action-row top-gap"><button className="primary-btn small-btn" onClick={() => void handleRefreshIncomeShadowLedger()} disabled={loading}>按最新修订刷新</button><button className="ghost-btn small-btn" onClick={() => void handleLoadIncomeShadowLedger()} disabled={loading}>读取已有结果</button></div>
+                  <div className="action-row top-gap"><button className="primary-btn small-btn" onClick={() => void handleRefreshIncomeShadowLedger()} disabled={loading}>按最新修订刷新</button><button className="ghost-btn small-btn" onClick={() => void handleLoadIncomeShadowLedger()} disabled={loading}>读取已有结果</button><button className="ghost-btn small-btn" onClick={() => void handleLoadIncomeDataQuality()} disabled={loading}>查看数据质量</button></div>
                 </InfoCard>
                 {incomeShadowResult ? <InfoCard title="影子账本核对结果" tone="success"><div className="relation-grid">
                   <RelationItem label="来源事实 / 最新事实" value={`${incomeShadowResult.sourceFactCount} / ${incomeShadowResult.latestFactCount}`} />
@@ -2265,6 +2286,14 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   <RelationItem label="等待定稿" value={incomeShadowResult.awaitingFinalityCount} />
                   <RelationItem label="已撤销或作废" value={incomeShadowResult.voidedCount} />
                 </div><InlineHint text="“已绑定且已定稿”仅表示可进入后续规则核对，不代表已经产生任何奖励或可提现余额。" /></InfoCard> : <EmptyState title="尚未生成影子账本" description="选择已完成受控对账的业务日后刷新。" />}
+                {incomeDataQuality ? <InfoCard title="数据质量与待处理项" tone={incomeDataQuality.projectionStatus === 'COMPLETE' ? 'success' : 'neutral'}><div className="relation-grid">
+                  <RelationItem label="投影完整性" value={`${incomeDataQuality.projectionStatus} · ${incomeDataQuality.projectedFactCount} / ${incomeDataQuality.latestFactCount}`} />
+                  <RelationItem label="已归属覆盖率" value={`${incomeDataQuality.bindingCoveragePercent}%`} />
+                  <RelationItem label="未归属 / 等待定稿" value={`${incomeDataQuality.unmatchedCount} / ${incomeDataQuality.awaitingFinalityCount}`} />
+                  <RelationItem label="作废事实" value={incomeDataQuality.voidedCount} />
+                </div><InlineHint text="COMPLETE 表示最新 MCN 事实均已写入本地影子投影；未归属和等待定稿必须在进入任何后续账本规则前处理或确认。" />
+                  {incomeDataQualityExceptions.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>事实参考号</th><th>状态</th><th>公会</th><th>结算状态</th><th>最新修订</th></tr></thead><tbody>{incomeDataQualityExceptions.map((item) => <tr key={item.sourceEventReference}><td>{item.sourceEventReference}</td><td>{item.status === 'UNMATCHED' ? '未归属' : '等待定稿'}</td><td>{item.guildId || '-'}</td><td>{item.settlementStatus}</td><td>{item.sourceRevision}</td></tr>)}</tbody></table></div> : <InlineHint text="当前没有未归属或等待定稿的收入事实。" />}
+                </InfoCard> : null}
               </div>
             </PanelSection>
           ) : null}
