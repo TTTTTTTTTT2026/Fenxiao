@@ -1936,12 +1936,13 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
         <section className="admin-login-shell"><div className="admin-login-form-panel">
           <div className="admin-login-form-head"><h1>首次登录，请修改密码</h1></div>
           {error ? <section className="alert-banner error admin-login-alert"><strong>修改失败</strong><span>{error}</span></section> : null}
-          <form className="admin-login-form" onSubmit={handleChangeAdminPassword}>
-            <label>临时密码<input type="password" autoComplete="current-password" value={adminPasswordForm.currentPassword} onChange={(e) => setAdminPasswordForm({ ...adminPasswordForm, currentPassword: e.target.value })} /></label>
+          <form className="admin-login-form" onSubmit={handleChangeAdminPassword} autoComplete="off">
+            <label>临时密码<input type="password" name="temporary-admin-password" autoComplete="new-password" value={adminPasswordForm.currentPassword} onChange={(e) => setAdminPasswordForm({ ...adminPasswordForm, currentPassword: e.target.value })} /></label>
             <label>新密码<input type="password" autoComplete="new-password" value={adminPasswordForm.newPassword} onChange={(e) => setAdminPasswordForm({ ...adminPasswordForm, newPassword: e.target.value })} /></label>
             <label>确认新密码<input type="password" autoComplete="new-password" value={adminPasswordForm.confirmPassword} onChange={(e) => setAdminPasswordForm({ ...adminPasswordForm, confirmPassword: e.target.value })} /></label>
-            <p className="inline-hint">至少 12 位，并包含大小写字母、数字、符号中的至少三类。</p>
+            <p className="inline-hint">请手动输入临时密码；至少 12 位，并包含大小写字母、数字、符号中的至少三类。</p>
             <button className="primary-btn admin-login-submit" type="submit">修改密码并重新登录</button>
+            <button className="ghost-btn" type="button" onClick={() => { void handleAdminLogout() }}>返回账号密码登录</button>
           </form>
         </div></section>
       </div>
