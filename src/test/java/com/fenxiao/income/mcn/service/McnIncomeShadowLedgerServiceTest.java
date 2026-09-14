@@ -54,7 +54,7 @@ class McnIncomeShadowLedgerServiceTest {
         assertThat(result.boundFinalCount()).isEqualTo(1);
         ArgumentCaptor<List<Object[]>> values = ArgumentCaptor.forClass(List.class);
         verify(jdbc).batchUpdate(anyString(), values.capture());
-        assertThat(values.getValue().getFirst()[4]).isEqualTo("2");
+        assertThat(values.getValue().getFirst()[4]).isEqualTo(revision("2"));
         assertThat(values.getValue().getFirst()[7]).isEqualTo(72L);
     }
 
@@ -98,7 +98,7 @@ class McnIncomeShadowLedgerServiceTest {
         McnIncomeRawLedgerEventRepository rawEvents = mock(McnIncomeRawLedgerEventRepository.class);
         PlatformAccountBindingRepository bindings = mock(PlatformAccountBindingRepository.class);
         McnIncomeRawLedgerEvent original = fact("event-original", "1", "account-6", NOW.minusSeconds(60), McnIncomeEventType.INCOME, McnIncomeSettlementStatus.SETTLED);
-        McnIncomeRawLedgerEvent reversal = McnIncomeRawLedgerEvent.record("MCN", "delivery-reversal", "TIMO", "DAILY", "event-reversal", "1", "event-original", "account-6",
+        McnIncomeRawLedgerEvent reversal = McnIncomeRawLedgerEvent.record("MCN", "delivery-reversal", "TIMO", "DAILY", "event-reversal", revision("1"), "event-original", "account-6",
                 null, McnIncomeResolutionStatus.UNMATCHED, "not-yet-bound", McnIncomeEventType.REVERSAL, McnIncomeSettlementStatus.SETTLED, BigDecimal.ZERO,
                 "USD", "USD", NEXT_DAY, "UTC", NOW.minusSeconds(3600), NOW, NOW.minusSeconds(30), null, NOW,
                 "guild-1", "hash-reversal", "{}", NOW, "MCN");
@@ -120,7 +120,7 @@ class McnIncomeShadowLedgerServiceTest {
         McnIncomeRawLedgerEventRepository rawEvents = mock(McnIncomeRawLedgerEventRepository.class);
         PlatformAccountBindingRepository bindings = mock(PlatformAccountBindingRepository.class);
         McnIncomeRawLedgerEvent original = fact("event-unbound-original", "1", "account-7", NOW.minusSeconds(60), McnIncomeEventType.INCOME, McnIncomeSettlementStatus.SETTLED);
-        McnIncomeRawLedgerEvent reversal = McnIncomeRawLedgerEvent.record("MCN", "delivery-unbound-reversal", "TIMO", "DAILY", "event-unbound-reversal", "1", "event-unbound-original", "account-7",
+        McnIncomeRawLedgerEvent reversal = McnIncomeRawLedgerEvent.record("MCN", "delivery-unbound-reversal", "TIMO", "DAILY", "event-unbound-reversal", revision("1"), "event-unbound-original", "account-7",
                 null, McnIncomeResolutionStatus.UNMATCHED, "not-yet-bound", McnIncomeEventType.REVERSAL, McnIncomeSettlementStatus.SETTLED, BigDecimal.ZERO,
                 "USD", "USD", NEXT_DAY, "UTC", NOW.minusSeconds(3600), NOW, NOW.minusSeconds(30), null, NOW,
                 "guild-1", "hash-unbound-reversal", "{}", NOW, "MCN");
@@ -174,9 +174,11 @@ class McnIncomeShadowLedgerServiceTest {
     }
 
     private McnIncomeRawLedgerEvent fact(String eventId, String revision, String platformUserId, LocalDate businessDate, Instant updatedAt, McnIncomeEventType eventType, McnIncomeSettlementStatus settlementStatus) {
-        return McnIncomeRawLedgerEvent.record("MCN", "delivery", "TIMO", "DAILY", eventId, revision, null, platformUserId,
+        return McnIncomeRawLedgerEvent.record("MCN", "delivery", "TIMO", "DAILY", eventId, revision(revision), null, platformUserId,
                 null, McnIncomeResolutionStatus.UNMATCHED, "not-yet-bound", eventType, settlementStatus, BigDecimal.ONE,
                 "USD", "USD", businessDate, "UTC", NOW.minusSeconds(3600), NOW, NOW.minusSeconds(30), null, updatedAt,
                 "guild-1", "hash", "{}", NOW, "MCN");
     }
+
+    private static String revision(String number) { return "%06d:%064x".formatted(Integer.parseInt(number), Integer.parseInt(number)); }
 }

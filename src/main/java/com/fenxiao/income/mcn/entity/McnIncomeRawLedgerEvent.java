@@ -4,6 +4,7 @@ import com.fenxiao.common.entity.BaseEntity;
 import com.fenxiao.income.mcn.domain.McnIncomeEventType;
 import com.fenxiao.income.mcn.domain.McnIncomeResolutionStatus;
 import com.fenxiao.income.mcn.domain.McnIncomeSettlementStatus;
+import com.fenxiao.income.mcn.domain.McnIncomeSourceRevision;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -132,6 +133,7 @@ public class McnIncomeRawLedgerEvent extends BaseEntity {
                                                    Instant occurredAt, Instant settledAt, Instant sourceUpdatedAt,
                                                    String guildId, String payloadHash, String sourcePayload,
                                                    Instant receivedAt, String settlementBasis) {
+        sourceRevision = McnIncomeSourceRevision.parse(sourceRevision).value();
         McnIncomeRawLedgerEvent event = new McnIncomeRawLedgerEvent();
         event.sourceSystem = sourceSystem;
         event.deliveryId = deliveryId;
