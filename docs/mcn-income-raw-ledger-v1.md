@@ -27,7 +27,7 @@
 
 1. `platformCode`：`TIMO` 或 `LINKY`。
 2. `platformUserId`：Timo ID 或 Linky SID，不使用昵称、手机号、WhatsApp 或邀请码。
-3. `sourceEventId` 与 `sourceRevision`：共同构成 MCN 事实修订的唯一键。
+3. `sourceEventId` 与 `sourceRevision`：共同构成 MCN 事实修订的唯一键。V1 的 `sourceRevision` 必须为 `DDDDDD:<64 位小写 SHA-256>`；冒号前固定六位版本号是唯一排序键，冒号后摘要只标识不可变内容。
 4. `eventType`：`INCOME`、`ADJUSTMENT` 或 `REVERSAL`。
 5. `settlementStatus`：MCN V1 当前仅为 `PENDING`、`SETTLED` 或 `REVERSED`。
 6. 金额、币种、发生时间、MCN 源记录更新时间；更正/撤销时还须指向原始流水。
@@ -50,6 +50,8 @@ BANDEIRA 先提供受内部令牌保护的**标准化投递入口**，用于适�
 - 相同 `sourceSystem + deliveryId` 且载荷相同：返回重复投递，不重复入账。
 - 相同来源、平台、流水和修订号且载荷相同：识别为重复事实。
 - 相同事实键但载荷不同：拒绝，要求 MCN 以新修订号重新投递，避免篡改历史证据。
+- 同一 `sourceEventId` 下相同六位版本号却携带不同摘要：拒绝为来源契约冲突；不得用摘要或 `sourceUpdatedAt` 猜测谁更新。
+- 最新影子事实只按 `sourceRevision` 的六位版本号选择；`sourceUpdatedAt` 仅保留审计证据，`ADJUSTMENT` 作为最新绝对金额替换旧修订而非叠加。
 - 无已核验绑定的账号：保存为 `UNMATCHED`，后续由归属解析/运营异常池处理。
 - 有已核验绑定的账号：保存为 `BOUND`，但不调用奖励、分账或提现逻辑。
 

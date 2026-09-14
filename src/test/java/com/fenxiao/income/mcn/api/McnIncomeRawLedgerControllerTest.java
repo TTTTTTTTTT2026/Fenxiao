@@ -103,15 +103,35 @@ class McnIncomeRawLedgerControllerTest {
     }
 
     @Test
+    void shouldRejectTwoDifferentDigestsForTheSameMcnRevisionNumber() throws Exception {
+        mockMvc.perform(post("/internal/distribution/mcn/income-ledger-deliveries")
+                        .header("X-Internal-Token", "test-token").contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(delivery("delivery-4a", "TIMO", "income-4", "1", "196171225988"))))
+                .andExpect(status().isOk());
+
+        Map<String, Object> conflicting = mutableDelivery(delivery("delivery-4b", "TIMO", "income-4", "1", "196171225988"));
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> facts = (List<Map<String, Object>>) conflicting.get("facts");
+        facts.getFirst().put("sourceRevision", "000001:" + "a".repeat(64));
+
+        mockMvc.perform(post("/internal/distribution/mcn/income-ledger-deliveries")
+                        .header("X-Internal-Token", "test-token").contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(conflicting)))
+                .andExpect(status().isBadRequest());
+        assertThat(eventRepository.count()).isEqualTo(1);
+    }
+
+    @Test
     void shouldSelectTheLatestRevisionAcrossBusinessDates() {
         LocalDate originalDay = LocalDate.of(2026, 9, 11);
         LocalDate correctedDay = originalDay.plusDays(1);
-        eventRepository.save(rawFact("cross-day-event", "1", originalDay, Instant.parse("2026-09-12T08:00:00Z")));
-        eventRepository.save(rawFact("cross-day-event", "2", correctedDay, Instant.parse("2026-09-12T09:00:00Z")));
+        eventRepository.save(rawFact("cross-day-event", 1, originalDay, Instant.parse("2026-09-12T09:00:00Z")));
+        // A newer version is authoritative even when its source update evidence is older.
+        eventRepository.save(rawFact("cross-day-event", 2, correctedDay, Instant.parse("2026-09-12T08:00:00Z")));
 
         assertThat(eventRepository.findLatestBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", "TIMO", originalDay, originalDay)).isEmpty();
         assertThat(eventRepository.findLatestBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", "TIMO", correctedDay, correctedDay))
-                .extracting(McnIncomeRawLedgerEvent::getSourceRevision).containsExactly("2");
+                .extracting(McnIncomeRawLedgerEvent::getSourceRevision).containsExactly(revision(2));
     }
 
     private Map<String, Object> delivery(String deliveryId, String platformCode, String sourceEventId,
@@ -124,7 +144,7 @@ class McnIncomeRawLedgerControllerTest {
                 "sourceWatermark", Map.of("businessDate", "2026-09-11", "completeness", "FINAL"),
                 "facts", List.of(Map.ofEntries(
                         Map.entry("sourceEventId", sourceEventId),
-                        Map.entry("sourceRevision", revision),
+                        Map.entry("sourceRevision", revision(Integer.parseInt(revision))),
                         Map.entry("platformUserId", platformUserId),
                         Map.entry("eventType", "INCOME"),
                         Map.entry("settlementStatus", "SETTLED"),
@@ -146,12 +166,23 @@ class McnIncomeRawLedgerControllerTest {
         );
     }
 
-    private McnIncomeRawLedgerEvent rawFact(String sourceEventId, String revision, LocalDate businessDate, Instant updatedAt) {
+    private McnIncomeRawLedgerEvent rawFact(String sourceEventId, int revision, LocalDate businessDate, Instant updatedAt) {
         return McnIncomeRawLedgerEvent.record("MCN", "test-delivery-" + revision, "TIMO", "ACCOUNT_GUILD_DAY",
-                sourceEventId, revision, null, "test-account", null, McnIncomeResolutionStatus.UNMATCHED,
+                sourceEventId, revision(revision), null, "test-account", null, McnIncomeResolutionStatus.UNMATCHED,
                 "NO_VERIFIED_PLATFORM_BINDING", McnIncomeEventType.INCOME, McnIncomeSettlementStatus.SETTLED,
                 BigDecimal.ONE, "XXX", "TIMO_DIAMOND", businessDate, "UTC", businessDate.atStartOfDay().toInstant(java.time.ZoneOffset.UTC),
                 businessDate.plusDays(1).atStartOfDay().toInstant(java.time.ZoneOffset.UTC), businessDate.atStartOfDay().toInstant(java.time.ZoneOffset.UTC),
                 null, updatedAt, "22000448", "hash-" + revision, "{}", updatedAt, "MCN_DAILY_FACT_FINALITY");
     }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> mutableDelivery(Map<String, Object> value) {
+        Map<String, Object> result = new java.util.LinkedHashMap<>(value);
+        List<Map<String, Object>> facts = new java.util.ArrayList<>();
+        for (Map<String, Object> fact : (List<Map<String, Object>>) value.get("facts")) facts.add(new java.util.LinkedHashMap<>(fact));
+        result.put("facts", facts);
+        return result;
+    }
+
+    private static String revision(int number) { return "%06d:%064x".formatted(number, number); }
 }

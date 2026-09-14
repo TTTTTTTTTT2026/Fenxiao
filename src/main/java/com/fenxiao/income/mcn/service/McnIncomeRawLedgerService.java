@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fenxiao.income.mcn.domain.McnIncomeResolutionStatus;
 import com.fenxiao.income.mcn.domain.McnIncomeEventType;
+import com.fenxiao.income.mcn.domain.McnIncomeSourceRevision;
 import com.fenxiao.income.mcn.dto.McnIncomeDeliveryRequest;
 import com.fenxiao.income.mcn.dto.McnIncomeDeliveryResponse;
 import com.fenxiao.income.mcn.dto.McnIncomeFactRequest;
@@ -72,13 +73,19 @@ public class McnIncomeRawLedgerService {
         for (McnIncomeFactRequest fact : request.facts()) {
             validateV1DailyFact(platformCode, fact);
             String eventId = require(fact.sourceEventId(), "source event id");
-            String revision = require(fact.sourceRevision(), "source revision");
+            McnIncomeSourceRevision revisionInfo = McnIncomeSourceRevision.parse(require(fact.sourceRevision(), "source revision"));
+            String revision = revisionInfo.value();
             String factPayload = json(fact.sourcePayload());
             // The source payload is retained verbatim, while the complete normalized fact is fingerprinted.
             // This prevents a changed amount, status or timestamp from being silently treated as a duplicate.
             String factHash = sha256(json(fact));
             var existingFact = eventRepository.findBySourceSystemAndPlatformCodeAndSourceEventIdAndSourceRevision(
                     sourceSystem, platformCode, eventId, revision);
+            var sameVersion = eventRepository.findBySourceSystemAndPlatformCodeAndSourceEventIdAndRevisionPrefix(
+                    sourceSystem, platformCode, eventId, revisionInfo.fixedWidthPrefix());
+            if (sameVersion.stream().anyMatch(event -> !revision.equals(event.getSourceRevision()))) {
+                throw new IllegalStateException("MCN source revision version conflicts with stored raw ledger evidence");
+            }
             if (existingFact.isPresent()) {
                 if (!existingFact.get().getPayloadHash().equals(factHash)) {
                     throw new IllegalStateException("source event revision conflicts with stored raw ledger evidence");
