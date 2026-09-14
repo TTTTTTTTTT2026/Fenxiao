@@ -122,6 +122,12 @@ export type McnIncomeRewardCandidateItemResponse = {
   sourceEventReference: string; businessDate: string; sourceUserId: number | null; recipientUserId: number | null
   rewardLevel: number; status: string; reason: string; baseAmount: number; candidateAmount: number | null; amountUnit: string
 }
+export type CommissionPolicyResponse = {
+  id: number; policyCode: string; platformCode: string; countryCode: string; roleCode: string
+  maxRewardLevel: number; status: 'DRAFT' | 'ACTIVE' | 'RETIRED' | string; effectiveFrom: string; effectiveTo: string | null
+  createdBy: number; approvedBy: number | null; approvedAt: string | null; approvalNote: string | null
+  levels: Array<{ rewardLevel: number; enabled: boolean; rewardRate: number | null; freezeDays: number | null }>
+}
 export type PlatformIntegrationResponse = {
   platformCode: string
   displayName: string
@@ -764,6 +770,18 @@ export function getAdminIncomeRewardCandidateSummary(adminSessionToken: string, 
 }
 export function getAdminIncomeRewardCandidateItems(adminSessionToken: string, platformCode: string, businessDate: string) {
   return request<McnIncomeRewardCandidateItemResponse[]>(`/admin/income-facts/reward-candidates/items?platformCode=${encodeURIComponent(platformCode)}&businessDate=${encodeURIComponent(businessDate)}&limit=50`, { headers: { 'X-Admin-Session': adminSessionToken } })
+}
+export function getAdminCommissionPolicies(adminSessionToken: string) {
+  return request<CommissionPolicyResponse[]>('/admin/commission-policies', { headers: { 'X-Admin-Session': adminSessionToken } })
+}
+export function createAdminCommissionPolicy(adminSessionToken: string, payload: { platformCode: string; countryCode: string; roleCode: string; maxRewardLevel: number; effectiveFrom: string; effectiveTo: string | null; levels: Array<{ rewardLevel: number; enabled: boolean; rewardRate: number | null; freezeDays: number | null }> }) {
+  return request<CommissionPolicyResponse>('/admin/commission-policies', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) })
+}
+export function activateAdminCommissionPolicy(adminSessionToken: string, id: number, approvalNote: string) {
+  return request<CommissionPolicyResponse>(`/admin/commission-policies/${id}/activate`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ approvalNote }) })
+}
+export function retireAdminCommissionPolicy(adminSessionToken: string, id: number) {
+  return request<CommissionPolicyResponse>(`/admin/commission-policies/${id}/retire`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken } })
 }
 export function getAdminAccounts() { return request<AdminAccountResponse[]>('/admin/accounts') }
 export function createAdminAccount(payload: { username: string; displayName: string; role: string; platformScope?: string; guildScope?: string; regionScope?: string }) { return request<AdminAccountCreatedResponse>('/admin/accounts', { method: 'POST', body: JSON.stringify(payload) }) }

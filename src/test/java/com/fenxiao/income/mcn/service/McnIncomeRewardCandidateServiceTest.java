@@ -5,8 +5,8 @@ import com.fenxiao.platform.entity.PlatformAccountBinding;
 import com.fenxiao.platform.repository.PlatformAccountBindingRepository;
 import com.fenxiao.relationship.entity.InvitationRelationVersion;
 import com.fenxiao.relationship.repository.InvitationRelationVersionRepository;
-import com.fenxiao.rule.entity.RewardRule;
-import com.fenxiao.rule.repository.RewardRuleRepository;
+import com.fenxiao.rule.entity.CommissionPolicy;
+import com.fenxiao.rule.service.CommissionPolicyService;
 import com.fenxiao.user.entity.UserDistributionProfile;
 import com.fenxiao.user.repository.UserDistributionProfileRepository;
 import org.junit.jupiter.api.Test;
@@ -26,6 +26,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class McnIncomeRewardCandidateServiceTest {
@@ -48,8 +50,8 @@ class McnIncomeRewardCandidateServiceTest {
         InvitationRelationVersion atIncome = InvitationRelationVersion.create(100L, 200L, 3, LocalDateTime.ofInstant(OCCURRED.minusSeconds(3600), ZoneOffset.UTC), "test", "TEST", null, null);
         when(fixture.relations.findEffectiveAt(100L, LocalDateTime.ofInstant(OCCURRED, ZoneOffset.UTC))).thenReturn(Optional.of(atIncome));
         when(fixture.relations.findEffectiveAt(200L, LocalDateTime.ofInstant(OCCURRED, ZoneOffset.UTC))).thenReturn(Optional.empty());
-        when(fixture.rules.findEffectiveRule("ID", "NORMAL_USER", 1, "ACTIVE", LocalDateTime.ofInstant(OCCURRED, ZoneOffset.UTC)))
-                .thenReturn(Optional.of(RewardRule.create("ID", "NORMAL_USER", 1, new BigDecimal("0.10"), 7, 1L)));
+        when(fixture.policies.findEffective("TIMO", "ID", "NORMAL_USER", LocalDateTime.ofInstant(OCCURRED, ZoneOffset.UTC)))
+                .thenReturn(Optional.of(policy(1)));
 
         McnIncomeRewardCandidateSummaryResponse result = fixture.service.refresh("TIMO", DAY);
 
@@ -78,6 +80,29 @@ class McnIncomeRewardCandidateServiceTest {
         assertThat(result.blockedCount()).isEqualTo(1);
     }
 
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void shouldStopAtTheConfiguredDirectOnlyDepthInsteadOfTreatingLaterLevelsAsZeroRateRules() {
+        Fixture fixture = fixture();
+        when(fixture.jdbc.query(anyString(), any(RowMapper.class), any(Object[].class))).thenReturn(List.of(input(100L)));
+        UserDistributionProfile source = UserDistributionProfile.create(100L, "ID", "id", "SOURCE");
+        UserDistributionProfile direct = UserDistributionProfile.create(200L, "ID", "id", "DIRECT");
+        when(fixture.users.findById(100L)).thenReturn(Optional.of(source));
+        when(fixture.users.findById(200L)).thenReturn(Optional.of(direct));
+        PlatformAccountBinding binding = PlatformAccountBinding.submit(100L, "TIMO", "123456789012", LocalDateTime.ofInstant(OCCURRED.minusSeconds(60), ZoneOffset.UTC));
+        binding.verify("guild", LocalDateTime.ofInstant(OCCURRED.minusSeconds(60), ZoneOffset.UTC), "MCN", "ref", LocalDateTime.ofInstant(OCCURRED.minusSeconds(60), ZoneOffset.UTC));
+        when(fixture.bindings.findByUserIdAndPlatformCode(100L, "TIMO")).thenReturn(Optional.of(binding));
+        when(fixture.relations.findEffectiveAt(100L, LocalDateTime.ofInstant(OCCURRED, ZoneOffset.UTC))).thenReturn(Optional.of(
+                InvitationRelationVersion.create(100L, 200L, 1, LocalDateTime.ofInstant(OCCURRED.minusSeconds(3600), ZoneOffset.UTC), "test", "TEST", null, null)));
+        when(fixture.policies.findEffective("TIMO", "ID", "NORMAL_USER", LocalDateTime.ofInstant(OCCURRED, ZoneOffset.UTC))).thenReturn(Optional.of(policy(1)));
+
+        McnIncomeRewardCandidateSummaryResponse result = fixture.service.refresh("TIMO", DAY);
+
+        assertThat(result.candidateCount()).isEqualTo(1);
+        assertThat(result.blockedCount()).isZero();
+        verify(fixture.relations, never()).findEffectiveAt(200L, LocalDateTime.ofInstant(OCCURRED, ZoneOffset.UTC));
+    }
+
     private McnIncomeRewardCandidateService.CandidateInput input(Long sourceUserId) {
         return new McnIncomeRewardCandidateService.CandidateInput("event-1", 1L, "revision-1", DAY, sourceUserId,
                 "BOUND_FINAL", OCCURRED, new BigDecimal("100.000000"), "XXX", "TIMO_DIAMOND");
@@ -88,12 +113,20 @@ class McnIncomeRewardCandidateServiceTest {
         when(jdbc.update(anyString(), any(Object[].class))).thenReturn(1);
         PlatformAccountBindingRepository bindings = mock(PlatformAccountBindingRepository.class);
         InvitationRelationVersionRepository relations = mock(InvitationRelationVersionRepository.class);
-        RewardRuleRepository rules = mock(RewardRuleRepository.class);
+        CommissionPolicyService policies = mock(CommissionPolicyService.class);
         UserDistributionProfileRepository users = mock(UserDistributionProfileRepository.class);
-        return new Fixture(jdbc, bindings, relations, rules, users,
-                new McnIncomeRewardCandidateService(jdbc, bindings, relations, rules, users, Clock.fixed(Instant.parse("2026-09-14T00:00:00Z"), ZoneOffset.UTC)));
+        return new Fixture(jdbc, bindings, relations, policies, users,
+                new McnIncomeRewardCandidateService(jdbc, bindings, relations, policies, users, Clock.fixed(Instant.parse("2026-09-14T00:00:00Z"), ZoneOffset.UTC)));
+    }
+
+    private CommissionPolicy policy(int maxLevel) {
+        return CommissionPolicy.draft("CP-TEST", "TIMO", "ID", "NORMAL_USER", maxLevel,
+                true, new BigDecimal("0.10"), 7,
+                maxLevel >= 2, maxLevel >= 2 ? new BigDecimal("0.02") : null, maxLevel >= 2 ? 7 : null,
+                maxLevel >= 3, maxLevel >= 3 ? new BigDecimal("0.005") : null, maxLevel >= 3 ? 7 : null,
+                LocalDateTime.ofInstant(OCCURRED.minusSeconds(3600), ZoneOffset.UTC), null, 1L);
     }
 
     private record Fixture(JdbcTemplate jdbc, PlatformAccountBindingRepository bindings, InvitationRelationVersionRepository relations,
-                           RewardRuleRepository rules, UserDistributionProfileRepository users, McnIncomeRewardCandidateService service) { }
+                           CommissionPolicyService policies, UserDistributionProfileRepository users, McnIncomeRewardCandidateService service) { }
 }

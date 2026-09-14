@@ -97,6 +97,10 @@ import {
   getAdminIncomeDataQualityExceptions,
   getAdminIncomeRewardCandidateItems,
   getAdminIncomeRewardCandidateSummary,
+  getAdminCommissionPolicies,
+  createAdminCommissionPolicy,
+  activateAdminCommissionPolicy,
+  retireAdminCommissionPolicy,
   unlockAdminAccount,
   revokeAdminDeviceSession,
   rejectAdminWithdrawRequest,
@@ -130,6 +134,7 @@ import {
   type McnIncomeDataQualityExceptionResponse,
   type McnIncomeRewardCandidateItemResponse,
   type McnIncomeRewardCandidateSummaryResponse,
+  type CommissionPolicyResponse,
   type OverviewReportResponse,
   type OwnershipDetailResponse,
   type PhoneVerificationCodeListResponse,
@@ -416,7 +421,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [withdrawViewName, setWithdrawViewName] = useState('')
   const [selectedWithdrawViewId, setSelectedWithdrawViewId] = useState('')
   const [adminBindingView, setAdminBindingView] = useState<'users' | 'risks'>('users')
-  const [adminSettingsView, setAdminSettingsView] = useState<'experiment' | 'guilds' | 'platforms' | 'incomeControlled' | 'incomeShadow' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification'>('experiment')
+  const [adminSettingsView, setAdminSettingsView] = useState<'experiment' | 'guilds' | 'platforms' | 'incomeControlled' | 'incomeShadow' | 'commissionPolicies' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification'>('experiment')
   const [platformIntegrations, setPlatformIntegrations] = useState<PlatformIntegrationResponse[] | null>(null)
   const [platformVerificationRuntime, setPlatformVerificationRuntime] = useState<PlatformVerificationRuntimeResponse | null>(null)
   const [platformVerificationMocks, setPlatformVerificationMocks] = useState<PlatformVerificationMockResponse[] | null>(null)
@@ -432,6 +437,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [incomeDataQualityExceptions, setIncomeDataQualityExceptions] = useState<McnIncomeDataQualityExceptionResponse[]>([])
   const [incomeRewardCandidateResult, setIncomeRewardCandidateResult] = useState<McnIncomeRewardCandidateSummaryResponse | null>(null)
   const [incomeRewardCandidateItems, setIncomeRewardCandidateItems] = useState<McnIncomeRewardCandidateItemResponse[]>([])
+  const [commissionPolicies, setCommissionPolicies] = useState<CommissionPolicyResponse[] | null>(null)
+  const [commissionPolicyForm, setCommissionPolicyForm] = useState({ platformCode: 'TIMO', countryCode: 'BR', roleCode: 'NORMAL_USER', maxRewardLevel: '1', effectiveFrom: '', effectiveTo: '', level1Rate: '0.10', level1FreezeDays: '7', level2Rate: '0.02', level2FreezeDays: '7', level3Rate: '0.005', level3FreezeDays: '7' })
   const [platformVerificationMockForm, setPlatformVerificationMockForm] = useState({
     platformCode: 'TIMO', platformUserId: '', globallySeenBeforeSubmission: false, joinedTargetGuild: true,
     officialGuildId: '22000448', officialJoinedAt: '', sourceReference: '', enabled: true,
@@ -1678,6 +1685,56 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     } finally { setLoading(false) }
   }
 
+  async function loadCommissionPolicies() {
+    if (!adminSession || !canRunControlledIncome) return
+    setLoading(true); setError('')
+    try { setCommissionPolicies(await getAdminCommissionPolicies(adminSession.sessionToken)) }
+    catch (err) { setError(err instanceof Error ? err.message : '读取分成规则失败') }
+    finally { setLoading(false) }
+  }
+
+  async function handleCreateCommissionPolicy(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!adminSession || !canRunControlledIncome) return
+    const maxLevel = Number(commissionPolicyForm.maxRewardLevel)
+    if (!commissionPolicyForm.effectiveFrom || !Number.isInteger(maxLevel)) { setError('请填写生效时间和有效的最高分成层级。'); return }
+    const level = (rewardLevel: number, rate: string, freeze: string) => ({
+      rewardLevel, enabled: rewardLevel <= maxLevel, rewardRate: rewardLevel <= maxLevel ? Number(rate) : null, freezeDays: rewardLevel <= maxLevel ? Number(freeze) : null,
+    })
+    setLoading(true); setError(''); setSuccessMessage('')
+    try {
+      const saved = await createAdminCommissionPolicy(adminSession.sessionToken, {
+        platformCode: commissionPolicyForm.platformCode, countryCode: commissionPolicyForm.countryCode.trim().toUpperCase(), roleCode: commissionPolicyForm.roleCode.trim().toUpperCase(), maxRewardLevel: maxLevel,
+        effectiveFrom: new Date(commissionPolicyForm.effectiveFrom).toISOString().slice(0, 19), effectiveTo: commissionPolicyForm.effectiveTo ? new Date(commissionPolicyForm.effectiveTo).toISOString().slice(0, 19) : null,
+        levels: [level(1, commissionPolicyForm.level1Rate, commissionPolicyForm.level1FreezeDays), level(2, commissionPolicyForm.level2Rate, commissionPolicyForm.level2FreezeDays), level(3, commissionPolicyForm.level3Rate, commissionPolicyForm.level3FreezeDays)],
+      })
+      setCommissionPolicies((current) => [saved, ...(current ?? [])]); setSuccessMessage(`已建立待审分成策略 ${saved.policyCode}；尚未启用，也未触发发奖。`)
+    } catch (err) { setError(err instanceof Error ? err.message : '建立分成策略失败') }
+    finally { setLoading(false) }
+  }
+
+  async function handleActivateCommissionPolicy(policy: CommissionPolicyResponse) {
+    if (!adminSession || !canRunControlledIncome) return
+    const approvalNote = window.prompt(`确认启用 ${policy.policyCode}？此动作仅影响后续候选演算，不会发奖。请填写审批说明：`, '财务复核通过')
+    if (!approvalNote?.trim()) return
+    setLoading(true); setError(''); setSuccessMessage('')
+    try {
+      const saved = await activateAdminCommissionPolicy(adminSession.sessionToken, policy.id, approvalNote.trim())
+      setCommissionPolicies((current) => (current ?? []).map((item) => item.id === saved.id ? saved : item)); setSuccessMessage(`已启用 ${saved.policyCode}；仅供收入影子账本候选演算使用。`)
+    } catch (err) { setError(err instanceof Error ? err.message : '启用分成策略失败') }
+    finally { setLoading(false) }
+  }
+
+  async function handleRetireCommissionPolicy(policy: CommissionPolicyResponse) {
+    if (!adminSession || !canRunControlledIncome || !window.confirm(`停止使用 ${policy.policyCode}？不会改动历史候选结果。`)) return
+    setLoading(true); setError(''); setSuccessMessage('')
+    try {
+      const saved = await retireAdminCommissionPolicy(adminSession.sessionToken, policy.id)
+      setCommissionPolicies((current) => (current ?? []).map((item) => item.id === saved.id ? saved : item)); setSuccessMessage(`已停止使用 ${saved.policyCode}。`)
+    } catch (err) { setError(err instanceof Error ? err.message : '停止分成策略失败') }
+    finally { setLoading(false) }
+  }
+
   async function handleSavePlatformVerificationMock(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!adminSession || !canManagePlatformMocks || !platformVerificationRuntime?.mockManagementEnabled) return
@@ -2210,6 +2267,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               <button className={adminSettingsView === 'platforms' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('platforms'); if (!platformIntegrations) void loadPlatformIntegrations(); if (!platformVerificationRuntime) void loadPlatformVerificationRuntime() }} role="tab" aria-selected={adminSettingsView === 'platforms'}>平台接入</button>
               {canRunControlledIncome ? <button className={adminSettingsView === 'incomeControlled' ? 'is-active' : ''} onClick={() => setAdminSettingsView('incomeControlled')} role="tab" aria-selected={adminSettingsView === 'incomeControlled'}>收入受控联调</button> : null}
               {canRunControlledIncome ? <button className={adminSettingsView === 'incomeShadow' ? 'is-active' : ''} onClick={() => setAdminSettingsView('incomeShadow')} role="tab" aria-selected={adminSettingsView === 'incomeShadow'}>收入影子账本</button> : null}
+              {canRunControlledIncome ? <button className={adminSettingsView === 'commissionPolicies' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('commissionPolicies'); if (!commissionPolicies) void loadCommissionPolicies() }} role="tab" aria-selected={adminSettingsView === 'commissionPolicies'}>分成规则</button> : null}
               {canManagePlatformMocks ? <button className={adminSettingsView === 'mockVerification' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('mockVerification'); void loadPlatformVerificationRuntime(true) }} role="tab" aria-selected={adminSettingsView === 'mockVerification'}>本地 Mock 核验</button> : null}
               <button className={adminSettingsView === 'advanced' ? 'is-active' : ''} onClick={() => setAdminSettingsView('advanced')} role="tab" aria-selected={adminSettingsView === 'advanced'}>高级接入</button>
               {canManageSeedInviters ? <button className={adminSettingsView === 'seedInviter' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('seedInviter'); if (!seedInviters) void loadSeedInviters() }} role="tab" aria-selected={adminSettingsView === 'seedInviter'}>种子邀请人</button> : null}
@@ -2341,6 +2399,29 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                 </div><InlineHint text="候选金额只用于业务与财务核对；它不是奖励、余额、可提现金额或付款指令。导师奖励属于独立的生命周期里程碑影子账本，不在此处合算。" />
                   {incomeRewardCandidateItems.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>事实参考号</th><th>业务层级</th><th>来源用户</th><th>候选受益人</th><th>状态</th><th>候选金额</th><th>依据</th></tr></thead><tbody>{incomeRewardCandidateItems.map((item) => <tr key={`${item.sourceEventReference}:${item.rewardLevel}`}><td>{item.sourceEventReference}</td><td>{item.rewardLevel === 1 ? '二级分销' : item.rewardLevel === 2 ? '三级分销' : '四级分销'}</td><td>{item.sourceUserId || '-'}</td><td>{item.recipientUserId || '-'}</td><td>{item.status === 'CANDIDATE' ? '候选' : '待处理'}</td><td>{item.candidateAmount === null ? '-' : `${item.candidateAmount} ${item.amountUnit}`}</td><td>{item.reason}</td></tr>)}</tbody></table></div> : <InlineHint text="尚无可展示的分佣候选；可能尚未演算、收入未归属，或来源用户在收入发生时未完成平台绑定。" />}
                 </InfoCard> : null}
+              </div>
+            </PanelSection>
+          ) : null}
+
+          {activeAdminSection === 'settings' && canRunControlledIncome && adminSettingsView === 'commissionPolicies' ? (
+            <PanelSection sectionId="admin-commission-policies" eyebrow="Finance-only · no payout effect" title="分成规则" description="配置收入发生时应向上追溯几层，以及各层候选比例和冻结期。邀请关系仍保留三层；未启用的层级不会被当作 0% 规则。此页不会创建奖励、余额或付款。" action={<button className="ghost-btn" onClick={() => void loadCommissionPolicies()} disabled={loading}>刷新规则</button>}>
+              <div className="stack-gap">
+                <InfoCard title="新增待审规则" tone="neutral">
+                  <form className="grid-form compact-form exception-filter-grid" onSubmit={handleCreateCommissionPolicy}>
+                    <label>平台<select value={commissionPolicyForm.platformCode} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, platformCode: event.target.value })}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label>
+                    <label>归属国家<input required maxLength={10} value={commissionPolicyForm.countryCode} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, countryCode: event.target.value.toUpperCase() })} placeholder="例如 BR" /></label>
+                    <label>用户角色<input required value={commissionPolicyForm.roleCode} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, roleCode: event.target.value.toUpperCase() })} /></label>
+                    <label>最高分成层级<select value={commissionPolicyForm.maxRewardLevel} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, maxRewardLevel: event.target.value })}><option value="1">仅直接邀请（A-B）</option><option value="2">两层分成（A-B-C）</option><option value="3">三层分成（A-B-C-D）</option></select></label>
+                    <label>生效时间<input required type="datetime-local" value={commissionPolicyForm.effectiveFrom} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, effectiveFrom: event.target.value })} /></label>
+                    <label>失效时间（可选）<input type="datetime-local" value={commissionPolicyForm.effectiveTo} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, effectiveTo: event.target.value })} /></label>
+                    {([1, 2, 3] as const).map((level) => { const enabled = level <= Number(commissionPolicyForm.maxRewardLevel); const rateKey = `level${level}Rate` as 'level1Rate' | 'level2Rate' | 'level3Rate'; const freezeKey = `level${level}FreezeDays` as 'level1FreezeDays' | 'level2FreezeDays' | 'level3FreezeDays'; return <div className="relation-grid" key={level}><strong>第 {level} 层：{enabled ? '启用' : '不启用'}</strong><label>比例<input disabled={!enabled} required={enabled} inputMode="decimal" value={commissionPolicyForm[rateKey]} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, [rateKey]: event.target.value })} /></label><label>冻结天数<input disabled={!enabled} required={enabled} inputMode="numeric" value={commissionPolicyForm[freezeKey]} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, [freezeKey]: event.target.value.replace(/\D/g, '') })} /></label></div> })}
+                    <button className="primary-btn" type="submit" disabled={loading}>建立待审规则</button>
+                  </form>
+                </InfoCard>
+                <InfoCard title="已保存的规则版本" tone="neutral">
+                  {(commissionPolicies ?? []).length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>规则版本</th><th>范围</th><th>最高层级</th><th>各层比例 / 冻结</th><th>生效期</th><th>状态</th><th>操作</th></tr></thead><tbody>{(commissionPolicies ?? []).map((policy) => <tr key={policy.id}><td>{policy.policyCode}</td><td>{policy.platformCode} / {policy.countryCode} / {policy.roleCode}</td><td>{policy.maxRewardLevel}</td><td>{policy.levels.filter((level) => level.enabled).map((level) => `L${level.rewardLevel} ${level.rewardRate} / ${level.freezeDays}天`).join('；') || '-'}</td><td>{formatDateTime(policy.effectiveFrom)} {policy.effectiveTo ? `至 ${formatDateTime(policy.effectiveTo)}` : '起长期有效'}</td><td>{policy.status === 'DRAFT' ? '待审' : policy.status === 'ACTIVE' ? '已启用' : '已停用'}</td><td>{policy.status === 'DRAFT' ? <button className="primary-btn small-btn" onClick={() => void handleActivateCommissionPolicy(policy)} disabled={loading}>审批并启用</button> : policy.status === 'ACTIVE' ? <button className="ghost-btn small-btn" onClick={() => void handleRetireCommissionPolicy(policy)} disabled={loading}>停止使用</button> : '-'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未配置分成规则" description="先建立一条待审规则。建议当前只启用第 1 层，以实现 A-B 直接分成。" />}
+                  <InlineHint text="规则按收入发生时间读取：以后改变规则，不会重写已保存的候选演算。审批和停用均写入运营审计记录。" />
+                </InfoCard>
               </div>
             </PanelSection>
           ) : null}
