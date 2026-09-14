@@ -64,5 +64,9 @@ public class McnIncomeSyncCheckpoint extends BaseEntity {
 
     public String getPlatformCode() { return platformCode; }
     public String getNextCursor() { return nextCursor; }
+    public Instant getLastSnapshotAt() { return lastSnapshotAt; }
+    public String getLastSyncStatus() { return lastSyncStatus; }
+    public Instant getLastSuccessAt() { return lastSuccessAt; }
+    public String getLastErrorCode() { return lastErrorCode; }
     private static String truncate(String value, int length) { return value == null ? null : value.substring(0, Math.min(value.length(), length)); }
 }
