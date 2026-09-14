@@ -91,10 +91,12 @@ import {
   runAdminIncomeControlledChanges,
   runAdminIncomeControlledReconciliation,
   refreshAdminIncomeShadowLedger,
+  replayAdminIncomeShadowLedger,
   refreshAdminIncomeRewardCandidates,
   getAdminIncomeShadowLedgerSummary,
   getAdminIncomeDataQuality,
   getAdminIncomeDataQualityExceptions,
+  reviewAdminIncomeDataQualityException,
   getAdminIncomeRewardCandidateItems,
   getAdminIncomeRewardCandidateSummary,
   getAdminCommissionPolicies,
@@ -436,6 +438,10 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [incomeShadowResult, setIncomeShadowResult] = useState<McnIncomeShadowLedgerSummaryResponse | null>(null)
   const [incomeDataQuality, setIncomeDataQuality] = useState<McnIncomeDataQualityResponse | null>(null)
   const [incomeDataQualityExceptions, setIncomeDataQualityExceptions] = useState<McnIncomeDataQualityExceptionResponse[]>([])
+  const [incomeExceptionReviewTarget, setIncomeExceptionReviewTarget] = useState<McnIncomeDataQualityExceptionResponse | null>(null)
+  const [incomeExceptionReviewForm, setIncomeExceptionReviewForm] = useState<{ reviewStatus: 'ACKNOWLEDGED' | 'IGNORED'; reviewNote: string }>({ reviewStatus: 'ACKNOWLEDGED', reviewNote: '' })
+  const [isIncomeShadowReplayDialogOpen, setIsIncomeShadowReplayDialogOpen] = useState(false)
+  const [incomeShadowReplayReason, setIncomeShadowReplayReason] = useState('')
   const [incomeRewardCandidateResult, setIncomeRewardCandidateResult] = useState<McnIncomeRewardCandidateSummaryResponse | null>(null)
   const [incomeRewardCandidateItems, setIncomeRewardCandidateItems] = useState<McnIncomeRewardCandidateItemResponse[]>([])
   const [commissionPolicies, setCommissionPolicies] = useState<CommissionPolicyResponse[] | null>(null)
@@ -1660,6 +1666,41 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     } finally { setLoading(false) }
   }
 
+  function openIncomeExceptionReview(item: McnIncomeDataQualityExceptionResponse) {
+    setIncomeExceptionReviewTarget(item)
+    setIncomeExceptionReviewForm({ reviewStatus: item.reviewStatus === 'IGNORED' ? 'IGNORED' : 'ACKNOWLEDGED', reviewNote: item.reviewNote ?? '' })
+  }
+
+  async function handleReviewIncomeException() {
+    if (!adminSession || !incomeExceptionReviewTarget || !incomeExceptionReviewForm.reviewNote.trim()) return
+    setLoading(true); setError(''); setSuccessMessage('')
+    try {
+      const updated = await reviewAdminIncomeDataQualityException(adminSession.sessionToken, incomeShadowForm.platformCode, incomeShadowForm.businessDate, {
+        sourceEventReference: incomeExceptionReviewTarget.sourceEventReference, sourceRevision: incomeExceptionReviewTarget.sourceRevision,
+        reviewStatus: incomeExceptionReviewForm.reviewStatus, reviewNote: incomeExceptionReviewForm.reviewNote.trim(),
+      })
+      setIncomeDataQualityExceptions((items) => items.map((item) => item.sourceEventReference === updated.sourceEventReference && item.sourceRevision === updated.sourceRevision ? updated : item))
+      setIncomeExceptionReviewTarget(null); setSuccessMessage('异常处理结论已保存并写入运营审计；不会修改 MCN 原始事实或产生奖励。')
+    } catch (err) { setError(err instanceof Error ? err.message : '保存收入异常复核失败') }
+    finally { setLoading(false) }
+  }
+
+  async function handleReplayIncomeShadowLedger() {
+    if (!adminSession || !incomeShadowReplayReason.trim()) return
+    setLoading(true); setError(''); setSuccessMessage('')
+    try {
+      const result = await replayAdminIncomeShadowLedger(adminSession.sessionToken, { ...incomeShadowForm, reason: incomeShadowReplayReason.trim() })
+      const [quality, exceptions] = await Promise.all([
+        getAdminIncomeDataQuality(adminSession.sessionToken, incomeShadowForm.platformCode, incomeShadowForm.businessDate),
+        getAdminIncomeDataQualityExceptions(adminSession.sessionToken, incomeShadowForm.platformCode, incomeShadowForm.businessDate),
+      ])
+      setIncomeShadowResult(result); setIncomeDataQuality(quality); setIncomeDataQualityExceptions(exceptions)
+      setIncomeRewardCandidateResult(null); setIncomeRewardCandidateItems([]); setIsIncomeShadowReplayDialogOpen(false); setIncomeShadowReplayReason('')
+      setSuccessMessage('已按已保留的最新 MCN 证据重新投影，并记录人工重放原因；未调用 MCN、未发奖。')
+    } catch (err) { setError(err instanceof Error ? err.message : '重新投影收入影子账本失败') }
+    finally { setLoading(false) }
+  }
+
   async function handleRefreshIncomeRewardCandidates() {
     if (!adminSession || !canRunControlledIncome) return
     setLoading(true); setError(''); setSuccessMessage('')
@@ -2377,7 +2418,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                     <label>平台<select value={incomeShadowForm.platformCode} onChange={(event) => { setIncomeShadowForm({ ...incomeShadowForm, platformCode: event.target.value }); setIncomeShadowResult(null); setIncomeDataQuality(null); setIncomeDataQualityExceptions([]); setIncomeRewardCandidateResult(null); setIncomeRewardCandidateItems([]) }}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label>
                     <label>业务日期<input type="date" value={incomeShadowForm.businessDate} onChange={(event) => { setIncomeShadowForm({ ...incomeShadowForm, businessDate: event.target.value }); setIncomeShadowResult(null); setIncomeDataQuality(null); setIncomeDataQualityExceptions([]); setIncomeRewardCandidateResult(null); setIncomeRewardCandidateItems([]) }} /></label>
                   </div>
-                  <div className="action-row top-gap"><button className="primary-btn small-btn" onClick={() => void handleRefreshIncomeShadowLedger()} disabled={loading}>按最新修订刷新</button><button className="ghost-btn small-btn" onClick={() => void handleLoadIncomeShadowLedger()} disabled={loading}>读取已有结果</button><button className="ghost-btn small-btn" onClick={() => void handleLoadIncomeDataQuality()} disabled={loading}>查看数据质量</button></div>
+                  <div className="action-row top-gap"><button className="primary-btn small-btn" onClick={() => void handleRefreshIncomeShadowLedger()} disabled={loading}>按最新修订刷新</button><button className="ghost-btn small-btn" onClick={() => setIsIncomeShadowReplayDialogOpen(true)} disabled={loading || !incomeShadowResult}>人工重新投影</button><button className="ghost-btn small-btn" onClick={() => void handleLoadIncomeShadowLedger()} disabled={loading}>读取已有结果</button><button className="ghost-btn small-btn" onClick={() => void handleLoadIncomeDataQuality()} disabled={loading}>查看数据质量</button></div>
                 </InfoCard>
                 {incomeShadowResult ? <InfoCard title="影子账本核对结果" tone="success"><div className="relation-grid">
                   <RelationItem label="来源事实 / 最新事实" value={`${incomeShadowResult.sourceFactCount} / ${incomeShadowResult.latestFactCount}`} />
@@ -2392,7 +2433,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   <RelationItem label="未归属 / 等待定稿" value={`${incomeDataQuality.unmatchedCount} / ${incomeDataQuality.awaitingFinalityCount}`} />
                   <RelationItem label="作废事实" value={incomeDataQuality.voidedCount} />
                 </div><InlineHint text="COMPLETE 表示最新 MCN 事实均已写入本地影子投影；未归属和等待定稿必须在进入任何后续账本规则前处理或确认。" />
-                  {incomeDataQualityExceptions.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>事实参考号</th><th>状态</th><th>公会</th><th>结算状态</th><th>最新修订</th></tr></thead><tbody>{incomeDataQualityExceptions.map((item) => <tr key={item.sourceEventReference}><td>{item.sourceEventReference}</td><td>{item.status === 'UNMATCHED' ? '未归属' : '等待定稿'}</td><td>{item.guildId || '-'}</td><td>{item.settlementStatus}</td><td>{item.sourceRevision}</td></tr>)}</tbody></table></div> : <InlineHint text="当前没有未归属或等待定稿的收入事实。" />}
+                  {incomeDataQualityExceptions.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>事实参考号</th><th>状态</th><th>公会</th><th>结算状态</th><th>复核状态</th><th>最新修订</th><th>操作</th></tr></thead><tbody>{incomeDataQualityExceptions.map((item) => <tr key={`${item.sourceEventReference}:${item.sourceRevision}`}><td>{item.sourceEventReference}</td><td>{item.status === 'UNMATCHED' ? '未归属' : '等待定稿'}</td><td>{item.guildId || '-'}</td><td>{item.settlementStatus}</td><td>{item.reviewStatus === 'ACKNOWLEDGED' ? '已知悉' : item.reviewStatus === 'IGNORED' ? '已忽略' : '待复核'}{item.reviewNote ? <small className="table-subtext">{item.reviewNote}</small> : null}</td><td>{item.sourceRevision}</td><td><button className="ghost-btn small-btn" onClick={() => openIncomeExceptionReview(item)} disabled={loading}>复核</button></td></tr>)}</tbody></table></div> : <InlineHint text="当前没有未归属或等待定稿的收入事实。" />}
                 </InfoCard> : null}
                 <InfoCard title="奖励候选影子演算" tone="neutral">
                   <InlineHint text="仅对已定稿、已归属且在收入发生时已完成绑定核验的事实，按当时有效邀请链与二／三／四级规则演算候选。不会生成奖励或余额。" />
@@ -3262,6 +3303,39 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </div>
           </form>
           <InlineHint text="本规则类型固定为“邀请裂变分成”。建立后仍为待审状态；审批启用前不会影响候选演算，更不会触发发奖。" />
+        </ConfirmDialog>
+      ) : null}
+
+      {isIncomeShadowReplayDialogOpen ? (
+        <ConfirmDialog
+          title="人工重新投影收入影子账本"
+          tone="warning"
+          confirmText="记录原因并重新投影"
+          loading={loading}
+          confirmDisabled={!incomeShadowReplayReason.trim()}
+          onCancel={() => { setIsIncomeShadowReplayDialogOpen(false); setIncomeShadowReplayReason('') }}
+          onConfirm={() => void handleReplayIncomeShadowLedger()}
+        >
+          <p>仅使用本系统已保留的最新 MCN 原始收入事实，重新构建所选平台与业务日的影子投影。不会请求 MCN，不会修改原始事实，也不会创建奖励、余额或付款。</p>
+          <label className="top-gap">重放原因<textarea value={incomeShadowReplayReason} maxLength={255} onChange={(event) => setIncomeShadowReplayReason(event.target.value)} placeholder="例如：已完成平台账号绑定补录，重新核对当日归属" /></label>
+        </ConfirmDialog>
+      ) : null}
+
+      {incomeExceptionReviewTarget ? (
+        <ConfirmDialog
+          title="复核收入事实异常"
+          tone="warning"
+          confirmText="保存复核结论"
+          loading={loading}
+          confirmDisabled={!incomeExceptionReviewForm.reviewNote.trim()}
+          onCancel={() => setIncomeExceptionReviewTarget(null)}
+          onConfirm={() => void handleReviewIncomeException()}
+        >
+          <p>事实：{incomeExceptionReviewTarget.sourceEventReference}</p>
+          <p>当前问题：{incomeExceptionReviewTarget.status === 'UNMATCHED' ? '未归属平台账号' : '等待 MCN 结算定稿'}。该结论仅适用于当前修订版本；MCN 有新修订时必须重新复核。</p>
+          <label>处理结论<select value={incomeExceptionReviewForm.reviewStatus} onChange={(event) => setIncomeExceptionReviewForm({ ...incomeExceptionReviewForm, reviewStatus: event.target.value as 'ACKNOWLEDGED' | 'IGNORED' })}><option value="ACKNOWLEDGED">已知悉，待后续处理</option><option value="IGNORED">确认不纳入本次处理</option></select></label>
+          <label className="top-gap">复核备注<textarea value={incomeExceptionReviewForm.reviewNote} maxLength={255} onChange={(event) => setIncomeExceptionReviewForm({ ...incomeExceptionReviewForm, reviewNote: event.target.value })} placeholder="说明已核对的依据、后续负责人或不纳入原因" /></label>
+          <InlineHint text="保存复核结论不会改变 MCN 原始事实、绑定状态、影子候选或任何财务数据。" />
         </ConfirmDialog>
       ) : null}
 
