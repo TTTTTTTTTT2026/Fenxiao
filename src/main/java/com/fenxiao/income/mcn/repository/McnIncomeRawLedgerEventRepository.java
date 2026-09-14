@@ -1,6 +1,7 @@
 package com.fenxiao.income.mcn.repository;
 
 import com.fenxiao.income.mcn.entity.McnIncomeRawLedgerEvent;
+import com.fenxiao.income.mcn.domain.McnIncomeEventType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -35,4 +36,20 @@ public interface McnIncomeRawLedgerEventRepository extends JpaRepository<McnInco
     List<McnIncomeRawLedgerEvent> findLatestBySourceSystemAndPlatformCodeAndBusinessDateBetween(
             @Param("sourceSystem") String sourceSystem, @Param("platformCode") String platformCode,
             @Param("businessDateFrom") LocalDate businessDateFrom, @Param("businessDateTo") LocalDate businessDateTo);
+
+    /** Latest reversal facts are read globally because their referenced original can belong to an earlier business date. */
+    @Query("""
+            SELECT event FROM McnIncomeRawLedgerEvent event
+            WHERE event.sourceSystem=:sourceSystem AND event.platformCode=:platformCode AND event.eventType=:eventType
+              AND NOT EXISTS (
+                  SELECT newer FROM McnIncomeRawLedgerEvent newer
+                  WHERE newer.sourceSystem=event.sourceSystem AND newer.platformCode=event.platformCode
+                    AND newer.sourceEventId=event.sourceEventId
+                    AND (newer.sourceUpdatedAt > event.sourceUpdatedAt
+                         OR (newer.sourceUpdatedAt=event.sourceUpdatedAt AND newer.sourceRevision > event.sourceRevision))
+              )
+            """)
+    List<McnIncomeRawLedgerEvent> findLatestBySourceSystemAndPlatformCodeAndEventType(
+            @Param("sourceSystem") String sourceSystem, @Param("platformCode") String platformCode,
+            @Param("eventType") McnIncomeEventType eventType);
 }
