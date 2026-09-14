@@ -69,12 +69,15 @@ public class McnIncomeShadowLedgerService {
         String platform = platform(platformCode);
         List<McnIncomeRawLedgerEvent> facts = rawEvents.findBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", platform, businessDate, businessDate);
         List<McnIncomeRawLedgerEvent> latest = rawEvents.findLatestBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", platform, businessDate, businessDate);
+        java.util.Set<String> reversalTargets = rawEvents.findLatestBySourceSystemAndPlatformCodeAndEventType(
+                        "MCN", platform, McnIncomeEventType.REVERSAL).stream()
+                .map(McnIncomeRawLedgerEvent::getOriginalSourceEventId).filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
         Counts counts = new Counts();
         Instant now = clock.instant();
         Map<String, Long> verifiedUsers = verifiedUsers(platform, latest);
         List<Object[]> projectionRows = new java.util.ArrayList<>(latest.size());
         for (McnIncomeRawLedgerEvent fact : latest) {
-            ProjectionDecision decision = decision(fact, verifiedUsers); counts.add(decision.status());
+            ProjectionDecision decision = decision(fact, verifiedUsers, reversalTargets); counts.add(decision.status());
             projectionRows.add(new Object[]{fact.getSourceSystem(), platform, fact.getSourceEventId(), fact.getId(), fact.getSourceRevision(), businessDate,
                     fact.getGuildId(), decision.resolvedUserId(), fact.getSettlementStatus().name(), fact.getEventType().name(), fact.getAmount(),
                     fact.getAmountUnit(), fact.getCurrencyCode(), decision.status(), Timestamp.from(fact.getSourceUpdatedAt()), Timestamp.from(now)});
@@ -208,10 +211,11 @@ public class McnIncomeShadowLedgerService {
         }
         return result;
     }
-    private ProjectionDecision decision(McnIncomeRawLedgerEvent fact, Map<String, Long> verifiedUsers) {
+    private ProjectionDecision decision(McnIncomeRawLedgerEvent fact, Map<String, Long> verifiedUsers, java.util.Set<String> reversalTargets) {
         Long resolvedUserId = verifiedUsers.get(fact.getPlatformUserId());
+        if (reversalTargets.contains(fact.getSourceEventId()) || fact.getEventType() == McnIncomeEventType.REVERSAL
+                || fact.getSettlementStatus() == McnIncomeSettlementStatus.REVERSED || fact.getSettlementStatus() == McnIncomeSettlementStatus.CANCELLED) return new ProjectionDecision("VOIDED", resolvedUserId);
         if (resolvedUserId == null) return new ProjectionDecision("UNMATCHED", null);
-        if (fact.getEventType() == McnIncomeEventType.REVERSAL || fact.getSettlementStatus() == McnIncomeSettlementStatus.REVERSED || fact.getSettlementStatus() == McnIncomeSettlementStatus.CANCELLED) return new ProjectionDecision("VOIDED", resolvedUserId);
         if (fact.getSettlementStatus() != McnIncomeSettlementStatus.SETTLED) return new ProjectionDecision("AWAITING_FINALITY", resolvedUserId);
         return new ProjectionDecision("BOUND_FINAL", resolvedUserId);
     }

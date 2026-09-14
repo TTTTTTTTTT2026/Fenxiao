@@ -94,6 +94,48 @@ class McnIncomeShadowLedgerServiceTest {
     }
 
     @Test
+    void refreshVoidsTheReferencedOriginalFactWhenItsLatestReversalArrivesLater() {
+        McnIncomeRawLedgerEventRepository rawEvents = mock(McnIncomeRawLedgerEventRepository.class);
+        PlatformAccountBindingRepository bindings = mock(PlatformAccountBindingRepository.class);
+        McnIncomeRawLedgerEvent original = fact("event-original", "1", "account-6", NOW.minusSeconds(60), McnIncomeEventType.INCOME, McnIncomeSettlementStatus.SETTLED);
+        McnIncomeRawLedgerEvent reversal = McnIncomeRawLedgerEvent.record("MCN", "delivery-reversal", "TIMO", "DAILY", "event-reversal", "1", "event-original", "account-6",
+                null, McnIncomeResolutionStatus.UNMATCHED, "not-yet-bound", McnIncomeEventType.REVERSAL, McnIncomeSettlementStatus.SETTLED, BigDecimal.ZERO,
+                "USD", "USD", NEXT_DAY, "UTC", NOW.minusSeconds(3600), NOW, NOW.minusSeconds(30), null, NOW,
+                "guild-1", "hash-reversal", "{}", NOW, "MCN");
+        when(rawEvents.findBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", "TIMO", DAY, DAY)).thenReturn(List.of(original));
+        when(rawEvents.findLatestBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", "TIMO", DAY, DAY)).thenReturn(List.of(original));
+        when(rawEvents.findLatestBySourceSystemAndPlatformCodeAndEventType("MCN", "TIMO", McnIncomeEventType.REVERSAL)).thenReturn(List.of(reversal));
+        PlatformAccountBinding verified = PlatformAccountBinding.submit(8L, "TIMO", "account-6", LocalDateTime.ofInstant(NOW, ZoneOffset.UTC));
+        verified.verify("guild-1", LocalDateTime.ofInstant(NOW, ZoneOffset.UTC), "MCN", "ref", LocalDateTime.ofInstant(NOW, ZoneOffset.UTC));
+        when(bindings.findByPlatformCodeAndPlatformUserIdIn("TIMO", List.of("account-6"))).thenReturn(List.of(verified));
+
+        McnIncomeShadowLedgerSummaryResponse result = service(rawEvents, bindings, writableJdbc()).refresh("TIMO", DAY);
+
+        assertThat(result.boundFinalCount()).isZero();
+        assertThat(result.voidedCount()).isEqualTo(1);
+    }
+
+    @Test
+    void refreshDoesNotKeepAnUnboundOriginalInTheExceptionPoolAfterItsReversal() {
+        McnIncomeRawLedgerEventRepository rawEvents = mock(McnIncomeRawLedgerEventRepository.class);
+        PlatformAccountBindingRepository bindings = mock(PlatformAccountBindingRepository.class);
+        McnIncomeRawLedgerEvent original = fact("event-unbound-original", "1", "account-7", NOW.minusSeconds(60), McnIncomeEventType.INCOME, McnIncomeSettlementStatus.SETTLED);
+        McnIncomeRawLedgerEvent reversal = McnIncomeRawLedgerEvent.record("MCN", "delivery-unbound-reversal", "TIMO", "DAILY", "event-unbound-reversal", "1", "event-unbound-original", "account-7",
+                null, McnIncomeResolutionStatus.UNMATCHED, "not-yet-bound", McnIncomeEventType.REVERSAL, McnIncomeSettlementStatus.SETTLED, BigDecimal.ZERO,
+                "USD", "USD", NEXT_DAY, "UTC", NOW.minusSeconds(3600), NOW, NOW.minusSeconds(30), null, NOW,
+                "guild-1", "hash-unbound-reversal", "{}", NOW, "MCN");
+        when(rawEvents.findBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", "TIMO", DAY, DAY)).thenReturn(List.of(original));
+        when(rawEvents.findLatestBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", "TIMO", DAY, DAY)).thenReturn(List.of(original));
+        when(rawEvents.findLatestBySourceSystemAndPlatformCodeAndEventType("MCN", "TIMO", McnIncomeEventType.REVERSAL)).thenReturn(List.of(reversal));
+        when(bindings.findByPlatformCodeAndPlatformUserIdIn("TIMO", List.of("account-7"))).thenReturn(List.of());
+
+        McnIncomeShadowLedgerSummaryResponse result = service(rawEvents, bindings, writableJdbc()).refresh("TIMO", DAY);
+
+        assertThat(result.unmatchedCount()).isZero();
+        assertThat(result.voidedCount()).isEqualTo(1);
+    }
+
+    @Test
     void refreshDoesNotLeaveASupersededFactOnItsOriginalBusinessDateAfterCrossDayCorrection() {
         McnIncomeRawLedgerEventRepository rawEvents = mock(McnIncomeRawLedgerEventRepository.class);
         PlatformAccountBindingRepository bindings = mock(PlatformAccountBindingRepository.class);
