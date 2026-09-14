@@ -43,17 +43,17 @@ class McnIncomeShadowLedgerServiceTest {
         when(rawEvents.findBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", "TIMO", DAY, DAY)).thenReturn(List.of(older, latest));
         PlatformAccountBinding verified = PlatformAccountBinding.submit(72L, "TIMO", "account-1", LocalDateTime.ofInstant(NOW, ZoneOffset.UTC));
         verified.verify("guild-1", LocalDateTime.ofInstant(NOW, ZoneOffset.UTC), "MCN", "ref", LocalDateTime.ofInstant(NOW, ZoneOffset.UTC));
-        when(bindings.findByPlatformCodeAndPlatformUserId("TIMO", "account-1")).thenReturn(Optional.of(verified));
+        when(bindings.findByPlatformCodeAndPlatformUserIdIn("TIMO", List.of("account-1"))).thenReturn(List.of(verified));
 
         McnIncomeShadowLedgerSummaryResponse result = service(rawEvents, bindings, jdbc).refresh("timo", DAY);
 
         assertThat(result.sourceFactCount()).isEqualTo(2);
         assertThat(result.latestFactCount()).isEqualTo(1);
         assertThat(result.boundFinalCount()).isEqualTo(1);
-        ArgumentCaptor<Object[]> values = ArgumentCaptor.forClass(Object[].class);
-        verify(jdbc, times(2)).update(anyString(), values.capture());
-        assertThat(values.getAllValues().getFirst()[4]).isEqualTo("2");
-        assertThat(values.getAllValues().getFirst()[7]).isEqualTo(72L);
+        ArgumentCaptor<List<Object[]>> values = ArgumentCaptor.forClass(List.class);
+        verify(jdbc).batchUpdate(anyString(), values.capture());
+        assertThat(values.getValue().getFirst()[4]).isEqualTo("2");
+        assertThat(values.getValue().getFirst()[7]).isEqualTo(72L);
     }
 
     @Test
@@ -61,7 +61,7 @@ class McnIncomeShadowLedgerServiceTest {
         McnIncomeRawLedgerEventRepository rawEvents = mock(McnIncomeRawLedgerEventRepository.class);
         PlatformAccountBindingRepository bindings = mock(PlatformAccountBindingRepository.class);
         when(rawEvents.findBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", "LINKY", DAY, DAY)).thenReturn(List.of(fact("event-2", "1", "account-2", NOW, McnIncomeEventType.INCOME, McnIncomeSettlementStatus.SETTLED)));
-        when(bindings.findByPlatformCodeAndPlatformUserId("LINKY", "account-2")).thenReturn(Optional.empty());
+        when(bindings.findByPlatformCodeAndPlatformUserIdIn("LINKY", List.of("account-2"))).thenReturn(List.of());
 
         McnIncomeShadowLedgerSummaryResponse result = service(rawEvents, bindings, writableJdbc()).refresh("LINKY", DAY);
 
@@ -78,7 +78,7 @@ class McnIncomeShadowLedgerServiceTest {
         when(rawEvents.findBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", "TIMO", DAY, DAY)).thenReturn(List.of(
                 fact("event-3", "1", "account-3", NOW, McnIncomeEventType.INCOME, McnIncomeSettlementStatus.PENDING),
                 fact("event-4", "1", "account-3", NOW, McnIncomeEventType.REVERSAL, McnIncomeSettlementStatus.SETTLED)));
-        when(bindings.findByPlatformCodeAndPlatformUserId("TIMO", "account-3")).thenReturn(Optional.of(verified));
+        when(bindings.findByPlatformCodeAndPlatformUserIdIn("TIMO", List.of("account-3"))).thenReturn(List.of(verified));
 
         McnIncomeShadowLedgerSummaryResponse result = service(rawEvents, bindings, writableJdbc()).refresh("TIMO", DAY);
 
@@ -94,6 +94,7 @@ class McnIncomeShadowLedgerServiceTest {
     private JdbcTemplate writableJdbc() {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
         when(jdbc.update(anyString(), any(Object[].class))).thenReturn(1);
+        when(jdbc.batchUpdate(anyString(), any(List.class))).thenReturn(new int[]{1});
         return jdbc;
     }
 

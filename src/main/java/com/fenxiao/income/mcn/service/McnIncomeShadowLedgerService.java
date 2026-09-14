@@ -25,6 +25,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -38,6 +39,14 @@ import java.util.UUID;
 @Transactional
 public class McnIncomeShadowLedgerService {
     private static final String MODULE = "mcn_income_data_quality";
+    private static final int BINDING_LOOKUP_BATCH_SIZE = 500;
+    private static final int PROJECTION_WRITE_BATCH_SIZE = 500;
+    private static final String UPSERT_PROJECTION = """
+            INSERT INTO mcn_income_shadow_ledger_projection
+            (source_system, platform_code, source_event_id, raw_ledger_event_id, source_revision, business_date, guild_id, resolved_user_id, settlement_status, event_type, amount, amount_unit, currency_code, shadow_status, source_updated_at, projected_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE raw_ledger_event_id=VALUES(raw_ledger_event_id), source_revision=VALUES(source_revision), business_date=VALUES(business_date), guild_id=VALUES(guild_id), resolved_user_id=VALUES(resolved_user_id), settlement_status=VALUES(settlement_status), event_type=VALUES(event_type), amount=VALUES(amount), amount_unit=VALUES(amount_unit), currency_code=VALUES(currency_code), shadow_status=VALUES(shadow_status), source_updated_at=VALUES(source_updated_at), projected_at=VALUES(projected_at)
+            """;
     private final McnIncomeRawLedgerEventRepository rawEvents;
     private final PlatformAccountBindingRepository bindings;
     private final JdbcTemplate jdbc;
@@ -64,16 +73,16 @@ public class McnIncomeShadowLedgerService {
         for (McnIncomeRawLedgerEvent fact : facts) latest.merge(fact.getSourceEventId(), fact, this::newer);
         Counts counts = new Counts();
         Instant now = clock.instant();
+        Map<String, Long> verifiedUsers = verifiedUsers(platform, latest.values());
+        List<Object[]> projectionRows = new java.util.ArrayList<>(latest.size());
         for (McnIncomeRawLedgerEvent fact : latest.values()) {
-            ProjectionDecision decision = decision(platform, fact); counts.add(decision.status());
-            jdbc.update("""
-                    INSERT INTO mcn_income_shadow_ledger_projection
-                    (source_system, platform_code, source_event_id, raw_ledger_event_id, source_revision, business_date, guild_id, resolved_user_id, settlement_status, event_type, amount, amount_unit, currency_code, shadow_status, source_updated_at, projected_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE raw_ledger_event_id=VALUES(raw_ledger_event_id), source_revision=VALUES(source_revision), business_date=VALUES(business_date), guild_id=VALUES(guild_id), resolved_user_id=VALUES(resolved_user_id), settlement_status=VALUES(settlement_status), event_type=VALUES(event_type), amount=VALUES(amount), amount_unit=VALUES(amount_unit), currency_code=VALUES(currency_code), shadow_status=VALUES(shadow_status), source_updated_at=VALUES(source_updated_at), projected_at=VALUES(projected_at)
-                    """, fact.getSourceSystem(), platform, fact.getSourceEventId(), fact.getId(), fact.getSourceRevision(), businessDate,
+            ProjectionDecision decision = decision(fact, verifiedUsers); counts.add(decision.status());
+            projectionRows.add(new Object[]{fact.getSourceSystem(), platform, fact.getSourceEventId(), fact.getId(), fact.getSourceRevision(), businessDate,
                     fact.getGuildId(), decision.resolvedUserId(), fact.getSettlementStatus().name(), fact.getEventType().name(), fact.getAmount(),
-                    fact.getAmountUnit(), fact.getCurrencyCode(), decision.status(), Timestamp.from(fact.getSourceUpdatedAt()), Timestamp.from(now));
+                    fact.getAmountUnit(), fact.getCurrencyCode(), decision.status(), Timestamp.from(fact.getSourceUpdatedAt()), Timestamp.from(now)});
+        }
+        for (int start = 0; start < projectionRows.size(); start += PROJECTION_WRITE_BATCH_SIZE) {
+            jdbc.batchUpdate(UPSERT_PROJECTION, projectionRows.subList(start, Math.min(start + PROJECTION_WRITE_BATCH_SIZE, projectionRows.size())));
         }
         String runId = UUID.randomUUID().toString();
         jdbc.update("INSERT INTO mcn_income_shadow_ledger_run (run_id, platform_code, business_date, source_fact_count, latest_fact_count, bound_final_count, unmatched_count, awaiting_finality_count, voided_count, started_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -191,10 +200,19 @@ public class McnIncomeShadowLedgerService {
         Comparator<McnIncomeRawLedgerEvent> order = Comparator.comparing(McnIncomeRawLedgerEvent::getSourceUpdatedAt).thenComparing(McnIncomeRawLedgerEvent::getSourceRevision);
         return order.compare(left, right) >= 0 ? left : right;
     }
-    private ProjectionDecision decision(String platform, McnIncomeRawLedgerEvent fact) {
-        Long resolvedUserId = bindings.findByPlatformCodeAndPlatformUserId(platform, fact.getPlatformUserId())
-                .filter(binding -> binding.getBindingStatus() == PlatformBindingStatus.VERIFIED)
-                .map(binding -> binding.getUserId()).orElse(null);
+    private Map<String, Long> verifiedUsers(String platform, java.util.Collection<McnIncomeRawLedgerEvent> facts) {
+        List<String> accountIds = new java.util.ArrayList<>(new HashSet<>(facts.stream().map(McnIncomeRawLedgerEvent::getPlatformUserId).toList()));
+        Map<String, Long> result = new HashMap<>();
+        for (int start = 0; start < accountIds.size(); start += BINDING_LOOKUP_BATCH_SIZE) {
+            List<String> batch = accountIds.subList(start, Math.min(start + BINDING_LOOKUP_BATCH_SIZE, accountIds.size()));
+            for (var binding : bindings.findByPlatformCodeAndPlatformUserIdIn(platform, batch)) {
+                if (binding.getBindingStatus() == PlatformBindingStatus.VERIFIED) result.put(binding.getPlatformUserId(), binding.getUserId());
+            }
+        }
+        return result;
+    }
+    private ProjectionDecision decision(McnIncomeRawLedgerEvent fact, Map<String, Long> verifiedUsers) {
+        Long resolvedUserId = verifiedUsers.get(fact.getPlatformUserId());
         if (resolvedUserId == null) return new ProjectionDecision("UNMATCHED", null);
         if (fact.getEventType() == McnIncomeEventType.REVERSAL || fact.getSettlementStatus() == McnIncomeSettlementStatus.REVERSED || fact.getSettlementStatus() == McnIncomeSettlementStatus.CANCELLED) return new ProjectionDecision("VOIDED", resolvedUserId);
         if (fact.getSettlementStatus() != McnIncomeSettlementStatus.SETTLED) return new ProjectionDecision("AWAITING_FINALITY", resolvedUserId);
