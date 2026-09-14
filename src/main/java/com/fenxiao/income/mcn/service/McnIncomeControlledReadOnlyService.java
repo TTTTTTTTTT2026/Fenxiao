@@ -20,6 +20,7 @@ import com.fenxiao.income.mcn.external.McnIncomeFactsReconciliationPage;
 import com.fenxiao.income.mcn.external.McnIncomeFactsReconciliationQuery;
 import com.fenxiao.income.mcn.external.McnIncomeFactsReconciliationResult;
 import com.fenxiao.income.mcn.external.McnIncomeFactsRequestContext;
+import com.fenxiao.income.mcn.external.McnIncomeFactsTransportException;
 import com.fenxiao.income.mcn.repository.McnIncomeControlledReadRunRepository;
 import com.fenxiao.income.mcn.repository.McnIncomeRawLedgerEventRepository;
 import jakarta.transaction.Transactional;
@@ -71,7 +72,21 @@ public class McnIncomeControlledReadOnlyService {
                 ? UUID.randomUUID().toString() : request.requestId().trim();
         McnIncomeFactsQuery query = new McnIncomeFactsQuery(platform, blankToNull(request.cursor()), pageSize,
                 request.businessDateFrom(), request.businessDateTo());
-        McnIncomeFactsQueryResult result = client.query(query, new McnIncomeFactsRequestContext(requestId));
+        long startedNanos = System.nanoTime();
+        McnIncomeFactsQueryResult result;
+        try {
+            result = client.query(query, new McnIncomeFactsRequestContext(requestId));
+        } catch (McnIncomeFactsTransportException exception) {
+            Integer retryAfterSeconds = retryAfterSeconds(exception);
+            long latencyMillis = Math.max(0, (System.nanoTime() - startedNanos) / 1_000_000L);
+            String runId = UUID.randomUUID().toString();
+            runRepository.save(McnIncomeControlledReadRun.changes(runId, platform, requestId,
+                    sha256(platform + "|" + blankToNull(request.cursor()) + "|" + pageSize + "|" + request.businessDateFrom() + "|" + request.businessDateTo()),
+                    blankToNull(request.cursor()), null, null, "HTTP_" + exception.getStatusCode(), exception.getStatusCode(),
+                    latencyMillis, 0, 0, 0, 0, retryAfterSeconds, "{}", clock.instant()));
+            return new McnIncomeControlledChangesResponse(runId, requestId, exception.getStatusCode(), latencyMillis,
+                    "HTTP_" + exception.getStatusCode(), null, 0, 0, 0, 0, false, null, null, false, retryAfterSeconds);
+        }
         McnIncomeFactsPage page = result.page();
         int facts = 0, added = 0, duplicates = 0, unmatched = 0;
         if (page.isReady()) {
@@ -145,6 +160,10 @@ public class McnIncomeControlledReadOnlyService {
     private String json(Object value) { try { return json.writeValueAsString(value); } catch (JsonProcessingException exception) { throw new IllegalStateException("MCN controlled read audit serialization failed", exception); } }
     private String sha256(String value) { try { return java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8))); } catch (Exception exception) { throw new IllegalStateException("MCN controlled read hash failed", exception); } }
     private String shortHash(String value) { return sha256(value).substring(0, 12); }
+    private Integer retryAfterSeconds(McnIncomeFactsTransportException exception) {
+        if (exception.getRetryAfterSeconds() != null && exception.getRetryAfterSeconds() > 0) return exception.getRetryAfterSeconds();
+        return exception.getStatusCode() == 429 ? 60 : null;
+    }
 
     private record Aggregate(int factCount, BigDecimal amount) { Aggregate add(Aggregate other) { return new Aggregate(factCount + other.factCount, amount.add(other.amount)); } }
     private record Comparison(String status, int mcnGroupCount, int banDeiraGroupCount, int mismatchGroupCount) { }

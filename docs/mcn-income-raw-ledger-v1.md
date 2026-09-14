@@ -29,11 +29,13 @@
 2. `platformUserId`：Timo ID 或 Linky SID，不使用昵称、手机号、WhatsApp 或邀请码。
 3. `sourceEventId` 与 `sourceRevision`：共同构成 MCN 事实修订的唯一键。
 4. `eventType`：`INCOME`、`ADJUSTMENT` 或 `REVERSAL`。
-5. `settlementStatus`：`PENDING`、`SETTLED`、`REVERSED` 或 `CANCELLED`。
+5. `settlementStatus`：MCN V1 当前仅为 `PENDING`、`SETTLED` 或 `REVERSED`。
 6. 金额、币种、发生时间、MCN 源记录更新时间；更正/撤销时还须指向原始流水。
 7. MCN 原始载荷、投递批次 ID 与完整性哈希。
 
 所有时间以带时区的 ISO-8601 UTC 语义交付；BANDEIRA 存储后在展示层按业务时区转换。金额不在入站时换汇，币种与精度按来源保留。
+
+> `CANCELLED` 仅保留为 BANDEIRA 对历史或异常重放的防御性内部枚举；MCN V1 不得将其作为现行回包状态。若历史记录中出现该值，影子层按作废处理，不会进入候选或奖励。
 
 ## 已开始建设的 BANDEIRA 入口
 

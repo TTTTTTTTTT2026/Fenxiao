@@ -4,11 +4,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fenxiao.income.mcn.api.dto.McnIncomeControlledReconciliationRequest;
 import com.fenxiao.income.mcn.api.dto.McnIncomeControlledReconciliationResponse;
+import com.fenxiao.income.mcn.api.dto.McnIncomeControlledChangesRequest;
+import com.fenxiao.income.mcn.api.dto.McnIncomeControlledChangesResponse;
 import com.fenxiao.income.mcn.external.McnIncomeFactsClient;
 import com.fenxiao.income.mcn.external.McnIncomeFactsProperties;
 import com.fenxiao.income.mcn.external.McnIncomeFactsReconciliationPage;
 import com.fenxiao.income.mcn.external.McnIncomeFactsReconciliationResult;
 import com.fenxiao.income.mcn.external.McnIncomeFactsRequestAudit;
+import com.fenxiao.income.mcn.external.McnIncomeFactsTransportException;
 import com.fenxiao.income.mcn.repository.McnIncomeControlledReadRunRepository;
 import com.fenxiao.income.mcn.repository.McnIncomeRawLedgerEventRepository;
 import org.junit.jupiter.api.Test;
@@ -51,6 +54,25 @@ class McnIncomeControlledReadOnlyServiceTest {
         assertThat(result.comparisonStatus()).isEqualTo("MATCHED");
         verify(events).findLatestBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", "TIMO", DAY, DAY);
         verify(events, never()).findBySourceSystemAndPlatformCodeAndBusinessDateBetween(any(), any(), any(), any());
+    }
+
+    @Test
+    void recordsAndReturnsAContractBackoffForA429WithoutRetryAfter() {
+        McnIncomeFactsClient client = mock(McnIncomeFactsClient.class);
+        McnIncomeRawLedgerEventRepository events = mock(McnIncomeRawLedgerEventRepository.class);
+        McnIncomeControlledReadRunRepository runs = mock(McnIncomeControlledReadRunRepository.class);
+        when(client.enabled()).thenReturn(true);
+        when(client.query(any(), any())).thenThrow(new McnIncomeFactsTransportException("rate limited", 429, null, null));
+
+        McnIncomeControlledChangesResponse result = service(client, events, runs).readChanges(
+                new McnIncomeControlledChangesRequest("TIMO", "cursor-stable", DAY, DAY, 200, "test-429"));
+
+        assertThat(result.httpStatus()).isEqualTo(429);
+        assertThat(result.sourceStatus()).isEqualTo("HTTP_429");
+        assertThat(result.retryAfterSeconds()).isEqualTo(60);
+        assertThat(result.cursorPersisted()).isFalse();
+        assertThat(result.nextCursor()).isNull();
+        verify(runs).save(any());
     }
 
     private McnIncomeControlledReadOnlyService service(McnIncomeFactsClient client, McnIncomeRawLedgerEventRepository events,
