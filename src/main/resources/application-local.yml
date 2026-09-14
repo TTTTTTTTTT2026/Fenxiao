@@ -12,6 +12,12 @@ spring:
       ddl-auto: update
   flyway:
     enabled: false
+  sql:
+    # Some income shadow tables are JDBC projections rather than JPA entities.
+    # Keep their local H2 schema available for every fresh acceptance database.
+    init:
+      mode: always
+      schema-locations: classpath:schema-local.sql
 
 server:
   port: ${SERVER_PORT:8080}
