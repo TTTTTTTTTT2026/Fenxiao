@@ -186,6 +186,11 @@ describe('buildAdminSectionLinks', () => {
         href: '#admin-rewards',
       },
       {
+        label: '分成规则',
+        description: '配置分成层级与比例。',
+        href: '#admin-commission-policies',
+      },
+      {
         label: '账号中心',
         description: '员工、密码和设备安全。',
         href: '#admin-accounts',
@@ -200,7 +205,7 @@ describe('buildAdminSectionLinks', () => {
 
   it('shows finance only the overview, payout workbench, and personal account center', () => {
     expect(buildAdminSectionLinks('finance').map((item) => item.href)).toEqual([
-      '#admin-overview', '#admin-rewards', '#admin-accounts',
+      '#admin-overview', '#admin-rewards', '#admin-commission-policies', '#admin-accounts',
     ])
   })
 

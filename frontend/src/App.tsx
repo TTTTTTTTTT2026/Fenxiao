@@ -204,7 +204,7 @@ type AdminAuthState = {
 }
 
 type AdminProductKey = 'ALL' | 'LINKY' | 'TIMO'
-type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'users' | 'platformGuildDirectory' | 'rewards' | 'accounts' | 'settings'
+type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'users' | 'platformGuildDirectory' | 'rewards' | 'commissionPolicies' | 'accounts' | 'settings'
 type RiskActionName = 'HANDLE' | 'IGNORE' | 'FREEZE_USER' | 'UNFREEZE_USER'
 type WithdrawActionName = 'approve' | 'reject' | 'paid' | 'failed' | 'reverse'
 type WithdrawQuery = { userId: string; status: string; page: string; size: string }
@@ -220,6 +220,7 @@ const ADMIN_SECTION_HASHES: Record<AdminSectionKey, string> = {
   users: '#admin-users',
   platformGuildDirectory: '#admin-platform-guild-directory',
   rewards: '#admin-rewards',
+  commissionPolicies: '#admin-commission-policies',
   accounts: '#admin-accounts',
   settings: '#admin-settings',
 }
@@ -421,7 +422,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [withdrawViewName, setWithdrawViewName] = useState('')
   const [selectedWithdrawViewId, setSelectedWithdrawViewId] = useState('')
   const [adminBindingView, setAdminBindingView] = useState<'users' | 'risks'>('users')
-  const [adminSettingsView, setAdminSettingsView] = useState<'experiment' | 'guilds' | 'platforms' | 'incomeControlled' | 'incomeShadow' | 'commissionPolicies' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification'>('experiment')
+  const [adminSettingsView, setAdminSettingsView] = useState<'experiment' | 'guilds' | 'platforms' | 'incomeControlled' | 'incomeShadow' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification'>('experiment')
   const [platformIntegrations, setPlatformIntegrations] = useState<PlatformIntegrationResponse[] | null>(null)
   const [platformVerificationRuntime, setPlatformVerificationRuntime] = useState<PlatformVerificationRuntimeResponse | null>(null)
   const [platformVerificationMocks, setPlatformVerificationMocks] = useState<PlatformVerificationMockResponse[] | null>(null)
@@ -2194,6 +2195,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             <a key={item.label} className={`admin-nav-chip ${item.href === ADMIN_SECTION_HASHES[activeAdminSection] ? 'is-active' : ''}`} href={item.href} aria-current={item.href === ADMIN_SECTION_HASHES[activeAdminSection] ? 'page' : undefined} onClick={() => {
               if (item.href === ADMIN_SECTION_HASHES.users && !userPlatformProfiles) void loadUserPlatformProfiles()
               if (item.href === ADMIN_SECTION_HASHES.platformGuildDirectory && !platformGuildDirectory) void loadPlatformGuildDirectory()
+              if (item.href === ADMIN_SECTION_HASHES.commissionPolicies && !commissionPolicies) void loadCommissionPolicies()
             }}>
               <AdminNavIcon label={item.label} />
               <span>{item.label}</span>
@@ -2267,7 +2269,6 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               <button className={adminSettingsView === 'platforms' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('platforms'); if (!platformIntegrations) void loadPlatformIntegrations(); if (!platformVerificationRuntime) void loadPlatformVerificationRuntime() }} role="tab" aria-selected={adminSettingsView === 'platforms'}>平台接入</button>
               {canRunControlledIncome ? <button className={adminSettingsView === 'incomeControlled' ? 'is-active' : ''} onClick={() => setAdminSettingsView('incomeControlled')} role="tab" aria-selected={adminSettingsView === 'incomeControlled'}>收入受控联调</button> : null}
               {canRunControlledIncome ? <button className={adminSettingsView === 'incomeShadow' ? 'is-active' : ''} onClick={() => setAdminSettingsView('incomeShadow')} role="tab" aria-selected={adminSettingsView === 'incomeShadow'}>收入影子账本</button> : null}
-              {canRunControlledIncome ? <button className={adminSettingsView === 'commissionPolicies' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('commissionPolicies'); if (!commissionPolicies) void loadCommissionPolicies() }} role="tab" aria-selected={adminSettingsView === 'commissionPolicies'}>分成规则</button> : null}
               {canManagePlatformMocks ? <button className={adminSettingsView === 'mockVerification' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('mockVerification'); void loadPlatformVerificationRuntime(true) }} role="tab" aria-selected={adminSettingsView === 'mockVerification'}>本地 Mock 核验</button> : null}
               <button className={adminSettingsView === 'advanced' ? 'is-active' : ''} onClick={() => setAdminSettingsView('advanced')} role="tab" aria-selected={adminSettingsView === 'advanced'}>高级接入</button>
               {canManageSeedInviters ? <button className={adminSettingsView === 'seedInviter' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('seedInviter'); if (!seedInviters) void loadSeedInviters() }} role="tab" aria-selected={adminSettingsView === 'seedInviter'}>种子邀请人</button> : null}
@@ -2403,7 +2404,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </PanelSection>
           ) : null}
 
-          {activeAdminSection === 'settings' && canRunControlledIncome && adminSettingsView === 'commissionPolicies' ? (
+          {activeAdminSection === 'commissionPolicies' && canRunControlledIncome ? (
             <PanelSection sectionId="admin-commission-policies" eyebrow="Finance-only · no payout effect" title="分成规则" description="配置收入发生时应向上追溯几层，以及各层候选比例和冻结期。邀请关系仍保留三层；未启用的层级不会被当作 0% 规则。此页不会创建奖励、余额或付款。" action={<button className="ghost-btn" onClick={() => void loadCommissionPolicies()} disabled={loading}>刷新规则</button>}>
               <div className="stack-gap">
                 <InfoCard title="新增待审规则" tone="neutral">
@@ -3379,6 +3380,7 @@ function AdminNavIcon({ label }: { label: string }) {
   if (label === '绑定关系') return <LinkSimple {...props} />
   if (label === '用户管理') return <IdentificationCard {...props} />
   if (label === '收益提现') return <Wallet {...props} />
+  if (label === '分成规则') return <Diamond {...props} />
   if (label === '账号中心') return <UsersThree {...props} />
   return <GearSix {...props} />
 }
