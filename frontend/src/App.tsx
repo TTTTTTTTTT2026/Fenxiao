@@ -91,9 +91,12 @@ import {
   runAdminIncomeControlledChanges,
   runAdminIncomeControlledReconciliation,
   refreshAdminIncomeShadowLedger,
+  refreshAdminIncomeRewardCandidates,
   getAdminIncomeShadowLedgerSummary,
   getAdminIncomeDataQuality,
   getAdminIncomeDataQualityExceptions,
+  getAdminIncomeRewardCandidateItems,
+  getAdminIncomeRewardCandidateSummary,
   unlockAdminAccount,
   revokeAdminDeviceSession,
   rejectAdminWithdrawRequest,
@@ -125,6 +128,8 @@ import {
   type McnIncomeShadowLedgerSummaryResponse,
   type McnIncomeDataQualityResponse,
   type McnIncomeDataQualityExceptionResponse,
+  type McnIncomeRewardCandidateItemResponse,
+  type McnIncomeRewardCandidateSummaryResponse,
   type OverviewReportResponse,
   type OwnershipDetailResponse,
   type PhoneVerificationCodeListResponse,
@@ -425,6 +430,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [incomeShadowResult, setIncomeShadowResult] = useState<McnIncomeShadowLedgerSummaryResponse | null>(null)
   const [incomeDataQuality, setIncomeDataQuality] = useState<McnIncomeDataQualityResponse | null>(null)
   const [incomeDataQualityExceptions, setIncomeDataQualityExceptions] = useState<McnIncomeDataQualityExceptionResponse[]>([])
+  const [incomeRewardCandidateResult, setIncomeRewardCandidateResult] = useState<McnIncomeRewardCandidateSummaryResponse | null>(null)
+  const [incomeRewardCandidateItems, setIncomeRewardCandidateItems] = useState<McnIncomeRewardCandidateItemResponse[]>([])
   const [platformVerificationMockForm, setPlatformVerificationMockForm] = useState({
     platformCode: 'TIMO', platformUserId: '', globallySeenBeforeSubmission: false, joinedTargetGuild: true,
     officialGuildId: '22000448', officialJoinedAt: '', sourceReference: '', enabled: true,
@@ -1613,7 +1620,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     setLoading(true); setError(''); setSuccessMessage('')
     try {
       const result = await refreshAdminIncomeShadowLedger(adminSession.sessionToken, incomeShadowForm)
-      setIncomeShadowResult(result); setIncomeDataQuality(null); setIncomeDataQualityExceptions([])
+      setIncomeShadowResult(result); setIncomeDataQuality(null); setIncomeDataQualityExceptions([]); setIncomeRewardCandidateResult(null); setIncomeRewardCandidateItems([])
       setSuccessMessage('影子账本已按最新修订刷新；未产生任何奖励、钱包或提现结果。')
     } catch (err) {
       setError(err instanceof Error ? err.message : '刷新影子账本失败')
@@ -1641,6 +1648,33 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
       setSuccessMessage('已读取数据质量结果；该操作不会变更任何收入、奖励或钱包数据。')
     } catch (err) {
       setError(err instanceof Error ? err.message : '读取收入数据质量失败')
+    } finally { setLoading(false) }
+  }
+
+  async function handleRefreshIncomeRewardCandidates() {
+    if (!adminSession || !canRunControlledIncome) return
+    setLoading(true); setError(''); setSuccessMessage('')
+    try {
+      const result = await refreshAdminIncomeRewardCandidates(adminSession.sessionToken, incomeShadowForm)
+      const items = await getAdminIncomeRewardCandidateItems(adminSession.sessionToken, incomeShadowForm.platformCode, incomeShadowForm.businessDate)
+      setIncomeRewardCandidateResult(result); setIncomeRewardCandidateItems(items)
+      setSuccessMessage('已完成不可支付的奖励候选演算；没有创建奖励、钱包或提现记录。')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '演算奖励候选失败')
+    } finally { setLoading(false) }
+  }
+
+  async function handleLoadIncomeRewardCandidates() {
+    if (!adminSession || !canRunControlledIncome) return
+    setLoading(true); setError('')
+    try {
+      const [summary, items] = await Promise.all([
+        getAdminIncomeRewardCandidateSummary(adminSession.sessionToken, incomeShadowForm.platformCode, incomeShadowForm.businessDate),
+        getAdminIncomeRewardCandidateItems(adminSession.sessionToken, incomeShadowForm.platformCode, incomeShadowForm.businessDate),
+      ])
+      setIncomeRewardCandidateResult(summary); setIncomeRewardCandidateItems(items)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '读取奖励候选失败')
     } finally { setLoading(false) }
   }
 
@@ -2275,8 +2309,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               <div className="stack-gap">
                 <InfoCard title="核对范围" tone="neutral">
                   <div className="grid-form compact-form exception-filter-grid">
-                    <label>平台<select value={incomeShadowForm.platformCode} onChange={(event) => { setIncomeShadowForm({ ...incomeShadowForm, platformCode: event.target.value }); setIncomeShadowResult(null); setIncomeDataQuality(null); setIncomeDataQualityExceptions([]) }}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label>
-                    <label>业务日期<input type="date" value={incomeShadowForm.businessDate} onChange={(event) => { setIncomeShadowForm({ ...incomeShadowForm, businessDate: event.target.value }); setIncomeShadowResult(null); setIncomeDataQuality(null); setIncomeDataQualityExceptions([]) }} /></label>
+                    <label>平台<select value={incomeShadowForm.platformCode} onChange={(event) => { setIncomeShadowForm({ ...incomeShadowForm, platformCode: event.target.value }); setIncomeShadowResult(null); setIncomeDataQuality(null); setIncomeDataQualityExceptions([]); setIncomeRewardCandidateResult(null); setIncomeRewardCandidateItems([]) }}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label>
+                    <label>业务日期<input type="date" value={incomeShadowForm.businessDate} onChange={(event) => { setIncomeShadowForm({ ...incomeShadowForm, businessDate: event.target.value }); setIncomeShadowResult(null); setIncomeDataQuality(null); setIncomeDataQualityExceptions([]); setIncomeRewardCandidateResult(null); setIncomeRewardCandidateItems([]) }} /></label>
                   </div>
                   <div className="action-row top-gap"><button className="primary-btn small-btn" onClick={() => void handleRefreshIncomeShadowLedger()} disabled={loading}>按最新修订刷新</button><button className="ghost-btn small-btn" onClick={() => void handleLoadIncomeShadowLedger()} disabled={loading}>读取已有结果</button><button className="ghost-btn small-btn" onClick={() => void handleLoadIncomeDataQuality()} disabled={loading}>查看数据质量</button></div>
                 </InfoCard>
@@ -2294,6 +2328,18 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   <RelationItem label="作废事实" value={incomeDataQuality.voidedCount} />
                 </div><InlineHint text="COMPLETE 表示最新 MCN 事实均已写入本地影子投影；未归属和等待定稿必须在进入任何后续账本规则前处理或确认。" />
                   {incomeDataQualityExceptions.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>事实参考号</th><th>状态</th><th>公会</th><th>结算状态</th><th>最新修订</th></tr></thead><tbody>{incomeDataQualityExceptions.map((item) => <tr key={item.sourceEventReference}><td>{item.sourceEventReference}</td><td>{item.status === 'UNMATCHED' ? '未归属' : '等待定稿'}</td><td>{item.guildId || '-'}</td><td>{item.settlementStatus}</td><td>{item.sourceRevision}</td></tr>)}</tbody></table></div> : <InlineHint text="当前没有未归属或等待定稿的收入事实。" />}
+                </InfoCard> : null}
+                <InfoCard title="奖励候选影子演算" tone="neutral">
+                  <InlineHint text="仅对已定稿、已归属且在收入发生时已完成绑定核验的事实，按当时有效邀请链与二／三／四级规则演算候选。不会生成奖励或余额。" />
+                  <div className="action-row top-gap"><button className="primary-btn small-btn" onClick={() => void handleRefreshIncomeRewardCandidates()} disabled={loading || !incomeShadowResult}>按当前证据演算候选</button><button className="ghost-btn small-btn" onClick={() => void handleLoadIncomeRewardCandidates()} disabled={loading}>读取已有候选</button></div>
+                </InfoCard>
+                {incomeRewardCandidateResult ? <InfoCard title="奖励候选演算结果" tone="neutral"><div className="relation-grid">
+                  <RelationItem label="来源事实 / 可进入规则核对" value={`${incomeRewardCandidateResult.sourceFactCount} / ${incomeRewardCandidateResult.sourceReadyCount}`} />
+                  <RelationItem label="候选奖励条数" value={incomeRewardCandidateResult.candidateCount} />
+                  <RelationItem label="规则阻断条数" value={incomeRewardCandidateResult.blockedCount} />
+                  <RelationItem label="候选金额" value={`${incomeRewardCandidateResult.candidateAmount} ${incomeRewardCandidateResult.amountUnit || ''}`.trim()} />
+                </div><InlineHint text="候选金额只用于业务与财务核对；它不是奖励、余额、可提现金额或付款指令。导师奖励属于独立的生命周期里程碑影子账本，不在此处合算。" />
+                  {incomeRewardCandidateItems.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>事实参考号</th><th>业务层级</th><th>来源用户</th><th>候选受益人</th><th>状态</th><th>候选金额</th><th>依据</th></tr></thead><tbody>{incomeRewardCandidateItems.map((item) => <tr key={`${item.sourceEventReference}:${item.rewardLevel}`}><td>{item.sourceEventReference}</td><td>{item.rewardLevel === 1 ? '二级分销' : item.rewardLevel === 2 ? '三级分销' : '四级分销'}</td><td>{item.sourceUserId || '-'}</td><td>{item.recipientUserId || '-'}</td><td>{item.status === 'CANDIDATE' ? '候选' : '待处理'}</td><td>{item.candidateAmount === null ? '-' : `${item.candidateAmount} ${item.amountUnit}`}</td><td>{item.reason}</td></tr>)}</tbody></table></div> : <InlineHint text="尚无可展示的分佣候选；可能尚未演算、收入未归属，或来源用户在收入发生时未完成平台绑定。" />}
                 </InfoCard> : null}
               </div>
             </PanelSection>

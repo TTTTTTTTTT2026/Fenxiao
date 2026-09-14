@@ -114,6 +114,14 @@ export type McnIncomeDataQualityExceptionResponse = {
   sourceEventReference: string; businessDate: string; guildId: string | null; status: string; settlementStatus: string
   eventType: string; sourceRevision: string; sourceUpdatedAt: string
 }
+export type McnIncomeRewardCandidateSummaryResponse = {
+  platformCode: string; businessDate: string; sourceFactCount: number; sourceReadyCount: number
+  candidateCount: number; blockedCount: number; candidateAmount: number; amountUnit: string | null; latestRunId: string | null
+}
+export type McnIncomeRewardCandidateItemResponse = {
+  sourceEventReference: string; businessDate: string; sourceUserId: number | null; recipientUserId: number | null
+  rewardLevel: number; status: string; reason: string; baseAmount: number; candidateAmount: number | null; amountUnit: string
+}
 export type PlatformIntegrationResponse = {
   platformCode: string
   displayName: string
@@ -747,6 +755,15 @@ export function getAdminIncomeDataQuality(adminSessionToken: string, platformCod
 }
 export function getAdminIncomeDataQualityExceptions(adminSessionToken: string, platformCode: string, businessDate: string) {
   return request<McnIncomeDataQualityExceptionResponse[]>(`/admin/income-facts/shadow-ledger/exceptions?platformCode=${encodeURIComponent(platformCode)}&businessDate=${encodeURIComponent(businessDate)}&limit=50`, { headers: { 'X-Admin-Session': adminSessionToken } })
+}
+export function refreshAdminIncomeRewardCandidates(adminSessionToken: string, payload: { platformCode: string; businessDate: string }) {
+  return request<McnIncomeRewardCandidateSummaryResponse>('/admin/income-facts/reward-candidates/refresh', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) })
+}
+export function getAdminIncomeRewardCandidateSummary(adminSessionToken: string, platformCode: string, businessDate: string) {
+  return request<McnIncomeRewardCandidateSummaryResponse>(`/admin/income-facts/reward-candidates/summary?platformCode=${encodeURIComponent(platformCode)}&businessDate=${encodeURIComponent(businessDate)}`, { headers: { 'X-Admin-Session': adminSessionToken } })
+}
+export function getAdminIncomeRewardCandidateItems(adminSessionToken: string, platformCode: string, businessDate: string) {
+  return request<McnIncomeRewardCandidateItemResponse[]>(`/admin/income-facts/reward-candidates/items?platformCode=${encodeURIComponent(platformCode)}&businessDate=${encodeURIComponent(businessDate)}&limit=50`, { headers: { 'X-Admin-Session': adminSessionToken } })
 }
 export function getAdminAccounts() { return request<AdminAccountResponse[]>('/admin/accounts') }
 export function createAdminAccount(payload: { username: string; displayName: string; role: string; platformScope?: string; guildScope?: string; regionScope?: string }) { return request<AdminAccountCreatedResponse>('/admin/accounts', { method: 'POST', body: JSON.stringify(payload) }) }
