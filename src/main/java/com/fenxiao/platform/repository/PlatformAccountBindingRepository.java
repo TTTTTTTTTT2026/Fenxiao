@@ -10,6 +10,7 @@ import java.util.Optional;
 public interface PlatformAccountBindingRepository extends JpaRepository<PlatformAccountBinding, Long> {
     Optional<PlatformAccountBinding> findByUserIdAndPlatformCode(Long userId, String platformCode);
     Optional<PlatformAccountBinding> findByPlatformCodeAndPlatformUserId(String platformCode, String platformUserId);
+    List<PlatformAccountBinding> findByPlatformCodeAndPlatformUserIdIn(String platformCode, Collection<String> platformUserIds);
     List<PlatformAccountBinding> findByUserIdInAndPlatformCode(Collection<Long> userIds, String platformCode);
     List<PlatformAccountBinding> findByBindingStatusAndPlatformCode(PlatformBindingStatus bindingStatus, String platformCode);
 }
