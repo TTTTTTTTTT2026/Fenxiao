@@ -112,7 +112,8 @@ export type McnIncomeDataQualityResponse = {
 }
 export type McnIncomeDataQualityExceptionResponse = {
   sourceEventReference: string; businessDate: string; guildId: string | null; status: string; settlementStatus: string
-  eventType: string; sourceRevision: string; sourceUpdatedAt: string
+  eventType: string; sourceRevision: string; sourceUpdatedAt: string; reviewStatus: 'PENDING' | 'ACKNOWLEDGED' | 'IGNORED' | string
+  reviewNote: string | null; reviewedBy: number | null; reviewedAt: string | null
 }
 export type McnIncomeRewardCandidateSummaryResponse = {
   platformCode: string; businessDate: string; sourceFactCount: number; sourceReadyCount: number
@@ -753,6 +754,9 @@ export function runAdminIncomeControlledReconciliation(adminSessionToken: string
 export function refreshAdminIncomeShadowLedger(adminSessionToken: string, payload: { platformCode: string; businessDate: string }) {
   return request<McnIncomeShadowLedgerSummaryResponse>('/admin/income-facts/shadow-ledger/refresh', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) })
 }
+export function replayAdminIncomeShadowLedger(adminSessionToken: string, payload: { platformCode: string; businessDate: string; reason: string }) {
+  return request<McnIncomeShadowLedgerSummaryResponse>('/admin/income-facts/shadow-ledger/replay', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) })
+}
 export function getAdminIncomeShadowLedgerSummary(adminSessionToken: string, platformCode: string, businessDate: string) {
   return request<McnIncomeShadowLedgerSummaryResponse>(`/admin/income-facts/shadow-ledger/summary?platformCode=${encodeURIComponent(platformCode)}&businessDate=${encodeURIComponent(businessDate)}`, { headers: { 'X-Admin-Session': adminSessionToken } })
 }
@@ -761,6 +765,9 @@ export function getAdminIncomeDataQuality(adminSessionToken: string, platformCod
 }
 export function getAdminIncomeDataQualityExceptions(adminSessionToken: string, platformCode: string, businessDate: string) {
   return request<McnIncomeDataQualityExceptionResponse[]>(`/admin/income-facts/shadow-ledger/exceptions?platformCode=${encodeURIComponent(platformCode)}&businessDate=${encodeURIComponent(businessDate)}&limit=50`, { headers: { 'X-Admin-Session': adminSessionToken } })
+}
+export function reviewAdminIncomeDataQualityException(adminSessionToken: string, platformCode: string, businessDate: string, payload: { sourceEventReference: string; sourceRevision: string; reviewStatus: 'ACKNOWLEDGED' | 'IGNORED'; reviewNote: string }) {
+  return request<McnIncomeDataQualityExceptionResponse>(`/admin/income-facts/shadow-ledger/exceptions/review?platformCode=${encodeURIComponent(platformCode)}&businessDate=${encodeURIComponent(businessDate)}`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) })
 }
 export function refreshAdminIncomeRewardCandidates(adminSessionToken: string, payload: { platformCode: string; businessDate: string }) {
   return request<McnIncomeRewardCandidateSummaryResponse>('/admin/income-facts/reward-candidates/refresh', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) })

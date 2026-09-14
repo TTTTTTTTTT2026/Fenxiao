@@ -7,4 +7,5 @@ import java.time.LocalDate;
 public record McnIncomeDataQualityExceptionResponse(String sourceEventReference, LocalDate businessDate,
                                                     String guildId, String status, String settlementStatus,
                                                     String eventType, String sourceRevision,
-                                                    Instant sourceUpdatedAt) { }
+                                                    Instant sourceUpdatedAt, String reviewStatus,
+                                                    String reviewNote, Long reviewedBy, Instant reviewedAt) { }
