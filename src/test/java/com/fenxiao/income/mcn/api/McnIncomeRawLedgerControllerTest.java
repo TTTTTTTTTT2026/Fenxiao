@@ -2,6 +2,9 @@ package com.fenxiao.income.mcn.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fenxiao.income.mcn.domain.McnIncomeResolutionStatus;
+import com.fenxiao.income.mcn.domain.McnIncomeEventType;
+import com.fenxiao.income.mcn.domain.McnIncomeSettlementStatus;
+import com.fenxiao.income.mcn.entity.McnIncomeRawLedgerEvent;
 import com.fenxiao.income.mcn.repository.McnIncomeDeliveryReceiptRepository;
 import com.fenxiao.income.mcn.repository.McnIncomeRawLedgerEventRepository;
 import com.fenxiao.platform.entity.PlatformAccountBinding;
@@ -17,6 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -97,6 +102,18 @@ class McnIncomeRawLedgerControllerTest {
         assertThat(eventRepository.count()).isEqualTo(1);
     }
 
+    @Test
+    void shouldSelectTheLatestRevisionAcrossBusinessDates() {
+        LocalDate originalDay = LocalDate.of(2026, 9, 11);
+        LocalDate correctedDay = originalDay.plusDays(1);
+        eventRepository.save(rawFact("cross-day-event", "1", originalDay, Instant.parse("2026-09-12T08:00:00Z")));
+        eventRepository.save(rawFact("cross-day-event", "2", correctedDay, Instant.parse("2026-09-12T09:00:00Z")));
+
+        assertThat(eventRepository.findLatestBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", "TIMO", originalDay, originalDay)).isEmpty();
+        assertThat(eventRepository.findLatestBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", "TIMO", correctedDay, correctedDay))
+                .extracting(McnIncomeRawLedgerEvent::getSourceRevision).containsExactly("2");
+    }
+
     private Map<String, Object> delivery(String deliveryId, String platformCode, String sourceEventId,
                                          String revision, String platformUserId) {
         return Map.of(
@@ -127,5 +144,14 @@ class McnIncomeRawLedgerControllerTest {
                         Map.entry("sourcePayload", new java.util.LinkedHashMap<>(Map.of("upstreamOrderId", sourceEventId)))
                 ))
         );
+    }
+
+    private McnIncomeRawLedgerEvent rawFact(String sourceEventId, String revision, LocalDate businessDate, Instant updatedAt) {
+        return McnIncomeRawLedgerEvent.record("MCN", "test-delivery-" + revision, "TIMO", "ACCOUNT_GUILD_DAY",
+                sourceEventId, revision, null, "test-account", null, McnIncomeResolutionStatus.UNMATCHED,
+                "NO_VERIFIED_PLATFORM_BINDING", McnIncomeEventType.INCOME, McnIncomeSettlementStatus.SETTLED,
+                BigDecimal.ONE, "XXX", "TIMO_DIAMOND", businessDate, "UTC", businessDate.atStartOfDay().toInstant(java.time.ZoneOffset.UTC),
+                businessDate.plusDays(1).atStartOfDay().toInstant(java.time.ZoneOffset.UTC), businessDate.atStartOfDay().toInstant(java.time.ZoneOffset.UTC),
+                null, updatedAt, "22000448", "hash-" + revision, "{}", updatedAt, "MCN_DAILY_FACT_FINALITY");
     }
 }
