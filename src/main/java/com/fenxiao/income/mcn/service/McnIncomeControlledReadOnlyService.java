@@ -31,7 +31,6 @@ import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -114,14 +113,10 @@ public class McnIncomeControlledReadOnlyService {
     private Comparison compare(McnIncomeFactsReconciliationPage page, String platform, List<String> guildIds) {
         Map<String, Aggregate> expected = page.groups().stream().collect(Collectors.toMap(
                 this::key, group -> new Aggregate(group.factCount(), group.absoluteAmountTotal()), (left, right) -> right));
-        Map<String, McnIncomeRawLedgerEvent> newest = new HashMap<>();
-        for (McnIncomeRawLedgerEvent event : eventRepository.findBySourceSystemAndPlatformCodeAndBusinessDateBetween(
+        Map<String, Aggregate> actual = new HashMap<>();
+        for (McnIncomeRawLedgerEvent event : eventRepository.findLatestBySourceSystemAndPlatformCodeAndBusinessDateBetween(
                 "MCN", platform, page.businessDateFrom(), page.businessDateTo())) {
             if (!guildIds.isEmpty() && !guildIds.contains(event.getGuildId())) continue;
-            newest.merge(event.getSourceEventId(), event, this::newer);
-        }
-        Map<String, Aggregate> actual = new HashMap<>();
-        for (McnIncomeRawLedgerEvent event : newest.values()) {
             String key = key(event.getBusinessDate(), event.getGuildId(), event.getSettlementStatus().name(),
                     event.getAmountUnit(), event.getCurrencyCode());
             actual.merge(key, new Aggregate(1, event.getAmount()), Aggregate::add);
@@ -135,11 +130,6 @@ public class McnIncomeControlledReadOnlyService {
         return new Comparison(mismatches == 0 ? "MATCHED" : "MISMATCH", expected.size(), actual.size(), mismatches);
     }
 
-    private McnIncomeRawLedgerEvent newer(McnIncomeRawLedgerEvent left, McnIncomeRawLedgerEvent right) {
-        Comparator<McnIncomeRawLedgerEvent> comparator = Comparator.comparing(McnIncomeRawLedgerEvent::getSourceUpdatedAt)
-                .thenComparing(McnIncomeRawLedgerEvent::getSourceRevision);
-        return comparator.compare(left, right) >= 0 ? left : right;
-    }
 
     private List<String> union(Map<String, Aggregate> left, Map<String, Aggregate> right) {
         return java.util.stream.Stream.concat(left.keySet().stream(), right.keySet().stream()).distinct().toList();

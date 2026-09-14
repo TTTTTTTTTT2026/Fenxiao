@@ -31,6 +31,7 @@ import static org.mockito.Mockito.when;
 
 class McnIncomeShadowLedgerServiceTest {
     private static final LocalDate DAY = LocalDate.of(2026, 9, 11);
+    private static final LocalDate NEXT_DAY = DAY.plusDays(1);
     private static final Instant NOW = Instant.parse("2026-09-13T08:00:00Z");
 
     @Test
@@ -41,6 +42,7 @@ class McnIncomeShadowLedgerServiceTest {
         McnIncomeRawLedgerEvent older = fact("event-1", "1", "account-1", NOW.minusSeconds(120), McnIncomeEventType.INCOME, McnIncomeSettlementStatus.SETTLED);
         McnIncomeRawLedgerEvent latest = fact("event-1", "2", "account-1", NOW.minusSeconds(60), McnIncomeEventType.INCOME, McnIncomeSettlementStatus.SETTLED);
         when(rawEvents.findBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", "TIMO", DAY, DAY)).thenReturn(List.of(older, latest));
+        when(rawEvents.findLatestBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", "TIMO", DAY, DAY)).thenReturn(List.of(latest));
         PlatformAccountBinding verified = PlatformAccountBinding.submit(72L, "TIMO", "account-1", LocalDateTime.ofInstant(NOW, ZoneOffset.UTC));
         verified.verify("guild-1", LocalDateTime.ofInstant(NOW, ZoneOffset.UTC), "MCN", "ref", LocalDateTime.ofInstant(NOW, ZoneOffset.UTC));
         when(bindings.findByPlatformCodeAndPlatformUserIdIn("TIMO", List.of("account-1"))).thenReturn(List.of(verified));
@@ -60,7 +62,9 @@ class McnIncomeShadowLedgerServiceTest {
     void refreshKeepsUnboundFactsOutOfTheBoundFinalPopulation() {
         McnIncomeRawLedgerEventRepository rawEvents = mock(McnIncomeRawLedgerEventRepository.class);
         PlatformAccountBindingRepository bindings = mock(PlatformAccountBindingRepository.class);
-        when(rawEvents.findBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", "LINKY", DAY, DAY)).thenReturn(List.of(fact("event-2", "1", "account-2", NOW, McnIncomeEventType.INCOME, McnIncomeSettlementStatus.SETTLED)));
+        McnIncomeRawLedgerEvent fact = fact("event-2", "1", "account-2", NOW, McnIncomeEventType.INCOME, McnIncomeSettlementStatus.SETTLED);
+        when(rawEvents.findBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", "LINKY", DAY, DAY)).thenReturn(List.of(fact));
+        when(rawEvents.findLatestBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", "LINKY", DAY, DAY)).thenReturn(List.of(fact));
         when(bindings.findByPlatformCodeAndPlatformUserIdIn("LINKY", List.of("account-2"))).thenReturn(List.of());
 
         McnIncomeShadowLedgerSummaryResponse result = service(rawEvents, bindings, writableJdbc()).refresh("LINKY", DAY);
@@ -75,9 +79,11 @@ class McnIncomeShadowLedgerServiceTest {
         PlatformAccountBindingRepository bindings = mock(PlatformAccountBindingRepository.class);
         PlatformAccountBinding verified = PlatformAccountBinding.submit(7L, "TIMO", "account-3", LocalDateTime.ofInstant(NOW, ZoneOffset.UTC));
         verified.verify("guild-3", LocalDateTime.ofInstant(NOW, ZoneOffset.UTC), "MCN", "ref", LocalDateTime.ofInstant(NOW, ZoneOffset.UTC));
-        when(rawEvents.findBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", "TIMO", DAY, DAY)).thenReturn(List.of(
+        List<McnIncomeRawLedgerEvent> facts = List.of(
                 fact("event-3", "1", "account-3", NOW, McnIncomeEventType.INCOME, McnIncomeSettlementStatus.PENDING),
-                fact("event-4", "1", "account-3", NOW, McnIncomeEventType.REVERSAL, McnIncomeSettlementStatus.SETTLED)));
+                fact("event-4", "1", "account-3", NOW, McnIncomeEventType.REVERSAL, McnIncomeSettlementStatus.SETTLED));
+        when(rawEvents.findBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", "TIMO", DAY, DAY)).thenReturn(facts);
+        when(rawEvents.findLatestBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", "TIMO", DAY, DAY)).thenReturn(facts);
         when(bindings.findByPlatformCodeAndPlatformUserIdIn("TIMO", List.of("account-3"))).thenReturn(List.of(verified));
 
         McnIncomeShadowLedgerSummaryResponse result = service(rawEvents, bindings, writableJdbc()).refresh("TIMO", DAY);
@@ -85,6 +91,29 @@ class McnIncomeShadowLedgerServiceTest {
         assertThat(result.boundFinalCount()).isZero();
         assertThat(result.awaitingFinalityCount()).isEqualTo(1);
         assertThat(result.voidedCount()).isEqualTo(1);
+    }
+
+    @Test
+    void refreshDoesNotLeaveASupersededFactOnItsOriginalBusinessDateAfterCrossDayCorrection() {
+        McnIncomeRawLedgerEventRepository rawEvents = mock(McnIncomeRawLedgerEventRepository.class);
+        PlatformAccountBindingRepository bindings = mock(PlatformAccountBindingRepository.class);
+        JdbcTemplate jdbc = writableJdbc();
+        McnIncomeRawLedgerEvent original = fact("event-cross-day", "1", "account-5", DAY, NOW.minusSeconds(60), McnIncomeEventType.INCOME, McnIncomeSettlementStatus.SETTLED);
+        McnIncomeRawLedgerEvent corrected = fact("event-cross-day", "2", "account-5", NEXT_DAY, NOW, McnIncomeEventType.INCOME, McnIncomeSettlementStatus.SETTLED);
+        when(rawEvents.findBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", "TIMO", DAY, DAY)).thenReturn(List.of(original));
+        when(rawEvents.findLatestBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", "TIMO", DAY, DAY)).thenReturn(List.of());
+        when(rawEvents.findBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", "TIMO", NEXT_DAY, NEXT_DAY)).thenReturn(List.of(corrected));
+        when(rawEvents.findLatestBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", "TIMO", NEXT_DAY, NEXT_DAY)).thenReturn(List.of(corrected));
+        when(bindings.findByPlatformCodeAndPlatformUserIdIn("TIMO", List.of("account-5"))).thenReturn(List.of());
+
+        McnIncomeShadowLedgerSummaryResponse originalDay = service(rawEvents, bindings, jdbc).refresh("TIMO", DAY);
+        McnIncomeShadowLedgerSummaryResponse correctedDay = service(rawEvents, bindings, jdbc).refresh("TIMO", NEXT_DAY);
+
+        assertThat(originalDay.sourceFactCount()).isEqualTo(1);
+        assertThat(originalDay.latestFactCount()).isZero();
+        assertThat(correctedDay.sourceFactCount()).isEqualTo(1);
+        assertThat(correctedDay.latestFactCount()).isEqualTo(1);
+        verify(jdbc, times(2)).update(org.mockito.ArgumentMatchers.startsWith("DELETE FROM mcn_income_shadow_ledger_projection"), any(Object[].class));
     }
 
     private McnIncomeShadowLedgerService service(McnIncomeRawLedgerEventRepository rawEvents, PlatformAccountBindingRepository bindings, JdbcTemplate jdbc) {
@@ -99,9 +128,13 @@ class McnIncomeShadowLedgerServiceTest {
     }
 
     private McnIncomeRawLedgerEvent fact(String eventId, String revision, String platformUserId, Instant updatedAt, McnIncomeEventType eventType, McnIncomeSettlementStatus settlementStatus) {
+        return fact(eventId, revision, platformUserId, DAY, updatedAt, eventType, settlementStatus);
+    }
+
+    private McnIncomeRawLedgerEvent fact(String eventId, String revision, String platformUserId, LocalDate businessDate, Instant updatedAt, McnIncomeEventType eventType, McnIncomeSettlementStatus settlementStatus) {
         return McnIncomeRawLedgerEvent.record("MCN", "delivery", "TIMO", "DAILY", eventId, revision, null, platformUserId,
                 null, McnIncomeResolutionStatus.UNMATCHED, "not-yet-bound", eventType, settlementStatus, BigDecimal.ONE,
-                "USD", "USD", DAY, "UTC", NOW.minusSeconds(3600), NOW, NOW.minusSeconds(30), null, updatedAt,
+                "USD", "USD", businessDate, "UTC", NOW.minusSeconds(3600), NOW, NOW.minusSeconds(30), null, updatedAt,
                 "guild-1", "hash", "{}", NOW, "MCN");
     }
 }

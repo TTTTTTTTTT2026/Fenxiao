@@ -23,7 +23,6 @@ import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -69,18 +68,20 @@ public class McnIncomeShadowLedgerService {
     public McnIncomeShadowLedgerSummaryResponse refresh(String platformCode, LocalDate businessDate) {
         String platform = platform(platformCode);
         List<McnIncomeRawLedgerEvent> facts = rawEvents.findBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", platform, businessDate, businessDate);
-        Map<String, McnIncomeRawLedgerEvent> latest = new HashMap<>();
-        for (McnIncomeRawLedgerEvent fact : facts) latest.merge(fact.getSourceEventId(), fact, this::newer);
+        List<McnIncomeRawLedgerEvent> latest = rawEvents.findLatestBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", platform, businessDate, businessDate);
         Counts counts = new Counts();
         Instant now = clock.instant();
-        Map<String, Long> verifiedUsers = verifiedUsers(platform, latest.values());
+        Map<String, Long> verifiedUsers = verifiedUsers(platform, latest);
         List<Object[]> projectionRows = new java.util.ArrayList<>(latest.size());
-        for (McnIncomeRawLedgerEvent fact : latest.values()) {
+        for (McnIncomeRawLedgerEvent fact : latest) {
             ProjectionDecision decision = decision(fact, verifiedUsers); counts.add(decision.status());
             projectionRows.add(new Object[]{fact.getSourceSystem(), platform, fact.getSourceEventId(), fact.getId(), fact.getSourceRevision(), businessDate,
                     fact.getGuildId(), decision.resolvedUserId(), fact.getSettlementStatus().name(), fact.getEventType().name(), fact.getAmount(),
                     fact.getAmountUnit(), fact.getCurrencyCode(), decision.status(), Timestamp.from(fact.getSourceUpdatedAt()), Timestamp.from(now)});
         }
+        // A later MCN revision may move a source event to another business day. Clear this day first
+        // so the superseded row cannot survive as a second projected fact.
+        jdbc.update("DELETE FROM mcn_income_shadow_ledger_projection WHERE source_system='MCN' AND platform_code=? AND business_date=?", platform, businessDate);
         for (int start = 0; start < projectionRows.size(); start += PROJECTION_WRITE_BATCH_SIZE) {
             jdbc.batchUpdate(UPSERT_PROJECTION, projectionRows.subList(start, Math.min(start + PROJECTION_WRITE_BATCH_SIZE, projectionRows.size())));
         }
@@ -196,10 +197,6 @@ public class McnIncomeShadowLedgerService {
     private String required(String value, String label) { if (value == null || value.isBlank()) throw new IllegalArgumentException(label + " is required"); return value.trim(); }
     private String requiredNote(String value) { String note = required(value, "review note"); if (note.length() > 255) throw new IllegalArgumentException("review note must be at most 255 characters"); return note; }
 
-    private McnIncomeRawLedgerEvent newer(McnIncomeRawLedgerEvent left, McnIncomeRawLedgerEvent right) {
-        Comparator<McnIncomeRawLedgerEvent> order = Comparator.comparing(McnIncomeRawLedgerEvent::getSourceUpdatedAt).thenComparing(McnIncomeRawLedgerEvent::getSourceRevision);
-        return order.compare(left, right) >= 0 ? left : right;
-    }
     private Map<String, Long> verifiedUsers(String platform, java.util.Collection<McnIncomeRawLedgerEvent> facts) {
         List<String> accountIds = new java.util.ArrayList<>(new HashSet<>(facts.stream().map(McnIncomeRawLedgerEvent::getPlatformUserId).toList()));
         Map<String, Long> result = new HashMap<>();
