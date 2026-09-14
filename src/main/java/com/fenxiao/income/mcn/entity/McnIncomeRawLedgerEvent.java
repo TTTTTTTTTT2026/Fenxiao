@@ -167,6 +167,7 @@ public class McnIncomeRawLedgerEvent extends BaseEntity {
     public Long getId() { return id; }
     public String getSourceEventId() { return sourceEventId; }
     public String getSourceRevision() { return sourceRevision; }
+    public String getOriginalSourceEventId() { return originalSourceEventId; }
     public String getPlatformCode() { return platformCode; }
     public String getFactGranularity() { return factGranularity; }
     public String getPlatformUserId() { return platformUserId; }
