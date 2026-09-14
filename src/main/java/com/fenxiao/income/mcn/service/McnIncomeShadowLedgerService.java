@@ -213,9 +213,9 @@ public class McnIncomeShadowLedgerService {
     }
     private ProjectionDecision decision(McnIncomeRawLedgerEvent fact, Map<String, Long> verifiedUsers, java.util.Set<String> reversalTargets) {
         Long resolvedUserId = verifiedUsers.get(fact.getPlatformUserId());
-        if (resolvedUserId == null) return new ProjectionDecision("UNMATCHED", null);
         if (reversalTargets.contains(fact.getSourceEventId()) || fact.getEventType() == McnIncomeEventType.REVERSAL
                 || fact.getSettlementStatus() == McnIncomeSettlementStatus.REVERSED || fact.getSettlementStatus() == McnIncomeSettlementStatus.CANCELLED) return new ProjectionDecision("VOIDED", resolvedUserId);
+        if (resolvedUserId == null) return new ProjectionDecision("UNMATCHED", null);
         if (fact.getSettlementStatus() != McnIncomeSettlementStatus.SETTLED) return new ProjectionDecision("AWAITING_FINALITY", resolvedUserId);
         return new ProjectionDecision("BOUND_FINAL", resolvedUserId);
     }
