@@ -7,8 +7,8 @@ import com.fenxiao.platform.domain.PlatformBindingStatus;
 import com.fenxiao.platform.repository.PlatformAccountBindingRepository;
 import com.fenxiao.relationship.entity.InvitationRelationVersion;
 import com.fenxiao.relationship.repository.InvitationRelationVersionRepository;
-import com.fenxiao.rule.entity.RewardRule;
-import com.fenxiao.rule.repository.RewardRuleRepository;
+import com.fenxiao.rule.entity.CommissionPolicy;
+import com.fenxiao.rule.service.CommissionPolicyService;
 import com.fenxiao.user.entity.UserDistributionProfile;
 import com.fenxiao.user.repository.UserDistributionProfileRepository;
 import jakarta.transaction.Transactional;
@@ -39,18 +39,18 @@ public class McnIncomeRewardCandidateService {
     private final JdbcTemplate jdbc;
     private final PlatformAccountBindingRepository bindingRepository;
     private final InvitationRelationVersionRepository invitationRepository;
-    private final RewardRuleRepository ruleRepository;
+    private final CommissionPolicyService commissionPolicies;
     private final UserDistributionProfileRepository userRepository;
     private final Clock clock;
 
     public McnIncomeRewardCandidateService(JdbcTemplate jdbc,
                                            PlatformAccountBindingRepository bindingRepository,
                                            InvitationRelationVersionRepository invitationRepository,
-                                           RewardRuleRepository ruleRepository,
+                                           CommissionPolicyService commissionPolicies,
                                            UserDistributionProfileRepository userRepository,
                                            Clock clock) {
         this.jdbc = jdbc; this.bindingRepository = bindingRepository; this.invitationRepository = invitationRepository;
-        this.ruleRepository = ruleRepository; this.userRepository = userRepository; this.clock = clock;
+        this.commissionPolicies = commissionPolicies; this.userRepository = userRepository; this.clock = clock;
     }
 
     public McnIncomeRewardCandidateSummaryResponse refresh(String platformCode, LocalDate businessDate) {
@@ -125,13 +125,21 @@ public class McnIncomeRewardCandidateService {
         }
         writeBase(platform, input, input.sourceUserId(), "SOURCE_READY", "bound final fact with time-effective binding", now);
         counts.sourceReady++;
+        Optional<CommissionPolicy> policy = commissionPolicies.findEffective(platform, source.getCountryCode(), source.getDistributionRole().name(), occurredAt);
+        if (policy.isEmpty()) {
+            writeCandidate(platform, input, input.sourceUserId(), null, 1, null, null, null, null,
+                    "BLOCKED_NO_POLICY", "no active commission policy at income occurrence time", now);
+            counts.blocked++;
+            return;
+        }
         Long currentUserId = input.sourceUserId();
         for (int level = 1; level <= 3; level++) {
+            if (level > policy.get().getMaxRewardLevel() || !policy.get().level(level).enabled()) break;
             Optional<InvitationRelationVersion> relation = invitationRepository.findEffectiveAt(currentUserId, occurredAt);
             if (relation.isEmpty() || relation.get().getInviterUserId() == null) {
                 if (level == 1) {
-                    writeCandidate(platform, input, input.sourceUserId(), null, level, relation.map(InvitationRelationVersion::getVersionNo).orElse(null), null,
-                            null, "BLOCKED_NO_INVITER", "no effective direct inviter at income occurrence time", now);
+                    writeCandidate(platform, input, input.sourceUserId(), null, level, relation.map(InvitationRelationVersion::getVersionNo).orElse(null), policy.get().getId(), policy.get().getPolicyCode(), null,
+                            "BLOCKED_NO_INVITER", "no effective direct inviter at income occurrence time", now);
                     counts.blocked++;
                 }
                 break;
@@ -140,19 +148,14 @@ public class McnIncomeRewardCandidateService {
             Long recipientId = snapshot.getInviterUserId();
             UserDistributionProfile recipient = userRepository.findById(recipientId).orElse(null);
             if (recipient == null || recipient.getAccountStatus() != AccountStatus.ACTIVE) {
-                writeCandidate(platform, input, input.sourceUserId(), recipientId, level, snapshot.getVersionNo(), null, null,
+                writeCandidate(platform, input, input.sourceUserId(), recipientId, level, snapshot.getVersionNo(), policy.get().getId(), policy.get().getPolicyCode(), null,
                         "BLOCKED_RECIPIENT_INACTIVE", "recipient is not currently active", now);
                 counts.blocked++; currentUserId = recipientId; continue;
             }
-            Optional<RewardRule> rule = ruleRepository.findEffectiveRule(source.getCountryCode(), source.getDistributionRole().name(), level, "ACTIVE", occurredAt);
-            if (rule.isEmpty()) {
-                writeCandidate(platform, input, input.sourceUserId(), recipientId, level, snapshot.getVersionNo(), null, null,
-                        "BLOCKED_NO_RULE", "no unique active rule at income occurrence time", now);
-                counts.blocked++; currentUserId = recipientId; continue;
-            }
-            BigDecimal amount = input.amount().multiply(rule.get().getRewardRate()).setScale(6, RoundingMode.HALF_UP);
-            writeCandidate(platform, input, input.sourceUserId(), recipientId, level, snapshot.getVersionNo(), rule.get().getId(), rule.get().getRewardRate(),
-                    "CANDIDATE", "rule and invitation snapshot matched", now);
+            BigDecimal rate = policy.get().level(level).rate();
+            BigDecimal amount = input.amount().multiply(rate).setScale(6, RoundingMode.HALF_UP);
+            writeCandidate(platform, input, input.sourceUserId(), recipientId, level, snapshot.getVersionNo(), policy.get().getId(), policy.get().getPolicyCode(), rate,
+                    "CANDIDATE", "commission policy and invitation snapshot matched", now);
             counts.candidates++; counts.amount = counts.amount.add(amount); counts.amountUnit = input.amountUnit();
             updateCandidateAmount(platform, input.sourceEventId(), level, amount);
             currentUserId = recipientId;
@@ -160,17 +163,17 @@ public class McnIncomeRewardCandidateService {
     }
 
     private void writeBase(String platform, CandidateInput input, Long sourceUserId, String status, String reason, Instant now) {
-        writeCandidate(platform, input, sourceUserId, null, 0, null, null, null, status, reason, now);
+        writeCandidate(platform, input, sourceUserId, null, 0, null, null, null, null, status, reason, now);
     }
 
     private void writeCandidate(String platform, CandidateInput input, Long sourceUserId, Long recipientUserId, int level, Integer invitationVersion,
-                                Long ruleId, BigDecimal ruleRate, String status, String reason, Instant now) {
+                                Long policyId, String policyCode, BigDecimal ruleRate, String status, String reason, Instant now) {
         jdbc.update("""
                 INSERT INTO mcn_income_reward_candidate_projection
-                (source_system,platform_code,source_event_id,raw_ledger_event_id,source_revision,business_date,occurred_at,source_user_id,recipient_user_id,reward_level,invitation_version_no,rule_id,rule_rate,base_amount,candidate_amount,currency_code,amount_unit,candidate_status,decision_reason,projected_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                (source_system,platform_code,source_event_id,raw_ledger_event_id,source_revision,business_date,occurred_at,source_user_id,recipient_user_id,reward_level,invitation_version_no,rule_id,commission_policy_id,commission_policy_code,rule_rate,base_amount,candidate_amount,currency_code,amount_unit,candidate_status,decision_reason,projected_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """, SOURCE_SYSTEM, platform, input.sourceEventId(), input.rawLedgerEventId(), input.sourceRevision(), input.businessDate(), Timestamp.from(input.occurredAt()),
-                sourceUserId, recipientUserId, level, invitationVersion, ruleId, ruleRate, input.amount(), null, input.currencyCode(), input.amountUnit(), status, reason, Timestamp.from(now));
+                sourceUserId, recipientUserId, level, invitationVersion, null, policyId, policyCode, ruleRate, input.amount(), null, input.currencyCode(), input.amountUnit(), status, reason, Timestamp.from(now));
     }
 
     private void updateCandidateAmount(String platform, String sourceEventId, int level, BigDecimal amount) {

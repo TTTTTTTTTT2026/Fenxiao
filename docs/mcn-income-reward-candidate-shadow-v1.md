@@ -2,7 +2,7 @@
 
 ## 目的与边界
 
-本账本用于把已经保存的 MCN 收入事实，按 BANDEIRA 当前已配置的邀请关系与规则，演算成**不可支付的候选结果**。它回答“依现行规则，这条事实理论上会产生哪些二级、三级、四级分佣”，不回答“应向谁付款”。
+本帳本用於把已保存的 MCN 收入事實，按 BANDEIRA 當時有效的邀請關係與分成策略，演算成**不可支付的候選結果**。它回答「依現行規則，這條事實理論上會產生哪些二級、三級、四級分佣」，不回答「應向誰付款」。
 
 本模块绝不调用奖励记录、钱包、提现、付款、旧版奖励引擎或收入累计逻辑；任何候选金额都不是余额、可提现额或已发奖励。
 
@@ -13,17 +13,18 @@
 1. 仅处理收入影子投影状态为 `BOUND_FINAL` 的最新修订事实。
 2. 来源用户的平台绑定必须在该收入 `occurredAt` 或更早已经核验完成；晚于发生时点的绑定标记为 `BLOCKED_BINDING_NOT_EFFECTIVE`，防止事后认领历史收入。
 3. 邀请关系使用 `invitation_relation_version` 在 `occurredAt` 时有效的版本，逐级最多追溯三层。后续人工改关系不会改写候选所依据的历史关系版本。
-4. 二级／三级／四级技术层级分别映射 `rewardLevel=1/2/3`；每层仅使用来源用户国家、角色和 `occurredAt` 时唯一有效的 `reward_rule`。默认业务比例可为 10%／2%／0.5%，但生产不会自动补写规则；缺规则必须显式标为 `BLOCKED_NO_RULE`。
-5. 候选只保留原始金额单位（如 `TIMO_DIAMOND` / `LINKY_DIAMOND`），不换汇。
+4. 二級／三級／四級技術層級分別映射 `rewardLevel=1/2/3`；每層使用來源用戶國家、角色、平台和 `occurredAt` 時唯一有效的 `commission_policy`。策略可明確設定最高分成層級：例如「僅直接邀請 A-B」只啟用第 1 層，第二、三層不會被當作 0% 規則或阻斷項。
+5. 預設業務比例可為 10%／2%／0.5%，但生產不會自動補寫或啟用策略；沒有已啟用策略的事實必須標為 `BLOCKED_NO_POLICY`。
+6. 候選只保留原始金額單位（如 `TIMO_DIAMOND` / `LINKY_DIAMOND`），不換匯。
 
 ## 可审计状态
 
 - `SOURCE_READY`：收入已定稿、已归属，且绑定在收入发生时已生效。
-- `CANDIDATE`：对应层级的邀请关系、收款人状态和规则都满足；仅为影子候选。
+- `CANDIDATE`：對應層級的邀請關係、收款人狀態和分成策略都滿足；僅為影子候選。
 - `BLOCKED_UNMATCHED` / `BLOCKED_AWAITING_FINALITY` / `BLOCKED_VOIDED`：来源事实本身不具备候选资格。
 - `BLOCKED_BINDING_NOT_EFFECTIVE`：绑定发生在收入之后。
 - `BLOCKED_SOURCE_INACTIVE` / `BLOCKED_RECIPIENT_INACTIVE`：当前账户状态需要运营处理。
-- `BLOCKED_NO_INVITER` / `BLOCKED_NO_RULE`：缺少当时有效邀请人或规则。
+- `BLOCKED_NO_INVITER` / `BLOCKED_NO_POLICY`：缺少當時有效邀請人或已啟用分成策略。
 
 ## 上线门禁
 
