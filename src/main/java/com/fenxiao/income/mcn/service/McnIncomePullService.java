@@ -80,11 +80,12 @@ public class McnIncomePullService {
             return new McnIncomePullResult(platform, "SUCCESS", page.deliveryId(), receipt.receivedFactCount(),
                     receipt.newFactCount(), receipt.duplicateFactCount(), receipt.unmatchedFactCount(), page.hasMore(), null);
         } catch (McnIncomeFactsTransportException exception) {
+            Integer retryAfterSeconds = retryAfterSeconds(exception);
             checkpoint.fail("HTTP_" + exception.getStatusCode(), exception.getMessage());
             checkpointRepository.save(checkpoint);
             runRepository.save(McnIncomeSyncRun.failed(runId, platform, requestedCursor,
-                    "HTTP_" + exception.getStatusCode(), exception.getMessage(), exception.getRetryAfterSeconds(), now));
-            return new McnIncomePullResult(platform, "FAILED", null, 0, 0, 0, 0, false, exception.getRetryAfterSeconds());
+                    "HTTP_" + exception.getStatusCode(), exception.getMessage(), retryAfterSeconds, now));
+            return new McnIncomePullResult(platform, "FAILED", null, 0, 0, 0, 0, false, retryAfterSeconds);
         } catch (RuntimeException exception) {
             checkpoint.fail("PROCESSING_ERROR", exception.getMessage());
             checkpointRepository.save(checkpoint);
@@ -126,5 +127,11 @@ public class McnIncomePullService {
     private String json(Object value) {
         try { return json.writeValueAsString(value); }
         catch (JsonProcessingException exception) { throw new IllegalStateException("MCN income watermark cannot be serialized", exception); }
+    }
+
+    /** MCN's authenticated 429 response currently has no Retry-After header; its V1 contract requires 60 seconds. */
+    private Integer retryAfterSeconds(McnIncomeFactsTransportException exception) {
+        if (exception.getRetryAfterSeconds() != null && exception.getRetryAfterSeconds() > 0) return exception.getRetryAfterSeconds();
+        return exception.getStatusCode() == 429 ? 60 : null;
     }
 }

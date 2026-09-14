@@ -8,6 +8,7 @@ import com.fenxiao.income.mcn.external.McnIncomeFactsClient;
 import com.fenxiao.income.mcn.external.McnIncomeFactsPage;
 import com.fenxiao.income.mcn.external.McnIncomeFactsProperties;
 import com.fenxiao.income.mcn.external.McnIncomeFactsQuery;
+import com.fenxiao.income.mcn.external.McnIncomeFactsTransportException;
 import com.fenxiao.income.mcn.repository.McnIncomeSyncCheckpointRepository;
 import com.fenxiao.income.mcn.repository.McnIncomeSyncRunRepository;
 import org.junit.jupiter.api.Test;
@@ -80,6 +81,25 @@ class McnIncomePullServiceTest {
         assertThat(result.retryAfterSeconds()).isEqualTo(180);
         verify(rawLedger, times(0)).accept(any());
         verify(client, times(1)).query(any(McnIncomeFactsQuery.class));
+    }
+
+    @Test
+    void keepsTheCursorAndUsesTheContractFallbackWhenMcnRateLimitsWithoutRetryAfter() {
+        McnIncomeFactsClient client = mock(McnIncomeFactsClient.class);
+        McnIncomeRawLedgerService rawLedger = mock(McnIncomeRawLedgerService.class);
+        McnIncomeSyncCheckpointRepository checkpoints = mock(McnIncomeSyncCheckpointRepository.class);
+        McnIncomeSyncRunRepository runs = mock(McnIncomeSyncRunRepository.class);
+        McnIncomeSyncCheckpoint checkpoint = McnIncomeSyncCheckpoint.initial("TIMO");
+        checkpoint.advance("cursor-stable", NOW, "{}", NOW);
+        when(checkpoints.findById("TIMO")).thenReturn(Optional.of(checkpoint));
+        when(client.query(any(McnIncomeFactsQuery.class))).thenThrow(new McnIncomeFactsTransportException("rate limited", 429, null, null));
+
+        McnIncomePullResult result = service(client, rawLedger, checkpoints, runs).pullNextPage("TIMO");
+
+        assertThat(result.status()).isEqualTo("FAILED");
+        assertThat(result.retryAfterSeconds()).isEqualTo(60);
+        assertThat(checkpoint.getNextCursor()).isEqualTo("cursor-stable");
+        verify(rawLedger, times(0)).accept(any());
     }
 
     private McnIncomePullService service(McnIncomeFactsClient client, McnIncomeRawLedgerService rawLedger,
