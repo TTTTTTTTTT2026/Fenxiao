@@ -82,6 +82,49 @@ class McnIncomeRawLedgerControllerTest {
     }
 
     @Test
+    void shouldTreatStableFactsAsADuplicateWhenTheDeliveryEnvelopeIsRefreshed() throws Exception {
+        Map<String, Object> original = delivery("delivery-envelope-refresh", "LINKY", "income-envelope", "1", "51684621");
+        mockMvc.perform(post("/internal/distribution/mcn/income-ledger-deliveries")
+                        .header("X-Internal-Token", "test-token").contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(original)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.deliveryStatus").value("ACCEPTED"));
+
+        Map<String, Object> reread = mutableDelivery(original);
+        reread.put("snapshotAt", "2026-09-12T09:32:00Z");
+        reread.put("sourceWatermark", Map.of("businessDate", "2026-09-11", "completeness", "FINAL", "refreshedAt", "2026-09-12T09:32:00Z"));
+        mockMvc.perform(post("/internal/distribution/mcn/income-ledger-deliveries")
+                        .header("X-Internal-Token", "test-token").contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(reread)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.deliveryStatus").value("DUPLICATE_DELIVERY"));
+
+        assertThat(eventRepository.count()).isEqualTo(1);
+        assertThat(receiptRepository.findAll().getFirst().getFactEvidenceHash()).isNotBlank();
+    }
+
+    @Test
+    void shouldRejectChangedFactsWhenAStableDeliveryIsReread() throws Exception {
+        Map<String, Object> original = delivery("delivery-evidence-conflict", "LINKY", "income-evidence", "1", "51684621");
+        mockMvc.perform(post("/internal/distribution/mcn/income-ledger-deliveries")
+                        .header("X-Internal-Token", "test-token").contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(original)))
+                .andExpect(status().isOk());
+
+        Map<String, Object> changed = mutableDelivery(original);
+        changed.put("snapshotAt", "2026-09-12T09:32:00Z");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> facts = (List<Map<String, Object>>) changed.get("facts");
+        facts.getFirst().put("amount", new BigDecimal("99.25"));
+        mockMvc.perform(post("/internal/distribution/mcn/income-ledger-deliveries")
+                        .header("X-Internal-Token", "test-token").contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(changed)))
+                .andExpect(status().isBadRequest());
+
+        assertThat(eventRepository.count()).isEqualTo(1);
+    }
+
+    @Test
     void shouldRejectConflictingEvidenceForTheSameSourceRevision() throws Exception {
         mockMvc.perform(post("/internal/distribution/mcn/income-ledger-deliveries")
                         .header("X-Internal-Token", "test-token").contentType(MediaType.APPLICATION_JSON)

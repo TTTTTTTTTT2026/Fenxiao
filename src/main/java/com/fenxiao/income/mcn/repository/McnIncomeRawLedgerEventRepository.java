@@ -11,6 +11,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface McnIncomeRawLedgerEventRepository extends JpaRepository<McnIncomeRawLedgerEvent, Long> {
+    List<McnIncomeRawLedgerEvent> findBySourceSystemAndDeliveryId(String sourceSystem, String deliveryId);
+
     Optional<McnIncomeRawLedgerEvent> findBySourceSystemAndPlatformCodeAndSourceEventIdAndSourceRevision(
             String sourceSystem, String platformCode, String sourceEventId, String sourceRevision);
 
