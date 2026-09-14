@@ -14,6 +14,8 @@ public class CommissionPolicy extends BaseEntity {
     public static final String ACTIVE = "ACTIVE";
     public static final String RETIRED = "RETIRED";
     public static final String INVITATION = "INVITATION";
+    /** Compatibility value for the former role_code column. Invitation commission applies to every eligible user. */
+    public static final String ALL_USERS = "ALL";
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
     @Column(name = "policy_code", nullable = false, length = 64) private String policyCode;
@@ -41,13 +43,13 @@ public class CommissionPolicy extends BaseEntity {
 
     protected CommissionPolicy() { }
 
-    public static CommissionPolicy draft(String code, String platform, String country, String role, int maxLevel,
+    public static CommissionPolicy draft(String code, String platform, String country, int maxLevel,
                                          boolean l1Enabled, BigDecimal l1Rate, Integer l1Freeze,
                                          boolean l2Enabled, BigDecimal l2Rate, Integer l2Freeze,
                                          boolean l3Enabled, BigDecimal l3Rate, Integer l3Freeze,
                                          LocalDateTime effectiveFrom, LocalDateTime effectiveTo, Long createdBy) {
         CommissionPolicy policy = new CommissionPolicy();
-        policy.policyCode = code; policy.commissionType = INVITATION; policy.platformCode = platform; policy.countryCode = country; policy.roleCode = role;
+        policy.policyCode = code; policy.commissionType = INVITATION; policy.platformCode = platform; policy.countryCode = country; policy.roleCode = ALL_USERS;
         policy.maxRewardLevel = maxLevel; policy.level1Enabled = l1Enabled; policy.level1Rate = l1Rate; policy.level1FreezeDays = l1Freeze;
         policy.level2Enabled = l2Enabled; policy.level2Rate = l2Rate; policy.level2FreezeDays = l2Freeze;
         policy.level3Enabled = l3Enabled; policy.level3Rate = l3Rate; policy.level3FreezeDays = l3Freeze;
@@ -62,7 +64,6 @@ public class CommissionPolicy extends BaseEntity {
     public String getCommissionType() { return commissionType; }
     public String getPlatformCode() { return platformCode; }
     public String getCountryCode() { return countryCode; }
-    public String getRoleCode() { return roleCode; }
     public int getMaxRewardLevel() { return maxRewardLevel; }
     public String getStatus() { return status; }
     public LocalDateTime getEffectiveFrom() { return effectiveFrom; }

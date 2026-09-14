@@ -50,7 +50,7 @@ class McnIncomeRewardCandidateServiceTest {
         InvitationRelationVersion atIncome = InvitationRelationVersion.create(100L, 200L, 3, LocalDateTime.ofInstant(OCCURRED.minusSeconds(3600), ZoneOffset.UTC), "test", "TEST", null, null);
         when(fixture.relations.findEffectiveAt(100L, LocalDateTime.ofInstant(OCCURRED, ZoneOffset.UTC))).thenReturn(Optional.of(atIncome));
         when(fixture.relations.findEffectiveAt(200L, LocalDateTime.ofInstant(OCCURRED, ZoneOffset.UTC))).thenReturn(Optional.empty());
-        when(fixture.policies.findEffective("TIMO", "ID", "NORMAL_USER", LocalDateTime.ofInstant(OCCURRED, ZoneOffset.UTC)))
+        when(fixture.policies.findEffective("TIMO", "ID", LocalDateTime.ofInstant(OCCURRED, ZoneOffset.UTC)))
                 .thenReturn(Optional.of(policy(1)));
 
         McnIncomeRewardCandidateSummaryResponse result = fixture.service.refresh("TIMO", DAY);
@@ -94,7 +94,7 @@ class McnIncomeRewardCandidateServiceTest {
         when(fixture.bindings.findByUserIdAndPlatformCode(100L, "TIMO")).thenReturn(Optional.of(binding));
         when(fixture.relations.findEffectiveAt(100L, LocalDateTime.ofInstant(OCCURRED, ZoneOffset.UTC))).thenReturn(Optional.of(
                 InvitationRelationVersion.create(100L, 200L, 1, LocalDateTime.ofInstant(OCCURRED.minusSeconds(3600), ZoneOffset.UTC), "test", "TEST", null, null)));
-        when(fixture.policies.findEffective("TIMO", "ID", "NORMAL_USER", LocalDateTime.ofInstant(OCCURRED, ZoneOffset.UTC))).thenReturn(Optional.of(policy(1)));
+        when(fixture.policies.findEffective("TIMO", "ID", LocalDateTime.ofInstant(OCCURRED, ZoneOffset.UTC))).thenReturn(Optional.of(policy(1)));
 
         McnIncomeRewardCandidateSummaryResponse result = fixture.service.refresh("TIMO", DAY);
 
@@ -120,7 +120,7 @@ class McnIncomeRewardCandidateServiceTest {
     }
 
     private CommissionPolicy policy(int maxLevel) {
-        return CommissionPolicy.draft("CP-TEST", "TIMO", "ID", "NORMAL_USER", maxLevel,
+        return CommissionPolicy.draft("CP-TEST", "TIMO", "ID", maxLevel,
                 true, new BigDecimal("0.10"), 7,
                 maxLevel >= 2, maxLevel >= 2 ? new BigDecimal("0.02") : null, maxLevel >= 2 ? 7 : null,
                 maxLevel >= 3, maxLevel >= 3 ? new BigDecimal("0.005") : null, maxLevel >= 3 ? 7 : null,

@@ -125,7 +125,7 @@ public class McnIncomeRewardCandidateService {
         }
         writeBase(platform, input, input.sourceUserId(), "SOURCE_READY", "bound final fact with time-effective binding", now);
         counts.sourceReady++;
-        Optional<CommissionPolicy> policy = commissionPolicies.findEffective(platform, source.getCountryCode(), source.getDistributionRole().name(), occurredAt);
+        Optional<CommissionPolicy> policy = commissionPolicies.findEffective(platform, source.getCountryCode(), occurredAt);
         if (policy.isEmpty()) {
             writeCandidate(platform, input, input.sourceUserId(), null, 1, null, null, null, null,
                     "BLOCKED_NO_POLICY", "no active commission policy at income occurrence time", now);
