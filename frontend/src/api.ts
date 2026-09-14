@@ -101,6 +101,24 @@ export type McnIncomeControlledReconciliationResponse = {
   mismatchGroupCount: number
   retryAfterSeconds: number | null
 }
+export type McnIncomeSyncStatusResponse = {
+  continuousPullEnabled: boolean
+  maxPagesPerRun: number
+  platforms: Array<{
+    platformCode: string
+    checkpointStatus: string
+    lastSuccessAt: string | null
+    lastSnapshotAt: string | null
+    lastErrorCode: string | null
+    latestRunStatus: string | null
+    latestRunAt: string | null
+    latestReceivedCount: number
+    latestNewCount: number
+    latestDuplicateCount: number
+    latestUnmatchedCount: number
+    retryAfterSeconds: number | null
+  }>
+}
 export type McnIncomeShadowLedgerSummaryResponse = {
   platformCode: string; businessDate: string; sourceFactCount: number; latestFactCount: number
   boundFinalCount: number; unmatchedCount: number; awaitingFinalityCount: number; voidedCount: number; latestRunId: string | null
@@ -749,6 +767,11 @@ export function runAdminIncomeControlledChanges(adminSessionToken: string, paylo
 export function runAdminIncomeControlledReconciliation(adminSessionToken: string, payload: { platformCode: string; businessDateFrom: string; businessDateTo: string; guildIds: string[] }) {
   return request<McnIncomeControlledReconciliationResponse>('/admin/income-facts/controlled-read-only/reconciliation', {
     method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload),
+  })
+}
+export function getAdminIncomeSyncStatus(adminSessionToken: string) {
+  return request<McnIncomeSyncStatusResponse>('/admin/income-facts/sync-status', {
+    headers: { 'X-Admin-Session': adminSessionToken },
   })
 }
 export function refreshAdminIncomeShadowLedger(adminSessionToken: string, payload: { platformCode: string; businessDate: string }) {

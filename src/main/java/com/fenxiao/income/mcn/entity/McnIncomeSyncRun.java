@@ -64,4 +64,14 @@ public class McnIncomeSyncRun extends BaseEntity {
         value.requestedCursor = requestedCursor; value.syncStatus = status; value.startedAt = at; value.completedAt = at; return value;
     }
     private static String truncate(String value, int length) { return value == null ? null : value.substring(0, Math.min(value.length(), length)); }
+    public Long getId() { return id; }
+    public String getPlatformCode() { return platformCode; }
+    public String getSyncStatus() { return syncStatus; }
+    public int getReceivedCount() { return receivedCount; }
+    public int getNewCount() { return newCount; }
+    public int getDuplicateCount() { return duplicateCount; }
+    public int getUnmatchedCount() { return unmatchedCount; }
+    public Integer getRetryAfterSeconds() { return retryAfterSeconds; }
+    public Instant getCompletedAt() { return completedAt; }
+    public String getErrorCode() { return errorCode; }
 }

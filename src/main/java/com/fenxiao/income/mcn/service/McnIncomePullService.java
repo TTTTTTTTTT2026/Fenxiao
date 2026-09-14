@@ -94,6 +94,27 @@ public class McnIncomePullService {
         }
     }
 
+    /**
+     * Drains a bounded number of pages per scheduler run. The durable cursor advances only after
+     * each accepted page, so a process restart or a later page failure resumes safely.
+     */
+    public synchronized McnIncomePullBatchResult pullAvailablePages(String requestedPlatform) {
+        String platform = normalizePlatform(requestedPlatform);
+        int safeMaxPages = Math.max(1, Math.min(properties.getMaxPagesPerRun(), 100));
+        int pages = 0, received = 0, added = 0, duplicates = 0, unmatched = 0;
+        boolean hasMore = false;
+        for (int index = 0; index < safeMaxPages; index++) {
+            McnIncomePullResult page = pullNextPage(platform);
+            pages++; received += page.receivedCount(); added += page.newCount(); duplicates += page.duplicateCount(); unmatched += page.unmatchedCount();
+            if (!"SUCCESS".equals(page.status())) {
+                return new McnIncomePullBatchResult(platform, page.status(), pages, received, added, duplicates, unmatched, false, page.retryAfterSeconds());
+            }
+            hasMore = page.hasMore();
+            if (!hasMore) return new McnIncomePullBatchResult(platform, "SUCCESS", pages, received, added, duplicates, unmatched, false, null);
+        }
+        return new McnIncomePullBatchResult(platform, "PARTIAL", pages, received, added, duplicates, unmatched, hasMore, null);
+    }
+
     private String normalizePlatform(String value) {
         String platform = value == null ? "" : value.trim().toUpperCase(Locale.ROOT);
         if (!"TIMO".equals(platform) && !"LINKY".equals(platform)) {

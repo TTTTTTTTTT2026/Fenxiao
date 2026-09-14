@@ -90,6 +90,7 @@ import {
   resetAdminPassword,
   runAdminIncomeControlledChanges,
   runAdminIncomeControlledReconciliation,
+  getAdminIncomeSyncStatus,
   refreshAdminIncomeShadowLedger,
   replayAdminIncomeShadowLedger,
   refreshAdminIncomeRewardCandidates,
@@ -131,6 +132,7 @@ import {
   type LinkyWebhookLogListResponse,
   type McnIncomeControlledChangesResponse,
   type McnIncomeControlledReconciliationResponse,
+  type McnIncomeSyncStatusResponse,
   type McnIncomeShadowLedgerSummaryResponse,
   type McnIncomeDataQualityResponse,
   type McnIncomeDataQualityExceptionResponse,
@@ -431,6 +433,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [controlledIncomeForm, setControlledIncomeForm] = useState({ platformCode: 'LINKY', businessDate: '2026-09-11', pageSize: '200' })
   const [controlledIncomeResult, setControlledIncomeResult] = useState<McnIncomeControlledChangesResponse | null>(null)
   const [controlledIncomeReconciliation, setControlledIncomeReconciliation] = useState<McnIncomeControlledReconciliationResponse | null>(null)
+  const [incomeSyncStatus, setIncomeSyncStatus] = useState<McnIncomeSyncStatusResponse | null>(null)
   const [controlledIncomeCursor, setControlledIncomeCursor] = useState<string | null>(null)
   const [controlledIncomeLastRequest, setControlledIncomeLastRequest] = useState<{ cursor: string | null; requestId: string } | null>(null)
   const [controlledIncomeLoading, setControlledIncomeLoading] = useState(false)
@@ -1666,6 +1669,18 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     } finally { setLoading(false) }
   }
 
+  async function handleLoadIncomeSyncStatus() {
+    if (!adminSession || !canRunControlledIncome) return
+    setLoading(true); setError(''); setSuccessMessage('')
+    try {
+      const result = await getAdminIncomeSyncStatus(adminSession.sessionToken)
+      setIncomeSyncStatus(result)
+      setSuccessMessage('已读取持续同步状态；该操作不会开启消费、请求 MCN 或变更任何收入数据。')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '读取收入同步状态失败')
+    } finally { setLoading(false) }
+  }
+
   function openIncomeExceptionReview(item: McnIncomeDataQualityExceptionResponse) {
     setIncomeExceptionReviewTarget(item)
     setIncomeExceptionReviewForm({ reviewStatus: item.reviewStatus === 'IGNORED' ? 'IGNORED' : 'ACKNOWLEDGED', reviewNote: item.reviewNote ?? '' })
@@ -2372,6 +2387,15 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               <div className="stack-gap">
                 <InfoCard title="执行门禁" tone="neutral">
                   <InlineHint text="仅在 MCN 已确认的窗口内操作。完成 Linky 分页、重读和对账后，请关闭服务器上的受控只读开关；正式收入消费开关必须保持关闭。" />
+                </InfoCard>
+                <InfoCard title="持续同步与恢复状态" tone={incomeSyncStatus?.continuousPullEnabled ? 'success' : 'neutral'}>
+                  <InlineHint text="持续同步关闭时，系统不会自动请求 MCN；此处只展示已保存的断点、最近一次拉取和失败重试信息，不会显示游标、平台账号、收入事实或密钥。" />
+                  <div className="action-row top-gap"><button className="ghost-btn small-btn" onClick={() => void handleLoadIncomeSyncStatus()} disabled={loading}>读取同步状态</button></div>
+                  {incomeSyncStatus ? <div className="stack-gap top-gap">
+                    <InlineHint text={incomeSyncStatus.continuousPullEnabled ? `持续同步已开启：每平台每轮最多读取 ${incomeSyncStatus.maxPagesPerRun} 页；奖励、钱包和付款仍不受此状态影响。` : '持续同步当前关闭：受控只读、影子账本和候选演算仍须按各自门禁执行。'} />
+                    <div className="relation-grid">{incomeSyncStatus.platforms.map((item) => <RelationItem key={item.platformCode} label={`${item.platformCode === 'TIMO' ? 'Timo' : 'Linky'} 最近状态`} value={`${item.checkpointStatus}${item.latestRunStatus ? ` / ${item.latestRunStatus}` : ''}`} />)}</div>
+                    <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>平台</th><th>最近成功</th><th>最近快照</th><th>接收 / 新增 / 去重</th><th>未匹配</th><th>失败 / 重试</th></tr></thead><tbody>{incomeSyncStatus.platforms.map((item) => <tr key={item.platformCode}><td>{item.platformCode === 'TIMO' ? 'Timo' : 'Linky'}</td><td>{item.lastSuccessAt ? formatDateTime(item.lastSuccessAt) : '-'}</td><td>{item.lastSnapshotAt ? formatDateTime(item.lastSnapshotAt) : '-'}</td><td>{item.latestRunStatus ? `${item.latestReceivedCount} / ${item.latestNewCount} / ${item.latestDuplicateCount}` : '-'}</td><td>{item.latestRunStatus ? item.latestUnmatchedCount : '-'}</td><td>{item.lastErrorCode || (item.retryAfterSeconds ? `${item.retryAfterSeconds} 秒后重试` : '-')}</td></tr>)}</tbody></table></div>
+                  </div> : null}
                 </InfoCard>
                 <InfoCard title="本次读取范围" tone="neutral">
                   <div className="grid-form compact-form exception-filter-grid">
