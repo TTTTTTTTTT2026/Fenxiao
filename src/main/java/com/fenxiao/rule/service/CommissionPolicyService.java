@@ -32,7 +32,7 @@ public class CommissionPolicyService {
     public CommissionPolicyResponse createDraft(CommissionPolicyRequest request, AdminSessionService.AdminPrincipal actor) {
         Levels levels = validate(request);
         CommissionPolicy policy = CommissionPolicy.draft("CP-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase(Locale.ROOT),
-                normalizedPlatform(request.platformCode()), normalized(request.countryCode()), normalized(request.roleCode()), request.maxRewardLevel(),
+                normalizedPlatform(request.platformCode()), normalized(request.countryCode()), request.maxRewardLevel(),
                 levels.one.enabled(), levels.one.rate(), levels.one.freezeDays(), levels.two.enabled(), levels.two.rate(), levels.two.freezeDays(),
                 levels.three.enabled(), levels.three.rate(), levels.three.freezeDays(), request.effectiveFrom(), request.effectiveTo(), actor.accountId());
         policy = policies.save(policy);
@@ -60,8 +60,8 @@ public class CommissionPolicyService {
     }
 
     /** Returns the one policy applicable at income occurrence time. Empty means policy is deliberately not configured. */
-    public Optional<CommissionPolicy> findEffective(String platform, String country, String role, LocalDateTime occurredAt) {
-        List<CommissionPolicy> rows = policies.findActiveAt(normalizedPlatform(platform), normalized(country), normalized(role), occurredAt);
+    public Optional<CommissionPolicy> findEffective(String platform, String country, LocalDateTime occurredAt) {
+        List<CommissionPolicy> rows = policies.findActiveAt(normalizedPlatform(platform), normalized(country), occurredAt);
         if (rows.size() > 1) throw new IllegalStateException("multiple active commission policies match the income occurrence time");
         return rows.stream().findFirst();
     }
@@ -88,7 +88,7 @@ public class CommissionPolicyService {
     }
     private CommissionPolicy.Level toLevel(CommissionPolicyRequest.LevelRequest value) { return new CommissionPolicy.Level(value.enabled(), value.rewardRate(), value.freezeDays()); }
     private void ensureNoOverlap(CommissionPolicy candidate) {
-        for (CommissionPolicy other : policies.findByPlatformCodeAndCountryCodeAndRoleCodeAndStatus(candidate.getPlatformCode(), candidate.getCountryCode(), candidate.getRoleCode(), CommissionPolicy.ACTIVE)) {
+        for (CommissionPolicy other : policies.findByCommissionTypeAndPlatformCodeAndCountryCodeAndStatus(CommissionPolicy.INVITATION, candidate.getPlatformCode(), candidate.getCountryCode(), CommissionPolicy.ACTIVE)) {
             boolean startsBeforeOtherEnds = other.getEffectiveTo() == null || !candidate.getEffectiveFrom().isAfter(other.getEffectiveTo());
             boolean otherStartsBeforeCandidateEnds = candidate.getEffectiveTo() == null || !other.getEffectiveFrom().isAfter(candidate.getEffectiveTo());
             if (!other.getId().equals(candidate.getId()) && startsBeforeOtherEnds && otherStartsBeforeCandidateEnds) {
@@ -97,7 +97,7 @@ public class CommissionPolicyService {
         }
     }
     private CommissionPolicyResponse response(CommissionPolicy policy) {
-        return new CommissionPolicyResponse(policy.getId(), policy.getPolicyCode(), policy.getCommissionType(), policy.getPlatformCode(), policy.getCountryCode(), policy.getRoleCode(), policy.getMaxRewardLevel(), policy.getStatus(),
+        return new CommissionPolicyResponse(policy.getId(), policy.getPolicyCode(), policy.getCommissionType(), policy.getPlatformCode(), policy.getCountryCode(), policy.getMaxRewardLevel(), policy.getStatus(),
                 policy.getEffectiveFrom(), policy.getEffectiveTo(), policy.getCreatedBy(), policy.getApprovedBy(), policy.getApprovedAt(), policy.getApprovalNote(),
                 List.of(levelResponse(policy, 1), levelResponse(policy, 2), levelResponse(policy, 3)));
     }
@@ -105,7 +105,7 @@ public class CommissionPolicyService {
     private void audit(AdminSessionService.AdminPrincipal actor, CommissionPolicy policy, String action, String before, String after, String remark) {
         audits.save(OperationAuditLog.create(actor.accountId(), actor.role(), MODULE, "commission_policy", policy.getId(), action, before, after, null, remark, LocalDateTime.now(clock)));
     }
-    private String snapshot(CommissionPolicy policy) { return String.format(Locale.ROOT, "code=%s,type=%s,scope=%s/%s/%s,max=%d,status=%s,effective=%s..%s", policy.getPolicyCode(), policy.getCommissionType(), policy.getPlatformCode(), policy.getCountryCode(), policy.getRoleCode(), policy.getMaxRewardLevel(), policy.getStatus(), policy.getEffectiveFrom(), policy.getEffectiveTo()); }
+    private String snapshot(CommissionPolicy policy) { return String.format(Locale.ROOT, "code=%s,type=%s,scope=%s/%s,max=%d,status=%s,effective=%s..%s", policy.getPolicyCode(), policy.getCommissionType(), policy.getPlatformCode(), policy.getCountryCode(), policy.getMaxRewardLevel(), policy.getStatus(), policy.getEffectiveFrom(), policy.getEffectiveTo()); }
     private String normalized(String value) { return value.trim().toUpperCase(Locale.ROOT); }
     private String normalizedPlatform(String value) { String result = normalized(value); if (!"TIMO".equals(result) && !"LINKY".equals(result)) throw new IllegalArgumentException("commission platform must be TIMO or LINKY"); return result; }
     private record Levels(CommissionPolicy.Level one, CommissionPolicy.Level two, CommissionPolicy.Level three) { }

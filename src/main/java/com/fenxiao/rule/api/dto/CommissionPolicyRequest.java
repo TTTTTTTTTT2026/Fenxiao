@@ -8,7 +8,6 @@ import java.util.List;
 
 public record CommissionPolicyRequest(@NotBlank @Pattern(regexp = "ALL|TIMO|LINKY") String platformCode,
                                       @NotBlank @Pattern(regexp = "[A-Za-z]{2,10}|ALL") String countryCode,
-                                      @NotBlank @Pattern(regexp = "[A-Z_]{2,32}|ALL") String roleCode,
                                       @Min(1) @Max(3) int maxRewardLevel,
                                       @NotNull @Valid List<LevelRequest> levels,
                                       @NotNull LocalDateTime effectiveFrom, LocalDateTime effectiveTo) {

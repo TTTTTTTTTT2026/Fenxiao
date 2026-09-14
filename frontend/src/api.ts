@@ -123,7 +123,7 @@ export type McnIncomeRewardCandidateItemResponse = {
   rewardLevel: number; status: string; reason: string; baseAmount: number; candidateAmount: number | null; amountUnit: string
 }
 export type CommissionPolicyResponse = {
-  id: number; policyCode: string; commissionType: 'INVITATION' | string; platformCode: string; countryCode: string; roleCode: string
+  id: number; policyCode: string; commissionType: 'INVITATION' | string; platformCode: string; countryCode: string
   maxRewardLevel: number; status: 'DRAFT' | 'ACTIVE' | 'RETIRED' | string; effectiveFrom: string; effectiveTo: string | null
   createdBy: number; approvedBy: number | null; approvedAt: string | null; approvalNote: string | null
   levels: Array<{ rewardLevel: number; enabled: boolean; rewardRate: number | null; freezeDays: number | null }>
@@ -774,7 +774,7 @@ export function getAdminIncomeRewardCandidateItems(adminSessionToken: string, pl
 export function getAdminCommissionPolicies(adminSessionToken: string) {
   return request<CommissionPolicyResponse[]>('/admin/commission-policies', { headers: { 'X-Admin-Session': adminSessionToken } })
 }
-export function createAdminCommissionPolicy(adminSessionToken: string, payload: { platformCode: string; countryCode: string; roleCode: string; maxRewardLevel: number; effectiveFrom: string; effectiveTo: string | null; levels: Array<{ rewardLevel: number; enabled: boolean; rewardRate: number | null; freezeDays: number | null }> }) {
+export function createAdminCommissionPolicy(adminSessionToken: string, payload: { platformCode: string; countryCode: string; maxRewardLevel: number; effectiveFrom: string; effectiveTo: string | null; levels: Array<{ rewardLevel: number; enabled: boolean; rewardRate: number | null; freezeDays: number | null }> }) {
   return request<CommissionPolicyResponse>('/admin/commission-policies', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) })
 }
 export function activateAdminCommissionPolicy(adminSessionToken: string, id: number, approvalNote: string) {
