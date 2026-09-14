@@ -97,7 +97,7 @@ public class CommissionPolicyService {
         }
     }
     private CommissionPolicyResponse response(CommissionPolicy policy) {
-        return new CommissionPolicyResponse(policy.getId(), policy.getPolicyCode(), policy.getPlatformCode(), policy.getCountryCode(), policy.getRoleCode(), policy.getMaxRewardLevel(), policy.getStatus(),
+        return new CommissionPolicyResponse(policy.getId(), policy.getPolicyCode(), policy.getCommissionType(), policy.getPlatformCode(), policy.getCountryCode(), policy.getRoleCode(), policy.getMaxRewardLevel(), policy.getStatus(),
                 policy.getEffectiveFrom(), policy.getEffectiveTo(), policy.getCreatedBy(), policy.getApprovedBy(), policy.getApprovedAt(), policy.getApprovalNote(),
                 List.of(levelResponse(policy, 1), levelResponse(policy, 2), levelResponse(policy, 3)));
     }
@@ -105,7 +105,7 @@ public class CommissionPolicyService {
     private void audit(AdminSessionService.AdminPrincipal actor, CommissionPolicy policy, String action, String before, String after, String remark) {
         audits.save(OperationAuditLog.create(actor.accountId(), actor.role(), MODULE, "commission_policy", policy.getId(), action, before, after, null, remark, LocalDateTime.now(clock)));
     }
-    private String snapshot(CommissionPolicy policy) { return String.format(Locale.ROOT, "code=%s,scope=%s/%s/%s,max=%d,status=%s,effective=%s..%s", policy.getPolicyCode(), policy.getPlatformCode(), policy.getCountryCode(), policy.getRoleCode(), policy.getMaxRewardLevel(), policy.getStatus(), policy.getEffectiveFrom(), policy.getEffectiveTo()); }
+    private String snapshot(CommissionPolicy policy) { return String.format(Locale.ROOT, "code=%s,type=%s,scope=%s/%s/%s,max=%d,status=%s,effective=%s..%s", policy.getPolicyCode(), policy.getCommissionType(), policy.getPlatformCode(), policy.getCountryCode(), policy.getRoleCode(), policy.getMaxRewardLevel(), policy.getStatus(), policy.getEffectiveFrom(), policy.getEffectiveTo()); }
     private String normalized(String value) { return value.trim().toUpperCase(Locale.ROOT); }
     private String normalizedPlatform(String value) { String result = normalized(value); if (!"TIMO".equals(result) && !"LINKY".equals(result)) throw new IllegalArgumentException("commission platform must be TIMO or LINKY"); return result; }
     private record Levels(CommissionPolicy.Level one, CommissionPolicy.Level two, CommissionPolicy.Level three) { }

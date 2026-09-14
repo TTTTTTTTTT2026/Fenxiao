@@ -1691,14 +1691,14 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     if (!adminSession || !canRunControlledIncome) return
     setLoading(true); setError('')
     try { setCommissionPolicies(await getAdminCommissionPolicies(adminSession.sessionToken)) }
-    catch (err) { setError(err instanceof Error ? err.message : '读取分成规则失败') }
+    catch (err) { setError(err instanceof Error ? err.message : '读取邀请裂变分成规则失败') }
     finally { setLoading(false) }
   }
 
   async function saveCommissionPolicy() {
     if (!adminSession || !canRunControlledIncome) return
     const maxLevel = Number(commissionPolicyForm.maxRewardLevel)
-    if (!commissionPolicyForm.effectiveFrom || !Number.isInteger(maxLevel)) { setError('请填写生效时间和有效的最高分成层级。'); return }
+    if (!commissionPolicyForm.effectiveFrom || !Number.isInteger(maxLevel)) { setError('请填写生效时间和有效的最高邀请分成层级。'); return }
     const level = (rewardLevel: number, rate: string, freeze: string) => ({
       rewardLevel, enabled: rewardLevel <= maxLevel, rewardRate: rewardLevel <= maxLevel ? Number(rate) : null, freezeDays: rewardLevel <= maxLevel ? Number(freeze) : null,
     })
@@ -1709,8 +1709,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
         effectiveFrom: new Date(commissionPolicyForm.effectiveFrom).toISOString().slice(0, 19), effectiveTo: commissionPolicyForm.effectiveTo ? new Date(commissionPolicyForm.effectiveTo).toISOString().slice(0, 19) : null,
         levels: [level(1, commissionPolicyForm.level1Rate, commissionPolicyForm.level1FreezeDays), level(2, commissionPolicyForm.level2Rate, commissionPolicyForm.level2FreezeDays), level(3, commissionPolicyForm.level3Rate, commissionPolicyForm.level3FreezeDays)],
       })
-      setCommissionPolicies((current) => [saved, ...(current ?? [])]); setIsCommissionPolicyDialogOpen(false); setSuccessMessage(`已建立待审分成策略 ${saved.policyCode}；尚未启用，也未触发发奖。`)
-    } catch (err) { setError(err instanceof Error ? err.message : '建立分成策略失败') }
+      setCommissionPolicies((current) => [saved, ...(current ?? [])]); setIsCommissionPolicyDialogOpen(false); setSuccessMessage(`已建立待审邀请裂变策略 ${saved.policyCode}；尚未启用，也未触发发奖。`)
+    } catch (err) { setError(err instanceof Error ? err.message : '建立邀请裂变策略失败') }
     finally { setLoading(false) }
   }
 
@@ -1726,8 +1726,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     setLoading(true); setError(''); setSuccessMessage('')
     try {
       const saved = await activateAdminCommissionPolicy(adminSession.sessionToken, policy.id, approvalNote.trim())
-      setCommissionPolicies((current) => (current ?? []).map((item) => item.id === saved.id ? saved : item)); setSuccessMessage(`已启用 ${saved.policyCode}；仅供收入影子账本候选演算使用。`)
-    } catch (err) { setError(err instanceof Error ? err.message : '启用分成策略失败') }
+      setCommissionPolicies((current) => (current ?? []).map((item) => item.id === saved.id ? saved : item)); setSuccessMessage(`已启用 ${saved.policyCode}；仅供邀请裂变收入影子账本候选演算使用。`)
+    } catch (err) { setError(err instanceof Error ? err.message : '启用邀请裂变策略失败') }
     finally { setLoading(false) }
   }
 
@@ -1737,7 +1737,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     try {
       const saved = await retireAdminCommissionPolicy(adminSession.sessionToken, policy.id)
       setCommissionPolicies((current) => (current ?? []).map((item) => item.id === saved.id ? saved : item)); setSuccessMessage(`已停止使用 ${saved.policyCode}。`)
-    } catch (err) { setError(err instanceof Error ? err.message : '停止分成策略失败') }
+    } catch (err) { setError(err instanceof Error ? err.message : '停止邀请裂变策略失败') }
     finally { setLoading(false) }
   }
 
@@ -2410,15 +2410,15 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           ) : null}
 
           {activeAdminSection === 'commissionPolicies' && canRunControlledIncome ? (
-            <PanelSection sectionId="admin-commission-policies" eyebrow="Finance-only · no payout effect" title="分成规则" description="配置收入发生时应向上追溯几层，以及各层候选比例和冻结期。邀请关系仍保留三层；未启用的层级不会被当作 0% 规则。此页不会创建奖励、余额或付款。" action={<button className="ghost-btn" onClick={() => void loadCommissionPolicies()} disabled={loading}>刷新规则</button>}>
+            <PanelSection sectionId="admin-commission-policies" eyebrow="Invitation commission · no payout effect" title="邀请裂变分成规则" description="仅配置邀请链收入的分成层级、比例和冻结期。它不包含导师分成或运营分红；两者将由独立业务规则与账本处理。此页不会创建奖励、余额或付款。" action={<button className="ghost-btn" onClick={() => void loadCommissionPolicies()} disabled={loading}>刷新规则</button>}>
               <div className="stack-gap">
-                <InfoCard title="新增待审规则" tone="neutral">
-                  <p>建立规则时将在弹窗内填写范围、层级比例与生效时间；保存后仍需单独审批启用。</p>
-                  <button className="primary-btn top-gap" onClick={() => setIsCommissionPolicyDialogOpen(true)} disabled={loading}>新增分成规则</button>
+                <InfoCard title="新增待审邀请裂变规则" tone="neutral">
+                  <p>建立规则时将在弹窗内填写邀请链收入的适用范围、层级比例与生效时间；保存后仍需单独审批启用。</p>
+                  <button className="primary-btn top-gap" onClick={() => setIsCommissionPolicyDialogOpen(true)} disabled={loading}>新增邀请裂变规则</button>
                 </InfoCard>
-                <InfoCard title="已保存的规则版本" tone="neutral">
-                  {(commissionPolicies ?? []).length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>规则版本</th><th>范围</th><th>最高层级</th><th>各层比例 / 冻结</th><th>生效期</th><th>状态</th><th>操作</th></tr></thead><tbody>{(commissionPolicies ?? []).map((policy) => <tr key={policy.id}><td>{policy.policyCode}</td><td>{policy.platformCode} / {policy.countryCode} / {policy.roleCode}</td><td>{policy.maxRewardLevel}</td><td>{policy.levels.filter((level) => level.enabled).map((level) => `L${level.rewardLevel} ${level.rewardRate} / ${level.freezeDays}天`).join('；') || '-'}</td><td>{formatDateTime(policy.effectiveFrom)} {policy.effectiveTo ? `至 ${formatDateTime(policy.effectiveTo)}` : '起长期有效'}</td><td>{policy.status === 'DRAFT' ? '待审' : policy.status === 'ACTIVE' ? '已启用' : '已停用'}</td><td>{policy.status === 'DRAFT' ? <button className="primary-btn small-btn" onClick={() => void handleActivateCommissionPolicy(policy)} disabled={loading}>审批并启用</button> : policy.status === 'ACTIVE' ? <button className="ghost-btn small-btn" onClick={() => void handleRetireCommissionPolicy(policy)} disabled={loading}>停止使用</button> : '-'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未配置分成规则" description="先建立一条待审规则。建议当前只启用第 1 层，以实现 A-B 直接分成。" />}
-                  <InlineHint text="规则按收入发生时间读取：以后改变规则，不会重写已保存的候选演算。审批和停用均写入运营审计记录。" />
+                <InfoCard title="已保存的邀请裂变规则版本" tone="neutral">
+                  {(commissionPolicies ?? []).length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>规则版本</th><th>适用范围</th><th>最高邀请层级</th><th>各层比例 / 冻结</th><th>生效期</th><th>状态</th><th>操作</th></tr></thead><tbody>{(commissionPolicies ?? []).map((policy) => <tr key={policy.id}><td>{policy.policyCode}</td><td>{policy.platformCode} / {policy.countryCode} / {policy.roleCode}</td><td>{policy.maxRewardLevel}</td><td>{policy.levels.filter((level) => level.enabled).map((level) => `L${level.rewardLevel} ${level.rewardRate} / ${level.freezeDays}天`).join('；') || '-'}</td><td>{formatDateTime(policy.effectiveFrom)} {policy.effectiveTo ? `至 ${formatDateTime(policy.effectiveTo)}` : '起长期有效'}</td><td>{policy.status === 'DRAFT' ? '待审' : policy.status === 'ACTIVE' ? '已启用' : '已停用'}</td><td>{policy.status === 'DRAFT' ? <button className="primary-btn small-btn" onClick={() => void handleActivateCommissionPolicy(policy)} disabled={loading}>审批并启用</button> : policy.status === 'ACTIVE' ? <button className="ghost-btn small-btn" onClick={() => void handleRetireCommissionPolicy(policy)} disabled={loading}>停止使用</button> : '-'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未配置邀请裂变规则" description="先建立一条待审规则。建议当前只启用第 1 层，以实现 A-B 直接分成。" />}
+                  <InlineHint text="此规则只按邀请链收入发生时间读取；导师分成与运营分红不在本页配置。以后改变规则不会重写已保存的候选演算，审批和停用均写入运营审计记录。" />
                 </InfoCard>
               </div>
             </PanelSection>
@@ -3221,9 +3221,9 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
 
       {isCommissionPolicyDialogOpen ? (
         <ConfirmDialog
-          title="新增待审分成规则"
+          title="新增待审邀请裂变规则"
           tone="primary"
-          confirmText="建立待审规则"
+          confirmText="建立待审邀请裂变规则"
           loading={loading}
           confirmDisabled={!commissionPolicyForm.countryCode.trim() || !commissionPolicyForm.roleCode.trim() || !commissionPolicyForm.effectiveFrom}
           onCancel={() => setIsCommissionPolicyDialogOpen(false)}
@@ -3232,13 +3232,13 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           <form className="grid-form compact-form exception-filter-grid" onSubmit={handleCreateCommissionPolicy}>
             <label>平台<select value={commissionPolicyForm.platformCode} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, platformCode: event.target.value })}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label>
             <label>归属国家<input required maxLength={10} value={commissionPolicyForm.countryCode} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, countryCode: event.target.value.toUpperCase() })} placeholder="例如 BR" /></label>
-            <label>用户角色<input required value={commissionPolicyForm.roleCode} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, roleCode: event.target.value.toUpperCase() })} /></label>
-            <label>最高分成层级<select value={commissionPolicyForm.maxRewardLevel} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, maxRewardLevel: event.target.value })}><option value="1">仅直接邀请（A-B）</option><option value="2">两层分成（A-B-C）</option><option value="3">三层分成（A-B-C-D）</option></select></label>
+            <label>收入来源用户角色<input required value={commissionPolicyForm.roleCode} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, roleCode: event.target.value.toUpperCase() })} /><small>以产生收入的被邀请用户角色匹配，不是邀请人角色。</small></label>
+            <label>最高邀请分成层级<select value={commissionPolicyForm.maxRewardLevel} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, maxRewardLevel: event.target.value })}><option value="1">仅直接邀请（A-B）</option><option value="2">两层邀请分成（A-B-C）</option><option value="3">三层邀请分成（A-B-C-D）</option></select></label>
             <label>生效时间<input required type="datetime-local" value={commissionPolicyForm.effectiveFrom} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, effectiveFrom: event.target.value })} /></label>
             <label>失效时间（可选）<input type="datetime-local" value={commissionPolicyForm.effectiveTo} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, effectiveTo: event.target.value })} /></label>
             {([1, 2, 3] as const).map((level) => { const enabled = level <= Number(commissionPolicyForm.maxRewardLevel); const rateKey = `level${level}Rate` as 'level1Rate' | 'level2Rate' | 'level3Rate'; const freezeKey = `level${level}FreezeDays` as 'level1FreezeDays' | 'level2FreezeDays' | 'level3FreezeDays'; return <div className="relation-grid" key={level}><strong>第 {level} 层：{enabled ? '启用' : '不启用'}</strong><label>比例<input disabled={!enabled} required={enabled} inputMode="decimal" value={commissionPolicyForm[rateKey]} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, [rateKey]: event.target.value })} /></label><label>冻结天数<input disabled={!enabled} required={enabled} inputMode="numeric" value={commissionPolicyForm[freezeKey]} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, [freezeKey]: event.target.value.replace(/\D/g, '') })} /></label></div> })}
           </form>
-          <InlineHint text="建立后仍为待审状态；审批启用前不会影响候选演算，更不会触发发奖。" />
+          <InlineHint text="本规则类型固定为“邀请裂变分成”。建立后仍为待审状态；审批启用前不会影响候选演算，更不会触发发奖。" />
         </ConfirmDialog>
       ) : null}
 
@@ -3400,7 +3400,7 @@ function AdminNavIcon({ label }: { label: string }) {
   if (label === '绑定关系') return <LinkSimple {...props} />
   if (label === '用户管理') return <IdentificationCard {...props} />
   if (label === '收益提现') return <Wallet {...props} />
-  if (label === '分成规则') return <Diamond {...props} />
+  if (label === '邀请裂变分成') return <Diamond {...props} />
   if (label === '账号中心') return <UsersThree {...props} />
   return <GearSix {...props} />
 }

@@ -1,0 +1,1 @@
+ALTER TABLE commission_policy ADD COLUMN commission_type VARCHAR(32) NOT NULL DEFAULT 'INVITATION';

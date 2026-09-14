@@ -14,7 +14,7 @@ public interface CommissionPolicyRepository extends JpaRepository<CommissionPoli
 
     @Query("""
             select p from CommissionPolicy p where p.platformCode = :platformCode and p.countryCode = :countryCode
-              and p.roleCode = :roleCode and p.status = 'ACTIVE' and p.effectiveFrom <= :at
+              and p.roleCode = :roleCode and p.commissionType = 'INVITATION' and p.status = 'ACTIVE' and p.effectiveFrom <= :at
               and (p.effectiveTo is null or p.effectiveTo >= :at) order by p.effectiveFrom desc, p.id desc
             """)
     List<CommissionPolicy> findActiveAt(@Param("platformCode") String platformCode, @Param("countryCode") String countryCode,
