@@ -7201,6 +7201,23 @@ code {
 .admin-console-v3 .grid-form,
 .admin-console-v3 .admin-filter-bar { gap: 12px; }
 .admin-console-v3 label { color: #57534e; font-size: 12px; font-weight: 600; }
+.admin-console-v3 .checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  align-self: end;
+  gap: 8px;
+  min-height: 36px;
+  color: var(--admin-text);
+  white-space: nowrap;
+}
+.admin-console-v3 .checkbox-label input[type='checkbox'] {
+  width: 16px;
+  min-width: 16px;
+  height: 16px;
+  min-height: 16px;
+  margin: 0;
+  padding: 0;
+}
 .admin-console-v3 input,
 .admin-console-v3 select,
 .admin-console-v3 textarea {

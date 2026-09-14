@@ -440,7 +440,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [incomeRewardCandidateItems, setIncomeRewardCandidateItems] = useState<McnIncomeRewardCandidateItemResponse[]>([])
   const [commissionPolicies, setCommissionPolicies] = useState<CommissionPolicyResponse[] | null>(null)
   const [isCommissionPolicyDialogOpen, setIsCommissionPolicyDialogOpen] = useState(false)
-  const [commissionPolicyForm, setCommissionPolicyForm] = useState({ platformCode: 'TIMO', countryCode: 'BR', maxRewardLevel: '1', effectiveFrom: '', effectiveTo: '', level1Rate: '0.10', level1FreezeDays: '7', level2Rate: '0.02', level2FreezeDays: '7', level3Rate: '0.005', level3FreezeDays: '7' })
+  const [commissionPolicyForm, setCommissionPolicyForm] = useState({ platformCode: 'TIMO', countryCode: 'BR', effectiveFrom: '', effectiveTo: '', level1Enabled: true, level1Rate: '0.10', level1FreezeDays: '7', level2Enabled: false, level2Rate: '0.02', level2FreezeDays: '7', level3Enabled: false, level3Rate: '0.005', level3FreezeDays: '7' })
   const [platformVerificationMockForm, setPlatformVerificationMockForm] = useState({
     platformCode: 'TIMO', platformUserId: '', globallySeenBeforeSubmission: false, joinedTargetGuild: true,
     officialGuildId: '22000448', officialJoinedAt: '', sourceReference: '', enabled: true,
@@ -1697,10 +1697,11 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
 
   async function saveCommissionPolicy() {
     if (!adminSession || !canRunControlledIncome) return
-    const maxLevel = Number(commissionPolicyForm.maxRewardLevel)
-    if (!commissionPolicyForm.effectiveFrom || !Number.isInteger(maxLevel)) { setError('请填写生效时间和有效的最高邀请分成层级。'); return }
-    const level = (rewardLevel: number, rate: string, freeze: string) => ({
-      rewardLevel, enabled: rewardLevel <= maxLevel, rewardRate: rewardLevel <= maxLevel ? Number(rate) : null, freezeDays: rewardLevel <= maxLevel ? Number(freeze) : null,
+    if (!commissionPolicyForm.effectiveFrom) { setError('请填写生效时间。'); return }
+    const levelEnabled = (rewardLevel: 1 | 2 | 3) => commissionPolicyForm[`level${rewardLevel}Enabled`]
+    const maxLevel = levelEnabled(3) ? 3 : levelEnabled(2) ? 2 : 1
+    const level = (rewardLevel: 1 | 2 | 3, rate: string, freeze: string) => ({
+      rewardLevel, enabled: levelEnabled(rewardLevel), rewardRate: levelEnabled(rewardLevel) ? Number(rate) : null, freezeDays: levelEnabled(rewardLevel) ? Number(freeze) : null,
     })
     setLoading(true); setError(''); setSuccessMessage('')
     try {
@@ -2413,7 +2414,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             <PanelSection sectionId="admin-commission-policies" eyebrow="Invitation commission · no payout effect" title="邀请裂变分成规则" description="仅配置邀请链收入的分成层级、比例和冻结期。它不包含导师分成或运营分红；两者将由独立业务规则与账本处理。此页不会创建奖励、余额或付款。" action={<button className="ghost-btn" onClick={() => void loadCommissionPolicies()} disabled={loading}>刷新规则</button>}>
               <div className="stack-gap">
                 <InfoCard title="新增待审邀请裂变规则" tone="neutral">
-                  <p>建立规则时将在弹窗内填写邀请链收入的适用范围、层级比例与生效时间；保存后仍需单独审批启用。</p>
+                  <p>建立规则时将在弹窗内选择适用国家，并逐层开启邀请分成、填写比例与生效时间；保存后仍需单独审批启用。</p>
                   <button className="primary-btn top-gap" onClick={() => setIsCommissionPolicyDialogOpen(true)} disabled={loading}>新增邀请裂变规则</button>
                 </InfoCard>
                 <InfoCard title="已保存的邀请裂变规则版本" tone="neutral">
@@ -3231,11 +3232,21 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
         >
           <form className="grid-form compact-form exception-filter-grid" onSubmit={handleCreateCommissionPolicy}>
             <label>平台<select value={commissionPolicyForm.platformCode} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, platformCode: event.target.value })}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label>
-            <label>归属国家<input required maxLength={10} value={commissionPolicyForm.countryCode} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, countryCode: event.target.value.toUpperCase() })} placeholder="例如 BR" /></label>
-            <label>最高邀请分成层级<select value={commissionPolicyForm.maxRewardLevel} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, maxRewardLevel: event.target.value })}><option value="1">仅直接邀请（A-B）</option><option value="2">两层邀请分成（A-B-C）</option><option value="3">三层邀请分成（A-B-C-D）</option></select></label>
+            <label>归属国家<select value={commissionPolicyForm.countryCode} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, countryCode: event.target.value })}>{phoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names.zh}（{country.countryCode}）</option>)}</select></label>
             <label>生效时间<input required type="datetime-local" value={commissionPolicyForm.effectiveFrom} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, effectiveFrom: event.target.value })} /></label>
             <label>失效时间（可选）<input type="datetime-local" value={commissionPolicyForm.effectiveTo} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, effectiveTo: event.target.value })} /></label>
-            {([1, 2, 3] as const).map((level) => { const enabled = level <= Number(commissionPolicyForm.maxRewardLevel); const rateKey = `level${level}Rate` as 'level1Rate' | 'level2Rate' | 'level3Rate'; const freezeKey = `level${level}FreezeDays` as 'level1FreezeDays' | 'level2FreezeDays' | 'level3FreezeDays'; return <div className="relation-grid" key={level}><strong>第 {level} 层：{enabled ? '启用' : '不启用'}</strong><label>比例<input disabled={!enabled} required={enabled} inputMode="decimal" value={commissionPolicyForm[rateKey]} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, [rateKey]: event.target.value })} /></label><label>冻结天数<input disabled={!enabled} required={enabled} inputMode="numeric" value={commissionPolicyForm[freezeKey]} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, [freezeKey]: event.target.value.replace(/\D/g, '') })} /></label></div> })}
+            {([1, 2, 3] as const).map((level) => {
+              const enabledKey = `level${level}Enabled` as 'level1Enabled' | 'level2Enabled' | 'level3Enabled'
+              const rateKey = `level${level}Rate` as 'level1Rate' | 'level2Rate' | 'level3Rate'
+              const freezeKey = `level${level}FreezeDays` as 'level1FreezeDays' | 'level2FreezeDays' | 'level3FreezeDays'
+              const enabled = commissionPolicyForm[enabledKey]
+              const canToggle = level === 1 || commissionPolicyForm[`level${level - 1}Enabled` as 'level1Enabled' | 'level2Enabled']
+              const toggleLevel = (checked: boolean) => {
+                if (level === 1) return
+                setCommissionPolicyForm({ ...commissionPolicyForm, [enabledKey]: checked, ...(level === 2 && !checked ? { level3Enabled: false } : {}) })
+              }
+              return <div className="relation-grid" key={level}><strong>第 {level} 层{level === 1 ? '（直接邀请）' : ''}</strong><label className="checkbox-label"><input type="checkbox" checked={enabled} disabled={level === 1 || !canToggle} onChange={(event) => toggleLevel(event.target.checked)} />启用本层</label><label>比例<input disabled={!enabled} required={enabled} inputMode="decimal" value={commissionPolicyForm[rateKey]} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, [rateKey]: event.target.value })} /></label><label>冻结天数<input disabled={!enabled} required={enabled} inputMode="numeric" value={commissionPolicyForm[freezeKey]} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, [freezeKey]: event.target.value.replace(/\D/g, '') })} /></label>{level === 1 ? <small>直接邀请层为邀请裂变的基础层，必须启用。</small> : !canToggle ? <small>请先启用上一层。</small> : null}</div>
+            })}
           </form>
           <InlineHint text="本规则类型固定为“邀请裂变分成”。建立后仍为待审状态；审批启用前不会影响候选演算，更不会触发发奖。" />
         </ConfirmDialog>
