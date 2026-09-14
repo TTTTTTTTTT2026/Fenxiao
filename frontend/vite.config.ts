@@ -10,7 +10,8 @@ export default defineConfig({
     allowedHosts,
     proxy: {
       '/api': 'http://127.0.0.1:8080',
-      '/admin': 'http://127.0.0.1:8080',
+      // `/admin` is the React admin page. Only `/admin/...` is a backend API prefix.
+      '^/admin/.+': 'http://127.0.0.1:8080',
     },
   },
   preview: {
