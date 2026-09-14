@@ -7218,6 +7218,48 @@ code {
   margin: 0;
   padding: 0;
 }
+.admin-console-v3 .commission-level-list {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 10px;
+}
+.admin-console-v3 .commission-level-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  background: #fff;
+}
+.admin-console-v3 .commission-level-card.is-disabled { background: var(--admin-surface-subtle); }
+.admin-console-v3 .commission-level-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.admin-console-v3 .commission-level-heading > div { display: grid; gap: 2px; }
+.admin-console-v3 .commission-level-heading strong { color: var(--admin-text); font-size: 14px; }
+.admin-console-v3 .commission-level-heading span:not(.commission-level-fixed) { color: var(--admin-text-muted); font-size: 12px; }
+.admin-console-v3 .commission-level-fixed {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #047857;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.admin-console-v3 .commission-level-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 180px));
+  gap: 10px;
+}
+.admin-console-v3 .commission-level-card small { color: var(--admin-text-muted); font-size: 12px; }
+@media (max-width: 560px) {
+  .admin-console-v3 .commission-level-heading { align-items: flex-start; flex-direction: column; }
+  .admin-console-v3 .commission-level-fields { grid-template-columns: 1fr; }
+}
 .admin-console-v3 input,
 .admin-console-v3 select,
 .admin-console-v3 textarea {

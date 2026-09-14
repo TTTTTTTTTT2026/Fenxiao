@@ -3235,18 +3235,31 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             <label>归属国家<select value={commissionPolicyForm.countryCode} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, countryCode: event.target.value })}>{phoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names.zh}（{country.countryCode}）</option>)}</select></label>
             <label>生效时间<input required type="datetime-local" value={commissionPolicyForm.effectiveFrom} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, effectiveFrom: event.target.value })} /></label>
             <label>失效时间（可选）<input type="datetime-local" value={commissionPolicyForm.effectiveTo} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, effectiveTo: event.target.value })} /></label>
-            {([1, 2, 3] as const).map((level) => {
-              const enabledKey = `level${level}Enabled` as 'level1Enabled' | 'level2Enabled' | 'level3Enabled'
-              const rateKey = `level${level}Rate` as 'level1Rate' | 'level2Rate' | 'level3Rate'
-              const freezeKey = `level${level}FreezeDays` as 'level1FreezeDays' | 'level2FreezeDays' | 'level3FreezeDays'
-              const enabled = commissionPolicyForm[enabledKey]
-              const canToggle = level === 1 || commissionPolicyForm[`level${level - 1}Enabled` as 'level1Enabled' | 'level2Enabled']
-              const toggleLevel = (checked: boolean) => {
-                if (level === 1) return
-                setCommissionPolicyForm({ ...commissionPolicyForm, [enabledKey]: checked, ...(level === 2 && !checked ? { level3Enabled: false } : {}) })
-              }
-              return <div className="relation-grid" key={level}><strong>第 {level} 层{level === 1 ? '（直接邀请）' : ''}</strong><label className="checkbox-label"><input type="checkbox" checked={enabled} disabled={level === 1 || !canToggle} onChange={(event) => toggleLevel(event.target.checked)} />启用本层</label><label>比例<input disabled={!enabled} required={enabled} inputMode="decimal" value={commissionPolicyForm[rateKey]} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, [rateKey]: event.target.value })} /></label><label>冻结天数<input disabled={!enabled} required={enabled} inputMode="numeric" value={commissionPolicyForm[freezeKey]} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, [freezeKey]: event.target.value.replace(/\D/g, '') })} /></label>{level === 1 ? <small>直接邀请层为邀请裂变的基础层，必须启用。</small> : !canToggle ? <small>请先启用上一层。</small> : null}</div>
-            })}
+            <div className="commission-level-list">
+              {([1, 2, 3] as const).map((level) => {
+                const enabledKey = `level${level}Enabled` as 'level1Enabled' | 'level2Enabled' | 'level3Enabled'
+                const rateKey = `level${level}Rate` as 'level1Rate' | 'level2Rate' | 'level3Rate'
+                const freezeKey = `level${level}FreezeDays` as 'level1FreezeDays' | 'level2FreezeDays' | 'level3FreezeDays'
+                const enabled = commissionPolicyForm[enabledKey]
+                const canToggle = level === 1 || commissionPolicyForm[`level${level - 1}Enabled` as 'level1Enabled' | 'level2Enabled']
+                const toggleLevel = (checked: boolean) => {
+                  if (level === 1) return
+                  setCommissionPolicyForm({ ...commissionPolicyForm, [enabledKey]: checked, ...(level === 2 && !checked ? { level3Enabled: false } : {}) })
+                }
+                const levelCopy = level === 1 ? '直接邀请（A 邀请 B）' : level === 2 ? '二级邀请（A-B-C）' : '三级邀请（A-B-C-D）'
+                return <section className={`commission-level-card ${enabled ? 'is-enabled' : 'is-disabled'}`} key={level}>
+                  <div className="commission-level-heading">
+                    <div><strong>第 {level} 层</strong><span>{levelCopy}</span></div>
+                    {level === 1 ? <span className="commission-level-fixed">基础层 · 固定启用</span> : <label className="checkbox-label"><input type="checkbox" checked={enabled} disabled={!canToggle} onChange={(event) => toggleLevel(event.target.checked)} />启用本层</label>}
+                  </div>
+                  <div className="commission-level-fields">
+                    <label>分成比例<input disabled={!enabled} required={enabled} inputMode="decimal" value={commissionPolicyForm[rateKey]} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, [rateKey]: event.target.value })} /></label>
+                    <label>冻结天数<input disabled={!enabled} required={enabled} inputMode="numeric" value={commissionPolicyForm[freezeKey]} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, [freezeKey]: event.target.value.replace(/\D/g, '') })} /></label>
+                  </div>
+                  {level === 1 ? <small>直接邀请层是邀请裂变规则的基础，必须启用。</small> : !canToggle ? <small>请先启用第 {level - 1} 层后，再开启本层。</small> : !enabled ? <small>本层关闭，不参与候选演算。</small> : null}
+                </section>
+              })}
+            </div>
           </form>
           <InlineHint text="本规则类型固定为“邀请裂变分成”。建立后仍为待审状态；审批启用前不会影响候选演算，更不会触发发奖。" />
         </ConfirmDialog>
