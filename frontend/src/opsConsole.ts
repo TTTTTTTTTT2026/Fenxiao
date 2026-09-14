@@ -174,8 +174,8 @@ export function buildAdminSectionLinks(role?: string): AdminSectionLink[] {
       href: '#admin-rewards',
     },
     {
-      label: '分成规则',
-      description: '配置分成层级与比例。',
+      label: '邀请裂变分成',
+      description: '配置邀请链收入的分成层级与比例。',
       href: '#admin-commission-policies',
     },
     {

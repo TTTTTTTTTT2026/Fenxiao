@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/** Finance-only versioned commission configuration. It never enables payouts. */
+/** Finance-only invitation commission configuration. Mentor commission and operating dividends use separate modules. */
 @RestController
 @RequestMapping("/admin/commission-policies")
 public class CommissionPolicyAdminController {

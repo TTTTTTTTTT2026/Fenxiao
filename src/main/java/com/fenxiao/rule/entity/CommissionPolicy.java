@@ -6,16 +6,18 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/** Versioned configuration for the candidate ledger. It does not create rewards or wallet movements. */
+/** Versioned invitation-commission configuration for the candidate ledger. It excludes mentor commission and operating dividends. */
 @Entity
 @Table(name = "commission_policy")
 public class CommissionPolicy extends BaseEntity {
     public static final String DRAFT = "DRAFT";
     public static final String ACTIVE = "ACTIVE";
     public static final String RETIRED = "RETIRED";
+    public static final String INVITATION = "INVITATION";
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
     @Column(name = "policy_code", nullable = false, length = 64) private String policyCode;
+    @Column(name = "commission_type", nullable = false, length = 32) private String commissionType;
     @Column(name = "platform_code", nullable = false, length = 32) private String platformCode;
     @Column(name = "country_code", nullable = false, length = 10) private String countryCode;
     @Column(name = "role_code", nullable = false, length = 32) private String roleCode;
@@ -45,7 +47,7 @@ public class CommissionPolicy extends BaseEntity {
                                          boolean l3Enabled, BigDecimal l3Rate, Integer l3Freeze,
                                          LocalDateTime effectiveFrom, LocalDateTime effectiveTo, Long createdBy) {
         CommissionPolicy policy = new CommissionPolicy();
-        policy.policyCode = code; policy.platformCode = platform; policy.countryCode = country; policy.roleCode = role;
+        policy.policyCode = code; policy.commissionType = INVITATION; policy.platformCode = platform; policy.countryCode = country; policy.roleCode = role;
         policy.maxRewardLevel = maxLevel; policy.level1Enabled = l1Enabled; policy.level1Rate = l1Rate; policy.level1FreezeDays = l1Freeze;
         policy.level2Enabled = l2Enabled; policy.level2Rate = l2Rate; policy.level2FreezeDays = l2Freeze;
         policy.level3Enabled = l3Enabled; policy.level3Rate = l3Rate; policy.level3FreezeDays = l3Freeze;
@@ -57,6 +59,7 @@ public class CommissionPolicy extends BaseEntity {
     public void retire() { status = RETIRED; }
     public Long getId() { return id; }
     public String getPolicyCode() { return policyCode; }
+    public String getCommissionType() { return commissionType; }
     public String getPlatformCode() { return platformCode; }
     public String getCountryCode() { return countryCode; }
     public String getRoleCode() { return roleCode; }
