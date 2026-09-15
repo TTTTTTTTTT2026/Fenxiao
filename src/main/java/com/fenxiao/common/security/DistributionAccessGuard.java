@@ -149,6 +149,10 @@ public class DistributionAccessGuard {
         return adminSessionService.assertPermission(sessionToken, AdminPermission.MENTOR_MANAGE);
     }
 
+    public AdminSessionService.AdminPrincipal assertMentorReadAccess(String token, String sessionToken) {
+        return adminSessionService.assertPermission(sessionToken, AdminPermission.MENTOR_READ);
+    }
+
     public AdminSessionService.AdminPrincipal assertTeamManageAccess(String token, String sessionToken) {
         return adminSessionService.assertPermission(sessionToken, AdminPermission.TEAM_MANAGE);
     }

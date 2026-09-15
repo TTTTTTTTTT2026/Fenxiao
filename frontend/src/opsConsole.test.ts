@@ -191,8 +191,13 @@ describe('buildAdminSectionLinks', () => {
         href: '#admin-commission-policies',
       },
       {
+        label: '导师列表',
+        description: '管理导师资格与学员归属。',
+        href: '#admin-mentors',
+      },
+      {
         label: '导师分成',
-        description: '管理导师资格、里程碑规则与影子核验。',
+        description: '配置导师里程碑规则与影子核验。',
         href: '#admin-mentor-incentives',
       },
       {
@@ -210,7 +215,7 @@ describe('buildAdminSectionLinks', () => {
 
   it('shows finance only the overview, payout workbench, and personal account center', () => {
     expect(buildAdminSectionLinks('finance').map((item) => item.href)).toEqual([
-      '#admin-overview', '#admin-rewards', '#admin-commission-policies', '#admin-mentor-incentives', '#admin-accounts',
+      '#admin-overview', '#admin-rewards', '#admin-commission-policies', '#admin-mentors', '#admin-mentor-incentives', '#admin-accounts',
     ])
   })
 

@@ -167,6 +167,7 @@ export type MentorShadowLedgerItemResponse = {
 }
 export type MentorIncentiveDashboardResponse = {
   qualifiedMentorCount: number; assignedStudentCount: number; shadowEntryCount: number
+  mentors: Array<{ userId: number; phoneNumber: string | null; countryCode: string; languageCode: string; qualificationStatus: string; maxActiveStudents: number; assignedStudentCount: number }>
   rules: MentorIncentiveRuleResponse[]; recentShadowEntries: MentorShadowLedgerItemResponse[]
 }
 export type PlatformIntegrationResponse = {

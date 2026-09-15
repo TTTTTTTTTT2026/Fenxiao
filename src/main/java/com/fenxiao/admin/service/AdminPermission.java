@@ -5,6 +5,7 @@ import java.util.Set;
 public enum AdminPermission {
     READ(Set.of("super_admin", "admin", "operator", "operations", "mentor", "team_leader", "finance", "customer_support")),
     WRITE(Set.of("super_admin", "admin", "operations")),
+    MENTOR_READ(Set.of("super_admin", "admin", "operations", "finance")),
     MENTOR_MANAGE(Set.of("super_admin", "admin", "operations")),
     TEAM_MANAGE(Set.of("super_admin", "admin", "operations")),
     FINANCE(Set.of("super_admin", "finance")),
