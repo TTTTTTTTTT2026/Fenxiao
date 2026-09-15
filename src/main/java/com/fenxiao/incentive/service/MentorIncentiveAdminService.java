@@ -23,6 +23,7 @@ import java.util.UUID;
 @Transactional
 public class MentorIncentiveAdminService {
     private static final String MODULE = "mentor_incentive";
+    private static final String MENTOR_REWARD_UNIT = "DIAMOND";
     private final JdbcTemplate jdbc;
     private final OperationAuditLogRepository audits;
     private final Clock clock;
@@ -67,7 +68,7 @@ public class MentorIncentiveAdminService {
         jdbc.update(connection -> {
             PreparedStatement statement = connection.prepareStatement("insert into incentive_rule_version(rule_code,rule_version,reward_type,milestone_code,platform_code,country_code,guild_id,amount_minor,currency_code,freeze_days,effective_from,effective_to,enabled,rule_status,created_by) values(?,1,'MENTOR',?,?,?,?,?,?,?,?,?,false,'DRAFT',?)", new String[]{"id"});
             statement.setString(1, code); statement.setString(2, upper(request.milestoneCode())); statement.setString(3, platform(request.platformCode())); statement.setString(4, upper(request.countryCode())); statement.setString(5, nullable(request.guildId()));
-            statement.setLong(6, request.amountMinor()); statement.setString(7, upper(request.currencyCode())); statement.setInt(8, request.freezeDays()); statement.setObject(9, effectiveFrom); statement.setObject(10, request.effectiveTo()); statement.setLong(11, actor.accountId());
+            statement.setLong(6, request.amountMinor()); statement.setString(7, MENTOR_REWARD_UNIT); statement.setInt(8, request.freezeDays()); statement.setObject(9, effectiveFrom); statement.setObject(10, request.effectiveTo()); statement.setLong(11, actor.accountId());
             return statement;
         }, keys);
         long id = Objects.requireNonNull(keys.getKey()).longValue();
@@ -112,7 +113,7 @@ public class MentorIncentiveAdminService {
     }
     private void validate(MentorIncentiveRuleRequest request) {
         if (request.effectiveTo() != null && request.effectiveFrom() != null && request.effectiveTo().isBefore(request.effectiveFrom())) throw new IllegalArgumentException("effectiveTo must not be before effectiveFrom");
-        platform(request.platformCode()); upper(request.milestoneCode()); upper(request.countryCode()); upper(request.currencyCode());
+        platform(request.platformCode()); upper(request.milestoneCode()); upper(request.countryCode());
     }
     private long count(String sql) { Long value = jdbc.queryForObject(sql, Long.class); return value == null ? 0 : value; }
     private Long nullableLong(java.sql.ResultSet rs, int index) throws java.sql.SQLException { long value = rs.getLong(index); return rs.wasNull() ? null : value; }
