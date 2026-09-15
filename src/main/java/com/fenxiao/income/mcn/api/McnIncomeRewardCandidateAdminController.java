@@ -2,6 +2,7 @@ package com.fenxiao.income.mcn.api;
 
 import com.fenxiao.common.security.DistributionAccessGuard;
 import com.fenxiao.income.mcn.api.dto.McnIncomeRewardCandidateItemResponse;
+import com.fenxiao.income.mcn.api.dto.McnIncomeRewardCandidateSampleResponse;
 import com.fenxiao.income.mcn.api.dto.McnIncomeRewardCandidateSummaryResponse;
 import com.fenxiao.income.mcn.api.dto.McnIncomeShadowLedgerRefreshRequest;
 import com.fenxiao.income.mcn.service.McnIncomeRewardCandidateService;
@@ -51,5 +52,13 @@ public class McnIncomeRewardCandidateAdminController {
                                                              @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate businessDate,
                                                              @RequestParam(defaultValue = "50") int limit) {
         access.assertFinanceAccess(token, session); return service.items(platformCode, businessDate, limit);
+    }
+
+    @GetMapping("/sample")
+    public McnIncomeRewardCandidateSampleResponse sample(@RequestHeader(value = "X-Admin-Token", required = false) String token,
+                                                           @RequestHeader(value = "X-Admin-Session", required = false) String session,
+                                                           @RequestParam String runId,
+                                                           @RequestParam(defaultValue = "10") int limit) {
+        access.assertFinanceAccess(token, session); return service.sample(runId, limit);
     }
 }

@@ -142,6 +142,11 @@ export type McnIncomeRewardCandidateSummaryResponse = {
 export type McnIncomeRewardCandidateItemResponse = {
   sourceEventReference: string; businessDate: string; sourceUserId: number | null; recipientUserId: number | null
   rewardLevel: number; status: string; reason: string; baseAmount: number; candidateAmount: number | null; amountUnit: string
+  invitationVersion: number | null; policyCode: string | null; ruleRate: number | null
+}
+export type McnIncomeRewardCandidateSampleResponse = {
+  runId: string; platformCode: string; businessDate: string; requestedSize: number; availableCount: number
+  candidateAvailableCount: number; blockedAvailableCount: number; items: McnIncomeRewardCandidateItemResponse[]
 }
 export type CommissionPolicyResponse = {
   id: number; policyCode: string; commissionType: 'INVITATION' | string; platformCode: string; countryCode: string
@@ -802,6 +807,9 @@ export function getAdminIncomeRewardCandidateSummary(adminSessionToken: string, 
 }
 export function getAdminIncomeRewardCandidateItems(adminSessionToken: string, platformCode: string, businessDate: string) {
   return request<McnIncomeRewardCandidateItemResponse[]>(`/admin/income-facts/reward-candidates/items?platformCode=${encodeURIComponent(platformCode)}&businessDate=${encodeURIComponent(businessDate)}&limit=50`, { headers: { 'X-Admin-Session': adminSessionToken } })
+}
+export function getAdminIncomeRewardCandidateSample(adminSessionToken: string, runId: string, limit = 10) {
+  return request<McnIncomeRewardCandidateSampleResponse>(`/admin/income-facts/reward-candidates/sample?runId=${encodeURIComponent(runId)}&limit=${limit}`, { headers: { 'X-Admin-Session': adminSessionToken } })
 }
 export function getAdminCommissionPolicies(adminSessionToken: string) {
   return request<CommissionPolicyResponse[]>('/admin/commission-policies', { headers: { 'X-Admin-Session': adminSessionToken } })

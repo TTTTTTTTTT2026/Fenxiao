@@ -25,6 +25,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -61,6 +63,7 @@ class McnIncomeRewardCandidateServiceTest {
         assertThat(result.blockedCount()).isZero();
         assertThat(result.candidateAmount()).isEqualByComparingTo("10.000000");
         assertThat(result.amountUnit()).isEqualTo("TIMO_DIAMOND");
+        verify(fixture.jdbc).update(contains("mcn_income_reward_candidate_run_item"), eq(result.latestRunId()), eq("MCN"), eq("TIMO"), eq(DAY));
     }
 
     @Test
@@ -101,6 +104,14 @@ class McnIncomeRewardCandidateServiceTest {
         assertThat(result.candidateCount()).isEqualTo(1);
         assertThat(result.blockedCount()).isZero();
         verify(fixture.relations, never()).findEffectiveAt(200L, LocalDateTime.ofInstant(OCCURRED, ZoneOffset.UTC));
+    }
+
+    @Test
+    void shouldReserveBothCandidateAndBlockedEvidenceForLargerReviewSamples() {
+        assertThat(McnIncomeRewardCandidateService.sampleQuota(10, 100, 100)).isEqualTo(5);
+        assertThat(McnIncomeRewardCandidateService.sampleQuota(1, 100, 100)).isEqualTo(1);
+        assertThat(McnIncomeRewardCandidateService.sampleQuota(10, 0, 100)).isZero();
+        assertThat(McnIncomeRewardCandidateService.sampleQuota(10, 3, 0)).isEqualTo(3);
     }
 
     private McnIncomeRewardCandidateService.CandidateInput input(Long sourceUserId) {

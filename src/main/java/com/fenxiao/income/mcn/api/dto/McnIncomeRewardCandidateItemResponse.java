@@ -7,4 +7,6 @@ import java.time.LocalDate;
 public record McnIncomeRewardCandidateItemResponse(String sourceEventReference, LocalDate businessDate,
                                                     Long sourceUserId, Long recipientUserId, int rewardLevel,
                                                     String status, String reason, BigDecimal baseAmount,
-                                                    BigDecimal candidateAmount, String amountUnit) { }
+                                                    BigDecimal candidateAmount, String amountUnit,
+                                                    Integer invitationVersion, String policyCode,
+                                                    BigDecimal ruleRate) { }
