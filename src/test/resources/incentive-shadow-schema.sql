@@ -13,6 +13,11 @@ CREATE TABLE IF NOT EXISTS incentive_rule_version (
     effective_from TIMESTAMP NOT NULL,
     effective_to TIMESTAMP,
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    rule_status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE',
+    created_by BIGINT,
+    approved_by BIGINT,
+    approved_at TIMESTAMP,
+    approval_note VARCHAR(255),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
