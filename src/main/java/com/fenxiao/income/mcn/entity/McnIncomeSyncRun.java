@@ -52,6 +52,20 @@ public class McnIncomeSyncRun extends BaseEntity {
         return value;
     }
 
+    public static McnIncomeSyncRun waitingFinality(String runId, String platformCode, String requestedCursor, String requestId,
+                                                    String sourceWatermark, Integer retryAfterSeconds, Instant at) {
+        McnIncomeSyncRun value = base(runId, platformCode, requestedCursor, "WAITING_FINALITY", at);
+        value.requestId = requestId; value.sourceWatermark = sourceWatermark; value.retryAfterSeconds = retryAfterSeconds;
+        return value;
+    }
+
+    public static McnIncomeSyncRun throttled(String runId, String platformCode, String requestedCursor, String errorCode,
+                                              String errorMessage, Integer retryAfterSeconds, Instant at) {
+        McnIncomeSyncRun value = base(runId, platformCode, requestedCursor, "THROTTLED", at);
+        value.errorCode = truncate(errorCode, 64); value.errorMessage = truncate(errorMessage, 512);
+        value.retryAfterSeconds = retryAfterSeconds; return value;
+    }
+
     public static McnIncomeSyncRun failed(String runId, String platformCode, String requestedCursor, String errorCode,
                                           String errorMessage, Integer retryAfterSeconds, Instant at) {
         McnIncomeSyncRun value = base(runId, platformCode, requestedCursor, "FAILED", at);

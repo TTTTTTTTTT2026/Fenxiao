@@ -7,7 +7,8 @@ import java.util.List;
 public record McnIncomeSyncStatusResponse(boolean continuousPullEnabled, int maxPagesPerRun,
                                           List<PlatformStatus> platforms) {
     public record PlatformStatus(String platformCode, String checkpointStatus, Instant lastSuccessAt,
-                                 Instant lastSnapshotAt, String lastErrorCode, String latestRunStatus,
+                                 Instant lastSnapshotAt, String lastWatermarkCompleteness, Instant nextAttemptAt,
+                                 String lastErrorCode, String latestRunStatus,
                                  Instant latestRunAt, int latestReceivedCount, int latestNewCount,
                                  int latestDuplicateCount, int latestUnmatchedCount, Integer retryAfterSeconds) { }
 }

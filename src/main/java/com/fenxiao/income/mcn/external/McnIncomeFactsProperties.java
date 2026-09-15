@@ -20,6 +20,8 @@ public class McnIncomeFactsProperties {
     private int pageSize = 200;
     private int maxPagesPerRun = 10;
     private Duration syncInterval = Duration.ofMinutes(5);
+    /** A non-final daily watermark is never consumable by the scheduled reader. */
+    private Duration finalityRetryDelay = Duration.ofMinutes(15);
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -41,6 +43,8 @@ public class McnIncomeFactsProperties {
     public void setMaxPagesPerRun(int maxPagesPerRun) { this.maxPagesPerRun = maxPagesPerRun; }
     public Duration getSyncInterval() { return syncInterval; }
     public void setSyncInterval(Duration syncInterval) { this.syncInterval = syncInterval; }
+    public Duration getFinalityRetryDelay() { return finalityRetryDelay; }
+    public void setFinalityRetryDelay(Duration finalityRetryDelay) { this.finalityRetryDelay = finalityRetryDelay; }
 
     /** A credential may be installed while both execution switches remain off. */
     public boolean isCredentialConfigured() {

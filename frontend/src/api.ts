@@ -109,6 +109,8 @@ export type McnIncomeSyncStatusResponse = {
     checkpointStatus: string
     lastSuccessAt: string | null
     lastSnapshotAt: string | null
+    lastWatermarkCompleteness: string | null
+    nextAttemptAt: string | null
     lastErrorCode: string | null
     latestRunStatus: string | null
     latestRunAt: string | null

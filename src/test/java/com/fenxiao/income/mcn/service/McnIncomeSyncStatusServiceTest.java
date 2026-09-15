@@ -1,6 +1,7 @@
 package com.fenxiao.income.mcn.service;
 
 import com.fenxiao.income.mcn.api.dto.McnIncomeSyncStatusResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fenxiao.income.mcn.entity.McnIncomeSyncRun;
 import com.fenxiao.income.mcn.external.McnIncomeFactsProperties;
 import com.fenxiao.income.mcn.repository.McnIncomeSyncCheckpointRepository;
@@ -25,7 +26,7 @@ class McnIncomeSyncStatusServiceTest {
         when(runs.findTopByPlatformCodeOrderByCompletedAtDescIdDesc("TIMO")).thenReturn(Optional.empty());
         when(runs.findTopByPlatformCodeOrderByCompletedAtDescIdDesc("LINKY")).thenReturn(Optional.empty());
 
-        McnIncomeSyncStatusResponse result = new McnIncomeSyncStatusService(properties, checkpoints, runs).status();
+        McnIncomeSyncStatusResponse result = new McnIncomeSyncStatusService(properties, checkpoints, runs, new ObjectMapper()).status();
 
         assertThat(result.continuousPullEnabled()).isFalse();
         assertThat(result.maxPagesPerRun()).isEqualTo(100);

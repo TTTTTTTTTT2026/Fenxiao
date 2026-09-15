@@ -96,9 +96,49 @@ class McnIncomePullServiceTest {
 
         McnIncomePullResult result = service(client, rawLedger, checkpoints, runs).pullNextPage("TIMO");
 
-        assertThat(result.status()).isEqualTo("FAILED");
+        assertThat(result.status()).isEqualTo("THROTTLED");
         assertThat(result.retryAfterSeconds()).isEqualTo(60);
         assertThat(checkpoint.getNextCursor()).isEqualTo("cursor-stable");
+        assertThat(checkpoint.getNextAttemptAt()).isEqualTo(NOW.plusSeconds(60));
+        verify(rawLedger, times(0)).accept(any());
+    }
+
+    @Test
+    void doesNotAcceptOrAdvanceAReadyPageUntilTheDailyWatermarkIsFinal() {
+        McnIncomeFactsClient client = mock(McnIncomeFactsClient.class);
+        McnIncomeRawLedgerService rawLedger = mock(McnIncomeRawLedgerService.class);
+        McnIncomeSyncCheckpointRepository checkpoints = mock(McnIncomeSyncCheckpointRepository.class);
+        McnIncomeSyncRunRepository runs = mock(McnIncomeSyncRunRepository.class);
+        McnIncomeSyncCheckpoint checkpoint = McnIncomeSyncCheckpoint.initial("TIMO");
+        checkpoint.advance("cursor-stable", NOW, "{}", NOW);
+        when(checkpoints.findById("TIMO")).thenReturn(Optional.of(checkpoint));
+        when(client.query(any(McnIncomeFactsQuery.class))).thenReturn(pageWithCompleteness("TIMO", "delivery-provisional", "cursor-next", true, "PROVISIONAL"));
+
+        McnIncomePullResult result = service(client, rawLedger, checkpoints, runs).pullNextPage("TIMO");
+
+        assertThat(result.status()).isEqualTo("WAITING_FINALITY");
+        assertThat(result.retryAfterSeconds()).isEqualTo(900);
+        assertThat(checkpoint.getNextCursor()).isEqualTo("cursor-stable");
+        assertThat(checkpoint.getLastSyncStatus()).isEqualTo("WAITING_FINALITY");
+        assertThat(checkpoint.getNextAttemptAt()).isEqualTo(NOW.plusSeconds(900));
+        verify(rawLedger, times(0)).accept(any());
+    }
+
+    @Test
+    void defersWithoutCallingMcnBeforeTheStoredRetryTime() {
+        McnIncomeFactsClient client = mock(McnIncomeFactsClient.class);
+        McnIncomeRawLedgerService rawLedger = mock(McnIncomeRawLedgerService.class);
+        McnIncomeSyncCheckpointRepository checkpoints = mock(McnIncomeSyncCheckpointRepository.class);
+        McnIncomeSyncRunRepository runs = mock(McnIncomeSyncRunRepository.class);
+        McnIncomeSyncCheckpoint checkpoint = McnIncomeSyncCheckpoint.initial("LINKY");
+        checkpoint.waitForFinality("{\"completeness\":\"PROVISIONAL\"}", NOW.plusSeconds(180));
+        when(checkpoints.findById("LINKY")).thenReturn(Optional.of(checkpoint));
+
+        McnIncomePullResult result = service(client, rawLedger, checkpoints, runs).pullNextPage("LINKY");
+
+        assertThat(result.status()).isEqualTo("DEFERRED");
+        assertThat(result.retryAfterSeconds()).isEqualTo(180);
+        verify(client, times(0)).query(any());
         verify(rawLedger, times(0)).accept(any());
     }
 
@@ -115,7 +155,11 @@ class McnIncomePullServiceTest {
     }
 
     private McnIncomeFactsPage page(String platform, String deliveryId, String cursor, boolean hasMore) {
-        return new McnIncomeFactsPage(platform, deliveryId, NOW, "READY", JsonNodeFactory.instance.objectNode(),
+        return pageWithCompleteness(platform, deliveryId, cursor, hasMore, "FINAL");
+    }
+
+    private McnIncomeFactsPage pageWithCompleteness(String platform, String deliveryId, String cursor, boolean hasMore, String completeness) {
+        return new McnIncomeFactsPage(platform, deliveryId, NOW, "READY", JsonNodeFactory.instance.objectNode().put("completeness", completeness),
                 List.of(), cursor, hasMore, null, "request-" + deliveryId);
     }
 
