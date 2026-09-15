@@ -17,6 +17,7 @@ import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.UUID;
@@ -56,19 +57,32 @@ public class McnIncomePullService {
         String requestedCursor = checkpoint.getNextCursor();
         String runId = UUID.randomUUID().toString();
         Instant now = clock.instant();
+        if (!checkpoint.canAttemptAt(now)) {
+            return new McnIncomePullResult(platform, "DEFERRED", null, 0, 0, 0, 0, false,
+                    secondsUntil(checkpoint.getNextAttemptAt(), now));
+        }
         try {
             McnIncomeFactsPage page = client.query(new McnIncomeFactsQuery(platform, requestedCursor,
                     properties.getPageSize(), null, null));
             String watermark = json(page.sourceWatermark());
             if (page.isStale()) {
-                checkpoint.markStale(watermark);
+                int retryAfterSeconds = retryAfter(page.retryAfterSeconds(), properties.getFinalityRetryDelay());
+                checkpoint.markStale(watermark, now.plusSeconds(retryAfterSeconds));
                 checkpointRepository.save(checkpoint);
                 runRepository.save(McnIncomeSyncRun.stale(runId, platform, requestedCursor, page.requestId(),
-                        watermark, page.retryAfterSeconds(), now));
-                return new McnIncomePullResult(platform, "STALE", null, 0, 0, 0, 0, false, page.retryAfterSeconds());
+                        watermark, retryAfterSeconds, now));
+                return new McnIncomePullResult(platform, "STALE", null, 0, 0, 0, 0, false, retryAfterSeconds);
             }
             if (!page.isReady()) {
                 throw new IllegalStateException("MCN income facts response status is unsupported");
+            }
+            if (!isFinal(page.sourceWatermark())) {
+                int retryAfterSeconds = retryAfter(page.retryAfterSeconds(), properties.getFinalityRetryDelay());
+                checkpoint.waitForFinality(watermark, now.plusSeconds(retryAfterSeconds));
+                checkpointRepository.save(checkpoint);
+                runRepository.save(McnIncomeSyncRun.waitingFinality(runId, platform, requestedCursor, page.requestId(),
+                        watermark, retryAfterSeconds, now));
+                return new McnIncomePullResult(platform, "WAITING_FINALITY", null, 0, 0, 0, 0, false, retryAfterSeconds);
             }
             McnIncomeDeliveryResponse receipt = rawLedgerService.accept(new McnIncomeDeliveryRequest(
                     page.deliveryId(), "MCN", platform, page.snapshotAt(), page.sourceWatermark(), page.facts()));
@@ -81,11 +95,19 @@ public class McnIncomePullService {
                     receipt.newFactCount(), receipt.duplicateFactCount(), receipt.unmatchedFactCount(), page.hasMore(), null);
         } catch (McnIncomeFactsTransportException exception) {
             Integer retryAfterSeconds = retryAfterSeconds(exception);
-            checkpoint.fail("HTTP_" + exception.getStatusCode(), exception.getMessage());
+            String errorCode = "HTTP_" + exception.getStatusCode();
+            if (exception.getStatusCode() == 429) {
+                checkpoint.throttle(errorCode, exception.getMessage(), now.plusSeconds(retryAfterSeconds));
+                runRepository.save(McnIncomeSyncRun.throttled(runId, platform, requestedCursor,
+                        errorCode, exception.getMessage(), retryAfterSeconds, now));
+            } else {
+                checkpoint.fail(errorCode, exception.getMessage());
+                runRepository.save(McnIncomeSyncRun.failed(runId, platform, requestedCursor,
+                        errorCode, exception.getMessage(), retryAfterSeconds, now));
+            }
             checkpointRepository.save(checkpoint);
-            runRepository.save(McnIncomeSyncRun.failed(runId, platform, requestedCursor,
-                    "HTTP_" + exception.getStatusCode(), exception.getMessage(), retryAfterSeconds, now));
-            return new McnIncomePullResult(platform, "FAILED", null, 0, 0, 0, 0, false, retryAfterSeconds);
+            return new McnIncomePullResult(platform, exception.getStatusCode() == 429 ? "THROTTLED" : "FAILED",
+                    null, 0, 0, 0, 0, false, retryAfterSeconds);
         } catch (RuntimeException exception) {
             checkpoint.fail("PROCESSING_ERROR", exception.getMessage());
             checkpointRepository.save(checkpoint);
@@ -133,5 +155,20 @@ public class McnIncomePullService {
     private Integer retryAfterSeconds(McnIncomeFactsTransportException exception) {
         if (exception.getRetryAfterSeconds() != null && exception.getRetryAfterSeconds() > 0) return exception.getRetryAfterSeconds();
         return exception.getStatusCode() == 429 ? 60 : null;
+    }
+
+    private boolean isFinal(com.fasterxml.jackson.databind.JsonNode watermark) {
+        return watermark != null && "FINAL".equalsIgnoreCase(watermark.path("completeness").asText());
+    }
+
+    private int retryAfter(Integer supplied, Duration fallback) {
+        if (supplied != null && supplied > 0) return supplied;
+        long seconds = fallback == null ? 60 : fallback.toSeconds();
+        return (int) Math.max(1, Math.min(seconds, 86_400));
+    }
+
+    private int secondsUntil(Instant nextAttemptAt, Instant now) {
+        if (nextAttemptAt == null) return 0;
+        return (int) Math.max(1, Math.min(Duration.between(now, nextAttemptAt).toSeconds(), 86_400));
     }
 }

@@ -31,6 +31,8 @@ public class McnIncomeSyncCheckpoint extends BaseEntity {
     private String lastErrorCode;
     @Column(name = "last_error_message", length = 512)
     private String lastErrorMessage;
+    @Column(name = "next_attempt_at")
+    private Instant nextAttemptAt;
 
     protected McnIncomeSyncCheckpoint() {}
 
@@ -49,17 +51,37 @@ public class McnIncomeSyncCheckpoint extends BaseEntity {
         this.lastSuccessAt = at;
         this.lastErrorCode = null;
         this.lastErrorMessage = null;
+        this.nextAttemptAt = null;
     }
 
-    public void markStale(String sourceWatermark) {
+    public void markStale(String sourceWatermark, Instant nextAttemptAt) {
         this.lastSyncStatus = "STALE";
         this.lastSourceWatermark = sourceWatermark;
+        this.nextAttemptAt = nextAttemptAt;
+        this.lastErrorCode = null;
+        this.lastErrorMessage = null;
+    }
+
+    public void waitForFinality(String sourceWatermark, Instant nextAttemptAt) {
+        this.lastSyncStatus = "WAITING_FINALITY";
+        this.lastSourceWatermark = sourceWatermark;
+        this.nextAttemptAt = nextAttemptAt;
+        this.lastErrorCode = null;
+        this.lastErrorMessage = null;
+    }
+
+    public void throttle(String code, String message, Instant nextAttemptAt) {
+        this.lastSyncStatus = "THROTTLED";
+        this.lastErrorCode = truncate(code, 64);
+        this.lastErrorMessage = truncate(message, 512);
+        this.nextAttemptAt = nextAttemptAt;
     }
 
     public void fail(String code, String message) {
         this.lastSyncStatus = "FAILED";
         this.lastErrorCode = truncate(code, 64);
         this.lastErrorMessage = truncate(message, 512);
+        this.nextAttemptAt = null;
     }
 
     public String getPlatformCode() { return platformCode; }
@@ -68,5 +90,8 @@ public class McnIncomeSyncCheckpoint extends BaseEntity {
     public String getLastSyncStatus() { return lastSyncStatus; }
     public Instant getLastSuccessAt() { return lastSuccessAt; }
     public String getLastErrorCode() { return lastErrorCode; }
+    public String getLastSourceWatermark() { return lastSourceWatermark; }
+    public Instant getNextAttemptAt() { return nextAttemptAt; }
+    public boolean canAttemptAt(Instant at) { return nextAttemptAt == null || !nextAttemptAt.isAfter(at); }
     private static String truncate(String value, int length) { return value == null ? null : value.substring(0, Math.min(value.length(), length)); }
 }
