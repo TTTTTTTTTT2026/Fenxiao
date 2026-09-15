@@ -99,6 +99,7 @@ import {
   getAdminIncomeDataQualityExceptions,
   reviewAdminIncomeDataQualityException,
   getAdminIncomeRewardCandidateItems,
+  getAdminIncomeRewardCandidateSample,
   getAdminIncomeRewardCandidateSummary,
   getAdminCommissionPolicies,
   createAdminCommissionPolicy,
@@ -137,6 +138,7 @@ import {
   type McnIncomeDataQualityResponse,
   type McnIncomeDataQualityExceptionResponse,
   type McnIncomeRewardCandidateItemResponse,
+  type McnIncomeRewardCandidateSampleResponse,
   type McnIncomeRewardCandidateSummaryResponse,
   type CommissionPolicyResponse,
   type OverviewReportResponse,
@@ -447,6 +449,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [incomeShadowReplayReason, setIncomeShadowReplayReason] = useState('')
   const [incomeRewardCandidateResult, setIncomeRewardCandidateResult] = useState<McnIncomeRewardCandidateSummaryResponse | null>(null)
   const [incomeRewardCandidateItems, setIncomeRewardCandidateItems] = useState<McnIncomeRewardCandidateItemResponse[]>([])
+  const [incomeRewardCandidateSample, setIncomeRewardCandidateSample] = useState<McnIncomeRewardCandidateSampleResponse | null>(null)
   const [commissionPolicies, setCommissionPolicies] = useState<CommissionPolicyResponse[] | null>(null)
   const [isCommissionPolicyDialogOpen, setIsCommissionPolicyDialogOpen] = useState(false)
   const [commissionPolicyForm, setCommissionPolicyForm] = useState({ platformCode: 'TIMO', countryCode: 'BR', effectiveFrom: '', effectiveTo: '', level1Enabled: true, level1Rate: '0.10', level1FreezeDays: '7', level2Enabled: false, level2Rate: '0.02', level2FreezeDays: '7', level3Enabled: false, level3Rate: '0.005', level3FreezeDays: '7' })
@@ -1723,6 +1726,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
       const result = await refreshAdminIncomeRewardCandidates(adminSession.sessionToken, incomeShadowForm)
       const items = await getAdminIncomeRewardCandidateItems(adminSession.sessionToken, incomeShadowForm.platformCode, incomeShadowForm.businessDate)
       setIncomeRewardCandidateResult(result); setIncomeRewardCandidateItems(items)
+      setIncomeRewardCandidateSample(null)
       setSuccessMessage('已完成不可支付的奖励候选演算；没有创建奖励、钱包或提现记录。')
     } catch (err) {
       setError(err instanceof Error ? err.message : '演算奖励候选失败')
@@ -1738,8 +1742,21 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
         getAdminIncomeRewardCandidateItems(adminSession.sessionToken, incomeShadowForm.platformCode, incomeShadowForm.businessDate),
       ])
       setIncomeRewardCandidateResult(summary); setIncomeRewardCandidateItems(items)
+      setIncomeRewardCandidateSample(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : '读取奖励候选失败')
+    } finally { setLoading(false) }
+  }
+
+  async function handleLoadIncomeRewardCandidateSample() {
+    if (!adminSession || !incomeRewardCandidateResult?.latestRunId || !canRunControlledIncome) return
+    setLoading(true); setError(''); setSuccessMessage('')
+    try {
+      const sample = await getAdminIncomeRewardCandidateSample(adminSession.sessionToken, incomeRewardCandidateResult.latestRunId, 10)
+      setIncomeRewardCandidateSample(sample)
+      setSuccessMessage('已从本次候选快照抽取固定核验样本；该操作不会重新演算或改动任何业务数据。')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '读取候选核验样本失败')
     } finally { setLoading(false) }
   }
 
@@ -2469,7 +2486,10 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   <RelationItem label="规则阻断条数" value={incomeRewardCandidateResult.blockedCount} />
                   <RelationItem label="候选金额" value={`${incomeRewardCandidateResult.candidateAmount} ${incomeRewardCandidateResult.amountUnit || ''}`.trim()} />
                 </div><InlineHint text="候选金额只用于业务与财务核对；它不是奖励、余额、可提现金额或付款指令。导师奖励属于独立的生命周期里程碑影子账本，不在此处合算。" />
-                  {incomeRewardCandidateItems.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>事实参考号</th><th>业务层级</th><th>来源用户</th><th>候选受益人</th><th>状态</th><th>候选金额</th><th>依据</th></tr></thead><tbody>{incomeRewardCandidateItems.map((item) => <tr key={`${item.sourceEventReference}:${item.rewardLevel}`}><td>{item.sourceEventReference}</td><td>{item.rewardLevel === 1 ? '二级分销' : item.rewardLevel === 2 ? '三级分销' : '四级分销'}</td><td>{item.sourceUserId || '-'}</td><td>{item.recipientUserId || '-'}</td><td>{item.status === 'CANDIDATE' ? '候选' : '待处理'}</td><td>{item.candidateAmount === null ? '-' : `${item.candidateAmount} ${item.amountUnit}`}</td><td>{item.reason}</td></tr>)}</tbody></table></div> : <InlineHint text="尚无可展示的分佣候选；可能尚未演算、收入未归属，或来源用户在收入发生时未完成平台绑定。" />}
+                  <div className="action-row top-gap"><button className="ghost-btn small-btn" onClick={() => void handleLoadIncomeRewardCandidateSample()} disabled={loading || !incomeRewardCandidateResult.latestRunId}>抽取 10 条核验样本</button></div>
+                  {incomeRewardCandidateItems.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>事实参考号</th><th>业务层级</th><th>来源用户</th><th>候选受益人</th><th>状态</th><th>候选金额</th><th>规则快照</th><th>依据</th></tr></thead><tbody>{incomeRewardCandidateItems.map((item) => <tr key={`${item.sourceEventReference}:${item.rewardLevel}`}><td>{item.sourceEventReference}</td><td>{item.rewardLevel === 1 ? '二级分销' : item.rewardLevel === 2 ? '三级分销' : '四级分销'}</td><td>{item.sourceUserId || '-'}</td><td>{item.recipientUserId || '-'}</td><td>{item.status === 'CANDIDATE' ? '候选' : '待处理'}</td><td>{item.candidateAmount === null ? '-' : `${item.candidateAmount} ${item.amountUnit}`}</td><td>{item.policyCode ? `${item.policyCode}${item.ruleRate === null ? '' : ` · ${(item.ruleRate * 100).toFixed(2)}%`}${item.invitationVersion === null ? '' : ` · 邀请版本 ${item.invitationVersion}`}` : '-'}</td><td>{item.reason}</td></tr>)}</tbody></table></div> : <InlineHint text="尚无可展示的分佣候选；可能尚未演算、收入未归属，或来源用户在收入发生时未完成平台绑定。" />}
+                  {incomeRewardCandidateSample ? <div className="top-gap"><InlineHint text={`本次快照 ${incomeRewardCandidateSample.runId}：可核验 ${incomeRewardCandidateSample.availableCount} 条，其中候选 ${incomeRewardCandidateSample.candidateAvailableCount} 条、阻断 ${incomeRewardCandidateSample.blockedAvailableCount} 条。样本按固定哈希抽取，重复读取结果一致。`} />
+                    {incomeRewardCandidateSample.items.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>样本事实参考号</th><th>层级</th><th>状态</th><th>候选金额</th><th>规则快照</th><th>依据</th></tr></thead><tbody>{incomeRewardCandidateSample.items.map((item) => <tr key={`${incomeRewardCandidateSample.runId}:${item.sourceEventReference}:${item.rewardLevel}`}><td>{item.sourceEventReference}</td><td>{item.rewardLevel === 0 ? '来源门禁' : `${item.rewardLevel} 级`}</td><td>{item.status}</td><td>{item.candidateAmount === null ? '-' : `${item.candidateAmount} ${item.amountUnit}`}</td><td>{item.policyCode || '-'}</td><td>{item.reason}</td></tr>)}</tbody></table></div> : <InlineHint text="本次运行没有可供抽样的候选或阻断项。" />}</div> : null}
                 </InfoCard> : null}
               </div>
             </PanelSection>

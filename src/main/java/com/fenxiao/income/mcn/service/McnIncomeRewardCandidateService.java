@@ -2,6 +2,7 @@ package com.fenxiao.income.mcn.service;
 
 import com.fenxiao.identity.domain.AccountStatus;
 import com.fenxiao.income.mcn.api.dto.McnIncomeRewardCandidateItemResponse;
+import com.fenxiao.income.mcn.api.dto.McnIncomeRewardCandidateSampleResponse;
 import com.fenxiao.income.mcn.api.dto.McnIncomeRewardCandidateSummaryResponse;
 import com.fenxiao.platform.domain.PlatformBindingStatus;
 import com.fenxiao.platform.repository.PlatformAccountBindingRepository;
@@ -67,11 +68,15 @@ public class McnIncomeRewardCandidateService {
                 rs.getTimestamp(7).toInstant(), rs.getBigDecimal(8), rs.getString(9), rs.getString(10)), SOURCE_SYSTEM, platform, businessDate);
         Counts counts = new Counts();
         Instant now = clock.instant();
+        // A corrected MCN revision can move an event out of this business date. Rebuild the current
+        // view from the shadow-ledger inputs so no superseded candidate survives the next run.
+        jdbc.update("DELETE FROM mcn_income_reward_candidate_projection WHERE source_system=? AND platform_code=? AND business_date=?", SOURCE_SYSTEM, platform, businessDate);
         for (CandidateInput input : inputs) project(platform, input, now, counts);
         String runId = UUID.randomUUID().toString();
         jdbc.update("INSERT INTO mcn_income_reward_candidate_run (run_id,platform_code,business_date,source_fact_count,source_ready_count,candidate_count,blocked_count,candidate_amount,amount_unit,started_at,completed_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                 runId, platform, businessDate, inputs.size(), counts.sourceReady, counts.candidates, counts.blocked,
                 counts.amount, counts.amountUnit, Timestamp.from(now), Timestamp.from(now));
+        snapshotRun(runId, platform, businessDate);
         return response(platform, businessDate, inputs.size(), counts, runId);
     }
 
@@ -90,14 +95,15 @@ public class McnIncomeRewardCandidateService {
     public List<McnIncomeRewardCandidateItemResponse> items(String platformCode, LocalDate businessDate, int limit) {
         String platform = platform(platformCode); int safeLimit = Math.max(1, Math.min(limit, 100));
         return jdbc.query("""
-                SELECT source_event_id,business_date,source_user_id,recipient_user_id,reward_level,candidate_status,decision_reason,base_amount,candidate_amount,amount_unit
+                SELECT source_event_id,business_date,source_user_id,recipient_user_id,reward_level,candidate_status,decision_reason,base_amount,candidate_amount,amount_unit,
+                       invitation_version_no,commission_policy_code,rule_rate
                 FROM mcn_income_reward_candidate_projection
                 WHERE source_system=? AND platform_code=? AND business_date=? AND reward_level > 0
                 ORDER BY CASE candidate_status WHEN 'CANDIDATE' THEN 1 ELSE 0 END, source_event_id, reward_level
                 LIMIT ?
                 """, (rs, row) -> new McnIncomeRewardCandidateItemResponse(rs.getString(1), rs.getObject(2, LocalDate.class),
                 rs.getObject(3, Long.class), rs.getObject(4, Long.class), rs.getInt(5), rs.getString(6), rs.getString(7),
-                rs.getBigDecimal(8), rs.getBigDecimal(9), rs.getString(10)), SOURCE_SYSTEM, platform, businessDate, safeLimit);
+                rs.getBigDecimal(8), rs.getBigDecimal(9), rs.getString(10), rs.getObject(11, Integer.class), rs.getString(12), rs.getBigDecimal(13)), SOURCE_SYSTEM, platform, businessDate, safeLimit);
     }
 
     private void project(String platform, CandidateInput input, Instant now, Counts counts) {
@@ -181,6 +187,73 @@ public class McnIncomeRewardCandidateService {
                 amount, SOURCE_SYSTEM, platform, sourceEventId, level);
     }
 
+    /** Returns a deterministic, balanced audit sample from an immutable candidate-run snapshot. */
+    @Transactional
+    public McnIncomeRewardCandidateSampleResponse sample(String runId, int limit) {
+        String normalizedRunId = requiredRunId(runId);
+        int requested = Math.max(1, Math.min(limit, 50));
+        RunScope scope = runScope(normalizedRunId);
+        int candidateAvailable = countRunItems(normalizedRunId, "candidate_status='CANDIDATE'");
+        int blockedAvailable = countRunItems(normalizedRunId, "candidate_status<>'SOURCE_READY' AND candidate_status<>'CANDIDATE'");
+        int available = candidateAvailable + blockedAvailable;
+        int candidateLimit = sampleQuota(requested, candidateAvailable, blockedAvailable);
+        int blockedLimit = Math.min(blockedAvailable, requested - candidateLimit);
+        candidateLimit = Math.min(candidateAvailable, requested - blockedLimit);
+        List<McnIncomeRewardCandidateItemResponse> items = new java.util.ArrayList<>(candidateItems(normalizedRunId, "candidate_status='CANDIDATE'", candidateLimit));
+        items.addAll(candidateItems(normalizedRunId, "candidate_status<>'SOURCE_READY' AND candidate_status<>'CANDIDATE'", blockedLimit));
+        return new McnIncomeRewardCandidateSampleResponse(normalizedRunId, scope.platformCode(), scope.businessDate(), requested,
+                available, candidateAvailable, blockedAvailable, List.copyOf(items));
+    }
+
+    private void snapshotRun(String runId, String platform, LocalDate businessDate) {
+        jdbc.update("""
+                INSERT INTO mcn_income_reward_candidate_run_item
+                (run_id,source_system,platform_code,source_event_id,raw_ledger_event_id,source_revision,business_date,occurred_at,source_user_id,recipient_user_id,reward_level,invitation_version_no,commission_policy_id,commission_policy_code,rule_rate,base_amount,candidate_amount,currency_code,amount_unit,candidate_status,decision_reason,projected_at)
+                SELECT ?,source_system,platform_code,source_event_id,raw_ledger_event_id,source_revision,business_date,occurred_at,source_user_id,recipient_user_id,reward_level,invitation_version_no,commission_policy_id,commission_policy_code,rule_rate,base_amount,candidate_amount,currency_code,amount_unit,candidate_status,decision_reason,projected_at
+                FROM mcn_income_reward_candidate_projection
+                WHERE source_system=? AND platform_code=? AND business_date=?
+                """, runId, SOURCE_SYSTEM, platform, businessDate);
+    }
+
+    private RunScope runScope(String runId) {
+        List<RunScope> rows = jdbc.query("SELECT platform_code,business_date FROM mcn_income_reward_candidate_run WHERE run_id=?",
+                (rs, row) -> new RunScope(rs.getString(1), rs.getObject(2, LocalDate.class)), runId);
+        if (rows.isEmpty()) throw new IllegalArgumentException("candidate run not found");
+        return rows.getFirst();
+    }
+
+    private int countRunItems(String runId, String statusPredicate) {
+        Integer value = jdbc.queryForObject("SELECT COUNT(*) FROM mcn_income_reward_candidate_run_item WHERE run_id=? AND " + statusPredicate,
+                Integer.class, runId);
+        return value == null ? 0 : value;
+    }
+
+    private List<McnIncomeRewardCandidateItemResponse> candidateItems(String runId, String statusPredicate, int limit) {
+        if (limit <= 0) return List.of();
+        return jdbc.query("""
+                SELECT source_event_id,business_date,source_user_id,recipient_user_id,reward_level,candidate_status,decision_reason,base_amount,candidate_amount,amount_unit,
+                       invitation_version_no,commission_policy_code,rule_rate
+                FROM mcn_income_reward_candidate_run_item
+                WHERE run_id=? AND %s
+                ORDER BY SHA2(CONCAT(source_event_id, ':', reward_level), 256), source_event_id, reward_level
+                LIMIT ?
+                """.formatted(statusPredicate), (rs, row) -> new McnIncomeRewardCandidateItemResponse(rs.getString(1), rs.getObject(2, LocalDate.class),
+                rs.getObject(3, Long.class), rs.getObject(4, Long.class), rs.getInt(5), rs.getString(6), rs.getString(7),
+                rs.getBigDecimal(8), rs.getBigDecimal(9), rs.getString(10), rs.getObject(11, Integer.class), rs.getString(12), rs.getBigDecimal(13)), runId, limit);
+    }
+
+    static int sampleQuota(int requested, int candidateAvailable, int blockedAvailable) {
+        if (candidateAvailable == 0) return 0;
+        if (blockedAvailable == 0) return Math.min(candidateAvailable, requested);
+        if (requested == 1) return 1;
+        return Math.min(candidateAvailable, Math.max(1, requested / 2));
+    }
+
+    private String requiredRunId(String runId) {
+        if (runId == null || runId.isBlank() || runId.length() > 64) throw new IllegalArgumentException("candidate run id is invalid");
+        return runId.trim();
+    }
+
     private McnIncomeRewardCandidateSummaryResponse response(String platform, LocalDate date, int source, Counts counts, String runId) {
         return new McnIncomeRewardCandidateSummaryResponse(platform, date, source, counts.sourceReady, counts.candidates, counts.blocked, counts.amount, counts.amountUnit, runId);
     }
@@ -188,4 +261,5 @@ public class McnIncomeRewardCandidateService {
     static record CandidateInput(String sourceEventId, long rawLedgerEventId, String sourceRevision, LocalDate businessDate, Long sourceUserId,
                                  String shadowStatus, Instant occurredAt, BigDecimal amount, String currencyCode, String amountUnit) { }
     private static class Counts { int sourceReady; int candidates; int blocked; BigDecimal amount = BigDecimal.ZERO.setScale(6); String amountUnit; }
+    private record RunScope(String platformCode, LocalDate businessDate) { }
 }
