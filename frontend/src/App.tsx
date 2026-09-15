@@ -217,7 +217,7 @@ type AdminAuthState = {
 }
 
 type AdminProductKey = 'ALL' | 'LINKY' | 'TIMO'
-type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'users' | 'platformGuildDirectory' | 'rewards' | 'commissionPolicies' | 'mentorIncentives' | 'accounts' | 'settings'
+type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'users' | 'platformGuildDirectory' | 'rewards' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'accounts' | 'settings'
 type RiskActionName = 'HANDLE' | 'IGNORE' | 'FREEZE_USER' | 'UNFREEZE_USER'
 type WithdrawActionName = 'approve' | 'reject' | 'paid' | 'failed' | 'reverse'
 type WithdrawQuery = { userId: string; status: string; page: string; size: string }
@@ -234,6 +234,7 @@ const ADMIN_SECTION_HASHES: Record<AdminSectionKey, string> = {
   platformGuildDirectory: '#admin-platform-guild-directory',
   rewards: '#admin-rewards',
   commissionPolicies: '#admin-commission-policies',
+  mentorDirectory: '#admin-mentors',
   mentorIncentives: '#admin-mentor-incentives',
   accounts: '#admin-accounts',
   settings: '#admin-settings',
@@ -463,6 +464,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [commissionPolicyForm, setCommissionPolicyForm] = useState({ platformCode: 'TIMO', countryCode: 'BR', effectiveFrom: '', effectiveTo: '', level1Enabled: true, level1Rate: '0.10', level1FreezeDays: '7', level2Enabled: false, level2Rate: '0.02', level2FreezeDays: '7', level3Enabled: false, level3Rate: '0.005', level3FreezeDays: '7' })
   const [mentorIncentiveDashboard, setMentorIncentiveDashboard] = useState<MentorIncentiveDashboardResponse | null>(null)
   const [isMentorRuleDialogOpen, setIsMentorRuleDialogOpen] = useState(false)
+  const [isMentorQualificationDialogOpen, setIsMentorQualificationDialogOpen] = useState(false)
+  const [mentorAssignmentTarget, setMentorAssignmentTarget] = useState<MentorIncentiveDashboardResponse['mentors'][number] | null>(null)
   const [mentorRuleForm, setMentorRuleForm] = useState({ milestoneCode: 'VALID_72H_START', platformCode: 'TIMO', countryCode: 'BR', guildId: '', amountMinor: '', currencyCode: 'DIAMOND', freezeDays: '7', effectiveFrom: '', effectiveTo: '' })
   const [mentorQualificationForm, setMentorQualificationForm] = useState({ userId: '', countryCode: 'BR', languageCode: 'pt-br', maxActiveStudents: '20' })
   const [mentorAssignmentForm, setMentorAssignmentForm] = useState({ studentUserId: '', mentorUserId: '', reason: '' })
@@ -1825,18 +1828,18 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     finally { setLoading(false) }
   }
 
-  async function handleQualifyMentor(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); if (!adminSession || !canManageMentorRelations) return
+  async function handleQualifyMentor(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault(); if (!adminSession || !canManageMentorRelations) return
     setLoading(true); setError(''); setSuccessMessage('')
-    try { const result = await qualifyAdminMentor(adminSession.sessionToken, Number(mentorQualificationForm.userId), { countryCode: mentorQualificationForm.countryCode, languageCode: mentorQualificationForm.languageCode, maxActiveStudents: Number(mentorQualificationForm.maxActiveStudents) }); setSuccessMessage(`用户 ${result.userId} 已具备导师资格，最多可带 ${result.maxActiveStudents} 名学员。`); await loadMentorIncentiveDashboard() }
+    try { const result = await qualifyAdminMentor(adminSession.sessionToken, Number(mentorQualificationForm.userId), { countryCode: mentorQualificationForm.countryCode, languageCode: mentorQualificationForm.languageCode, maxActiveStudents: Number(mentorQualificationForm.maxActiveStudents) }); setIsMentorQualificationDialogOpen(false); setSuccessMessage(`用户 ${result.userId} 已具备导师资格，最多可带 ${result.maxActiveStudents} 名学员。`); await loadMentorIncentiveDashboard() }
     catch (err) { setError(err instanceof Error ? err.message : '设置导师资格失败') }
     finally { setLoading(false) }
   }
 
-  async function handleAssignMentor(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); if (!adminSession || !canManageMentorRelations) return
+  async function handleAssignMentor(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault(); if (!adminSession || !canManageMentorRelations || !mentorAssignmentTarget) return
     setLoading(true); setError(''); setSuccessMessage('')
-    try { const result = await assignAdminMentor(adminSession.sessionToken, Number(mentorAssignmentForm.studentUserId), { mentorUserId: Number(mentorAssignmentForm.mentorUserId), reason: mentorAssignmentForm.reason }); setSuccessMessage(`已将学员 ${result.userId} 归属给导师 ${result.mentorUserId}，关系版本 ${result.version} 已留痕。`); await loadMentorIncentiveDashboard() }
+    try { const result = await assignAdminMentor(adminSession.sessionToken, Number(mentorAssignmentForm.studentUserId), { mentorUserId: mentorAssignmentTarget.userId, reason: mentorAssignmentForm.reason }); setMentorAssignmentTarget(null); setMentorAssignmentForm({ studentUserId: '', mentorUserId: '', reason: '' }); setSuccessMessage(`已将学员 ${result.userId} 归属给导师 ${result.mentorUserId}，关系版本 ${result.version} 已留痕。`); await loadMentorIncentiveDashboard() }
     catch (err) { setError(err instanceof Error ? err.message : '分配导师失败') }
     finally { setLoading(false) }
   }
@@ -2348,7 +2351,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               if (item.href === ADMIN_SECTION_HASHES.users && !userPlatformProfiles) void loadUserPlatformProfiles()
               if (item.href === ADMIN_SECTION_HASHES.platformGuildDirectory && !platformGuildDirectory) void loadPlatformGuildDirectory()
               if (item.href === ADMIN_SECTION_HASHES.commissionPolicies && !commissionPolicies) void loadCommissionPolicies()
-              if (item.href === ADMIN_SECTION_HASHES.mentorIncentives && !mentorIncentiveDashboard) void loadMentorIncentiveDashboard()
+              if ((item.href === ADMIN_SECTION_HASHES.mentorDirectory || item.href === ADMIN_SECTION_HASHES.mentorIncentives) && !mentorIncentiveDashboard) void loadMentorIncentiveDashboard()
             }}>
               <AdminNavIcon label={item.label} />
               <span>{item.label}</span>
@@ -2584,14 +2587,28 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </PanelSection>
           ) : null}
 
+          {activeAdminSection === 'mentorDirectory' ? (
+            <PanelSection sectionId="admin-mentors" eyebrow="Mentor directory · relationship management" title="导师列表" description="在此维护导师资格和导师可携带的学员。导师关系独立于邀请关系，所有变更均保留版本记录；本页不配置分成规则，也不会产生奖励或付款。" action={<button className="ghost-btn" onClick={() => void loadMentorIncentiveDashboard()} disabled={loading}>刷新列表</button>}>
+              <div className="stack-gap">
+                <InfoCard title="导师与学员概览" tone="neutral">
+                  {mentorIncentiveDashboard ? <div className="relation-grid"><RelationItem label="具备资格的导师" value={mentorIncentiveDashboard.qualifiedMentorCount} /><RelationItem label="当前已归属学员" value={mentorIncentiveDashboard.assignedStudentCount} /></div> : <EmptyState title="尚未读取导师列表" description="点击“刷新列表”读取导师资格与当前学员数量。" />}
+                  <InlineHint text="“编辑学员”只会新增或切换该导师的学员归属版本，不会改写历史导师关系。" />
+                </InfoCard>
+                {canManageMentorRelations ? <InfoCard title="导师资格" tone="neutral"><p>建立导师资格后，才可以为该导师配置可携带的学员。</p><button className="primary-btn top-gap" onClick={() => setIsMentorQualificationDialogOpen(true)} disabled={loading}>新建导师资格</button></InfoCard> : null}
+                <InfoCard title="导师列表" tone="neutral">
+                  {mentorIncentiveDashboard?.mentors.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>导师信息</th><th>归属国家 / 语言</th><th>资格状态</th><th>学员数量</th><th>带教上限</th><th>操作</th></tr></thead><tbody>{mentorIncentiveDashboard.mentors.map((mentor) => <tr key={mentor.userId}><td>用户 {mentor.userId}{mentor.phoneNumber ? ` · ${mentor.phoneNumber}` : ''}</td><td>{mentor.countryCode} / {mentor.languageCode}</td><td>{mentor.qualificationStatus === 'QUALIFIED' ? '已具备资格' : mentor.qualificationStatus}</td><td>{mentor.assignedStudentCount}</td><td>{mentor.maxActiveStudents}</td><td>{canManageMentorRelations ? <button className="primary-btn small-btn" onClick={() => { setMentorAssignmentForm({ studentUserId: '', mentorUserId: String(mentor.userId), reason: '' }); setMentorAssignmentTarget(mentor) }} disabled={loading}>编辑学员</button> : '-'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未建立导师资格" description="先通过“新建导师资格”添加一位导师。" />}
+                </InfoCard>
+              </div>
+            </PanelSection>
+          ) : null}
+
           {activeAdminSection === 'mentorIncentives' ? (
             <PanelSection sectionId="admin-mentor-incentives" eyebrow="Mentor milestones · shadow only" title="导师分成" description="导师分成按学员生命周期里程碑计算固定额度，与邀请裂变收入分成完全独立。此处只创建影子账本证据，不会产生奖励、余额、提现或付款。" action={<button className="ghost-btn" onClick={() => void loadMentorIncentiveDashboard()} disabled={loading}>刷新数据</button>}>
               <div className="stack-gap">
                 <InfoCard title="当前影子核验概览" tone="neutral">
-                  {mentorIncentiveDashboard ? <div className="relation-grid"><RelationItem label="具备资格的导师" value={mentorIncentiveDashboard.qualifiedMentorCount} /><RelationItem label="当前已归属学员" value={mentorIncentiveDashboard.assignedStudentCount} /><RelationItem label="导师影子记录" value={mentorIncentiveDashboard.shadowEntryCount} /></div> : <EmptyState title="尚未读取导师数据" description="点击“刷新数据”读取当前导师资格、学员归属和影子账本。" />}
+                  {mentorIncentiveDashboard ? <div className="relation-grid"><RelationItem label="已启用导师规则" value={mentorIncentiveDashboard.rules.filter((rule) => rule.status === 'ACTIVE').length} /><RelationItem label="导师影子记录" value={mentorIncentiveDashboard.shadowEntryCount} /></div> : <EmptyState title="尚未读取导师分成数据" description="点击“刷新数据”读取规则和导师影子账本。" />}
                   <InlineHint text="导师规则按固定额度和里程碑触发；不是对学员收入按比例抽成。创建或启用规则不会进行真实发奖。" />
                 </InfoCard>
-                {canManageMentorRelations ? <InfoCard title="导师资格与学员归属" tone="neutral"><div className="content-grid two-columns entity-grid"><form className="grid-form compact-form" onSubmit={handleQualifyMentor}><strong>设置导师资格</strong><label>用户 ID<input required inputMode="numeric" value={mentorQualificationForm.userId} onChange={(event) => setMentorQualificationForm({ ...mentorQualificationForm, userId: event.target.value.replace(/\D/g, '') })} /></label><label>归属国家<select value={mentorQualificationForm.countryCode} onChange={(event) => setMentorQualificationForm({ ...mentorQualificationForm, countryCode: event.target.value })}>{phoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names.zh}（{country.countryCode}）</option>)}</select></label><label>语言<input required value={mentorQualificationForm.languageCode} onChange={(event) => setMentorQualificationForm({ ...mentorQualificationForm, languageCode: event.target.value })} placeholder="例如 pt-br" /></label><label>最大带教人数<input required inputMode="numeric" value={mentorQualificationForm.maxActiveStudents} onChange={(event) => setMentorQualificationForm({ ...mentorQualificationForm, maxActiveStudents: event.target.value.replace(/\D/g, '') })} /></label><button className="primary-btn small-btn" type="submit" disabled={loading}>保存导师资格</button></form><form className="grid-form compact-form" onSubmit={handleAssignMentor}><strong>分配学员导师</strong><label>学员用户 ID<input required inputMode="numeric" value={mentorAssignmentForm.studentUserId} onChange={(event) => setMentorAssignmentForm({ ...mentorAssignmentForm, studentUserId: event.target.value.replace(/\D/g, '') })} /></label><label>导师用户 ID<input required inputMode="numeric" value={mentorAssignmentForm.mentorUserId} onChange={(event) => setMentorAssignmentForm({ ...mentorAssignmentForm, mentorUserId: event.target.value.replace(/\D/g, '') })} /></label><label className="full-span">归属原因<textarea required maxLength={255} value={mentorAssignmentForm.reason} onChange={(event) => setMentorAssignmentForm({ ...mentorAssignmentForm, reason: event.target.value })} placeholder="例如：语言与国家匹配，运营审核通过" /></label><button className="primary-btn small-btn" type="submit" disabled={loading}>保存学员归属</button></form></div><InlineHint text="导师与学员关系独立于邀请关系。变更会生成新的关系版本，历史导师影子记录不会被改写。" /></InfoCard> : null}
                 {canManageMentorRules ? <InfoCard title="导师里程碑规则" tone="neutral"><p>先建立草稿，再填写审批说明后启用。每条规则只能覆盖一个里程碑、平台、国家与可选公会范围，避免规则重叠。</p><button className="primary-btn top-gap" onClick={() => setIsMentorRuleDialogOpen(true)} disabled={loading}>新增导师分成规则</button></InfoCard> : null}
                 <InfoCard title="已保存的导师规则" tone="neutral">{mentorIncentiveDashboard?.rules.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>规则版本</th><th>里程碑</th><th>适用范围</th><th>固定额度 / 冻结</th><th>生效期</th><th>状态</th><th>操作</th></tr></thead><tbody>{mentorIncentiveDashboard.rules.map((rule) => <tr key={rule.id}><td>{rule.ruleCode} · V{rule.ruleVersion}</td><td>{mentorMilestoneLabel(rule.milestoneCode)}</td><td>{rule.platformCode} / {rule.countryCode}{rule.guildId ? ` / ${rule.guildId}` : ' / 全部公会'}</td><td>{rule.amountMinor} {rule.currencyCode} / {rule.freezeDays} 天</td><td>{formatDateTime(rule.effectiveFrom)} {rule.effectiveTo ? `至 ${formatDateTime(rule.effectiveTo)}` : '起长期有效'}</td><td>{rule.status === 'DRAFT' ? '待审' : rule.status === 'ACTIVE' ? '已启用' : '已停用'}</td><td>{canManageMentorRules && rule.status === 'DRAFT' ? <button className="primary-btn small-btn" onClick={() => void handleActivateMentorRule(rule.id, rule.ruleCode)} disabled={loading}>审批并启用</button> : canManageMentorRules && rule.status === 'ACTIVE' ? <button className="ghost-btn small-btn" onClick={() => void handleRetireMentorRule(rule.id, rule.ruleCode)} disabled={loading}>停止使用</button> : '-'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未配置导师规则" description="规则必须先以草稿建立，审批启用后才会参与后续影子账本核验。" />}</InfoCard>
                 <InfoCard title="最近导师影子账本" tone="neutral">{mentorIncentiveDashboard?.recentShadowEntries.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>触发时间</th><th>导师 / 学员</th><th>平台</th><th>里程碑</th><th>规则</th><th>影子额度</th><th>状态</th></tr></thead><tbody>{mentorIncentiveDashboard.recentShadowEntries.map((entry) => <tr key={entry.id}><td>{formatDateTime(entry.triggeredAt)}</td><td>{entry.recipientUserId} / {entry.sourceUserId}</td><td>{entry.platformCode}</td><td>{mentorMilestoneLabel(entry.milestoneCode)}</td><td>{entry.ruleCode} · V{entry.ruleVersion}</td><td>{entry.amountMinor} {entry.currencyCode}</td><td>{entry.ledgerStatus}</td></tr>)}</tbody></table></div> : <EmptyState title="尚无导师影子记录" description="导师、学员、里程碑和已启用规则同时满足后，才会写入不可支付的影子账本。" />}</InfoCard>
@@ -3436,6 +3453,45 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </div>
           </form>
           <InlineHint text="本规则类型固定为“邀请裂变分成”。建立后仍为待审状态；审批启用前不会影响候选演算，更不会触发发奖。" />
+        </ConfirmDialog>
+      ) : null}
+
+      {isMentorQualificationDialogOpen ? (
+        <ConfirmDialog
+          title="新建导师资格"
+          tone="primary"
+          confirmText="保存导师资格"
+          loading={loading}
+          confirmDisabled={!mentorQualificationForm.userId || !mentorQualificationForm.languageCode || !mentorQualificationForm.maxActiveStudents}
+          onCancel={() => setIsMentorQualificationDialogOpen(false)}
+          onConfirm={() => void handleQualifyMentor()}
+        >
+          <form className="grid-form compact-form exception-filter-grid" onSubmit={(event) => { event.preventDefault(); void handleQualifyMentor() }}>
+            <label>用户 ID<input required inputMode="numeric" value={mentorQualificationForm.userId} onChange={(event) => setMentorQualificationForm({ ...mentorQualificationForm, userId: event.target.value.replace(/\D/g, '') })} /></label>
+            <label>归属国家<select value={mentorQualificationForm.countryCode} onChange={(event) => setMentorQualificationForm({ ...mentorQualificationForm, countryCode: event.target.value })}>{phoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names.zh}（{country.countryCode}）</option>)}</select></label>
+            <label>语言<input required value={mentorQualificationForm.languageCode} onChange={(event) => setMentorQualificationForm({ ...mentorQualificationForm, languageCode: event.target.value })} placeholder="例如 pt-br" /></label>
+            <label>最大带教人数<input required min="1" inputMode="numeric" value={mentorQualificationForm.maxActiveStudents} onChange={(event) => setMentorQualificationForm({ ...mentorQualificationForm, maxActiveStudents: event.target.value.replace(/\D/g, '') })} /></label>
+          </form>
+          <InlineHint text="保存后仅建立导师资格与带教上限；不会自动分配学员，也不会产生任何分成或付款。" />
+        </ConfirmDialog>
+      ) : null}
+
+      {mentorAssignmentTarget ? (
+        <ConfirmDialog
+          title={`编辑学员 · 导师 ${mentorAssignmentTarget.userId}`}
+          tone="primary"
+          confirmText="保存学员归属"
+          loading={loading}
+          confirmDisabled={!mentorAssignmentForm.studentUserId || !mentorAssignmentForm.reason.trim()}
+          onCancel={() => { setMentorAssignmentTarget(null); setMentorAssignmentForm({ studentUserId: '', mentorUserId: '', reason: '' }) }}
+          onConfirm={() => void handleAssignMentor()}
+        >
+          <form className="grid-form compact-form" onSubmit={(event) => { event.preventDefault(); void handleAssignMentor() }}>
+            <label>导师信息<input disabled value={`用户 ${mentorAssignmentTarget.userId} · 当前 ${mentorAssignmentTarget.assignedStudentCount}/${mentorAssignmentTarget.maxActiveStudents} 名学员`} /></label>
+            <label>新增或调整的学员用户 ID<input required inputMode="numeric" value={mentorAssignmentForm.studentUserId} onChange={(event) => setMentorAssignmentForm({ ...mentorAssignmentForm, studentUserId: event.target.value.replace(/\D/g, '') })} /></label>
+            <label className="full-span">归属原因<textarea required maxLength={255} value={mentorAssignmentForm.reason} onChange={(event) => setMentorAssignmentForm({ ...mentorAssignmentForm, reason: event.target.value })} placeholder="例如：语言与国家匹配，运营审核通过" /></label>
+          </form>
+          <InlineHint text="保存后会为该学员创建新的导师归属版本；系统将校验导师带教上限，不会改写既有历史关系。" />
         </ConfirmDialog>
       ) : null}
 

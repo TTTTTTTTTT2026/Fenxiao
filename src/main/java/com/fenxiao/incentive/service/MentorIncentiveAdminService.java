@@ -38,10 +38,19 @@ public class MentorIncentiveAdminService {
                 count("select count(*) from mentor_profile where qualification_status='QUALIFIED'"),
                 count("select count(*) from mentor_assignment_version where assignment_status='ASSIGNED' and effective_to is null"),
                 count("select count(*) from incentive_shadow_ledger where reward_type='MENTOR'"),
+                mentors(),
                 rules(),
                 jdbc.query("select l.id,l.recipient_user_id,l.source_user_id,l.platform_code,l.milestone_code,r.rule_code,l.rule_version,l.amount_minor,l.currency_code,l.ledger_status,l.triggered_at " +
                                 "from incentive_shadow_ledger l join incentive_rule_version r on r.id=l.rule_id where l.reward_type='MENTOR' order by l.triggered_at desc,l.id desc limit 20",
                         (rs, row) -> new MentorShadowLedgerItemResponse(rs.getLong(1), rs.getLong(2), rs.getLong(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getInt(7), rs.getLong(8), rs.getString(9), rs.getString(10), rs.getTimestamp(11).toLocalDateTime())));
+    }
+
+    private List<MentorDirectoryItemResponse> mentors() {
+        return jdbc.query("select m.user_id,p.phone_number,m.country_code,m.language_code,m.qualification_status,m.max_active_students,coalesce(a.assigned_student_count,0) " +
+                        "from mentor_profile m left join user_distribution_profile p on p.user_id=m.user_id " +
+                        "left join (select mentor_user_id,count(*) assigned_student_count from mentor_assignment_version where assignment_status='ASSIGNED' and effective_to is null group by mentor_user_id) a on a.mentor_user_id=m.user_id " +
+                        "where m.qualification_status='QUALIFIED' order by m.user_id asc",
+                (rs, row) -> new MentorDirectoryItemResponse(rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getInt(6), rs.getLong(7)));
     }
 
     public List<MentorIncentiveRuleResponse> rules() {

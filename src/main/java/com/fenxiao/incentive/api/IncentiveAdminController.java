@@ -41,7 +41,7 @@ public class IncentiveAdminController {
     @GetMapping("/admin/incentives/mentor-dashboard")
     public MentorIncentiveDashboardResponse mentorDashboard(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                              @RequestHeader(value="X-Admin-Session",required=false) String session) {
-        guard.assertMentorManageAccess(token, session); return mentorIncentives.dashboard();
+        guard.assertMentorReadAccess(token, session); return mentorIncentives.dashboard();
     }
     @PostMapping("/admin/incentives/leadership-policies")
     public Map<String,Object> leadershipPolicy(@RequestHeader(value="X-Admin-Token",required=false) String token,

@@ -50,6 +50,12 @@ class IncentiveShadowServiceTest {
                 new BigDecimal("10.00"), "DIAMOND", now.plusHours(1), "BR_GUILD_1", "NIUMA_PLATFORM_FACTS", "v1", "hash-72102"));
 
         assertThat(jdbc.queryForObject("select count(*) from incentive_shadow_ledger where recipient_user_id=? and source_user_id=? and reward_type='MENTOR' and ledger_status='SHADOW'", Integer.class, mentor.getUserId(), source.getUserId())).isEqualTo(1);
+        assertThat(mentorIncentiveAdminService.dashboard().mentors())
+                .anySatisfy(item -> {
+                    assertThat(item.userId()).isEqualTo(mentor.getUserId());
+                    assertThat(item.assignedStudentCount()).isEqualTo(1);
+                    assertThat(item.maxActiveStudents()).isEqualTo(20);
+                });
         assertThat(incentiveService.evaluateLeadership(leader.getUserId(), "LINKY").profitShareQualified()).isTrue();
 
         var team = relationshipService.createTeam("BR-TEST-721", "BR Test Team", "BR", leader.getUserId());
