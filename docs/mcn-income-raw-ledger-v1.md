@@ -47,7 +47,7 @@ BANDEIRA 先提供受内部令牌保护的**标准化投递入口**，用于适�
 
 处理规则：
 
-- 相同 `sourceSystem + deliveryId` 且载荷相同：返回重复投递，不重复入账。
+- 相同 `sourceSystem + deliveryId` 且不可变事实证据集相同：返回重复投递，不重复入账。`snapshotAt`、`sourceWatermark` 等读取外壳可随同一 cursor 的重读而更新，不参与此判断；原始外壳仍留存作审计证据。
 - 相同来源、平台、流水和修订号且载荷相同：识别为重复事实。
 - 相同事实键但载荷不同：拒绝，要求 MCN 以新修订号重新投递，避免篡改历史证据。
 - 同一 `sourceEventId` 下相同六位版本号却携带不同摘要：拒绝为来源契约冲突；不得用摘要或 `sourceUpdatedAt` 猜测谁更新。

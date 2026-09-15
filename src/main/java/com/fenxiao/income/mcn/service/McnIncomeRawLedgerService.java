@@ -21,6 +21,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -56,14 +58,18 @@ public class McnIncomeRawLedgerService {
         String deliveryId = require(request.deliveryId(), "delivery id");
         String platformCode = normalizePlatform(request.platformCode());
         String deliveryHash = sha256(json(request));
+        List<DeliveryFactEvidence> evidence = deliveryEvidence(platformCode, request.facts());
+        String factEvidenceHash = evidenceHash(evidence);
 
         var existingReceipt = receiptRepository.findBySourceSystemAndDeliveryId(sourceSystem, deliveryId);
         if (existingReceipt.isPresent()) {
-            if (!existingReceipt.get().getPayloadHash().equals(deliveryHash)) {
+            McnIncomeDeliveryReceipt receipt = existingReceipt.get();
+            if (!platformCode.equals(receipt.getPlatformCode()) || !sameFactEvidence(receipt, sourceSystem, deliveryId, factEvidenceHash)) {
                 throw new IllegalStateException("delivery id conflicts with stored raw ledger evidence");
             }
+            if (receipt.getFactEvidenceHash() == null) receipt.recordFactEvidenceHash(factEvidenceHash);
             return new McnIncomeDeliveryResponse(deliveryId, "DUPLICATE_DELIVERY",
-                    existingReceipt.get().getFactCount(), 0, existingReceipt.get().getFactCount(), 0);
+                    receipt.getFactCount(), 0, receipt.getFactCount(), 0);
         }
 
         int newFacts = 0;
@@ -71,7 +77,6 @@ public class McnIncomeRawLedgerService {
         int unmatchedFacts = 0;
         Instant receivedAt = clock.instant();
         for (McnIncomeFactRequest fact : request.facts()) {
-            validateV1DailyFact(platformCode, fact);
             String eventId = require(fact.sourceEventId(), "source event id");
             McnIncomeSourceRevision revisionInfo = McnIncomeSourceRevision.parse(require(fact.sourceRevision(), "source revision"));
             String revision = revisionInfo.value();
@@ -116,7 +121,7 @@ public class McnIncomeRawLedgerService {
                     factPayload, receivedAt, trimToNull(fact.settlementBasis())));
             newFacts++;
         }
-        receiptRepository.save(McnIncomeDeliveryReceipt.accept(sourceSystem, deliveryId, platformCode, deliveryHash,
+        receiptRepository.save(McnIncomeDeliveryReceipt.accept(sourceSystem, deliveryId, platformCode, deliveryHash, factEvidenceHash,
                 request.facts().size(), receivedAt, request.snapshotAt(), json(request.sourceWatermark())));
         return new McnIncomeDeliveryResponse(deliveryId, "ACCEPTED", request.facts().size(), newFacts,
                 duplicateFacts, unmatchedFacts);
@@ -164,6 +169,28 @@ public class McnIncomeRawLedgerService {
         }
     }
 
+    private List<DeliveryFactEvidence> deliveryEvidence(String platformCode, List<McnIncomeFactRequest> facts) {
+        return facts.stream().map(fact -> {
+            validateV1DailyFact(platformCode, fact);
+            return new DeliveryFactEvidence(require(fact.sourceEventId(), "source event id"),
+                    McnIncomeSourceRevision.parse(require(fact.sourceRevision(), "source revision")).value(), sha256(json(fact)));
+        }).sorted(Comparator.comparing(DeliveryFactEvidence::sourceEventId)
+                .thenComparing(DeliveryFactEvidence::sourceRevision)
+                .thenComparing(DeliveryFactEvidence::payloadHash)).toList();
+    }
+
+    private boolean sameFactEvidence(McnIncomeDeliveryReceipt receipt, String sourceSystem, String deliveryId, String expectedHash) {
+        if (expectedHash.equals(receipt.getFactEvidenceHash())) return true;
+        List<DeliveryFactEvidence> stored = eventRepository.findBySourceSystemAndDeliveryId(sourceSystem, deliveryId).stream()
+                .map(event -> new DeliveryFactEvidence(event.getSourceEventId(), event.getSourceRevision(), event.getPayloadHash()))
+                .sorted(Comparator.comparing(DeliveryFactEvidence::sourceEventId)
+                        .thenComparing(DeliveryFactEvidence::sourceRevision)
+                        .thenComparing(DeliveryFactEvidence::payloadHash)).toList();
+        return receipt.getFactCount() == stored.size() && expectedHash.equals(evidenceHash(stored));
+    }
+
+    private String evidenceHash(List<DeliveryFactEvidence> evidence) { return sha256(json(evidence)); }
+
     private String json(Object value) {
         try {
             return objectMapper.writeValueAsString(value);
@@ -191,4 +218,6 @@ public class McnIncomeRawLedgerService {
     private String trimToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
     }
+
+    private record DeliveryFactEvidence(String sourceEventId, String sourceRevision, String payloadHash) { }
 }

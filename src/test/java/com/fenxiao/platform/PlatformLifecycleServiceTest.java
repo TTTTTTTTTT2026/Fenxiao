@@ -31,9 +31,10 @@ class PlatformLifecycleServiceTest {
         var root = bindingService.createProfile(71100L, "BR", "pt-br", null);
         var user = bindingService.createProfile(71101L, "BR", "pt-br", root.getInviteCode());
         LocalDateTime submitted = LocalDateTime.now(Clock.systemUTC()).withNano(0);
+        LocalDateTime joinedAtAndFirstIncome = submitted.plusHours(2);
         lifecycleService.submit(user.getUserId(), "LINKY", "12345678");
         var verified = lifecycleService.verify(new VerifyPlatformBindingRequest(
-                "LINKY", "12345678", false, true, "BR_GUILD_1", submitted,
+                "LINKY", "12345678", false, true, "BR_GUILD_1", joinedAtAndFirstIncome,
                 "NIUMA_PLATFORM_FACTS", "verification-1"));
         assertThat(verified.getBindingStatus()).isEqualTo(PlatformBindingStatus.VERIFIED);
         lifecycleService.configurePolicy("LINKY", "BR_GUILD_1", "BR", new BigDecimal("50.00"), "DIAMOND", submitted.minusMinutes(1));
@@ -41,7 +42,7 @@ class PlatformLifecycleServiceTest {
         for (int day = 0; day < 7; day++) {
             lifecycleService.ingest(new PlatformBusinessFactRequest(
                     "income-" + day, "LINKY", "12345678", PlatformFactType.NET_INCOME,
-                    new BigDecimal("10.00"), "DIAMOND", submitted.plusDays(day).plusHours(2),
+                    new BigDecimal("10.00"), "DIAMOND", joinedAtAndFirstIncome.plusDays(day),
                     "BR_GUILD_1", "NIUMA_PLATFORM_FACTS", "v1", "hash-" + day));
         }
         var snapshot = lifecycleService.get(user.getUserId(), "LINKY");
@@ -50,12 +51,12 @@ class PlatformLifecycleServiceTest {
         assertThat(snapshot.isConsecutive30DayActive()).isFalse();
         assertThat(snapshot.getConsecutiveActiveDays()).isEqualTo(7);
         assertThat(snapshot.getCumulativeNetIncome()).isEqualByComparingTo("70.00");
-        assertThat(snapshot.getFirstWithdrawEligibleAt()).isEqualTo(submitted.plusDays(4).plusHours(2));
+        assertThat(snapshot.getFirstWithdrawEligibleAt()).isEqualTo(joinedAtAndFirstIncome.plusDays(4));
         assertThat(snapshot.isShadowOnly()).isTrue();
 
         lifecycleService.ingest(new PlatformBusinessFactRequest(
                 "income-0", "LINKY", "12345678", PlatformFactType.NET_INCOME,
-                new BigDecimal("10.00"), "DIAMOND", submitted.plusHours(2),
+                new BigDecimal("10.00"), "DIAMOND", joinedAtAndFirstIncome,
                 "BR_GUILD_1", "NIUMA_PLATFORM_FACTS", "v1", "hash-0"));
         assertThat(factRepository.count()).isEqualTo(7);
     }

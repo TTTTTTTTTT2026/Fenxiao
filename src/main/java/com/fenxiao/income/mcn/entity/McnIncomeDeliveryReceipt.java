@@ -31,6 +31,10 @@ public class McnIncomeDeliveryReceipt extends BaseEntity {
     @Column(name = "payload_hash", nullable = false, length = 64)
     private String payloadHash;
 
+    /** Stable normalized fact evidence; response snapshot and watermark are intentionally excluded. */
+    @Column(name = "fact_evidence_hash", length = 64)
+    private String factEvidenceHash;
+
     @Column(name = "fact_count", nullable = false)
     private int factCount;
 
@@ -48,13 +52,14 @@ public class McnIncomeDeliveryReceipt extends BaseEntity {
     }
 
     public static McnIncomeDeliveryReceipt accept(String sourceSystem, String deliveryId, String platformCode,
-                                                  String payloadHash, int factCount, Instant acceptedAt,
+                                                  String payloadHash, String factEvidenceHash, int factCount, Instant acceptedAt,
                                                   Instant snapshotAt, String sourceWatermark) {
         McnIncomeDeliveryReceipt receipt = new McnIncomeDeliveryReceipt();
         receipt.sourceSystem = sourceSystem;
         receipt.deliveryId = deliveryId;
         receipt.platformCode = platformCode;
         receipt.payloadHash = payloadHash;
+        receipt.factEvidenceHash = factEvidenceHash;
         receipt.factCount = factCount;
         receipt.acceptedAt = acceptedAt;
         receipt.snapshotAt = snapshotAt;
@@ -65,6 +70,10 @@ public class McnIncomeDeliveryReceipt extends BaseEntity {
     public String getPayloadHash() {
         return payloadHash;
     }
+
+    public String getFactEvidenceHash() { return factEvidenceHash; }
+    public String getPlatformCode() { return platformCode; }
+    public void recordFactEvidenceHash(String value) { this.factEvidenceHash = value; }
 
     public int getFactCount() {
         return factCount;
