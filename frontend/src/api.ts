@@ -154,6 +154,21 @@ export type CommissionPolicyResponse = {
   createdBy: number; approvedBy: number | null; approvedAt: string | null; approvalNote: string | null
   levels: Array<{ rewardLevel: number; enabled: boolean; rewardRate: number | null; freezeDays: number | null }>
 }
+export type MentorIncentiveRuleResponse = {
+  id: number; ruleCode: string; ruleVersion: number; milestoneCode: string
+  platformCode: string; countryCode: string; guildId: string | null
+  amountMinor: number; currencyCode: string; freezeDays: number
+  effectiveFrom: string; effectiveTo: string | null; status: 'DRAFT' | 'ACTIVE' | 'RETIRED' | string
+  createdBy: number | null; approvedBy: number | null; approvedAt: string | null; approvalNote: string | null
+}
+export type MentorShadowLedgerItemResponse = {
+  id: number; recipientUserId: number; sourceUserId: number; platformCode: string; milestoneCode: string
+  ruleCode: string; ruleVersion: number; amountMinor: number; currencyCode: string; ledgerStatus: string; triggeredAt: string
+}
+export type MentorIncentiveDashboardResponse = {
+  qualifiedMentorCount: number; assignedStudentCount: number; shadowEntryCount: number
+  rules: MentorIncentiveRuleResponse[]; recentShadowEntries: MentorShadowLedgerItemResponse[]
+}
 export type PlatformIntegrationResponse = {
   platformCode: string
   displayName: string
@@ -822,6 +837,24 @@ export function activateAdminCommissionPolicy(adminSessionToken: string, id: num
 }
 export function retireAdminCommissionPolicy(adminSessionToken: string, id: number) {
   return request<CommissionPolicyResponse>(`/admin/commission-policies/${id}/retire`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken } })
+}
+export function getAdminMentorIncentiveDashboard(adminSessionToken: string) {
+  return request<MentorIncentiveDashboardResponse>('/admin/incentives/mentor-dashboard', { headers: { 'X-Admin-Session': adminSessionToken } })
+}
+export function createAdminMentorIncentiveRule(adminSessionToken: string, payload: { milestoneCode: string; platformCode: string; countryCode: string; guildId: string | null; amountMinor: number; currencyCode: string; freezeDays: number; effectiveFrom: string; effectiveTo: string | null }) {
+  return request<MentorIncentiveRuleResponse>('/admin/incentives/mentor-rules', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) })
+}
+export function activateAdminMentorIncentiveRule(adminSessionToken: string, id: number, approvalNote: string) {
+  return request<MentorIncentiveRuleResponse>(`/admin/incentives/mentor-rules/${id}/activate`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ approvalNote }) })
+}
+export function retireAdminMentorIncentiveRule(adminSessionToken: string, id: number) {
+  return request<MentorIncentiveRuleResponse>(`/admin/incentives/mentor-rules/${id}/retire`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken } })
+}
+export function qualifyAdminMentor(adminSessionToken: string, userId: number, payload: { countryCode: string; languageCode: string; maxActiveStudents: number }) {
+  return request<{ userId: number; status: string; maxActiveStudents: number }>(`/admin/identity/mentors/${userId}/qualification`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) })
+}
+export function assignAdminMentor(adminSessionToken: string, studentUserId: number, payload: { mentorUserId: number; reason: string }) {
+  return request<{ userId: number; mentorUserId: number; status: string; version: number }>(`/admin/identity/users/${studentUserId}/mentor`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) })
 }
 export function getAdminAccounts() { return request<AdminAccountResponse[]>('/admin/accounts') }
 export function createAdminAccount(payload: { username: string; displayName: string; role: string; platformScope?: string; guildScope?: string; regionScope?: string }) { return request<AdminAccountCreatedResponse>('/admin/accounts', { method: 'POST', body: JSON.stringify(payload) }) }
