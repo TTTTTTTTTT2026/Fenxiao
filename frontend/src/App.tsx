@@ -105,6 +105,12 @@ import {
   createAdminCommissionPolicy,
   activateAdminCommissionPolicy,
   retireAdminCommissionPolicy,
+  getAdminMentorIncentiveDashboard,
+  createAdminMentorIncentiveRule,
+  activateAdminMentorIncentiveRule,
+  retireAdminMentorIncentiveRule,
+  qualifyAdminMentor,
+  assignAdminMentor,
   unlockAdminAccount,
   revokeAdminDeviceSession,
   rejectAdminWithdrawRequest,
@@ -141,6 +147,7 @@ import {
   type McnIncomeRewardCandidateSampleResponse,
   type McnIncomeRewardCandidateSummaryResponse,
   type CommissionPolicyResponse,
+  type MentorIncentiveDashboardResponse,
   type OverviewReportResponse,
   type OwnershipDetailResponse,
   type PhoneVerificationCodeListResponse,
@@ -210,7 +217,7 @@ type AdminAuthState = {
 }
 
 type AdminProductKey = 'ALL' | 'LINKY' | 'TIMO'
-type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'users' | 'platformGuildDirectory' | 'rewards' | 'commissionPolicies' | 'accounts' | 'settings'
+type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'users' | 'platformGuildDirectory' | 'rewards' | 'commissionPolicies' | 'mentorIncentives' | 'accounts' | 'settings'
 type RiskActionName = 'HANDLE' | 'IGNORE' | 'FREEZE_USER' | 'UNFREEZE_USER'
 type WithdrawActionName = 'approve' | 'reject' | 'paid' | 'failed' | 'reverse'
 type WithdrawQuery = { userId: string; status: string; page: string; size: string }
@@ -227,6 +234,7 @@ const ADMIN_SECTION_HASHES: Record<AdminSectionKey, string> = {
   platformGuildDirectory: '#admin-platform-guild-directory',
   rewards: '#admin-rewards',
   commissionPolicies: '#admin-commission-policies',
+  mentorIncentives: '#admin-mentor-incentives',
   accounts: '#admin-accounts',
   settings: '#admin-settings',
 }
@@ -453,6 +461,11 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [commissionPolicies, setCommissionPolicies] = useState<CommissionPolicyResponse[] | null>(null)
   const [isCommissionPolicyDialogOpen, setIsCommissionPolicyDialogOpen] = useState(false)
   const [commissionPolicyForm, setCommissionPolicyForm] = useState({ platformCode: 'TIMO', countryCode: 'BR', effectiveFrom: '', effectiveTo: '', level1Enabled: true, level1Rate: '0.10', level1FreezeDays: '7', level2Enabled: false, level2Rate: '0.02', level2FreezeDays: '7', level3Enabled: false, level3Rate: '0.005', level3FreezeDays: '7' })
+  const [mentorIncentiveDashboard, setMentorIncentiveDashboard] = useState<MentorIncentiveDashboardResponse | null>(null)
+  const [isMentorRuleDialogOpen, setIsMentorRuleDialogOpen] = useState(false)
+  const [mentorRuleForm, setMentorRuleForm] = useState({ milestoneCode: 'VALID_72H_START', platformCode: 'TIMO', countryCode: 'BR', guildId: '', amountMinor: '', currencyCode: 'DIAMOND', freezeDays: '7', effectiveFrom: '', effectiveTo: '' })
+  const [mentorQualificationForm, setMentorQualificationForm] = useState({ userId: '', countryCode: 'BR', languageCode: 'pt-br', maxActiveStudents: '20' })
+  const [mentorAssignmentForm, setMentorAssignmentForm] = useState({ studentUserId: '', mentorUserId: '', reason: '' })
   const [platformVerificationMockForm, setPlatformVerificationMockForm] = useState({
     platformCode: 'TIMO', platformUserId: '', globallySeenBeforeSubmission: false, joinedTargetGuild: true,
     officialGuildId: '22000448', officialJoinedAt: '', sourceReference: '', enabled: true,
@@ -560,6 +573,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const canManageSeedInviters = adminSession?.role?.toLowerCase() === 'super_admin'
   const canManagePlatformMocks = adminSession?.role?.toLowerCase() === 'super_admin'
   const canRunControlledIncome = ['super_admin', 'finance'].includes(adminSession?.role?.toLowerCase() ?? '')
+  const canManageMentorRules = ['super_admin', 'admin', 'finance'].includes(adminSession?.role?.toLowerCase() ?? '')
+  const canManageMentorRelations = ['super_admin', 'admin', 'operations'].includes(adminSession?.role?.toLowerCase() ?? '')
   const canManageLinkyInvitationGuild = ['super_admin', 'admin'].includes(adminSession?.role?.toLowerCase() ?? '')
   const linkyGuildOptions = useMemo(() => {
     return (linkyInvitationGuildOptions ?? [])
@@ -1768,6 +1783,64 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     finally { setLoading(false) }
   }
 
+  async function loadMentorIncentiveDashboard() {
+    if (!adminSession) return
+    setLoading(true); setError('')
+    try { setMentorIncentiveDashboard(await getAdminMentorIncentiveDashboard(adminSession.sessionToken)) }
+    catch (err) { setError(err instanceof Error ? err.message : '读取导师分成影子账本失败') }
+    finally { setLoading(false) }
+  }
+
+  async function saveMentorIncentiveRule() {
+    if (!adminSession || !canManageMentorRules) return
+    if (!mentorRuleForm.amountMinor || !mentorRuleForm.effectiveFrom) { setError('请填写固定奖励额度和生效时间。'); return }
+    setLoading(true); setError(''); setSuccessMessage('')
+    try {
+      await createAdminMentorIncentiveRule(adminSession.sessionToken, {
+        milestoneCode: mentorRuleForm.milestoneCode, platformCode: mentorRuleForm.platformCode, countryCode: mentorRuleForm.countryCode,
+        guildId: mentorRuleForm.guildId.trim() || null, amountMinor: Number(mentorRuleForm.amountMinor), currencyCode: mentorRuleForm.currencyCode,
+        freezeDays: Number(mentorRuleForm.freezeDays), effectiveFrom: new Date(mentorRuleForm.effectiveFrom).toISOString().slice(0, 19),
+        effectiveTo: mentorRuleForm.effectiveTo ? new Date(mentorRuleForm.effectiveTo).toISOString().slice(0, 19) : null,
+      })
+      setIsMentorRuleDialogOpen(false); setSuccessMessage('已建立待审导师分成规则；仅可用于影子账本核验，不会创建奖励、余额或付款。'); await loadMentorIncentiveDashboard()
+    } catch (err) { setError(err instanceof Error ? err.message : '建立导师分成规则失败') }
+    finally { setLoading(false) }
+  }
+
+  async function handleActivateMentorRule(id: number, code: string) {
+    if (!adminSession || !canManageMentorRules) return
+    const approvalNote = window.prompt(`确认启用 ${code}？仅影响后续导师影子账本，请填写审批说明：`, '业务与财务复核通过')
+    if (!approvalNote?.trim()) return
+    setLoading(true); setError(''); setSuccessMessage('')
+    try { await activateAdminMentorIncentiveRule(adminSession.sessionToken, id, approvalNote.trim()); setSuccessMessage(`已启用导师影子规则 ${code}；不会发奖。`); await loadMentorIncentiveDashboard() }
+    catch (err) { setError(err instanceof Error ? err.message : '启用导师分成规则失败') }
+    finally { setLoading(false) }
+  }
+
+  async function handleRetireMentorRule(id: number, code: string) {
+    if (!adminSession || !canManageMentorRules || !window.confirm(`停止 ${code}？不会改动任何历史影子账本。`)) return
+    setLoading(true); setError(''); setSuccessMessage('')
+    try { await retireAdminMentorIncentiveRule(adminSession.sessionToken, id); setSuccessMessage(`已停止导师影子规则 ${code}。`); await loadMentorIncentiveDashboard() }
+    catch (err) { setError(err instanceof Error ? err.message : '停止导师分成规则失败') }
+    finally { setLoading(false) }
+  }
+
+  async function handleQualifyMentor(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); if (!adminSession || !canManageMentorRelations) return
+    setLoading(true); setError(''); setSuccessMessage('')
+    try { const result = await qualifyAdminMentor(adminSession.sessionToken, Number(mentorQualificationForm.userId), { countryCode: mentorQualificationForm.countryCode, languageCode: mentorQualificationForm.languageCode, maxActiveStudents: Number(mentorQualificationForm.maxActiveStudents) }); setSuccessMessage(`用户 ${result.userId} 已具备导师资格，最多可带 ${result.maxActiveStudents} 名学员。`); await loadMentorIncentiveDashboard() }
+    catch (err) { setError(err instanceof Error ? err.message : '设置导师资格失败') }
+    finally { setLoading(false) }
+  }
+
+  async function handleAssignMentor(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); if (!adminSession || !canManageMentorRelations) return
+    setLoading(true); setError(''); setSuccessMessage('')
+    try { const result = await assignAdminMentor(adminSession.sessionToken, Number(mentorAssignmentForm.studentUserId), { mentorUserId: Number(mentorAssignmentForm.mentorUserId), reason: mentorAssignmentForm.reason }); setSuccessMessage(`已将学员 ${result.userId} 归属给导师 ${result.mentorUserId}，关系版本 ${result.version} 已留痕。`); await loadMentorIncentiveDashboard() }
+    catch (err) { setError(err instanceof Error ? err.message : '分配导师失败') }
+    finally { setLoading(false) }
+  }
+
   async function saveCommissionPolicy() {
     if (!adminSession || !canRunControlledIncome) return
     if (!commissionPolicyForm.effectiveFrom) { setError('请填写生效时间。'); return }
@@ -2275,6 +2348,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               if (item.href === ADMIN_SECTION_HASHES.users && !userPlatformProfiles) void loadUserPlatformProfiles()
               if (item.href === ADMIN_SECTION_HASHES.platformGuildDirectory && !platformGuildDirectory) void loadPlatformGuildDirectory()
               if (item.href === ADMIN_SECTION_HASHES.commissionPolicies && !commissionPolicies) void loadCommissionPolicies()
+              if (item.href === ADMIN_SECTION_HASHES.mentorIncentives && !mentorIncentiveDashboard) void loadMentorIncentiveDashboard()
             }}>
               <AdminNavIcon label={item.label} />
               <span>{item.label}</span>
@@ -2506,6 +2580,21 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   {(commissionPolicies ?? []).length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>规则版本</th><th>适用范围</th><th>最高邀请层级</th><th>各层比例 / 冻结</th><th>生效期</th><th>状态</th><th>操作</th></tr></thead><tbody>{(commissionPolicies ?? []).map((policy) => <tr key={policy.id}><td>{policy.policyCode}</td><td>{policy.platformCode} / {policy.countryCode}</td><td>{policy.maxRewardLevel}</td><td>{policy.levels.filter((level) => level.enabled).map((level) => `L${level.rewardLevel} ${level.rewardRate} / ${level.freezeDays}天`).join('；') || '-'}</td><td>{formatDateTime(policy.effectiveFrom)} {policy.effectiveTo ? `至 ${formatDateTime(policy.effectiveTo)}` : '起长期有效'}</td><td>{policy.status === 'DRAFT' ? '待审' : policy.status === 'ACTIVE' ? '已启用' : '已停用'}</td><td>{policy.status === 'DRAFT' ? <button className="primary-btn small-btn" onClick={() => void handleActivateCommissionPolicy(policy)} disabled={loading}>审批并启用</button> : policy.status === 'ACTIVE' ? <button className="ghost-btn small-btn" onClick={() => void handleRetireCommissionPolicy(policy)} disabled={loading}>停止使用</button> : '-'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未配置邀请裂变规则" description="先建立一条待审规则。建议当前只启用第 1 层，以实现 A-B 直接分成。" />}
                   <InlineHint text="每位符合基础资格的用户都适用本规则；仅按邀请链收入发生时间读取，不按用户身份切分。导师分成与运营分红不在本页配置。以后改变规则不会重写已保存的候选演算，审批和停用均写入运营审计记录。" />
                 </InfoCard>
+              </div>
+            </PanelSection>
+          ) : null}
+
+          {activeAdminSection === 'mentorIncentives' ? (
+            <PanelSection sectionId="admin-mentor-incentives" eyebrow="Mentor milestones · shadow only" title="导师分成" description="导师分成按学员生命周期里程碑计算固定额度，与邀请裂变收入分成完全独立。此处只创建影子账本证据，不会产生奖励、余额、提现或付款。" action={<button className="ghost-btn" onClick={() => void loadMentorIncentiveDashboard()} disabled={loading}>刷新数据</button>}>
+              <div className="stack-gap">
+                <InfoCard title="当前影子核验概览" tone="neutral">
+                  {mentorIncentiveDashboard ? <div className="relation-grid"><RelationItem label="具备资格的导师" value={mentorIncentiveDashboard.qualifiedMentorCount} /><RelationItem label="当前已归属学员" value={mentorIncentiveDashboard.assignedStudentCount} /><RelationItem label="导师影子记录" value={mentorIncentiveDashboard.shadowEntryCount} /></div> : <EmptyState title="尚未读取导师数据" description="点击“刷新数据”读取当前导师资格、学员归属和影子账本。" />}
+                  <InlineHint text="导师规则按固定额度和里程碑触发；不是对学员收入按比例抽成。创建或启用规则不会进行真实发奖。" />
+                </InfoCard>
+                {canManageMentorRelations ? <InfoCard title="导师资格与学员归属" tone="neutral"><div className="content-grid two-columns entity-grid"><form className="grid-form compact-form" onSubmit={handleQualifyMentor}><strong>设置导师资格</strong><label>用户 ID<input required inputMode="numeric" value={mentorQualificationForm.userId} onChange={(event) => setMentorQualificationForm({ ...mentorQualificationForm, userId: event.target.value.replace(/\D/g, '') })} /></label><label>归属国家<select value={mentorQualificationForm.countryCode} onChange={(event) => setMentorQualificationForm({ ...mentorQualificationForm, countryCode: event.target.value })}>{phoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names.zh}（{country.countryCode}）</option>)}</select></label><label>语言<input required value={mentorQualificationForm.languageCode} onChange={(event) => setMentorQualificationForm({ ...mentorQualificationForm, languageCode: event.target.value })} placeholder="例如 pt-br" /></label><label>最大带教人数<input required inputMode="numeric" value={mentorQualificationForm.maxActiveStudents} onChange={(event) => setMentorQualificationForm({ ...mentorQualificationForm, maxActiveStudents: event.target.value.replace(/\D/g, '') })} /></label><button className="primary-btn small-btn" type="submit" disabled={loading}>保存导师资格</button></form><form className="grid-form compact-form" onSubmit={handleAssignMentor}><strong>分配学员导师</strong><label>学员用户 ID<input required inputMode="numeric" value={mentorAssignmentForm.studentUserId} onChange={(event) => setMentorAssignmentForm({ ...mentorAssignmentForm, studentUserId: event.target.value.replace(/\D/g, '') })} /></label><label>导师用户 ID<input required inputMode="numeric" value={mentorAssignmentForm.mentorUserId} onChange={(event) => setMentorAssignmentForm({ ...mentorAssignmentForm, mentorUserId: event.target.value.replace(/\D/g, '') })} /></label><label className="full-span">归属原因<textarea required maxLength={255} value={mentorAssignmentForm.reason} onChange={(event) => setMentorAssignmentForm({ ...mentorAssignmentForm, reason: event.target.value })} placeholder="例如：语言与国家匹配，运营审核通过" /></label><button className="primary-btn small-btn" type="submit" disabled={loading}>保存学员归属</button></form></div><InlineHint text="导师与学员关系独立于邀请关系。变更会生成新的关系版本，历史导师影子记录不会被改写。" /></InfoCard> : null}
+                {canManageMentorRules ? <InfoCard title="导师里程碑规则" tone="neutral"><p>先建立草稿，再填写审批说明后启用。每条规则只能覆盖一个里程碑、平台、国家与可选公会范围，避免规则重叠。</p><button className="primary-btn top-gap" onClick={() => setIsMentorRuleDialogOpen(true)} disabled={loading}>新增导师分成规则</button></InfoCard> : null}
+                <InfoCard title="已保存的导师规则" tone="neutral">{mentorIncentiveDashboard?.rules.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>规则版本</th><th>里程碑</th><th>适用范围</th><th>固定额度 / 冻结</th><th>生效期</th><th>状态</th><th>操作</th></tr></thead><tbody>{mentorIncentiveDashboard.rules.map((rule) => <tr key={rule.id}><td>{rule.ruleCode} · V{rule.ruleVersion}</td><td>{mentorMilestoneLabel(rule.milestoneCode)}</td><td>{rule.platformCode} / {rule.countryCode}{rule.guildId ? ` / ${rule.guildId}` : ' / 全部公会'}</td><td>{rule.amountMinor} {rule.currencyCode} / {rule.freezeDays} 天</td><td>{formatDateTime(rule.effectiveFrom)} {rule.effectiveTo ? `至 ${formatDateTime(rule.effectiveTo)}` : '起长期有效'}</td><td>{rule.status === 'DRAFT' ? '待审' : rule.status === 'ACTIVE' ? '已启用' : '已停用'}</td><td>{canManageMentorRules && rule.status === 'DRAFT' ? <button className="primary-btn small-btn" onClick={() => void handleActivateMentorRule(rule.id, rule.ruleCode)} disabled={loading}>审批并启用</button> : canManageMentorRules && rule.status === 'ACTIVE' ? <button className="ghost-btn small-btn" onClick={() => void handleRetireMentorRule(rule.id, rule.ruleCode)} disabled={loading}>停止使用</button> : '-'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未配置导师规则" description="规则必须先以草稿建立，审批启用后才会参与后续影子账本核验。" />}</InfoCard>
+                <InfoCard title="最近导师影子账本" tone="neutral">{mentorIncentiveDashboard?.recentShadowEntries.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>触发时间</th><th>导师 / 学员</th><th>平台</th><th>里程碑</th><th>规则</th><th>影子额度</th><th>状态</th></tr></thead><tbody>{mentorIncentiveDashboard.recentShadowEntries.map((entry) => <tr key={entry.id}><td>{formatDateTime(entry.triggeredAt)}</td><td>{entry.recipientUserId} / {entry.sourceUserId}</td><td>{entry.platformCode}</td><td>{mentorMilestoneLabel(entry.milestoneCode)}</td><td>{entry.ruleCode} · V{entry.ruleVersion}</td><td>{entry.amountMinor} {entry.currencyCode}</td><td>{entry.ledgerStatus}</td></tr>)}</tbody></table></div> : <EmptyState title="尚无导师影子记录" description="导师、学员、里程碑和已启用规则同时满足后，才会写入不可支付的影子账本。" />}</InfoCard>
               </div>
             </PanelSection>
           ) : null}
@@ -3350,6 +3439,31 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
         </ConfirmDialog>
       ) : null}
 
+      {isMentorRuleDialogOpen ? (
+        <ConfirmDialog
+          title="新增待审导师分成规则"
+          tone="primary"
+          confirmText="建立待审导师规则"
+          loading={loading}
+          confirmDisabled={!mentorRuleForm.amountMinor || !mentorRuleForm.effectiveFrom}
+          onCancel={() => setIsMentorRuleDialogOpen(false)}
+          onConfirm={() => void saveMentorIncentiveRule()}
+        >
+          <form className="grid-form compact-form exception-filter-grid" onSubmit={(event) => { event.preventDefault(); void saveMentorIncentiveRule() }}>
+            <label>触发里程碑<select value={mentorRuleForm.milestoneCode} onChange={(event) => setMentorRuleForm({ ...mentorRuleForm, milestoneCode: event.target.value })}><option value="VALID_72H_START">72 小时有效启动</option><option value="FIRST_INCOME">首次收入</option><option value="FIRST_WITHDRAW_ELIGIBLE">首次达到可提现门槛</option><option value="ACTIVE_7D">连续活跃 7 天</option><option value="ACTIVE_30D">连续活跃 30 天</option></select></label>
+            <label>平台<select value={mentorRuleForm.platformCode} onChange={(event) => setMentorRuleForm({ ...mentorRuleForm, platformCode: event.target.value })}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label>
+            <label>归属国家<select value={mentorRuleForm.countryCode} onChange={(event) => setMentorRuleForm({ ...mentorRuleForm, countryCode: event.target.value })}>{phoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names.zh}（{country.countryCode}）</option>)}</select></label>
+            <label>限定公会（可选）<input value={mentorRuleForm.guildId} onChange={(event) => setMentorRuleForm({ ...mentorRuleForm, guildId: event.target.value })} placeholder="留空表示全部公会" /></label>
+            <label>固定奖励额度<input required inputMode="numeric" value={mentorRuleForm.amountMinor} onChange={(event) => setMentorRuleForm({ ...mentorRuleForm, amountMinor: event.target.value.replace(/\D/g, '') })} placeholder="例如 200" /></label>
+            <label>单位<input required value={mentorRuleForm.currencyCode} onChange={(event) => setMentorRuleForm({ ...mentorRuleForm, currencyCode: event.target.value.toUpperCase() })} placeholder="例如 DIAMOND" /></label>
+            <label>冻结天数<input required inputMode="numeric" value={mentorRuleForm.freezeDays} onChange={(event) => setMentorRuleForm({ ...mentorRuleForm, freezeDays: event.target.value.replace(/\D/g, '') })} /></label>
+            <label>生效时间<input required type="datetime-local" value={mentorRuleForm.effectiveFrom} onChange={(event) => setMentorRuleForm({ ...mentorRuleForm, effectiveFrom: event.target.value })} /></label>
+            <label>失效时间（可选）<input type="datetime-local" value={mentorRuleForm.effectiveTo} onChange={(event) => setMentorRuleForm({ ...mentorRuleForm, effectiveTo: event.target.value })} /></label>
+          </form>
+          <InlineHint text="导师规则采用固定额度，不按学员收入比例抽成。保存后是待审草稿；审批启用前不会写入影子账本，更不会产生真实奖励。" />
+        </ConfirmDialog>
+      ) : null}
+
       {isIncomeShadowReplayDialogOpen ? (
         <ConfirmDialog
           title="人工重新投影收入影子账本"
@@ -3943,6 +4057,17 @@ function formatDateTime(value?: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
   return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`
+}
+
+function mentorMilestoneLabel(code: string) {
+  const labels: Record<string, string> = {
+    VALID_72H_START: '72 小时有效启动',
+    FIRST_INCOME: '首次收入',
+    FIRST_WITHDRAW_ELIGIBLE: '首次达到可提现门槛',
+    ACTIVE_7D: '连续活跃 7 天',
+    ACTIVE_30D: '连续活跃 30 天',
+  }
+  return labels[code] || code
 }
 
 function formatAdminRole(role: string) {

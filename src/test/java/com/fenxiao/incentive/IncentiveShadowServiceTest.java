@@ -1,8 +1,10 @@
 package com.fenxiao.incentive;
 
 import com.fenxiao.distribution.service.DistributionBindingService;
+import com.fenxiao.admin.service.AdminSessionService;
 import com.fenxiao.incentive.dto.*;
 import com.fenxiao.incentive.service.IncentiveShadowService;
+import com.fenxiao.incentive.service.MentorIncentiveAdminService;
 import com.fenxiao.platform.domain.PlatformFactType;
 import com.fenxiao.platform.dto.PlatformBusinessFactRequest;
 import com.fenxiao.platform.dto.VerifyPlatformBindingRequest;
@@ -26,6 +28,7 @@ class IncentiveShadowServiceTest {
     @Autowired RelationshipFoundationService relationshipService;
     @Autowired PlatformLifecycleService lifecycleService;
     @Autowired IncentiveShadowService incentiveService;
+    @Autowired MentorIncentiveAdminService mentorIncentiveAdminService;
     @Autowired JdbcTemplate jdbc;
 
     @Test
@@ -56,5 +59,21 @@ class IncentiveShadowServiceTest {
         assertThat(result.shareAmountMinor()).isEqualTo(3_000);
         assertThat(result.shadowLedgerCreated()).isTrue();
         assertThat(jdbc.queryForObject("select count(*) from team_profit_share_shadow_ledger where ledger_status='SHADOW'", Integer.class)).isEqualTo(1);
+    }
+
+    @Test
+    void shouldKeepMentorRuleAsDraftUntilFinanceApproval() {
+        LocalDateTime now = LocalDateTime.now(Clock.systemUTC()).withNano(0);
+        var finance = new AdminSessionService.AdminPrincipal(9001L, "finance", "Finance", "finance", false, 1L, false, now.plusHours(1), "*", "*", "*");
+        var draft = mentorIncentiveAdminService.createDraft(new MentorIncentiveRuleRequest(
+                "VALID_72H_START", "TIMO", "BR", null, 200, "DIAMOND", 7, now.minusMinutes(1), null), finance);
+
+        assertThat(draft.status()).isEqualTo("DRAFT");
+        assertThat(jdbc.queryForObject("select enabled from incentive_rule_version where id=?", Boolean.class, draft.id())).isFalse();
+
+        var active = mentorIncentiveAdminService.activate(draft.id(), "finance evidence verified", finance);
+        assertThat(active.status()).isEqualTo("ACTIVE");
+        assertThat(active.approvedBy()).isEqualTo(9001L);
+        assertThat(mentorIncentiveAdminService.dashboard().rules()).extracting(value -> value.id()).contains(draft.id());
     }
 }

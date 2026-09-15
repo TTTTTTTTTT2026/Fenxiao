@@ -3,6 +3,7 @@ package com.fenxiao.incentive.api;
 import com.fenxiao.common.security.DistributionAccessGuard;
 import com.fenxiao.incentive.dto.*;
 import com.fenxiao.incentive.service.IncentiveShadowService;
+import com.fenxiao.incentive.service.MentorIncentiveAdminService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
@@ -11,13 +12,36 @@ import java.util.Map;
 public class IncentiveAdminController {
     private final DistributionAccessGuard guard;
     private final IncentiveShadowService service;
-    public IncentiveAdminController(DistributionAccessGuard guard, IncentiveShadowService service) { this.guard = guard; this.service = service; }
+    private final MentorIncentiveAdminService mentorIncentives;
+    public IncentiveAdminController(DistributionAccessGuard guard, IncentiveShadowService service, MentorIncentiveAdminService mentorIncentives) { this.guard = guard; this.service = service; this.mentorIncentives = mentorIncentives; }
 
     @PostMapping("/admin/incentives/mentor-rules")
-    public Map<String,Object> mentorRule(@RequestHeader(value="X-Admin-Token",required=false) String token,
+    public MentorIncentiveRuleResponse mentorRule(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                          @RequestHeader(value="X-Admin-Session",required=false) String session,
-                                         @Valid @RequestBody MentorRewardRuleRequest request) {
-        guard.assertAdminWriteAccess(token, session); return Map.of("ruleId", service.configureMentorRule(request), "ledgerMode", "SHADOW");
+                                         @Valid @RequestBody MentorIncentiveRuleRequest request) {
+        return mentorIncentives.createDraft(request, guard.assertFinanceAccess(token, session));
+    }
+    @GetMapping("/admin/incentives/mentor-rules")
+    public java.util.List<MentorIncentiveRuleResponse> mentorRules(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                     @RequestHeader(value="X-Admin-Session",required=false) String session) {
+        guard.assertFinanceAccess(token, session); return mentorIncentives.rules();
+    }
+    @PostMapping("/admin/incentives/mentor-rules/{id}/activate")
+    public MentorIncentiveRuleResponse activateMentorRule(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                           @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                           @PathVariable long id, @Valid @RequestBody MentorIncentiveRuleApprovalRequest request) {
+        return mentorIncentives.activate(id, request.approvalNote(), guard.assertFinanceAccess(token, session));
+    }
+    @PostMapping("/admin/incentives/mentor-rules/{id}/retire")
+    public MentorIncentiveRuleResponse retireMentorRule(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                         @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                         @PathVariable long id) {
+        return mentorIncentives.retire(id, guard.assertFinanceAccess(token, session));
+    }
+    @GetMapping("/admin/incentives/mentor-dashboard")
+    public MentorIncentiveDashboardResponse mentorDashboard(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                             @RequestHeader(value="X-Admin-Session",required=false) String session) {
+        guard.assertMentorManageAccess(token, session); return mentorIncentives.dashboard();
     }
     @PostMapping("/admin/incentives/leadership-policies")
     public Map<String,Object> leadershipPolicy(@RequestHeader(value="X-Admin-Token",required=false) String token,
