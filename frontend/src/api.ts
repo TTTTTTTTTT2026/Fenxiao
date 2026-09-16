@@ -885,6 +885,9 @@ export function getAdminOperatingDividendDashboard(adminSessionToken: string) {
 export function createAdminOperatingDividendPolicy(adminSessionToken: string, payload: { platformCode: string; countryCode: string; guildId: string | null; requiredValidStarts: number; requiredWithdrawEligible: number; requiredActive7d: number; profitShareRate: number; effectiveFrom: string; effectiveTo: string | null }) {
   return request<OperatingDividendPolicyResponse>('/admin/incentives/operating-dividend-policies', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) })
 }
+export function createAdminOperatingDividendPolicies(adminSessionToken: string, payload: { platformCode: string; countryCode: string; guildIds: string[]; requiredValidStarts: number; requiredWithdrawEligible: number; requiredActive7d: number; profitShareRate: number; effectiveFrom: string; effectiveTo: string | null }) {
+  return request<OperatingDividendPolicyResponse[]>('/admin/incentives/operating-dividend-policies/batch', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) })
+}
 export function activateAdminOperatingDividendPolicy(adminSessionToken: string, id: number, approvalNote: string) {
   return request<OperatingDividendPolicyResponse>(`/admin/incentives/operating-dividend-policies/${id}/activate`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ approvalNote }) })
 }

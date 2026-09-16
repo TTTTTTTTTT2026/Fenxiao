@@ -111,7 +111,7 @@ import {
   activateAdminMentorIncentiveRule,
   retireAdminMentorIncentiveRule,
   getAdminOperatingDividendDashboard,
-  createAdminOperatingDividendPolicy,
+  createAdminOperatingDividendPolicies,
   activateAdminOperatingDividendPolicy,
   retireAdminOperatingDividendPolicy,
   qualifyAdminMentor,
@@ -486,8 +486,11 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [mentorAssignmentForm, setMentorAssignmentForm] = useState({ studentUserId: '', mentorUserId: '', reason: '' })
   const [operatingDividendDashboard, setOperatingDividendDashboard] = useState<OperatingDividendDashboardResponse | null>(null)
   const [isOperatingDividendDialogOpen, setIsOperatingDividendDialogOpen] = useState(false)
+  const [isOperatingDividendGuildPickerOpen, setIsOperatingDividendGuildPickerOpen] = useState(false)
+  const operatingDividendGuildPickerRef = useRef<HTMLDivElement>(null)
   const [operatingDividendGuildDirectory, setOperatingDividendGuildDirectory] = useState<PlatformGuildDirectoryItem[] | null>(null)
-  const [operatingDividendForm, setOperatingDividendForm] = useState({ platformCode: 'TIMO', countryCode: 'BR', guildId: '', requiredValidStarts: '1', requiredWithdrawEligible: '0', requiredActive7d: '0', profitShareRate: '0.05', effectiveFrom: '', effectiveTo: '' })
+  const [operatingDividendGuildDirectoryLoading, setOperatingDividendGuildDirectoryLoading] = useState(false)
+  const [operatingDividendForm, setOperatingDividendForm] = useState({ platformCode: 'TIMO', countryCode: 'BR', guildIds: [] as string[], requiredValidStarts: '1', requiredWithdrawEligible: '0', requiredActive7d: '0', profitShareRate: '0.05', effectiveFrom: '', effectiveTo: '' })
   const [platformVerificationMockForm, setPlatformVerificationMockForm] = useState({
     platformCode: 'TIMO', platformUserId: '', globallySeenBeforeSubmission: false, joinedTargetGuild: true,
     officialGuildId: '22000448', officialJoinedAt: '', sourceReference: '', enabled: true,
@@ -644,6 +647,15 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     document.addEventListener('mousedown', closeWhenClickingOutside)
     return () => document.removeEventListener('mousedown', closeWhenClickingOutside)
   }, [isMentorRuleGuildPickerOpen])
+
+  useEffect(() => {
+    if (!isOperatingDividendGuildPickerOpen) return undefined
+    const closeWhenClickingOutside = (event: MouseEvent) => {
+      if (!operatingDividendGuildPickerRef.current?.contains(event.target as Node)) setIsOperatingDividendGuildPickerOpen(false)
+    }
+    document.addEventListener('mousedown', closeWhenClickingOutside)
+    return () => document.removeEventListener('mousedown', closeWhenClickingOutside)
+  }, [isOperatingDividendGuildPickerOpen])
 
   useEffect(() => {
     if (!shouldRestoreAdminSession) return
@@ -1836,13 +1848,16 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   async function loadOperatingDividendGuildDirectory(platform = operatingDividendForm.platformCode) {
     if (!adminSession) return
     setOperatingDividendGuildDirectory(null)
+    setOperatingDividendGuildDirectoryLoading(true)
     setError('')
     try { setOperatingDividendGuildDirectory(await getAdminPlatformGuildDirectory(adminSession.sessionToken, platform as 'LINKY' | 'TIMO')) }
     catch (err) { setOperatingDividendGuildDirectory(null); setError(err instanceof Error ? err.message : '加载权威公会目录失败') }
+    finally { setOperatingDividendGuildDirectoryLoading(false) }
   }
 
   function openOperatingDividendDialog() {
-    setOperatingDividendForm({ platformCode: 'TIMO', countryCode: 'BR', guildId: '', requiredValidStarts: '1', requiredWithdrawEligible: '0', requiredActive7d: '0', profitShareRate: '0.05', effectiveFrom: '', effectiveTo: '' })
+    setOperatingDividendForm({ platformCode: 'TIMO', countryCode: 'BR', guildIds: [], requiredValidStarts: '1', requiredWithdrawEligible: '0', requiredActive7d: '0', profitShareRate: '0.05', effectiveFrom: '', effectiveTo: '' })
+    setIsOperatingDividendGuildPickerOpen(false)
     setIsOperatingDividendDialogOpen(true)
     void loadOperatingDividendGuildDirectory('TIMO')
   }
@@ -1852,10 +1867,10 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     if (!operatingDividendForm.effectiveFrom || !operatingDividendForm.requiredValidStarts || !operatingDividendForm.profitShareRate) { setError('请填写生效时间、有效启动门槛和分红比例。'); return }
     setLoading(true); setError(''); setSuccessMessage('')
     try {
-      const created = await createAdminOperatingDividendPolicy(adminSession.sessionToken, {
+      const created = await createAdminOperatingDividendPolicies(adminSession.sessionToken, {
         platformCode: operatingDividendForm.platformCode,
         countryCode: operatingDividendForm.countryCode,
-        guildId: operatingDividendForm.guildId || null,
+        guildIds: operatingDividendForm.guildIds,
         requiredValidStarts: Number(operatingDividendForm.requiredValidStarts),
         requiredWithdrawEligible: Number(operatingDividendForm.requiredWithdrawEligible),
         requiredActive7d: Number(operatingDividendForm.requiredActive7d),
@@ -1864,7 +1879,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
         effectiveTo: operatingDividendForm.effectiveTo ? new Date(operatingDividendForm.effectiveTo).toISOString().slice(0, 19) : null,
       })
       setIsOperatingDividendDialogOpen(false)
-      setSuccessMessage(`已建立运营分红影子规则 ${created.policyCode}，待审批启用；不会产生奖励、余额或付款。`)
+      setIsOperatingDividendGuildPickerOpen(false)
+      setSuccessMessage(`已建立 ${created.length} 条运营分红影子规则草稿，待审批启用；不会产生奖励、余额或付款。`)
       await loadOperatingDividendDashboard()
     } catch (err) { setError(formatOperatingDividendError(err instanceof Error ? err.message : '建立运营分红规则失败')) }
     finally { setLoading(false) }
@@ -3684,13 +3700,13 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           confirmText="建立待审运营分红规则"
           loading={loading}
           confirmDisabled={!operatingDividendForm.effectiveFrom || !operatingDividendForm.requiredValidStarts || !operatingDividendForm.profitShareRate}
-          onCancel={() => setIsOperatingDividendDialogOpen(false)}
+          onCancel={() => { setIsOperatingDividendDialogOpen(false); setIsOperatingDividendGuildPickerOpen(false) }}
           onConfirm={() => void saveOperatingDividendPolicy()}
         >
           <form className="grid-form compact-form exception-filter-grid" onSubmit={(event) => { event.preventDefault(); void saveOperatingDividendPolicy() }}>
-            <label>平台<select value={operatingDividendForm.platformCode} onChange={(event) => { const platformCode = event.target.value; setOperatingDividendForm({ ...operatingDividendForm, platformCode, guildId: '' }); void loadOperatingDividendGuildDirectory(platformCode) }}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label>
-            <label>归属国家<select value={operatingDividendForm.countryCode} onChange={(event) => setOperatingDividendForm({ ...operatingDividendForm, countryCode: event.target.value, guildId: '' })}>{phoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names.zh}（{country.countryCode}）</option>)}</select></label>
-            <label>限定公会（可选）<select value={operatingDividendForm.guildId} onChange={(event) => setOperatingDividendForm({ ...operatingDividendForm, guildId: event.target.value })}><option value="">全部公会</option>{operatingDividendGuildOptions.map((guild) => <option key={guild.guildId} value={guild.guildId}>{guild.guildName}（{guild.guildId}）</option>)}</select><small>{operatingDividendGuildDirectory === null ? '正在加载 MCN 权威公会目录…' : operatingDividendGuildOptions.length ? '仅显示当前平台和国家下可用的权威公会。' : '当前范围无可选权威公会；可先按“全部公会”建立草稿，或确认目录同步。'}</small></label>
+            <label>平台<select value={operatingDividendForm.platformCode} onChange={(event) => { const platformCode = event.target.value; setIsOperatingDividendGuildPickerOpen(false); setOperatingDividendForm({ ...operatingDividendForm, platformCode, guildIds: [] }); void loadOperatingDividendGuildDirectory(platformCode) }}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label>
+            <label>归属国家<select value={operatingDividendForm.countryCode} onChange={(event) => { setIsOperatingDividendGuildPickerOpen(false); setOperatingDividendForm({ ...operatingDividendForm, countryCode: event.target.value, guildIds: [] }) }}>{phoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names.zh}（{country.countryCode}）</option>)}</select></label>
+            <div className="full-span mentor-guild-picker-field"><span>限定公会（可选，多选）</span><div className="mentor-guild-picker" ref={operatingDividendGuildPickerRef}><button type="button" className="mentor-guild-picker-trigger" disabled={operatingDividendGuildDirectoryLoading || !operatingDividendGuildOptions.length} onClick={() => setIsOperatingDividendGuildPickerOpen(!isOperatingDividendGuildPickerOpen)} aria-expanded={isOperatingDividendGuildPickerOpen}>{operatingDividendGuildDirectoryLoading ? '正在读取权威公会目录…' : operatingDividendForm.guildIds.length ? `已选择 ${operatingDividendForm.guildIds.length} 个公会` : operatingDividendGuildOptions.length ? '点击选择限定公会' : '暂无可选公会'}<span aria-hidden="true">⌄</span></button>{isOperatingDividendGuildPickerOpen && operatingDividendGuildOptions.length ? <div className="mentor-guild-picker-menu" role="group" aria-label="运营分红限定公会多选"><div className="mentor-guild-picker-actions"><button type="button" onClick={() => setOperatingDividendForm({ ...operatingDividendForm, guildIds: operatingDividendGuildOptions.map((guild) => guild.guildId) })}>全选</button><button type="button" onClick={() => setOperatingDividendForm({ ...operatingDividendForm, guildIds: [] })}>清空</button></div>{operatingDividendGuildOptions.map((guild) => <label key={guild.guildId} className="mentor-guild-picker-option"><input type="checkbox" checked={operatingDividendForm.guildIds.includes(guild.guildId)} onChange={() => setOperatingDividendForm({ ...operatingDividendForm, guildIds: operatingDividendForm.guildIds.includes(guild.guildId) ? operatingDividendForm.guildIds.filter((guildId) => guildId !== guild.guildId) : [...operatingDividendForm.guildIds, guild.guildId] })} /><span>{guild.guildName}（{guild.guildId}）</span></label>)}</div> : null}</div><small>{operatingDividendGuildDirectoryLoading ? '正在读取 MCN 权威公会目录…' : operatingDividendGuildOptions.length ? '点击展开后可勾选多个公会；保存时会按所选公会分别建立待审规则。未选择表示适用于该平台与国家的全部公会。' : '当前平台和国家没有可用的 MCN 权威公会；请先确认公会目录已同步。'}</small></div>
             <label>有效启动门槛<input required min="1" inputMode="numeric" value={operatingDividendForm.requiredValidStarts} onChange={(event) => setOperatingDividendForm({ ...operatingDividendForm, requiredValidStarts: event.target.value.replace(/\D/g, '') })} /></label>
             <label>达到可提现门槛<input required min="0" inputMode="numeric" value={operatingDividendForm.requiredWithdrawEligible} onChange={(event) => setOperatingDividendForm({ ...operatingDividendForm, requiredWithdrawEligible: event.target.value.replace(/\D/g, '') })} /></label>
             <label>连续活跃 7 天门槛<input required min="0" inputMode="numeric" value={operatingDividendForm.requiredActive7d} onChange={(event) => setOperatingDividendForm({ ...operatingDividendForm, requiredActive7d: event.target.value.replace(/\D/g, '') })} /></label>

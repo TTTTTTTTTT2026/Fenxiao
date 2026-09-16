@@ -4,6 +4,7 @@ import com.fenxiao.admin.service.AdminSessionService;
 import com.fenxiao.audit.entity.OperationAuditLog;
 import com.fenxiao.audit.repository.OperationAuditLogRepository;
 import com.fenxiao.incentive.dto.OperatingDividendDashboardResponse;
+import com.fenxiao.incentive.dto.OperatingDividendPolicyBatchRequest;
 import com.fenxiao.incentive.dto.OperatingDividendPolicyRequest;
 import com.fenxiao.incentive.dto.OperatingDividendPolicyResponse;
 import com.fenxiao.incentive.dto.OperatingDividendProfitFactResponse;
@@ -85,6 +86,25 @@ public class OperatingDividendAdminService {
         return created;
     }
 
+    /**
+     * A multi-select scope is represented as one independently governed policy per guild.
+     * That keeps approval, overlap protection and later audit evidence unambiguous.
+     */
+    public List<OperatingDividendPolicyResponse> createDrafts(OperatingDividendPolicyBatchRequest request, AdminSessionService.AdminPrincipal actor) {
+        List<String> guildIds = request.guildIds() == null ? List.of() : request.guildIds().stream()
+                .filter(Objects::nonNull).map(String::trim).filter(value -> !value.isEmpty()).distinct().toList();
+        OperatingDividendPolicyRequest base = new OperatingDividendPolicyRequest(
+                request.platformCode(), request.countryCode(), null,
+                request.requiredValidStarts(), request.requiredWithdrawEligible(), request.requiredActive7d(),
+                request.profitShareRate(), request.effectiveFrom(), request.effectiveTo());
+        if (guildIds.isEmpty()) return List.of(createDraft(base, actor));
+        validateAuthoritativeGuilds(platform(request.platformCode()), upper(request.countryCode()), guildIds);
+        return guildIds.stream().map(guildId -> createDraft(new OperatingDividendPolicyRequest(
+                request.platformCode(), request.countryCode(), guildId,
+                request.requiredValidStarts(), request.requiredWithdrawEligible(), request.requiredActive7d(),
+                request.profitShareRate(), request.effectiveFrom(), request.effectiveTo()), actor)).toList();
+    }
+
     public OperatingDividendPolicyResponse activate(long id, String note, AdminSessionService.AdminPrincipal actor) {
         OperatingDividendPolicyResponse current = policy(id);
         if (!"DRAFT".equals(current.status())) throw new IllegalStateException("only draft operating dividend policy can be activated");
@@ -139,12 +159,12 @@ public class OperatingDividendAdminService {
         if (request.effectiveTo() != null && request.effectiveFrom() != null && request.effectiveTo().isBefore(request.effectiveFrom())) throw new IllegalArgumentException("effectiveTo must not be before effectiveFrom");
         String platform = platform(request.platformCode());
         String country = upper(request.countryCode());
-        if (request.guildId() != null && !request.guildId().isBlank()) validateAuthoritativeGuild(platform, country, request.guildId().trim());
+        if (request.guildId() != null && !request.guildId().isBlank()) validateAuthoritativeGuilds(platform, country, List.of(request.guildId().trim()));
     }
 
-    private void validateAuthoritativeGuild(String platform, String country, String guildId) {
-        List<PlatformGuildDirectory> found = guildDirectory.findByPlatformCodeAndExternalGuildIdIn(platform, List.of(guildId));
-        if (found.size() != 1 || !country.equals(directoryCountryCode(found.get(0).getCountry())) || !"NORMAL".equalsIgnoreCase(found.get(0).getDirectoryStatus()) || !("ACTIVE".equalsIgnoreCase(found.get(0).getGuildStatus()) || "ENABLED".equalsIgnoreCase(found.get(0).getGuildStatus()))) {
+    private void validateAuthoritativeGuilds(String platform, String country, List<String> guildIds) {
+        List<PlatformGuildDirectory> found = guildDirectory.findByPlatformCodeAndExternalGuildIdIn(platform, guildIds);
+        if (found.size() != guildIds.size() || found.stream().anyMatch(guild -> !country.equals(directoryCountryCode(guild.getCountry())) || !"NORMAL".equalsIgnoreCase(guild.getDirectoryStatus()) || !("ACTIVE".equalsIgnoreCase(guild.getGuildStatus()) || "ENABLED".equalsIgnoreCase(guild.getGuildStatus())))) {
             throw new IllegalArgumentException("operating dividend guild scope must use an active authoritative platform guild for the selected country");
         }
     }

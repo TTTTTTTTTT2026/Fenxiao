@@ -71,6 +71,13 @@ public class IncentiveAdminController {
         return operatingDividends.createDraft(request, guard.assertFinanceAccess(token, session));
     }
 
+    @PostMapping("/admin/incentives/operating-dividend-policies/batch")
+    public java.util.List<OperatingDividendPolicyResponse> createOperatingDividendPolicies(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                                              @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                                                              @Valid @RequestBody OperatingDividendPolicyBatchRequest request) {
+        return operatingDividends.createDrafts(request, guard.assertFinanceAccess(token, session));
+    }
+
     @PostMapping("/admin/incentives/operating-dividend-policies/{id}/activate")
     public OperatingDividendPolicyResponse activateOperatingDividendPolicy(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                                              @RequestHeader(value="X-Admin-Session",required=false) String session,
