@@ -845,6 +845,9 @@ export function getAdminMentorIncentiveDashboard(adminSessionToken: string) {
 export function createAdminMentorIncentiveRule(adminSessionToken: string, payload: { milestoneCode: string; platformCode: string; countryCode: string; guildId: string | null; amountMinor: number; currencyCode: string; freezeDays: number; effectiveFrom: string; effectiveTo: string | null }) {
   return request<MentorIncentiveRuleResponse>('/admin/incentives/mentor-rules', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) })
 }
+export function createAdminMentorIncentiveRules(adminSessionToken: string, payload: { milestoneCode: string; platformCode: string; countryCode: string; guildIds: string[]; amountMinor: number; currencyCode: string; freezeDays: number; effectiveFrom: string; effectiveTo: string | null }) {
+  return request<MentorIncentiveRuleResponse[]>('/admin/incentives/mentor-rules/batch', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) })
+}
 export function activateAdminMentorIncentiveRule(adminSessionToken: string, id: number, approvalNote: string) {
   return request<MentorIncentiveRuleResponse>(`/admin/incentives/mentor-rules/${id}/activate`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ approvalNote }) })
 }

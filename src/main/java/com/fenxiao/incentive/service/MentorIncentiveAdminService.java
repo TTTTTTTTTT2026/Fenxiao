@@ -4,6 +4,8 @@ import com.fenxiao.admin.service.AdminSessionService;
 import com.fenxiao.audit.entity.OperationAuditLog;
 import com.fenxiao.audit.repository.OperationAuditLogRepository;
 import com.fenxiao.incentive.dto.*;
+import com.fenxiao.platform.entity.PlatformGuildDirectory;
+import com.fenxiao.platform.repository.PlatformGuildDirectoryRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
@@ -26,12 +28,11 @@ public class MentorIncentiveAdminService {
     private static final String MENTOR_REWARD_UNIT = "DIAMOND";
     private final JdbcTemplate jdbc;
     private final OperationAuditLogRepository audits;
+    private final PlatformGuildDirectoryRepository guildDirectory;
     private final Clock clock;
 
-    public MentorIncentiveAdminService(JdbcTemplate jdbc, OperationAuditLogRepository audits, Clock clock) {
-        this.jdbc = jdbc;
-        this.audits = audits;
-        this.clock = clock;
+    public MentorIncentiveAdminService(JdbcTemplate jdbc, OperationAuditLogRepository audits, PlatformGuildDirectoryRepository guildDirectory, Clock clock) {
+        this.jdbc = jdbc; this.audits = audits; this.guildDirectory = guildDirectory; this.clock = clock;
     }
 
     public MentorIncentiveDashboardResponse dashboard() {
@@ -62,6 +63,17 @@ public class MentorIncentiveAdminService {
 
     public MentorIncentiveRuleResponse createDraft(MentorIncentiveRuleRequest request, AdminSessionService.AdminPrincipal actor) {
         validate(request);
+        return insertDraft(request, actor);
+    }
+
+    public List<MentorIncentiveRuleResponse> createDrafts(MentorIncentiveRuleBatchRequest request, AdminSessionService.AdminPrincipal actor) {
+        List<String> guildIds = request.guildIds() == null ? List.of() : request.guildIds().stream().filter(Objects::nonNull).map(String::trim).filter(value -> !value.isEmpty()).distinct().toList();
+        if (guildIds.isEmpty()) return List.of(createDraft(new MentorIncentiveRuleRequest(request.milestoneCode(), request.platformCode(), request.countryCode(), null, request.amountMinor(), request.currencyCode(), request.freezeDays(), request.effectiveFrom(), request.effectiveTo()), actor));
+        validateAuthoritativeGuilds(platform(request.platformCode()), upper(request.countryCode()), guildIds);
+        return guildIds.stream().map(guildId -> createDraft(new MentorIncentiveRuleRequest(request.milestoneCode(), request.platformCode(), request.countryCode(), guildId, request.amountMinor(), request.currencyCode(), request.freezeDays(), request.effectiveFrom(), request.effectiveTo()), actor)).toList();
+    }
+
+    private MentorIncentiveRuleResponse insertDraft(MentorIncentiveRuleRequest request, AdminSessionService.AdminPrincipal actor) {
         LocalDateTime effectiveFrom = request.effectiveFrom() == null ? LocalDateTime.now(clock) : request.effectiveFrom();
         String code = "MR-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase(Locale.ROOT);
         KeyHolder keys = new GeneratedKeyHolder();
@@ -113,7 +125,15 @@ public class MentorIncentiveAdminService {
     }
     private void validate(MentorIncentiveRuleRequest request) {
         if (request.effectiveTo() != null && request.effectiveFrom() != null && request.effectiveTo().isBefore(request.effectiveFrom())) throw new IllegalArgumentException("effectiveTo must not be before effectiveFrom");
-        platform(request.platformCode()); upper(request.milestoneCode()); upper(request.countryCode());
+        String platform = platform(request.platformCode()); String country = upper(request.countryCode()); upper(request.milestoneCode());
+        if (request.guildId() != null && !request.guildId().isBlank()) validateAuthoritativeGuilds(platform, country, List.of(request.guildId().trim()));
+    }
+
+    private void validateAuthoritativeGuilds(String platform, String country, List<String> guildIds) {
+        List<PlatformGuildDirectory> found = guildDirectory.findByPlatformCodeAndExternalGuildIdIn(platform, guildIds);
+        if (found.size() != guildIds.size() || found.stream().anyMatch(guild -> !country.equalsIgnoreCase(guild.getCountry()) || !"NORMAL".equalsIgnoreCase(guild.getDirectoryStatus()) || !("ACTIVE".equalsIgnoreCase(guild.getGuildStatus()) || "ENABLED".equalsIgnoreCase(guild.getGuildStatus())))) {
+            throw new IllegalArgumentException("mentor guild scope must use active authoritative platform guilds for the selected country");
+        }
     }
     private long count(String sql) { Long value = jdbc.queryForObject(sql, Long.class); return value == null ? 0 : value; }
     private Long nullableLong(java.sql.ResultSet rs, int index) throws java.sql.SQLException { long value = rs.getLong(index); return rs.wasNull() ? null : value; }

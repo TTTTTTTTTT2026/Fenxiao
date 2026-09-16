@@ -7,6 +7,7 @@ import java.util.Optional;
 
 public interface PlatformGuildDirectoryRepository extends JpaRepository<PlatformGuildDirectory, Long> {
     Optional<PlatformGuildDirectory> findByPlatformCodeAndExternalGuildId(String platformCode, String externalGuildId);
+    List<PlatformGuildDirectory> findByPlatformCodeAndExternalGuildIdIn(String platformCode, List<String> externalGuildIds);
     List<PlatformGuildDirectory> findByPlatformCodeOrderByExternalGuildIdAsc(String platformCode);
     List<PlatformGuildDirectory> findByPlatformCodeAndLastSyncRunIdNot(String platformCode, String lastSyncRunId);
 }

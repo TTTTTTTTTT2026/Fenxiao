@@ -21,6 +21,12 @@ public class IncentiveAdminController {
                                          @Valid @RequestBody MentorIncentiveRuleRequest request) {
         return mentorIncentives.createDraft(request, guard.assertFinanceAccess(token, session));
     }
+    @PostMapping("/admin/incentives/mentor-rules/batch")
+    public java.util.List<MentorIncentiveRuleResponse> mentorRules(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                      @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                                      @Valid @RequestBody MentorIncentiveRuleBatchRequest request) {
+        return mentorIncentives.createDrafts(request, guard.assertFinanceAccess(token, session));
+    }
     @GetMapping("/admin/incentives/mentor-rules")
     public java.util.List<MentorIncentiveRuleResponse> mentorRules(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                                      @RequestHeader(value="X-Admin-Session",required=false) String session) {
