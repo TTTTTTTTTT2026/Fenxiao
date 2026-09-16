@@ -469,6 +469,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [isMentorRuleGuildPickerOpen, setIsMentorRuleGuildPickerOpen] = useState(false)
   const mentorRuleGuildPickerRef = useRef<HTMLDivElement>(null)
   const [isMentorQualificationDialogOpen, setIsMentorQualificationDialogOpen] = useState(false)
+  const [mentorQualificationTarget, setMentorQualificationTarget] = useState<MentorIncentiveDashboardResponse['mentors'][number] | null>(null)
   const [mentorAssignmentTarget, setMentorAssignmentTarget] = useState<MentorIncentiveDashboardResponse['mentors'][number] | null>(null)
   const [mentorAssignedStudents, setMentorAssignedStudents] = useState<MentorAssignedStudentResponse[]>([])
   const [mentorAssignedStudentsLoading, setMentorAssignedStudentsLoading] = useState(false)
@@ -1827,6 +1828,18 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     void loadMentorAssignedStudents(mentor.userId)
   }
 
+  function openMentorQualificationDialog(mentor?: MentorIncentiveDashboardResponse['mentors'][number]) {
+    const countryCode = mentor?.countryCode ?? 'BR'
+    setMentorQualificationTarget(mentor ?? null)
+    setMentorQualificationForm({
+      userId: mentor ? String(mentor.userId) : '',
+      countryCode,
+      languageCode: mentorQualificationLanguage(countryCode).code,
+      maxActiveStudents: mentor ? String(mentor.maxActiveStudents) : '20',
+    })
+    setIsMentorQualificationDialogOpen(true)
+  }
+
   async function loadMentorRuleGuildDirectory(platform = mentorRuleForm.platformCode) {
     if (!adminSession) return
     setMentorRuleGuildDirectoryLoading(true)
@@ -1872,8 +1885,9 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
 
   async function handleQualifyMentor(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault(); if (!adminSession || !canManageMentorRelations) return
+    const qualificationTarget = mentorQualificationTarget
     setLoading(true); setError(''); setSuccessMessage('')
-    try { const result = await qualifyAdminMentor(adminSession.sessionToken, Number(mentorQualificationForm.userId), { countryCode: mentorQualificationForm.countryCode, languageCode: mentorQualificationForm.languageCode, maxActiveStudents: Number(mentorQualificationForm.maxActiveStudents) }); setIsMentorQualificationDialogOpen(false); setSuccessMessage(`用户 ${result.userId} 已具备导师资格，最多可带 ${result.maxActiveStudents} 名学员。`); await loadMentorIncentiveDashboard() }
+    try { const result = await qualifyAdminMentor(adminSession.sessionToken, Number(mentorQualificationForm.userId), { countryCode: mentorQualificationForm.countryCode, languageCode: mentorQualificationForm.languageCode, maxActiveStudents: Number(mentorQualificationForm.maxActiveStudents) }); setIsMentorQualificationDialogOpen(false); setMentorQualificationTarget(null); setSuccessMessage(qualificationTarget ? `导师 ${result.userId} 的资格已更新，最多可带 ${result.maxActiveStudents} 名学员。` : `用户 ${result.userId} 已具备导师资格，最多可带 ${result.maxActiveStudents} 名学员。`); await loadMentorIncentiveDashboard() }
     catch (err) { setError(err instanceof Error ? err.message : '设置导师资格失败') }
     finally { setLoading(false) }
   }
@@ -2636,9 +2650,9 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   {mentorIncentiveDashboard ? <div className="relation-grid"><RelationItem label="具备资格的导师" value={mentorIncentiveDashboard.qualifiedMentorCount} /><RelationItem label="当前已归属学员" value={mentorIncentiveDashboard.assignedStudentCount} /></div> : <EmptyState title="尚未读取导师列表" description="点击“刷新列表”读取导师资格与当前学员数量。" />}
                   <InlineHint text="“编辑学员”只会新增或切换该导师的学员归属版本，不会改写历史导师关系。" />
                 </InfoCard>
-                {canManageMentorRelations ? <InfoCard title="导师资格" tone="neutral"><p>建立导师资格后，才可以为该导师配置可携带的学员。</p><button className="primary-btn top-gap" onClick={() => setIsMentorQualificationDialogOpen(true)} disabled={loading}>新建导师资格</button></InfoCard> : null}
+                {canManageMentorRelations ? <InfoCard title="导师资格" tone="neutral"><p>建立导师资格后，才可以为该导师配置可携带的学员。已建立的资格可在列表中修改归属国家和带教上限。</p><button className="primary-btn top-gap" onClick={() => openMentorQualificationDialog()} disabled={loading}>新建导师资格</button></InfoCard> : null}
                 <InfoCard title="导师列表" tone="neutral">
-                  {mentorIncentiveDashboard?.mentors.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>导师信息</th><th>归属国家 / 语言</th><th>资格状态</th><th>学员数量</th><th>带教上限</th><th>操作</th></tr></thead><tbody>{mentorIncentiveDashboard.mentors.map((mentor) => <tr key={mentor.userId}><td>用户 {mentor.userId}{mentor.phoneNumber ? ` · ${mentor.phoneNumber}` : ''}</td><td>{mentor.countryCode} / {mentor.languageCode}</td><td>{mentor.qualificationStatus === 'QUALIFIED' ? '已具备资格' : mentor.qualificationStatus}</td><td>{mentor.assignedStudentCount}</td><td>{mentor.maxActiveStudents}</td><td>{canManageMentorRelations ? <button className="primary-btn small-btn" onClick={() => openMentorAssignmentDialog(mentor)} disabled={loading}>编辑学员</button> : '-'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未建立导师资格" description="先通过“新建导师资格”添加一位导师。" />}
+                  {mentorIncentiveDashboard?.mentors.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>导师信息</th><th>归属国家 / 语言</th><th>资格状态</th><th>学员数量</th><th>带教上限</th><th>操作</th></tr></thead><tbody>{mentorIncentiveDashboard.mentors.map((mentor) => <tr key={mentor.userId}><td>用户 {mentor.userId}{mentor.phoneNumber ? ` · ${mentor.phoneNumber}` : ''}</td><td>{mentor.countryCode} / {mentor.languageCode}</td><td>{mentor.qualificationStatus === 'QUALIFIED' ? '已具备资格' : mentor.qualificationStatus}</td><td>{mentor.assignedStudentCount}</td><td>{mentor.maxActiveStudents}</td><td>{canManageMentorRelations ? <div className="action-row"><button className="ghost-btn small-btn" onClick={() => openMentorQualificationDialog(mentor)} disabled={loading}>编辑资格</button><button className="primary-btn small-btn" onClick={() => openMentorAssignmentDialog(mentor)} disabled={loading}>编辑学员</button></div> : '-'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未建立导师资格" description="先通过“新建导师资格”添加一位导师。" />}
                 </InfoCard>
               </div>
             </PanelSection>
@@ -3500,21 +3514,21 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
 
       {isMentorQualificationDialogOpen ? (
         <ConfirmDialog
-          title="新建导师资格"
+          title={mentorQualificationTarget ? `编辑导师资格 · 用户 ${mentorQualificationTarget.userId}` : '新建导师资格'}
           tone="primary"
-          confirmText="保存导师资格"
+          confirmText={mentorQualificationTarget ? '保存资格修改' : '保存导师资格'}
           loading={loading}
           confirmDisabled={!mentorQualificationForm.userId || !mentorQualificationForm.languageCode || !mentorQualificationForm.maxActiveStudents}
-          onCancel={() => setIsMentorQualificationDialogOpen(false)}
+          onCancel={() => { setIsMentorQualificationDialogOpen(false); setMentorQualificationTarget(null) }}
           onConfirm={() => void handleQualifyMentor()}
         >
           <form className="grid-form compact-form exception-filter-grid" onSubmit={(event) => { event.preventDefault(); void handleQualifyMentor() }}>
-            <label>用户 ID<input required inputMode="numeric" value={mentorQualificationForm.userId} onChange={(event) => setMentorQualificationForm({ ...mentorQualificationForm, userId: event.target.value.replace(/\D/g, '') })} /></label>
+            <label>用户 ID<input required disabled={Boolean(mentorQualificationTarget)} inputMode="numeric" value={mentorQualificationForm.userId} onChange={(event) => setMentorQualificationForm({ ...mentorQualificationForm, userId: event.target.value.replace(/\D/g, '') })} /></label>
             <label>归属国家<select value={mentorQualificationForm.countryCode} onChange={(event) => { const countryCode = event.target.value; setMentorQualificationForm({ ...mentorQualificationForm, countryCode, languageCode: mentorQualificationLanguage(countryCode).code }) }}>{phoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names.zh}（{country.countryCode}）</option>)}</select></label>
             <label>归属语言（自动）<input disabled value={`${mentorQualificationLanguage(mentorQualificationForm.countryCode).label}（${mentorQualificationForm.languageCode}）`} /></label>
             <label>最大带教人数<input required min="1" inputMode="numeric" value={mentorQualificationForm.maxActiveStudents} onChange={(event) => setMentorQualificationForm({ ...mentorQualificationForm, maxActiveStudents: event.target.value.replace(/\D/g, '') })} /></label>
           </form>
-          <InlineHint text="保存后仅建立导师资格与带教上限；不会自动分配学员，也不会产生任何分成或付款。" />
+          <InlineHint text={mentorQualificationTarget ? '仅更新该导师的资格范围和带教上限；导师用户 ID 不可变更，不会调整已有学员归属，也不会产生任何分成或付款。' : '保存后仅建立导师资格与带教上限；不会自动分配学员，也不会产生任何分成或付款。'} />
         </ConfirmDialog>
       ) : null}
 
