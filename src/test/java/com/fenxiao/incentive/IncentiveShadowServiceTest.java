@@ -72,9 +72,10 @@ class IncentiveShadowServiceTest {
         LocalDateTime now = LocalDateTime.now(Clock.systemUTC()).withNano(0);
         var finance = new AdminSessionService.AdminPrincipal(9001L, "finance", "Finance", "finance", false, 1L, false, now.plusHours(1), "*", "*", "*");
         var draft = mentorIncentiveAdminService.createDraft(new MentorIncentiveRuleRequest(
-                "VALID_72H_START", "TIMO", "BR", null, 200, "DIAMOND", 7, now.minusMinutes(1), null), finance);
+                "VALID_72H_START", "TIMO", "BR", null, 200, "BRL", 7, now.minusMinutes(1), null), finance);
 
         assertThat(draft.status()).isEqualTo("DRAFT");
+        assertThat(draft.currencyCode()).isEqualTo("DIAMOND");
         assertThat(jdbc.queryForObject("select enabled from incentive_rule_version where id=?", Boolean.class, draft.id())).isFalse();
 
         var active = mentorIncentiveAdminService.activate(draft.id(), "finance evidence verified", finance);

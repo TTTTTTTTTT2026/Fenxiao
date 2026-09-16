@@ -466,7 +466,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [isMentorRuleDialogOpen, setIsMentorRuleDialogOpen] = useState(false)
   const [isMentorQualificationDialogOpen, setIsMentorQualificationDialogOpen] = useState(false)
   const [mentorAssignmentTarget, setMentorAssignmentTarget] = useState<MentorIncentiveDashboardResponse['mentors'][number] | null>(null)
-  const [mentorRuleForm, setMentorRuleForm] = useState({ milestoneCode: 'VALID_72H_START', platformCode: 'TIMO', countryCode: 'BR', guildId: '', amountMinor: '', currencyCode: 'DIAMOND', freezeDays: '7', effectiveFrom: '', effectiveTo: '' })
+  const [mentorRuleForm, setMentorRuleForm] = useState({ milestoneCode: 'VALID_72H_START', platformCode: 'TIMO', countryCode: 'BR', guildId: '', amountMinor: '', freezeDays: '7', effectiveFrom: '', effectiveTo: '' })
   const [mentorQualificationForm, setMentorQualificationForm] = useState({ userId: '', countryCode: 'BR', languageCode: 'pt-br', maxActiveStudents: '20' })
   const [mentorAssignmentForm, setMentorAssignmentForm] = useState({ studentUserId: '', mentorUserId: '', reason: '' })
   const [platformVerificationMockForm, setPlatformVerificationMockForm] = useState({
@@ -1801,7 +1801,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     try {
       await createAdminMentorIncentiveRule(adminSession.sessionToken, {
         milestoneCode: mentorRuleForm.milestoneCode, platformCode: mentorRuleForm.platformCode, countryCode: mentorRuleForm.countryCode,
-        guildId: mentorRuleForm.guildId.trim() || null, amountMinor: Number(mentorRuleForm.amountMinor), currencyCode: mentorRuleForm.currencyCode,
+        guildId: mentorRuleForm.guildId.trim() || null, amountMinor: Number(mentorRuleForm.amountMinor), currencyCode: 'DIAMOND',
         freezeDays: Number(mentorRuleForm.freezeDays), effectiveFrom: new Date(mentorRuleForm.effectiveFrom).toISOString().slice(0, 19),
         effectiveTo: mentorRuleForm.effectiveTo ? new Date(mentorRuleForm.effectiveTo).toISOString().slice(0, 19) : null,
       })
@@ -3511,12 +3511,12 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             <label>归属国家<select value={mentorRuleForm.countryCode} onChange={(event) => setMentorRuleForm({ ...mentorRuleForm, countryCode: event.target.value })}>{phoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names.zh}（{country.countryCode}）</option>)}</select></label>
             <label>限定公会（可选）<input value={mentorRuleForm.guildId} onChange={(event) => setMentorRuleForm({ ...mentorRuleForm, guildId: event.target.value })} placeholder="留空表示全部公会" /></label>
             <label>固定奖励额度<input required inputMode="numeric" value={mentorRuleForm.amountMinor} onChange={(event) => setMentorRuleForm({ ...mentorRuleForm, amountMinor: event.target.value.replace(/\D/g, '') })} placeholder="例如 200" /></label>
-            <label>单位<input required value={mentorRuleForm.currencyCode} onChange={(event) => setMentorRuleForm({ ...mentorRuleForm, currencyCode: event.target.value.toUpperCase() })} placeholder="例如 DIAMOND" /></label>
+            <label>单位（系统固定）<input disabled value="DIAMOND" aria-label="导师分成固定单位 DIAMOND" /></label>
             <label>冻结天数<input required inputMode="numeric" value={mentorRuleForm.freezeDays} onChange={(event) => setMentorRuleForm({ ...mentorRuleForm, freezeDays: event.target.value.replace(/\D/g, '') })} /></label>
             <label>生效时间<input required type="datetime-local" value={mentorRuleForm.effectiveFrom} onChange={(event) => setMentorRuleForm({ ...mentorRuleForm, effectiveFrom: event.target.value })} /></label>
             <label>失效时间（可选）<input type="datetime-local" value={mentorRuleForm.effectiveTo} onChange={(event) => setMentorRuleForm({ ...mentorRuleForm, effectiveTo: event.target.value })} /></label>
           </form>
-          <InlineHint text="导师规则采用固定额度，不按学员收入比例抽成。保存后是待审草稿；审批启用前不会写入影子账本，更不会产生真实奖励。" />
+          <InlineHint text="导师规则采用固定额度，单位固定为 DIAMOND，不按学员收入比例抽成。保存后是待审草稿；审批启用前不会写入影子账本，更不会产生真实奖励。" />
         </ConfirmDialog>
       ) : null}
 
