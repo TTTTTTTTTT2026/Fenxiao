@@ -106,7 +106,7 @@ import {
   activateAdminCommissionPolicy,
   retireAdminCommissionPolicy,
   getAdminMentorIncentiveDashboard,
-  createAdminMentorIncentiveRule,
+  createAdminMentorIncentiveRules,
   activateAdminMentorIncentiveRule,
   retireAdminMentorIncentiveRule,
   qualifyAdminMentor,
@@ -466,7 +466,9 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [isMentorRuleDialogOpen, setIsMentorRuleDialogOpen] = useState(false)
   const [isMentorQualificationDialogOpen, setIsMentorQualificationDialogOpen] = useState(false)
   const [mentorAssignmentTarget, setMentorAssignmentTarget] = useState<MentorIncentiveDashboardResponse['mentors'][number] | null>(null)
-  const [mentorRuleForm, setMentorRuleForm] = useState({ milestoneCode: 'VALID_72H_START', platformCode: 'TIMO', countryCode: 'BR', guildId: '', amountMinor: '', freezeDays: '7', effectiveFrom: '', effectiveTo: '' })
+  const [mentorRuleForm, setMentorRuleForm] = useState({ milestoneCode: 'VALID_72H_START', platformCode: 'TIMO', countryCode: 'BR', guildIds: [] as string[], amountMinor: '', freezeDays: '7', effectiveFrom: '', effectiveTo: '' })
+  const [mentorRuleGuildDirectory, setMentorRuleGuildDirectory] = useState<PlatformGuildDirectoryItem[] | null>(null)
+  const [mentorRuleGuildDirectoryLoading, setMentorRuleGuildDirectoryLoading] = useState(false)
   const [mentorQualificationForm, setMentorQualificationForm] = useState({ userId: '', countryCode: 'BR', languageCode: 'pt-br', maxActiveStudents: '20' })
   const [mentorAssignmentForm, setMentorAssignmentForm] = useState({ studentUserId: '', mentorUserId: '', reason: '' })
   const [platformVerificationMockForm, setPlatformVerificationMockForm] = useState({
@@ -585,6 +587,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
       .sort((left, right) => left.guildName.localeCompare(right.guildName))
   }, [linkyInvitationGuildOptions])
   const selectedLinkyInvitationGuildOption = linkyGuildOptions.find((item) => item.guildId === linkyInvitationGuildOverride.guildId) ?? null
+  const mentorRuleGuildOptions = useMemo(() => (mentorRuleGuildDirectory ?? []).filter((item) => item.country?.trim().toUpperCase() === mentorRuleForm.countryCode && item.directoryStatus === 'NORMAL' && ['ACTIVE', 'ENABLED'].includes(item.guildStatus.toUpperCase())), [mentorRuleGuildDirectory, mentorRuleForm.countryCode])
   const seedInviterCountry = phoneCountries.find((country) => country.countryCode === seedInviterForm.countryCode) ?? phoneCountries[0]
   const activeAdminProductCode = adminProduct === 'ALL' ? undefined : adminProduct
   const adminSectionLinks = useMemo(() => buildAdminSectionLinks(adminSession?.role), [adminSession?.role])
@@ -1794,18 +1797,27 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     finally { setLoading(false) }
   }
 
+  async function loadMentorRuleGuildDirectory(platform = mentorRuleForm.platformCode) {
+    if (!adminSession) return
+    setMentorRuleGuildDirectoryLoading(true)
+    setError('')
+    try { setMentorRuleGuildDirectory(await getAdminPlatformGuildDirectory(adminSession.sessionToken, platform as 'LINKY' | 'TIMO')) }
+    catch (err) { setMentorRuleGuildDirectory(null); setError(err instanceof Error ? err.message : '加载权威公会目录失败') }
+    finally { setMentorRuleGuildDirectoryLoading(false) }
+  }
+
   async function saveMentorIncentiveRule() {
     if (!adminSession || !canManageMentorRules) return
     if (!mentorRuleForm.amountMinor || !mentorRuleForm.effectiveFrom) { setError('请填写固定奖励额度和生效时间。'); return }
     setLoading(true); setError(''); setSuccessMessage('')
     try {
-      await createAdminMentorIncentiveRule(adminSession.sessionToken, {
+      const created = await createAdminMentorIncentiveRules(adminSession.sessionToken, {
         milestoneCode: mentorRuleForm.milestoneCode, platformCode: mentorRuleForm.platformCode, countryCode: mentorRuleForm.countryCode,
-        guildId: mentorRuleForm.guildId.trim() || null, amountMinor: Number(mentorRuleForm.amountMinor), currencyCode: 'DIAMOND',
+        guildIds: mentorRuleForm.guildIds, amountMinor: Number(mentorRuleForm.amountMinor), currencyCode: 'DIAMOND',
         freezeDays: Number(mentorRuleForm.freezeDays), effectiveFrom: new Date(mentorRuleForm.effectiveFrom).toISOString().slice(0, 19),
         effectiveTo: mentorRuleForm.effectiveTo ? new Date(mentorRuleForm.effectiveTo).toISOString().slice(0, 19) : null,
       })
-      setIsMentorRuleDialogOpen(false); setSuccessMessage('已建立待审导师分成规则；仅可用于影子账本核验，不会创建奖励、余额或付款。'); await loadMentorIncentiveDashboard()
+      setIsMentorRuleDialogOpen(false); setSuccessMessage(`已建立 ${created.length} 条待审导师分成规则；仅可用于影子账本核验，不会创建奖励、余额或付款。`); await loadMentorIncentiveDashboard()
     } catch (err) { setError(err instanceof Error ? err.message : '建立导师分成规则失败') }
     finally { setLoading(false) }
   }
@@ -2609,7 +2621,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   {mentorIncentiveDashboard ? <div className="relation-grid"><RelationItem label="已启用导师规则" value={mentorIncentiveDashboard.rules.filter((rule) => rule.status === 'ACTIVE').length} /><RelationItem label="导师影子记录" value={mentorIncentiveDashboard.shadowEntryCount} /></div> : <EmptyState title="尚未读取导师分成数据" description="点击“刷新数据”读取规则和导师影子账本。" />}
                   <InlineHint text="导师规则按固定额度和里程碑触发；不是对学员收入按比例抽成。创建或启用规则不会进行真实发奖。" />
                 </InfoCard>
-                {canManageMentorRules ? <InfoCard title="导师里程碑规则" tone="neutral"><p>先建立草稿，再填写审批说明后启用。每条规则只能覆盖一个里程碑、平台、国家与可选公会范围，避免规则重叠。</p><button className="primary-btn top-gap" onClick={() => setIsMentorRuleDialogOpen(true)} disabled={loading}>新增导师分成规则</button></InfoCard> : null}
+                {canManageMentorRules ? <InfoCard title="导师里程碑规则" tone="neutral"><p>先建立草稿，再填写审批说明后启用。限定公会只能从 MCN 权威目录中按平台和国家多选；每个公会会建立一条独立规则，避免规则范围混杂。</p><button className="primary-btn top-gap" onClick={() => { setIsMentorRuleDialogOpen(true); void loadMentorRuleGuildDirectory() }} disabled={loading}>新增导师分成规则</button></InfoCard> : null}
                 <InfoCard title="已保存的导师规则" tone="neutral">{mentorIncentiveDashboard?.rules.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>规则版本</th><th>里程碑</th><th>适用范围</th><th>固定额度 / 冻结</th><th>生效期</th><th>状态</th><th>操作</th></tr></thead><tbody>{mentorIncentiveDashboard.rules.map((rule) => <tr key={rule.id}><td>{rule.ruleCode} · V{rule.ruleVersion}</td><td>{mentorMilestoneLabel(rule.milestoneCode)}</td><td>{rule.platformCode} / {rule.countryCode}{rule.guildId ? ` / ${rule.guildId}` : ' / 全部公会'}</td><td>{rule.amountMinor} {rule.currencyCode} / {rule.freezeDays} 天</td><td>{formatDateTime(rule.effectiveFrom)} {rule.effectiveTo ? `至 ${formatDateTime(rule.effectiveTo)}` : '起长期有效'}</td><td>{rule.status === 'DRAFT' ? '待审' : rule.status === 'ACTIVE' ? '已启用' : '已停用'}</td><td>{canManageMentorRules && rule.status === 'DRAFT' ? <button className="primary-btn small-btn" onClick={() => void handleActivateMentorRule(rule.id, rule.ruleCode)} disabled={loading}>审批并启用</button> : canManageMentorRules && rule.status === 'ACTIVE' ? <button className="ghost-btn small-btn" onClick={() => void handleRetireMentorRule(rule.id, rule.ruleCode)} disabled={loading}>停止使用</button> : '-'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未配置导师规则" description="规则必须先以草稿建立，审批启用后才会参与后续影子账本核验。" />}</InfoCard>
                 <InfoCard title="最近导师影子账本" tone="neutral">{mentorIncentiveDashboard?.recentShadowEntries.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>触发时间</th><th>导师 / 学员</th><th>平台</th><th>里程碑</th><th>规则</th><th>影子额度</th><th>状态</th></tr></thead><tbody>{mentorIncentiveDashboard.recentShadowEntries.map((entry) => <tr key={entry.id}><td>{formatDateTime(entry.triggeredAt)}</td><td>{entry.recipientUserId} / {entry.sourceUserId}</td><td>{entry.platformCode}</td><td>{mentorMilestoneLabel(entry.milestoneCode)}</td><td>{entry.ruleCode} · V{entry.ruleVersion}</td><td>{entry.amountMinor} {entry.currencyCode}</td><td>{entry.ledgerStatus}</td></tr>)}</tbody></table></div> : <EmptyState title="尚无导师影子记录" description="导师、学员、里程碑和已启用规则同时满足后，才会写入不可支付的影子账本。" />}</InfoCard>
               </div>
@@ -3507,11 +3519,11 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
         >
           <form className="grid-form compact-form exception-filter-grid" onSubmit={(event) => { event.preventDefault(); void saveMentorIncentiveRule() }}>
             <label>触发里程碑<select value={mentorRuleForm.milestoneCode} onChange={(event) => setMentorRuleForm({ ...mentorRuleForm, milestoneCode: event.target.value })}><option value="VALID_72H_START">72 小时有效启动</option><option value="FIRST_INCOME">首次收入</option><option value="FIRST_WITHDRAW_ELIGIBLE">首次达到可提现门槛</option><option value="ACTIVE_7D">连续活跃 7 天</option><option value="ACTIVE_30D">连续活跃 30 天</option></select></label>
-            <label>平台<select value={mentorRuleForm.platformCode} onChange={(event) => setMentorRuleForm({ ...mentorRuleForm, platformCode: event.target.value })}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label>
-            <label>归属国家<select value={mentorRuleForm.countryCode} onChange={(event) => setMentorRuleForm({ ...mentorRuleForm, countryCode: event.target.value })}>{phoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names.zh}（{country.countryCode}）</option>)}</select></label>
-            <label>限定公会（可选）<input value={mentorRuleForm.guildId} onChange={(event) => setMentorRuleForm({ ...mentorRuleForm, guildId: event.target.value })} placeholder="留空表示全部公会" /></label>
+            <label>平台<select value={mentorRuleForm.platformCode} onChange={(event) => { const platformCode = event.target.value; setMentorRuleForm({ ...mentorRuleForm, platformCode, guildIds: [] }); void loadMentorRuleGuildDirectory(platformCode) }}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label>
+            <label>归属国家<select value={mentorRuleForm.countryCode} onChange={(event) => setMentorRuleForm({ ...mentorRuleForm, countryCode: event.target.value, guildIds: [] })}>{phoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names.zh}（{country.countryCode}）</option>)}</select></label>
+            <label className="full-span">限定公会（可选，多选）<select multiple size={Math.max(3, Math.min(6, mentorRuleGuildOptions.length || 3))} value={mentorRuleForm.guildIds} disabled={mentorRuleGuildDirectoryLoading} onChange={(event) => setMentorRuleForm({ ...mentorRuleForm, guildIds: Array.from(event.target.selectedOptions, (option) => option.value) })}>{mentorRuleGuildOptions.map((guild) => <option key={guild.guildId} value={guild.guildId}>{guild.guildName}（{guild.guildId}）</option>)}</select><small>{mentorRuleGuildDirectoryLoading ? '正在读取 MCN 权威公会目录…' : mentorRuleGuildOptions.length ? '可按 Ctrl / ⌘ 多选；保存后会按所选公会分别建立待审规则。未选择表示适用于该平台与国家的全部公会。' : '当前平台和国家没有可用的 MCN 权威公会；请先确认公会目录已同步。'}</small></label>
             <label>固定奖励额度<input required inputMode="numeric" value={mentorRuleForm.amountMinor} onChange={(event) => setMentorRuleForm({ ...mentorRuleForm, amountMinor: event.target.value.replace(/\D/g, '') })} placeholder="例如 200" /></label>
-            <label>单位（系统固定）<input disabled value="DIAMOND" aria-label="导师分成固定单位 DIAMOND" /></label>
+            <label>货币单位<input disabled value="DIAMOND" aria-label="导师分成固定货币单位 DIAMOND" /></label>
             <label>冻结天数<input required inputMode="numeric" value={mentorRuleForm.freezeDays} onChange={(event) => setMentorRuleForm({ ...mentorRuleForm, freezeDays: event.target.value.replace(/\D/g, '') })} /></label>
             <label>生效时间<input required type="datetime-local" value={mentorRuleForm.effectiveFrom} onChange={(event) => setMentorRuleForm({ ...mentorRuleForm, effectiveFrom: event.target.value })} /></label>
             <label>失效时间（可选）<input type="datetime-local" value={mentorRuleForm.effectiveTo} onChange={(event) => setMentorRuleForm({ ...mentorRuleForm, effectiveTo: event.target.value })} /></label>
