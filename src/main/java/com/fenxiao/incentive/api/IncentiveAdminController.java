@@ -49,6 +49,12 @@ public class IncentiveAdminController {
                                                              @RequestHeader(value="X-Admin-Session",required=false) String session) {
         guard.assertMentorReadAccess(token, session); return mentorIncentives.dashboard();
     }
+    @GetMapping("/admin/incentives/mentors/{userId}/students")
+    public java.util.List<MentorAssignedStudentResponse> mentorStudents(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                          @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                                          @PathVariable long userId) {
+        guard.assertMentorReadAccess(token, session); return mentorIncentives.currentStudents(userId);
+    }
     @PostMapping("/admin/incentives/leadership-policies")
     public Map<String,Object> leadershipPolicy(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                @RequestHeader(value="X-Admin-Session",required=false) String session,

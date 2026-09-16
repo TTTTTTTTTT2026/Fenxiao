@@ -61,6 +61,13 @@ public class MentorIncentiveAdminService {
                 (rs, row) -> new MentorIncentiveRuleResponse(rs.getLong(1), rs.getString(2), rs.getInt(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getString(7), rs.getLong(8), rs.getString(9), rs.getInt(10), rs.getTimestamp(11).toLocalDateTime(), rs.getTimestamp(12) == null ? null : rs.getTimestamp(12).toLocalDateTime(), rs.getString(13), nullableLong(rs, 14), nullableLong(rs, 15), rs.getTimestamp(16) == null ? null : rs.getTimestamp(16).toLocalDateTime(), rs.getString(17)));
     }
 
+    public List<MentorAssignedStudentResponse> currentStudents(long mentorUserId) {
+        return jdbc.query("select a.student_user_id,p.phone_number,p.country_code,p.language_code,a.effective_from,a.change_reason " +
+                        "from mentor_assignment_version a join user_distribution_profile p on p.user_id=a.student_user_id " +
+                        "where a.mentor_user_id=? and a.assignment_status='ASSIGNED' and a.effective_to is null order by a.effective_from desc,a.student_user_id asc",
+                (rs, row) -> new MentorAssignedStudentResponse(rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getTimestamp(5).toLocalDateTime(), rs.getString(6)), mentorUserId);
+    }
+
     public MentorIncentiveRuleResponse createDraft(MentorIncentiveRuleRequest request, AdminSessionService.AdminPrincipal actor) {
         validate(request);
         return insertDraft(request, actor);

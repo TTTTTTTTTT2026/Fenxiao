@@ -170,6 +170,10 @@ export type MentorIncentiveDashboardResponse = {
   mentors: Array<{ userId: number; phoneNumber: string | null; countryCode: string; languageCode: string; qualificationStatus: string; maxActiveStudents: number; assignedStudentCount: number }>
   rules: MentorIncentiveRuleResponse[]; recentShadowEntries: MentorShadowLedgerItemResponse[]
 }
+export type MentorAssignedStudentResponse = {
+  userId: number; phoneNumber: string | null; countryCode: string; languageCode: string
+  assignedAt: string; assignmentReason: string
+}
 export type PlatformIntegrationResponse = {
   platformCode: string
   displayName: string
@@ -841,6 +845,9 @@ export function retireAdminCommissionPolicy(adminSessionToken: string, id: numbe
 }
 export function getAdminMentorIncentiveDashboard(adminSessionToken: string) {
   return request<MentorIncentiveDashboardResponse>('/admin/incentives/mentor-dashboard', { headers: { 'X-Admin-Session': adminSessionToken } })
+}
+export function getAdminMentorAssignedStudents(adminSessionToken: string, mentorUserId: number) {
+  return request<MentorAssignedStudentResponse[]>(`/admin/incentives/mentors/${mentorUserId}/students`, { headers: { 'X-Admin-Session': adminSessionToken } })
 }
 export function createAdminMentorIncentiveRule(adminSessionToken: string, payload: { milestoneCode: string; platformCode: string; countryCode: string; guildId: string | null; amountMinor: number; currencyCode: string; freezeDays: number; effectiveFrom: string; effectiveTo: string | null }) {
   return request<MentorIncentiveRuleResponse>('/admin/incentives/mentor-rules', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) })
