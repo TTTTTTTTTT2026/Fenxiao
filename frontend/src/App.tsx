@@ -3510,8 +3510,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
         >
           <form className="grid-form compact-form exception-filter-grid" onSubmit={(event) => { event.preventDefault(); void handleQualifyMentor() }}>
             <label>用户 ID<input required inputMode="numeric" value={mentorQualificationForm.userId} onChange={(event) => setMentorQualificationForm({ ...mentorQualificationForm, userId: event.target.value.replace(/\D/g, '') })} /></label>
-            <label>归属国家<select value={mentorQualificationForm.countryCode} onChange={(event) => setMentorQualificationForm({ ...mentorQualificationForm, countryCode: event.target.value })}>{phoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names.zh}（{country.countryCode}）</option>)}</select></label>
-            <label>语言<input required value={mentorQualificationForm.languageCode} onChange={(event) => setMentorQualificationForm({ ...mentorQualificationForm, languageCode: event.target.value })} placeholder="例如 pt-br" /></label>
+            <label>归属国家<select value={mentorQualificationForm.countryCode} onChange={(event) => { const countryCode = event.target.value; setMentorQualificationForm({ ...mentorQualificationForm, countryCode, languageCode: mentorQualificationLanguage(countryCode).code }) }}>{phoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names.zh}（{country.countryCode}）</option>)}</select></label>
+            <label>归属语言（自动）<input disabled value={`${mentorQualificationLanguage(mentorQualificationForm.countryCode).label}（${mentorQualificationForm.languageCode}）`} /></label>
             <label>最大带教人数<input required min="1" inputMode="numeric" value={mentorQualificationForm.maxActiveStudents} onChange={(event) => setMentorQualificationForm({ ...mentorQualificationForm, maxActiveStudents: event.target.value.replace(/\D/g, '') })} /></label>
           </form>
           <InlineHint text="保存后仅建立导师资格与带教上限；不会自动分配学员，也不会产生任何分成或付款。" />
@@ -5152,6 +5152,27 @@ const phoneCountries = [
   { countryCode: 'VN', callingCode: '+84', names: { zh: '越南', en: 'Vietnam', es: 'Vietnam', id: 'Vietnam', pt: 'Vietnã' } },
   { countryCode: 'MY', callingCode: '+60', names: { zh: '马来西亚', en: 'Malaysia', es: 'Malasia', id: 'Malaysia', pt: 'Malásia' } },
 ] as const
+
+const mentorQualificationLanguages: Record<string, { code: string; label: string }> = {
+  BR: { code: 'pt-br', label: '葡萄牙语' },
+  ID: { code: 'id', label: '印尼语' },
+  CN: { code: 'zh', label: '中文' },
+  US: { code: 'en', label: '英语' },
+  CA: { code: 'en', label: '英语' },
+  MX: { code: 'es', label: '西班牙语' },
+  CO: { code: 'es', label: '西班牙语' },
+  AR: { code: 'es', label: '西班牙语' },
+  CL: { code: 'es', label: '西班牙语' },
+  PE: { code: 'es', label: '西班牙语' },
+  PH: { code: 'en', label: '英语' },
+  TH: { code: 'th', label: '泰语' },
+  VN: { code: 'vi', label: '越南语' },
+  MY: { code: 'ms', label: '马来语' },
+}
+
+function mentorQualificationLanguage(countryCode: string) {
+  return mentorQualificationLanguages[countryCode] ?? { code: 'en', label: '英语' }
+}
 
 function directoryCountryCode(country: string | null | undefined) {
   const normalized = country?.trim().toUpperCase() ?? ''
