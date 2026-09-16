@@ -131,9 +131,17 @@ public class MentorIncentiveAdminService {
 
     private void validateAuthoritativeGuilds(String platform, String country, List<String> guildIds) {
         List<PlatformGuildDirectory> found = guildDirectory.findByPlatformCodeAndExternalGuildIdIn(platform, guildIds);
-        if (found.size() != guildIds.size() || found.stream().anyMatch(guild -> !country.equalsIgnoreCase(guild.getCountry()) || !"NORMAL".equalsIgnoreCase(guild.getDirectoryStatus()) || !("ACTIVE".equalsIgnoreCase(guild.getGuildStatus()) || "ENABLED".equalsIgnoreCase(guild.getGuildStatus())))) {
+        if (found.size() != guildIds.size() || found.stream().anyMatch(guild -> !country.equals(directoryCountryCode(guild.getCountry())) || !"NORMAL".equalsIgnoreCase(guild.getDirectoryStatus()) || !("ACTIVE".equalsIgnoreCase(guild.getGuildStatus()) || "ENABLED".equalsIgnoreCase(guild.getGuildStatus())))) {
             throw new IllegalArgumentException("mentor guild scope must use active authoritative platform guilds for the selected country");
         }
+    }
+    private String directoryCountryCode(String value) {
+        return switch (upper(value)) {
+            case "BRAZIL" -> "BR";
+            case "INDONESIA" -> "ID";
+            case "MEXICO" -> "MX";
+            default -> upper(value);
+        };
     }
     private long count(String sql) { Long value = jdbc.queryForObject(sql, Long.class); return value == null ? 0 : value; }
     private Long nullableLong(java.sql.ResultSet rs, int index) throws java.sql.SQLException { long value = rs.getLong(index); return rs.wasNull() ? null : value; }

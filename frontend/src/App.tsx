@@ -587,7 +587,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
       .sort((left, right) => left.guildName.localeCompare(right.guildName))
   }, [linkyInvitationGuildOptions])
   const selectedLinkyInvitationGuildOption = linkyGuildOptions.find((item) => item.guildId === linkyInvitationGuildOverride.guildId) ?? null
-  const mentorRuleGuildOptions = useMemo(() => (mentorRuleGuildDirectory ?? []).filter((item) => item.country?.trim().toUpperCase() === mentorRuleForm.countryCode && item.directoryStatus === 'NORMAL' && ['ACTIVE', 'ENABLED'].includes(item.guildStatus.toUpperCase())), [mentorRuleGuildDirectory, mentorRuleForm.countryCode])
+  const mentorRuleGuildOptions = useMemo(() => (mentorRuleGuildDirectory ?? []).filter((item) => directoryCountryCode(item.country) === mentorRuleForm.countryCode && item.directoryStatus === 'NORMAL' && ['ACTIVE', 'ENABLED'].includes(item.guildStatus.toUpperCase())), [mentorRuleGuildDirectory, mentorRuleForm.countryCode])
   const seedInviterCountry = phoneCountries.find((country) => country.countryCode === seedInviterForm.countryCode) ?? phoneCountries[0]
   const activeAdminProductCode = adminProduct === 'ALL' ? undefined : adminProduct
   const adminSectionLinks = useMemo(() => buildAdminSectionLinks(adminSession?.role), [adminSession?.role])
@@ -5121,6 +5121,11 @@ const phoneCountries = [
   { countryCode: 'VN', callingCode: '+84', names: { zh: '越南', en: 'Vietnam', es: 'Vietnam', id: 'Vietnam', pt: 'Vietnã' } },
   { countryCode: 'MY', callingCode: '+60', names: { zh: '马来西亚', en: 'Malaysia', es: 'Malasia', id: 'Malaysia', pt: 'Malásia' } },
 ] as const
+
+function directoryCountryCode(country: string | null | undefined) {
+  const normalized = country?.trim().toUpperCase() ?? ''
+  return ({ BRAZIL: 'BR', INDONESIA: 'ID', MEXICO: 'MX' } as Record<string, string>)[normalized] ?? normalized
+}
 
 function normalizeLocalPhoneNumber(value: string, callingCode: string) {
   const normalized = value.replace(/\D/g, '')
