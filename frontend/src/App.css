@@ -6639,6 +6639,7 @@ code {
 
 .admin-console-page .mentor-guild-picker-option {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 9px;
   min-height: 36px;
