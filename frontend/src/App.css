@@ -6663,6 +6663,20 @@ code {
   accent-color: var(--bandeira-coral);
 }
 
+.admin-console-page .mentor-current-students {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--bandeira-line);
+  border-radius: 9px;
+  background: #fffaf6;
+}
+
+.admin-console-page .mentor-current-students > p {
+  margin: 0;
+  color: #6b7280;
+}
+
 .dialog-field {
   display: grid;
   gap: 6px;

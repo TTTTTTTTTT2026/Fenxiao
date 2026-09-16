@@ -106,6 +106,7 @@ import {
   activateAdminCommissionPolicy,
   retireAdminCommissionPolicy,
   getAdminMentorIncentiveDashboard,
+  getAdminMentorAssignedStudents,
   createAdminMentorIncentiveRules,
   activateAdminMentorIncentiveRule,
   retireAdminMentorIncentiveRule,
@@ -148,6 +149,7 @@ import {
   type McnIncomeRewardCandidateSummaryResponse,
   type CommissionPolicyResponse,
   type MentorIncentiveDashboardResponse,
+  type MentorAssignedStudentResponse,
   type OverviewReportResponse,
   type OwnershipDetailResponse,
   type PhoneVerificationCodeListResponse,
@@ -468,6 +470,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const mentorRuleGuildPickerRef = useRef<HTMLDivElement>(null)
   const [isMentorQualificationDialogOpen, setIsMentorQualificationDialogOpen] = useState(false)
   const [mentorAssignmentTarget, setMentorAssignmentTarget] = useState<MentorIncentiveDashboardResponse['mentors'][number] | null>(null)
+  const [mentorAssignedStudents, setMentorAssignedStudents] = useState<MentorAssignedStudentResponse[]>([])
+  const [mentorAssignedStudentsLoading, setMentorAssignedStudentsLoading] = useState(false)
   const [mentorRuleForm, setMentorRuleForm] = useState({ milestoneCode: 'VALID_72H_START', platformCode: 'TIMO', countryCode: 'BR', guildIds: [] as string[], amountMinor: '', freezeDays: '7', effectiveFrom: '', effectiveTo: '' })
   const [mentorRuleGuildDirectory, setMentorRuleGuildDirectory] = useState<PlatformGuildDirectoryItem[] | null>(null)
   const [mentorRuleGuildDirectoryLoading, setMentorRuleGuildDirectoryLoading] = useState(false)
@@ -1808,6 +1812,21 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     finally { setLoading(false) }
   }
 
+  async function loadMentorAssignedStudents(mentorUserId: number) {
+    if (!adminSession) return
+    setMentorAssignedStudentsLoading(true)
+    try { setMentorAssignedStudents(await getAdminMentorAssignedStudents(adminSession.sessionToken, mentorUserId)) }
+    catch (err) { setMentorAssignedStudents([]); setError(err instanceof Error ? err.message : '读取导师当前学员失败') }
+    finally { setMentorAssignedStudentsLoading(false) }
+  }
+
+  function openMentorAssignmentDialog(mentor: MentorIncentiveDashboardResponse['mentors'][number]) {
+    setMentorAssignmentForm({ studentUserId: '', mentorUserId: String(mentor.userId), reason: '' })
+    setMentorAssignedStudents([])
+    setMentorAssignmentTarget(mentor)
+    void loadMentorAssignedStudents(mentor.userId)
+  }
+
   async function loadMentorRuleGuildDirectory(platform = mentorRuleForm.platformCode) {
     if (!adminSession) return
     setMentorRuleGuildDirectoryLoading(true)
@@ -1862,7 +1881,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   async function handleAssignMentor(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault(); if (!adminSession || !canManageMentorRelations || !mentorAssignmentTarget) return
     setLoading(true); setError(''); setSuccessMessage('')
-    try { const result = await assignAdminMentor(adminSession.sessionToken, Number(mentorAssignmentForm.studentUserId), { mentorUserId: mentorAssignmentTarget.userId, reason: mentorAssignmentForm.reason }); setMentorAssignmentTarget(null); setMentorAssignmentForm({ studentUserId: '', mentorUserId: '', reason: '' }); setSuccessMessage(`已将学员 ${result.userId} 归属给导师 ${result.mentorUserId}，关系版本 ${result.version} 已留痕。`); await loadMentorIncentiveDashboard() }
+    try { const result = await assignAdminMentor(adminSession.sessionToken, Number(mentorAssignmentForm.studentUserId), { mentorUserId: mentorAssignmentTarget.userId, reason: mentorAssignmentForm.reason }); setMentorAssignmentForm({ studentUserId: '', mentorUserId: String(mentorAssignmentTarget.userId), reason: '' }); setSuccessMessage(`已将学员 ${result.userId} 归属给导师 ${result.mentorUserId}，关系版本 ${result.version} 已留痕。`); await Promise.all([loadMentorIncentiveDashboard(), loadMentorAssignedStudents(mentorAssignmentTarget.userId)]) }
     catch (err) { setError(err instanceof Error ? err.message : '分配导师失败') }
     finally { setLoading(false) }
   }
@@ -2619,7 +2638,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                 </InfoCard>
                 {canManageMentorRelations ? <InfoCard title="导师资格" tone="neutral"><p>建立导师资格后，才可以为该导师配置可携带的学员。</p><button className="primary-btn top-gap" onClick={() => setIsMentorQualificationDialogOpen(true)} disabled={loading}>新建导师资格</button></InfoCard> : null}
                 <InfoCard title="导师列表" tone="neutral">
-                  {mentorIncentiveDashboard?.mentors.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>导师信息</th><th>归属国家 / 语言</th><th>资格状态</th><th>学员数量</th><th>带教上限</th><th>操作</th></tr></thead><tbody>{mentorIncentiveDashboard.mentors.map((mentor) => <tr key={mentor.userId}><td>用户 {mentor.userId}{mentor.phoneNumber ? ` · ${mentor.phoneNumber}` : ''}</td><td>{mentor.countryCode} / {mentor.languageCode}</td><td>{mentor.qualificationStatus === 'QUALIFIED' ? '已具备资格' : mentor.qualificationStatus}</td><td>{mentor.assignedStudentCount}</td><td>{mentor.maxActiveStudents}</td><td>{canManageMentorRelations ? <button className="primary-btn small-btn" onClick={() => { setMentorAssignmentForm({ studentUserId: '', mentorUserId: String(mentor.userId), reason: '' }); setMentorAssignmentTarget(mentor) }} disabled={loading}>编辑学员</button> : '-'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未建立导师资格" description="先通过“新建导师资格”添加一位导师。" />}
+                  {mentorIncentiveDashboard?.mentors.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>导师信息</th><th>归属国家 / 语言</th><th>资格状态</th><th>学员数量</th><th>带教上限</th><th>操作</th></tr></thead><tbody>{mentorIncentiveDashboard.mentors.map((mentor) => <tr key={mentor.userId}><td>用户 {mentor.userId}{mentor.phoneNumber ? ` · ${mentor.phoneNumber}` : ''}</td><td>{mentor.countryCode} / {mentor.languageCode}</td><td>{mentor.qualificationStatus === 'QUALIFIED' ? '已具备资格' : mentor.qualificationStatus}</td><td>{mentor.assignedStudentCount}</td><td>{mentor.maxActiveStudents}</td><td>{canManageMentorRelations ? <button className="primary-btn small-btn" onClick={() => openMentorAssignmentDialog(mentor)} disabled={loading}>编辑学员</button> : '-'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未建立导师资格" description="先通过“新建导师资格”添加一位导师。" />}
                 </InfoCard>
               </div>
             </PanelSection>
@@ -3506,7 +3525,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           confirmText="保存学员归属"
           loading={loading}
           confirmDisabled={!mentorAssignmentForm.studentUserId || !mentorAssignmentForm.reason.trim()}
-          onCancel={() => { setMentorAssignmentTarget(null); setMentorAssignmentForm({ studentUserId: '', mentorUserId: '', reason: '' }) }}
+          onCancel={() => { setMentorAssignmentTarget(null); setMentorAssignmentForm({ studentUserId: '', mentorUserId: '', reason: '' }); setMentorAssignedStudents([]) }}
           onConfirm={() => void handleAssignMentor()}
         >
           <form className="grid-form compact-form" onSubmit={(event) => { event.preventDefault(); void handleAssignMentor() }}>
@@ -3514,6 +3533,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             <label>新增或调整的学员用户 ID<input required inputMode="numeric" value={mentorAssignmentForm.studentUserId} onChange={(event) => setMentorAssignmentForm({ ...mentorAssignmentForm, studentUserId: event.target.value.replace(/\D/g, '') })} /></label>
             <label className="full-span">归属原因<textarea required maxLength={255} value={mentorAssignmentForm.reason} onChange={(event) => setMentorAssignmentForm({ ...mentorAssignmentForm, reason: event.target.value })} placeholder="例如：语言与国家匹配，运营审核通过" /></label>
           </form>
+          <div className="mentor-current-students"><strong>当前归属学员（{mentorAssignedStudentsLoading ? '读取中…' : mentorAssignedStudents.length}）</strong>{mentorAssignedStudentsLoading ? <p>正在读取当前学员…</p> : mentorAssignedStudents.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>学员</th><th>国家 / 语言</th><th>归属生效</th><th>归属原因</th></tr></thead><tbody>{mentorAssignedStudents.map((student) => <tr key={student.userId}><td>用户 {student.userId}{student.phoneNumber ? ` · ${student.phoneNumber}` : ''}</td><td>{student.countryCode} / {student.languageCode}</td><td>{formatDateTime(student.assignedAt)}</td><td>{student.assignmentReason}</td></tr>)}</tbody></table></div> : <p>当前没有已归属学员。</p>}</div>
           <InlineHint text="保存后会为该学员创建新的导师归属版本；系统将校验导师带教上限，不会改写既有历史关系。" />
         </ConfirmDialog>
       ) : null}
