@@ -6568,6 +6568,100 @@ code {
   accent-color: var(--bandeira-coral);
 }
 
+.admin-console-page .mentor-guild-picker-field {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 640;
+}
+
+.admin-console-page .mentor-guild-picker {
+  position: relative;
+}
+
+.admin-console-page .mentor-guild-picker-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--bandeira-line);
+  border-radius: 8px;
+  background: #fff;
+  color: #302925;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.admin-console-page .mentor-guild-picker-trigger:disabled {
+  cursor: not-allowed;
+  color: #9ca3af;
+  background: #f8fafc;
+}
+
+.admin-console-page .mentor-guild-picker-menu {
+  position: absolute;
+  z-index: 12;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 220px;
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid var(--bandeira-line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(58, 43, 35, 0.18);
+}
+
+.admin-console-page .mentor-guild-picker-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 4px 7px;
+  border-bottom: 1px solid #f0ebe7;
+}
+
+.admin-console-page .mentor-guild-picker-actions button {
+  min-height: 28px;
+  padding: 3px 7px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #2563eb;
+  font: inherit;
+  cursor: pointer;
+}
+
+.admin-console-page .mentor-guild-picker-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 36px;
+  padding: 5px 4px;
+  color: #302925;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.admin-console-page .mentor-guild-picker-option + .mentor-guild-picker-option {
+  border-top: 1px solid #f7f2ef;
+}
+
+.admin-console-page .mentor-guild-picker-option input[type='checkbox'] {
+  width: 16px;
+  min-width: 16px;
+  height: 16px;
+  min-height: 16px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--bandeira-coral);
+}
+
 .dialog-field {
   display: grid;
   gap: 6px;
