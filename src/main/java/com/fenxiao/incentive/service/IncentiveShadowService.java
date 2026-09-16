@@ -64,7 +64,7 @@ public class IncentiveShadowService {
         LocalDateTime at = request.effectiveFrom() == null ? LocalDateTime.now(clock) : request.effectiveFrom();
         String code = upper(request.policyCode());
         Integer version = jdbc.queryForObject("select coalesce(max(policy_version),0)+1 from leadership_policy_version where policy_code=?", Integer.class, code);
-        jdbc.update("update leadership_policy_version set enabled=false,effective_to=? where policy_code=? and enabled=true", at, code);
+        jdbc.update("update leadership_policy_version set enabled=false,rule_status='RETIRED',effective_to=? where policy_code=? and enabled=true", at, code);
         KeyHolder keys = new GeneratedKeyHolder();
         jdbc.update(connection -> {
             PreparedStatement statement = connection.prepareStatement("insert into leadership_policy_version(policy_code,policy_version,platform_code,country_code,guild_id,required_valid_starts,required_withdraw_eligible,required_active_7d,profit_share_rate,effective_from,enabled) values(?,?,?,?,?,?,?,?,?,?,true)", new String[]{"id"});
@@ -101,8 +101,9 @@ public class IncentiveShadowService {
         int valid = (int) snapshots.stream().filter(PlatformLifecycleSnapshot::isValid72HourStart).count();
         int withdraw = (int) snapshots.stream().filter(value -> value.getFirstWithdrawEligibleAt() != null).count();
         int active7 = (int) snapshots.stream().filter(PlatformLifecycleSnapshot::isConsecutive7DayActive).count();
-        List<LeadershipPolicy> policies = jdbc.query("select id,required_valid_starts,required_withdraw_eligible,required_active_7d,profit_share_rate from leadership_policy_version where platform_code=? and country_code=? and enabled=true and effective_from<=? and effective_to is null and ((? is null and guild_id is null) or guild_id=?) order by policy_version desc limit 1",
-                (rs, row) -> new LeadershipPolicy(rs.getLong(1), rs.getInt(2), rs.getInt(3), rs.getInt(4), rs.getBigDecimal(5)), platform, user.getCountryCode(), LocalDateTime.now(clock), guildId, guildId);
+        LocalDateTime evaluatedAt = LocalDateTime.now(clock);
+        List<LeadershipPolicy> policies = jdbc.query("select id,required_valid_starts,required_withdraw_eligible,required_active_7d,profit_share_rate from leadership_policy_version where platform_code=? and country_code=? and enabled=true and rule_status='ACTIVE' and effective_from<=? and (effective_to is null or effective_to>=?) and ((? is null and guild_id is null) or guild_id=?) order by policy_version desc,id desc limit 1",
+                (rs, row) -> new LeadershipPolicy(rs.getLong(1), rs.getInt(2), rs.getInt(3), rs.getInt(4), rs.getBigDecimal(5)), platform, user.getCountryCode(), evaluatedAt, evaluatedAt, guildId, guildId);
         if (policies.isEmpty()) return new QualificationResult(valid, withdraw, active7, false, false, null);
         LeadershipPolicy policy = policies.get(0);
         boolean newStar = valid >= policy.validStarts();

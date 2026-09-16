@@ -174,6 +174,18 @@ export type MentorAssignedStudentResponse = {
   userId: number; phoneNumber: string | null; countryCode: string; languageCode: string
   assignedAt: string; assignmentReason: string
 }
+export type OperatingDividendPolicyResponse = {
+  id: number; policyCode: string; policyVersion: number; platformCode: string; countryCode: string; guildId: string | null
+  requiredValidStarts: number; requiredWithdrawEligible: number; requiredActive7d: number; profitShareRate: number
+  effectiveFrom: string; effectiveTo: string | null; status: 'DRAFT' | 'ACTIVE' | 'RETIRED' | string
+  createdBy: number | null; approvedBy: number | null; approvedAt: string | null; approvalNote: string | null
+}
+export type OperatingDividendDashboardResponse = {
+  activePolicyCount: number; qualificationCount: number; profitFactCount: number; shadowEntryCount: number
+  policies: OperatingDividendPolicyResponse[]
+  recentProfitFacts: Array<{ id: number; teamId: number; platformCode: string; periodStart: string; periodEnd: string; operatingProfitMinor: number; currencyCode: string; sourceSystem: string; sourceEventId: string; receivedAt: string }>
+  recentShadowEntries: Array<{ id: number; teamId: number; leaderUserId: number; platformCode: string; policyId: number; shareRate: number; shareAmountMinor: number; currencyCode: string; ledgerStatus: string; triggeredAt: string }>
+}
 export type PlatformIntegrationResponse = {
   platformCode: string
   displayName: string
@@ -866,6 +878,18 @@ export function qualifyAdminMentor(adminSessionToken: string, userId: number, pa
 }
 export function assignAdminMentor(adminSessionToken: string, studentUserId: number, payload: { mentorUserId: number; reason: string }) {
   return request<{ userId: number; mentorUserId: number; status: string; version: number }>(`/admin/identity/users/${studentUserId}/mentor`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) })
+}
+export function getAdminOperatingDividendDashboard(adminSessionToken: string) {
+  return request<OperatingDividendDashboardResponse>('/admin/incentives/operating-dividend-dashboard', { headers: { 'X-Admin-Session': adminSessionToken } })
+}
+export function createAdminOperatingDividendPolicy(adminSessionToken: string, payload: { platformCode: string; countryCode: string; guildId: string | null; requiredValidStarts: number; requiredWithdrawEligible: number; requiredActive7d: number; profitShareRate: number; effectiveFrom: string; effectiveTo: string | null }) {
+  return request<OperatingDividendPolicyResponse>('/admin/incentives/operating-dividend-policies', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) })
+}
+export function activateAdminOperatingDividendPolicy(adminSessionToken: string, id: number, approvalNote: string) {
+  return request<OperatingDividendPolicyResponse>(`/admin/incentives/operating-dividend-policies/${id}/activate`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ approvalNote }) })
+}
+export function retireAdminOperatingDividendPolicy(adminSessionToken: string, id: number) {
+  return request<OperatingDividendPolicyResponse>(`/admin/incentives/operating-dividend-policies/${id}/retire`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken } })
 }
 export function getAdminAccounts() { return request<AdminAccountResponse[]>('/admin/accounts') }
 export function createAdminAccount(payload: { username: string; displayName: string; role: string; platformScope?: string; guildScope?: string; regionScope?: string }) { return request<AdminAccountCreatedResponse>('/admin/accounts', { method: 'POST', body: JSON.stringify(payload) }) }
