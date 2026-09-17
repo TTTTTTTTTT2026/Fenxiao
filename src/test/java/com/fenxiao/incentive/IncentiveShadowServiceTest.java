@@ -59,6 +59,7 @@ class IncentiveShadowServiceTest {
         assertThat(incentiveService.evaluateLeadership(leader.getUserId(), "LINKY").profitShareQualified()).isTrue();
 
         var team = relationshipService.createTeam("BR-TEST-721", "BR Test Team", "BR", leader.getUserId());
+        jdbc.update("update operating_team set operating_profit_share_enabled = true where id = ?", team.getId());
         var result = incentiveService.ingestTeamProfit(new TeamProfitFactRequest("profit-721", team.getId(), "LINKY", LocalDate.now().minusDays(7), LocalDate.now(),
                 100_000, 20_000, 10_000, 5_000, 5_000, "BRL", "NIUMA_PLATFORM_FACTS"));
         assertThat(result.operatingProfitMinor()).isEqualTo(60_000);
