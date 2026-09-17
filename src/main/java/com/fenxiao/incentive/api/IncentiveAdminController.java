@@ -4,6 +4,7 @@ import com.fenxiao.common.security.DistributionAccessGuard;
 import com.fenxiao.incentive.dto.*;
 import com.fenxiao.incentive.service.IncentiveShadowService;
 import com.fenxiao.incentive.service.MentorIncentiveAdminService;
+import com.fenxiao.incentive.service.OperatingDividendAdminService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
@@ -13,7 +14,8 @@ public class IncentiveAdminController {
     private final DistributionAccessGuard guard;
     private final IncentiveShadowService service;
     private final MentorIncentiveAdminService mentorIncentives;
-    public IncentiveAdminController(DistributionAccessGuard guard, IncentiveShadowService service, MentorIncentiveAdminService mentorIncentives) { this.guard = guard; this.service = service; this.mentorIncentives = mentorIncentives; }
+    private final OperatingDividendAdminService operatingDividends;
+    public IncentiveAdminController(DistributionAccessGuard guard, IncentiveShadowService service, MentorIncentiveAdminService mentorIncentives, OperatingDividendAdminService operatingDividends) { this.guard = guard; this.service = service; this.mentorIncentives = mentorIncentives; this.operatingDividends = operatingDividends; }
 
     @PostMapping("/admin/incentives/mentor-rules")
     public MentorIncentiveRuleResponse mentorRule(@RequestHeader(value="X-Admin-Token",required=false) String token,
@@ -55,6 +57,42 @@ public class IncentiveAdminController {
                                                                           @PathVariable long userId) {
         guard.assertMentorReadAccess(token, session); return mentorIncentives.currentStudents(userId);
     }
+
+    @GetMapping("/admin/incentives/operating-dividend-dashboard")
+    public OperatingDividendDashboardResponse operatingDividendDashboard(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                           @RequestHeader(value="X-Admin-Session",required=false) String session) {
+        guard.assertFinanceAccess(token, session); return operatingDividends.dashboard();
+    }
+
+    @PostMapping("/admin/incentives/operating-dividend-policies")
+    public OperatingDividendPolicyResponse createOperatingDividendPolicy(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                           @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                                           @Valid @RequestBody OperatingDividendPolicyRequest request) {
+        return operatingDividends.createDraft(request, guard.assertFinanceAccess(token, session));
+    }
+
+    @PostMapping("/admin/incentives/operating-dividend-policies/batch")
+    public java.util.List<OperatingDividendPolicyResponse> createOperatingDividendPolicies(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                                              @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                                                              @Valid @RequestBody OperatingDividendPolicyBatchRequest request) {
+        return operatingDividends.createDrafts(request, guard.assertFinanceAccess(token, session));
+    }
+
+    @PostMapping("/admin/incentives/operating-dividend-policies/{id}/activate")
+    public OperatingDividendPolicyResponse activateOperatingDividendPolicy(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                             @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                                             @PathVariable long id,
+                                                                             @Valid @RequestBody OperatingDividendPolicyApprovalRequest request) {
+        return operatingDividends.activate(id, request.approvalNote(), guard.assertFinanceAccess(token, session));
+    }
+
+    @PostMapping("/admin/incentives/operating-dividend-policies/{id}/retire")
+    public OperatingDividendPolicyResponse retireOperatingDividendPolicy(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                           @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                                           @PathVariable long id) {
+        return operatingDividends.retire(id, guard.assertFinanceAccess(token, session));
+    }
+
     @PostMapping("/admin/incentives/leadership-policies")
     public Map<String,Object> leadershipPolicy(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                @RequestHeader(value="X-Admin-Session",required=false) String session,
