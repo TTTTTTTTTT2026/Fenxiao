@@ -56,6 +56,7 @@ import {
   getAdminPhoneVerificationCodeAudit,
   getAdminPhoneVerificationCodes,
   getAdminPlatformIntegrations,
+  updateAdminPlatformGuildOperatingShareRate,
   getAdminPlatformGuildDirectory,
   getAdminPlatformGuildDirectorySyncRuns,
   getAdminPlatformVerificationMocks,
@@ -111,9 +112,14 @@ import {
   activateAdminMentorIncentiveRule,
   retireAdminMentorIncentiveRule,
   getAdminOperatingDividendDashboard,
+  getAdminUserGradeDashboard,
   createAdminOperatingDividendPolicies,
   activateAdminOperatingDividendPolicy,
   retireAdminOperatingDividendPolicy,
+  createAdminUserGradeRule,
+  activateAdminUserGradeRule,
+  retireAdminUserGradeRule,
+  evaluateAdminUserGrade,
   qualifyAdminMentor,
   assignAdminMentor,
   unlockAdminAccount,
@@ -155,6 +161,7 @@ import {
   type MentorIncentiveDashboardResponse,
   type MentorAssignedStudentResponse,
   type OperatingDividendDashboardResponse,
+  type UserGradeDashboardResponse,
   type OverviewReportResponse,
   type OwnershipDetailResponse,
   type PhoneVerificationCodeListResponse,
@@ -224,7 +231,7 @@ type AdminAuthState = {
 }
 
 type AdminProductKey = 'ALL' | 'LINKY' | 'TIMO'
-type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'users' | 'platformGuildDirectory' | 'rewards' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'operatingDividends' | 'accounts' | 'settings'
+type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'users' | 'platformGuildDirectory' | 'rewards' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'operatingDividends' | 'userGrades' | 'accounts' | 'settings'
 type RiskActionName = 'HANDLE' | 'IGNORE' | 'FREEZE_USER' | 'UNFREEZE_USER'
 type WithdrawActionName = 'approve' | 'reject' | 'paid' | 'failed' | 'reverse'
 type WithdrawQuery = { userId: string; status: string; page: string; size: string }
@@ -244,6 +251,7 @@ const ADMIN_SECTION_HASHES: Record<AdminSectionKey, string> = {
   mentorDirectory: '#admin-mentors',
   mentorIncentives: '#admin-mentor-incentives',
   operatingDividends: '#admin-operating-dividends',
+  userGrades: '#admin-user-grades',
   accounts: '#admin-accounts',
   settings: '#admin-settings',
 }
@@ -447,6 +455,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [adminBindingView, setAdminBindingView] = useState<'users' | 'risks'>('users')
   const [adminSettingsView, setAdminSettingsView] = useState<'experiment' | 'guilds' | 'platforms' | 'incomeControlled' | 'incomeShadow' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification'>('experiment')
   const [platformIntegrations, setPlatformIntegrations] = useState<PlatformIntegrationResponse[] | null>(null)
+  const [platformGuildShareInputs, setPlatformGuildShareInputs] = useState<Record<string, string>>({})
   const [platformVerificationRuntime, setPlatformVerificationRuntime] = useState<PlatformVerificationRuntimeResponse | null>(null)
   const [platformVerificationMocks, setPlatformVerificationMocks] = useState<PlatformVerificationMockResponse[] | null>(null)
   const [controlledIncomeForm, setControlledIncomeForm] = useState({ platformCode: 'LINKY', businessDate: '2026-09-11', pageSize: '200' })
@@ -485,6 +494,9 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [mentorQualificationForm, setMentorQualificationForm] = useState({ userId: '', countryCode: 'BR', languageCode: 'pt-br', maxActiveStudents: '20' })
   const [mentorAssignmentForm, setMentorAssignmentForm] = useState({ studentUserId: '', mentorUserId: '', reason: '' })
   const [operatingDividendDashboard, setOperatingDividendDashboard] = useState<OperatingDividendDashboardResponse | null>(null)
+  const [userGradeDashboard, setUserGradeDashboard] = useState<UserGradeDashboardResponse | null>(null)
+  const [userGradeForm, setUserGradeForm] = useState({ gradeCode: 'TEAM_LEADER', platformCode: 'TIMO', countryCode: 'BR', guildId: '', requiredDirectInviteCount: '1', requiredDirectIncome: '0', effectiveFrom: '', effectiveTo: '' })
+  const [userGradeEvaluationForm, setUserGradeEvaluationForm] = useState({ userId: '', platformCode: 'TIMO' })
   const [isOperatingDividendDialogOpen, setIsOperatingDividendDialogOpen] = useState(false)
   const [isOperatingDividendGuildPickerOpen, setIsOperatingDividendGuildPickerOpen] = useState(false)
   const operatingDividendGuildPickerRef = useRef<HTMLDivElement>(null)
@@ -1616,7 +1628,9 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     setLoading(true)
     setError('')
     try {
-      setPlatformIntegrations(await getAdminPlatformIntegrations(adminSession.sessionToken))
+      const values = await getAdminPlatformIntegrations(adminSession.sessionToken)
+      setPlatformIntegrations(values)
+      setPlatformGuildShareInputs(Object.fromEntries(values.flatMap((platform) => platform.targetGuilds.map((guild) => [`${platform.platformCode}:${guild.officialGuildId}`, guild.operatingShareRate == null ? '' : String(guild.operatingShareRate)]))))
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载平台接入配置失败')
     } finally {
@@ -1837,12 +1851,63 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     finally { setLoading(false) }
   }
 
+  async function savePlatformGuildOperatingShareRate(platformCode: string, guildId: string) {
+    if (!adminSession || !canRunControlledIncome) return
+    const key = `${platformCode}:${guildId}`
+    const raw = platformGuildShareInputs[key]
+    const rate = Number(raw)
+    if (!raw || !Number.isFinite(rate) || rate < 0 || rate > 1) { setError('公会经营分成比例请填写 0 到 1 之间的小数，例如 0.20 表示 20%。'); return }
+    setLoading(true); setError(''); setSuccessMessage('')
+    try {
+      await updateAdminPlatformGuildOperatingShareRate(adminSession.sessionToken, platformCode, guildId, rate)
+      await loadPlatformIntegrations()
+      setSuccessMessage(`已保存 ${platformCode} 公会 ${guildId} 的经营分成比例；不会改写 MCN 收入事实或产生发奖。`)
+    } catch (err) { setError(err instanceof Error ? err.message : '保存公会经营分成比例失败') } finally { setLoading(false) }
+  }
+
   async function loadOperatingDividendDashboard() {
     if (!adminSession || !canManageOperatingDividends) return
     setLoading(true); setError('')
     try { setOperatingDividendDashboard(await getAdminOperatingDividendDashboard(adminSession.sessionToken)) }
     catch (err) { setError(err instanceof Error ? err.message : '读取运营分红影子台失败') }
     finally { setLoading(false) }
+  }
+
+  async function loadUserGradeDashboard() {
+    if (!adminSession || !canRunControlledIncome) return
+    setLoading(true); setError('')
+    try { setUserGradeDashboard(await getAdminUserGradeDashboard(adminSession.sessionToken)) }
+    catch (err) { setError(err instanceof Error ? err.message : '加载用户等级失败') }
+    finally { setLoading(false) }
+  }
+
+  async function saveUserGradeRule() {
+    if (!adminSession || !canRunControlledIncome) return
+    setLoading(true); setError(''); setSuccessMessage('')
+    try {
+      await createAdminUserGradeRule(adminSession.sessionToken, { gradeCode: userGradeForm.gradeCode, platformCode: userGradeForm.platformCode, countryCode: userGradeForm.countryCode, guildId: userGradeForm.guildId.trim() || null, requiredDirectInviteCount: Number(userGradeForm.requiredDirectInviteCount), requiredDirectIncome: Number(userGradeForm.requiredDirectIncome), effectiveFrom: userGradeForm.effectiveFrom, effectiveTo: userGradeForm.effectiveTo || null })
+      setSuccessMessage('已建立用户等级规则草稿；请审批启用后由系统按直邀关系自动评估。'); await loadUserGradeDashboard()
+    } catch (err) { setError(err instanceof Error ? err.message : '建立用户等级规则失败') } finally { setLoading(false) }
+  }
+
+  async function activateUserGradeRule(id: number, code: string) {
+    if (!adminSession || !canRunControlledIncome) return
+    const approvalNote = window.prompt(`审批启用用户等级规则 ${code} 的说明：`, '业务规则已复核')
+    if (!approvalNote?.trim()) return
+    setLoading(true); setError('')
+    try { await activateAdminUserGradeRule(adminSession.sessionToken, id, approvalNote.trim()); setSuccessMessage(`已启用用户等级规则 ${code}。`); await loadUserGradeDashboard() } catch (err) { setError(err instanceof Error ? err.message : '启用用户等级规则失败') } finally { setLoading(false) }
+  }
+
+  async function retireUserGradeRule(id: number, code: string) {
+    if (!adminSession || !canRunControlledIncome || !window.confirm(`停止用户等级规则 ${code}？既有合格团队长不会被系统自动降级。`)) return
+    setLoading(true); setError('')
+    try { await retireAdminUserGradeRule(adminSession.sessionToken, id); setSuccessMessage(`已停止用户等级规则 ${code}。`); await loadUserGradeDashboard() } catch (err) { setError(err instanceof Error ? err.message : '停止用户等级规则失败') } finally { setLoading(false) }
+  }
+
+  async function evaluateUserGrade() {
+    if (!adminSession || !canRunControlledIncome || !Number(userGradeEvaluationForm.userId)) { setError('请输入需要复核的用户 ID。'); return }
+    setLoading(true); setError('')
+    try { const result = await evaluateAdminUserGrade(adminSession.sessionToken, Number(userGradeEvaluationForm.userId), userGradeEvaluationForm.platformCode); setSuccessMessage(result.length ? `已完成用户等级复核：${result.map((item) => `${item.gradeCode} ${item.status}`).join('；')}` : '该用户当前没有匹配的已启用等级规则。'); await loadUserGradeDashboard() } catch (err) { setError(err instanceof Error ? err.message : '用户等级复核失败') } finally { setLoading(false) }
   }
 
   async function loadOperatingDividendGuildDirectory(platform = operatingDividendForm.platformCode) {
@@ -2500,6 +2565,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               if (item.href === ADMIN_SECTION_HASHES.commissionPolicies && !commissionPolicies) void loadCommissionPolicies()
               if ((item.href === ADMIN_SECTION_HASHES.mentorDirectory || item.href === ADMIN_SECTION_HASHES.mentorIncentives) && !mentorIncentiveDashboard) void loadMentorIncentiveDashboard()
               if (item.href === ADMIN_SECTION_HASHES.operatingDividends && !operatingDividendDashboard) void loadOperatingDividendDashboard()
+              if (item.href === ADMIN_SECTION_HASHES.userGrades && !userGradeDashboard) void loadUserGradeDashboard()
             }}>
               <AdminNavIcon label={item.label} />
               <span>{item.label}</span>
@@ -2607,10 +2673,15 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                     </div>
                     <InlineHint text={platform.accountIdentifierNote} />
                     <DataTable
-                      headers={['国家', '官方公会 ID', '公会名称', '状态']}
-                      rows={platform.targetGuilds.map((guild) => [guild.countryCode, guild.officialGuildId, guild.guildName, guild.enabled ? '启用' : '停用'])}
-                      emptyText="尚未配置目标公会。"
+                      headers={['国家', '官方公会 ID', '公会名称', 'MCN 目录状态', '经营分成比例', '操作']}
+                      rows={platform.targetGuilds.map((guild) => {
+                        const key = `${platform.platformCode}:${guild.officialGuildId}`
+                        const editable = guild.authoritative && guild.directoryStatus === 'NORMAL' && ['ACTIVE', 'ENABLED'].includes(guild.guildStatus.toUpperCase())
+                        return [guild.countryCode, guild.officialGuildId, guild.guildName, `${guild.directoryStatus} / ${guild.guildStatus}`, <input key={`${key}-input`} aria-label={`${guild.guildName} 经营分成比例`} type="number" min="0" max="1" step="0.001" placeholder="例如 0.20" value={platformGuildShareInputs[key] ?? ''} disabled={!editable || !canRunControlledIncome} onChange={(event) => setPlatformGuildShareInputs({ ...platformGuildShareInputs, [key]: event.target.value })} />, editable ? <button key={`${key}-save`} className="ghost-btn small-btn" disabled={loading || !canRunControlledIncome} onClick={() => void savePlatformGuildOperatingShareRate(platform.platformCode, guild.officialGuildId)}>保存比例</button> : '仅可配置 MCN 正常且启用的公会']
+                      })}
+                      emptyText="MCN 权威公会目录暂无数据；请检查公会目录同步状态。"
                     />
+                    <InlineHint text="此处显示 MCN 权威公会目录。经营分成比例以小数填写，例如 0.20 表示该公会保留 20% 作为团队经营利润池；它不会参与邀请裂变候选金额计算。" />
                   </InfoCard>
                 ))}
                 {!platformIntegrations ? <EmptyState title="平台配置待加载" description="进入本页会自动加载；也可以点击刷新配置。" /> : null}
@@ -2784,6 +2855,35 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                 <InfoCard title="最近运营分红影子记录" tone="neutral">
                   {operatingDividendDashboard?.recentShadowEntries.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>团队长 / 团队</th><th>平台</th><th>规则</th><th>比例</th><th>影子金额</th><th>状态</th><th>触发时间</th></tr></thead><tbody>{operatingDividendDashboard.recentShadowEntries.map((entry) => <tr key={entry.id}><td>{entry.leaderUserId} / {entry.teamId}</td><td>{entry.platformCode}</td><td>{entry.policyId}</td><td>{(entry.shareRate * 100).toFixed(2)}%</td><td>{entry.shareAmountMinor} {entry.currencyCode}</td><td>{entry.ledgerStatus}</td><td>{formatDateTime(entry.triggeredAt)}</td></tr>)}</tbody></table></div> : <EmptyState title="尚无运营分红影子记录" description="团队资格、规则和经营利润事实同时满足后，系统才会写入不可支付的影子记录。" />}
                 </InfoCard>
+              </div>
+            </PanelSection>
+          ) : null}
+
+          {activeAdminSection === 'userGrades' && canRunControlledIncome ? (
+            <PanelSection sectionId="admin-user-grades" eyebrow="User grade · direct invite only" title="用户等级" description="用户等级只统计本人直接邀请的用户数量及其已绑定、已定稿 MCN 累计收入。A 邀请 B、B 邀请 C 时，A 只计 B，不计 C。等级合格后可自动授予团队长角色；系统不会自动降级或撤销。" action={<button className="ghost-btn" onClick={() => void loadUserGradeDashboard()} disabled={loading}>刷新数据</button>}>
+              <div className="stack-gap">
+                <InfoCard title="等级规则概览" tone="neutral">
+                  {userGradeDashboard ? <div className="relation-grid"><RelationItem label="已启用等级规则" value={userGradeDashboard.activeRuleCount} /><RelationItem label="已合格团队长" value={userGradeDashboard.qualifiedTeamLeaderCount} /></div> : <EmptyState title="尚未读取用户等级数据" description="点击“刷新数据”读取规则与最近评估结果。" />}
+                  <InlineHint text="MCN 只提供收入事实；邀请关系、等级资格和团队长角色由分销平台计算及审计。本页不创建奖励、余额、提现或付款。" />
+                </InfoCard>
+                <InfoCard title="新增用户等级规则" tone="neutral">
+                  <form className="grid-form compact-form exception-filter-grid" onSubmit={(event) => { event.preventDefault(); void saveUserGradeRule() }}>
+                    <label>等级<select value={userGradeForm.gradeCode} onChange={(event) => setUserGradeForm({ ...userGradeForm, gradeCode: event.target.value })}><option value="PROMOTER">推广员</option><option value="TEAM_LEADER">团队负责人（团长）</option></select></label>
+                    <label>平台<select value={userGradeForm.platformCode} onChange={(event) => setUserGradeForm({ ...userGradeForm, platformCode: event.target.value })}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label>
+                    <label>归属国家<select value={userGradeForm.countryCode} onChange={(event) => setUserGradeForm({ ...userGradeForm, countryCode: event.target.value })}>{phoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names.zh}（{country.countryCode}）</option>)}</select></label>
+                    <label>限定公会（可选）<input value={userGradeForm.guildId} onChange={(event) => setUserGradeForm({ ...userGradeForm, guildId: event.target.value })} placeholder="留空为该国家全部公会" /><small>填写时必须为 MCN 权威目录中的对应公会 ID。</small></label>
+                    <label>直邀用户数量门槛<input required min="0" type="number" value={userGradeForm.requiredDirectInviteCount} onChange={(event) => setUserGradeForm({ ...userGradeForm, requiredDirectInviteCount: event.target.value })} /></label>
+                    <label>直邀累计收入门槛<input required min="0" step="0.000001" type="number" value={userGradeForm.requiredDirectIncome} onChange={(event) => setUserGradeForm({ ...userGradeForm, requiredDirectIncome: event.target.value })} /><small>使用 MCN 平台代币原始单位；仅累计已绑定且已定稿事实。</small></label>
+                    <label>生效时间<input required type="datetime-local" value={userGradeForm.effectiveFrom} onChange={(event) => setUserGradeForm({ ...userGradeForm, effectiveFrom: event.target.value })} /></label>
+                    <label>失效时间（可选）<input type="datetime-local" value={userGradeForm.effectiveTo} onChange={(event) => setUserGradeForm({ ...userGradeForm, effectiveTo: event.target.value })} /></label>
+                    <button className="primary-btn" type="submit" disabled={loading}>建立待审等级规则</button>
+                  </form>
+                </InfoCard>
+                <InfoCard title="已保存的等级规则" tone="neutral">
+                  {userGradeDashboard?.rules.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>规则版本</th><th>等级</th><th>适用范围</th><th>直邀门槛</th><th>状态</th><th>操作</th></tr></thead><tbody>{userGradeDashboard.rules.map((rule) => <tr key={rule.id}><td>{rule.ruleCode} · V{rule.ruleVersion}</td><td>{rule.gradeCode === 'TEAM_LEADER' ? '团队负责人（团长）' : '推广员'}</td><td>{rule.platformCode} / {rule.countryCode}{rule.guildId ? ` / ${rule.guildId}` : ' / 全部公会'}</td><td>数量 ≥ {rule.requiredDirectInviteCount}；累计收入 ≥ {rule.requiredDirectIncome}</td><td>{rule.status === 'DRAFT' ? '待审' : rule.status === 'ACTIVE' ? '已启用' : '已停用'}</td><td>{rule.status === 'DRAFT' ? <button className="primary-btn small-btn" onClick={() => void activateUserGradeRule(rule.id, rule.ruleCode)} disabled={loading}>审批并启用</button> : rule.status === 'ACTIVE' ? <button className="ghost-btn small-btn" onClick={() => void retireUserGradeRule(rule.id, rule.ruleCode)} disabled={loading}>停止使用</button> : '-'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未配置用户等级规则" description="先建立推广员或团队负责人等级的待审规则。" />}
+                </InfoCard>
+                <InfoCard title="人工复核用户等级" tone="neutral"><div className="action-row"><input aria-label="用户 ID" type="number" min="1" value={userGradeEvaluationForm.userId} onChange={(event) => setUserGradeEvaluationForm({ ...userGradeEvaluationForm, userId: event.target.value })} placeholder="用户 ID" /><select value={userGradeEvaluationForm.platformCode} onChange={(event) => setUserGradeEvaluationForm({ ...userGradeEvaluationForm, platformCode: event.target.value })}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select><button className="ghost-btn" onClick={() => void evaluateUserGrade()} disabled={loading}>立即复核</button></div><InlineHint text="系统每小时也会自动重算已有直接邀请关系的已核验用户。人工复核仅刷新本地资格证据，不会请求 MCN。" /></InfoCard>
+                <InfoCard title="最近等级评估" tone="neutral">{userGradeDashboard?.recentEvaluations.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>用户</th><th>平台 / 公会</th><th>等级</th><th>直邀数量</th><th>直邀收入</th><th>结果</th><th>评估时间</th></tr></thead><tbody>{userGradeDashboard.recentEvaluations.map((item, index) => <tr key={`${item.userId}-${item.platformCode}-${item.guildId}-${item.gradeCode}-${index}`}><td>{item.userId}</td><td>{item.platformCode} / {item.guildId}</td><td>{item.gradeCode === 'TEAM_LEADER' ? '团队负责人' : '推广员'}</td><td>{item.directInviteCount}</td><td>{item.directIncome}</td><td>{item.status === 'QUALIFIED' ? '已合格' : '进行中'}</td><td>{formatDateTime(item.evaluatedAt)}</td></tr>)}</tbody></table></div> : <EmptyState title="暂无等级评估记录" description="启用规则后，由定时任务或人工复核生成记录。" />}</InfoCard>
               </div>
             </PanelSection>
           ) : null}

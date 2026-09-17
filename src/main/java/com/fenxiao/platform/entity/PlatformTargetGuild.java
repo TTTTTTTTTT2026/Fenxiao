@@ -6,6 +6,11 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "platform_target_guild")
@@ -24,6 +29,13 @@ public class PlatformTargetGuild {
     private String guildName;
     @Column(name = "enabled", nullable = false)
     private boolean enabled;
+    /** The platform-token share retained by this guild before its operating profit is distributed. */
+    @Column(name = "operating_share_rate", precision = 8, scale = 6)
+    private BigDecimal operatingShareRate;
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
 
     protected PlatformTargetGuild() {}
 
@@ -34,6 +46,12 @@ public class PlatformTargetGuild {
     public String getOfficialGuildSid() { return officialGuildSid; }
     public String getGuildName() { return guildName; }
     public boolean isEnabled() { return enabled; }
+    public BigDecimal getOperatingShareRate() { return operatingShareRate; }
+
+    public void setOperatingShareRate(BigDecimal operatingShareRate) { this.operatingShareRate = operatingShareRate; }
+
+    @PrePersist void onCreate() { LocalDateTime now = LocalDateTime.now(); if (createdAt == null) createdAt = now; updatedAt = now; }
+    @PreUpdate void onUpdate() { updatedAt = LocalDateTime.now(); }
 
     public static PlatformTargetGuild create(String platformCode, String countryCode, String officialGuildId,
                                              String officialGuildSid, String guildName, boolean enabled) {

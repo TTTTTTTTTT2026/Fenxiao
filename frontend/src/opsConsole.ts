@@ -194,6 +194,11 @@ export function buildAdminSectionLinks(role?: string): AdminSectionLink[] {
       href: '#admin-operating-dividends',
     },
     {
+      label: '用户等级',
+      description: '管理直邀数量和直邀收入驱动的等级规则。',
+      href: '#admin-user-grades',
+    },
+    {
       label: '账号中心',
       description: '员工、密码和设备安全。',
       href: '#admin-accounts',
@@ -211,8 +216,8 @@ export function buildAdminSectionLinks(role?: string): AdminSectionLink[] {
   if (normalizedRole === 'admin') return links.filter((item) => item.href !== '#admin-operating-dividends')
 
   const roleSections: Record<string, string[]> = {
-    finance: ['#admin-overview', '#admin-rewards', '#admin-commission-policies', '#admin-mentors', '#admin-mentor-incentives', '#admin-operating-dividends', '#admin-accounts'],
-    operations: ['#admin-overview', '#admin-channel-entries', '#admin-bindings', '#admin-users', '#admin-platform-guild-directory', '#admin-mentors', '#admin-mentor-incentives', '#admin-accounts'],
+    finance: ['#admin-overview', '#admin-rewards', '#admin-commission-policies', '#admin-mentors', '#admin-mentor-incentives', '#admin-operating-dividends', '#admin-user-grades', '#admin-accounts'],
+    operations: ['#admin-overview', '#admin-channel-entries', '#admin-bindings', '#admin-users', '#admin-platform-guild-directory', '#admin-mentors', '#admin-mentor-incentives', '#admin-user-grades', '#admin-accounts'],
     operator: ['#admin-overview', '#admin-channel-entries', '#admin-bindings', '#admin-users', '#admin-platform-guild-directory', '#admin-accounts'],
     customer_support: ['#admin-overview', '#admin-bindings', '#admin-users', '#admin-accounts'],
     mentor: ['#admin-overview', '#admin-bindings', '#admin-users', '#admin-accounts'],

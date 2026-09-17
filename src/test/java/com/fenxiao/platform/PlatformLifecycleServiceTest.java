@@ -58,7 +58,10 @@ class PlatformLifecycleServiceTest {
                 "income-0", "LINKY", "12345678", PlatformFactType.NET_INCOME,
                 new BigDecimal("10.00"), "DIAMOND", joinedAtAndFirstIncome,
                 "BR_GUILD_1", "NIUMA_PLATFORM_FACTS", "v1", "hash-0"));
-        assertThat(factRepository.count()).isEqualTo(7);
+        // The Spring test context is shared with other lifecycle tests. Assert the
+        // idempotency boundary of this binding rather than the global fact count.
+        assertThat(factRepository.findByUserIdAndPlatformCodeOrderByOccurredAtAscIdAsc(user.getUserId(), "LINKY"))
+                .hasSize(7);
     }
 
     @Test

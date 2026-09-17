@@ -206,6 +206,11 @@ describe('buildAdminSectionLinks', () => {
         href: '#admin-operating-dividends',
       },
       {
+        label: '用户等级',
+        description: '管理直邀数量和直邀收入驱动的等级规则。',
+        href: '#admin-user-grades',
+      },
+      {
         label: '账号中心',
         description: '员工、密码和设备安全。',
         href: '#admin-accounts',
@@ -220,7 +225,7 @@ describe('buildAdminSectionLinks', () => {
 
   it('shows finance only the overview, payout workbench, and personal account center', () => {
     expect(buildAdminSectionLinks('finance').map((item) => item.href)).toEqual([
-      '#admin-overview', '#admin-rewards', '#admin-commission-policies', '#admin-mentors', '#admin-mentor-incentives', '#admin-operating-dividends', '#admin-accounts',
+      '#admin-overview', '#admin-rewards', '#admin-commission-policies', '#admin-mentors', '#admin-mentor-incentives', '#admin-operating-dividends', '#admin-user-grades', '#admin-accounts',
     ])
   })
 
