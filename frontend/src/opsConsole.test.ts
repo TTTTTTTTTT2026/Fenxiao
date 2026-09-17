@@ -211,6 +211,11 @@ describe('buildAdminSectionLinks', () => {
         href: '#admin-user-grades',
       },
       {
+        label: '代币积分换算',
+        description: '配置平台代币到用户积分的换算比例。',
+        href: '#admin-token-point-conversions',
+      },
+      {
         label: '账号中心',
         description: '员工、密码和设备安全。',
         href: '#admin-accounts',
