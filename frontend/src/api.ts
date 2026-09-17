@@ -186,6 +186,20 @@ export type OperatingDividendDashboardResponse = {
   recentProfitFacts: Array<{ id: number; teamId: number; platformCode: string; periodStart: string; periodEnd: string; operatingProfitMinor: number; currencyCode: string; sourceSystem: string; sourceEventId: string; receivedAt: string }>
   recentShadowEntries: Array<{ id: number; teamId: number; leaderUserId: number; platformCode: string; policyId: number; shareRate: number; shareAmountMinor: number; currencyCode: string; ledgerStatus: string; triggeredAt: string }>
 }
+export type TeamManagementDashboardResponse = {
+  activeTeamCount: number; leaderTeamCount: number; activeMemberRelationCount: number
+  teams: TeamManagementItemResponse[]
+}
+export type TeamManagementItemResponse = {
+  teamId: number; teamCode: string; teamName: string; countryCode: string
+  leaderUserId: number | null; leaderPhoneNumber: string | null
+  parentTeamId: number | null; parentTeamCode: string | null; activeMemberCount: number
+  latestPlatformCode: string | null; latestPeriodEnd: string | null
+  latestOperatingProfitMinor: number | null; latestCurrencyCode: string | null; createdAt: string
+}
+export type TeamManagementMemberResponse = {
+  userId: number; phoneNumber: string | null; countryCode: string; memberRole: string; sourceType: string; effectiveFrom: string
+}
 export type UserGradeRuleResponse = {
   id: number; ruleCode: string; ruleVersion: number; gradeCode: 'PROMOTER' | 'TEAM_LEADER' | string
   platformCode: string; countryCode: string; guildId: string | null; requiredDirectInviteCount: number; requiredDirectIncome: number
@@ -889,6 +903,12 @@ export function assignAdminMentor(adminSessionToken: string, studentUserId: numb
 }
 export function getAdminOperatingDividendDashboard(adminSessionToken: string) {
   return request<OperatingDividendDashboardResponse>('/admin/incentives/operating-dividend-dashboard', { headers: { 'X-Admin-Session': adminSessionToken } })
+}
+export function getAdminTeamManagementDashboard(adminSessionToken: string) {
+  return request<TeamManagementDashboardResponse>('/admin/incentives/team-management-dashboard', { headers: { 'X-Admin-Session': adminSessionToken } })
+}
+export function getAdminTeamMembers(adminSessionToken: string, teamId: number) {
+  return request<TeamManagementMemberResponse[]>(`/admin/incentives/teams/${teamId}/members`, { headers: { 'X-Admin-Session': adminSessionToken } })
 }
 export function createAdminOperatingDividendPolicy(adminSessionToken: string, payload: { platformCode: string; countryCode: string; guildId: string | null; requiredValidStarts: number; requiredWithdrawEligible: number; requiredActive7d: number; profitShareRate: number; effectiveFrom: string; effectiveTo: string | null }) {
   return request<OperatingDividendPolicyResponse>('/admin/incentives/operating-dividend-policies', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) })

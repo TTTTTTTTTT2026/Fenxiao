@@ -7529,6 +7529,14 @@ code {
   }
 }
 
+.table-subtle {
+  display: block;
+  margin-top: 3px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
 @media (max-width: 600px) {
   .admin-console-v3 .hero-select-field > select { min-width: 104px; max-width: 118px; }
   .admin-console-v3 .hero-select-field { font-size: 0; gap: 0; }

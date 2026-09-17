@@ -112,6 +112,8 @@ import {
   activateAdminMentorIncentiveRule,
   retireAdminMentorIncentiveRule,
   getAdminOperatingDividendDashboard,
+  getAdminTeamManagementDashboard,
+  getAdminTeamMembers,
   getAdminUserGradeDashboard,
   createAdminOperatingDividendPolicies,
   activateAdminOperatingDividendPolicy,
@@ -161,6 +163,9 @@ import {
   type MentorIncentiveDashboardResponse,
   type MentorAssignedStudentResponse,
   type OperatingDividendDashboardResponse,
+  type TeamManagementDashboardResponse,
+  type TeamManagementItemResponse,
+  type TeamManagementMemberResponse,
   type UserGradeDashboardResponse,
   type OverviewReportResponse,
   type OwnershipDetailResponse,
@@ -231,7 +236,7 @@ type AdminAuthState = {
 }
 
 type AdminProductKey = 'ALL' | 'LINKY' | 'TIMO'
-type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'users' | 'platformGuildDirectory' | 'rewards' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'operatingDividends' | 'userGrades' | 'accounts' | 'settings'
+type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'users' | 'platformGuildDirectory' | 'rewards' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'teams' | 'operatingDividends' | 'userGrades' | 'accounts' | 'settings'
 type RiskActionName = 'HANDLE' | 'IGNORE' | 'FREEZE_USER' | 'UNFREEZE_USER'
 type WithdrawActionName = 'approve' | 'reject' | 'paid' | 'failed' | 'reverse'
 type WithdrawQuery = { userId: string; status: string; page: string; size: string }
@@ -250,6 +255,7 @@ const ADMIN_SECTION_HASHES: Record<AdminSectionKey, string> = {
   commissionPolicies: '#admin-commission-policies',
   mentorDirectory: '#admin-mentors',
   mentorIncentives: '#admin-mentor-incentives',
+  teams: '#admin-teams',
   operatingDividends: '#admin-operating-dividends',
   userGrades: '#admin-user-grades',
   accounts: '#admin-accounts',
@@ -494,6 +500,10 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [mentorQualificationForm, setMentorQualificationForm] = useState({ userId: '', countryCode: 'BR', languageCode: 'pt-br', maxActiveStudents: '20' })
   const [mentorAssignmentForm, setMentorAssignmentForm] = useState({ studentUserId: '', mentorUserId: '', reason: '' })
   const [operatingDividendDashboard, setOperatingDividendDashboard] = useState<OperatingDividendDashboardResponse | null>(null)
+  const [teamManagementDashboard, setTeamManagementDashboard] = useState<TeamManagementDashboardResponse | null>(null)
+  const [teamMemberTarget, setTeamMemberTarget] = useState<TeamManagementItemResponse | null>(null)
+  const [teamMembers, setTeamMembers] = useState<TeamManagementMemberResponse[]>([])
+  const [teamMembersLoading, setTeamMembersLoading] = useState(false)
   const [userGradeDashboard, setUserGradeDashboard] = useState<UserGradeDashboardResponse | null>(null)
   const [userGradeForm, setUserGradeForm] = useState({ gradeCode: 'TEAM_LEADER', platformCode: 'TIMO', countryCode: 'BR', guildId: '', requiredDirectInviteCount: '1', requiredDirectIncome: '0', effectiveFrom: '', effectiveTo: '' })
   const [userGradeEvaluationForm, setUserGradeEvaluationForm] = useState({ userId: '', platformCode: 'TIMO' })
@@ -613,6 +623,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const canManageMentorRules = ['super_admin', 'admin', 'finance'].includes(adminSession?.role?.toLowerCase() ?? '')
   const canManageMentorRelations = ['super_admin', 'admin', 'operations'].includes(adminSession?.role?.toLowerCase() ?? '')
   const canManageOperatingDividends = canRunControlledIncome
+  const canManageTeams = ['super_admin', 'admin', 'operations'].includes(adminSession?.role?.toLowerCase() ?? '')
   const canManageLinkyInvitationGuild = ['super_admin', 'admin'].includes(adminSession?.role?.toLowerCase() ?? '')
   const linkyGuildOptions = useMemo(() => {
     return (linkyInvitationGuildOptions ?? [])
@@ -1873,6 +1884,22 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     finally { setLoading(false) }
   }
 
+  async function loadTeamManagementDashboard() {
+    if (!adminSession || !canManageTeams) return
+    setLoading(true); setError('')
+    try { setTeamManagementDashboard(await getAdminTeamManagementDashboard(adminSession.sessionToken)) }
+    catch (err) { setError(err instanceof Error ? err.message : '读取团队列表失败') }
+    finally { setLoading(false) }
+  }
+
+  async function openTeamMembers(team: TeamManagementItemResponse) {
+    if (!adminSession) return
+    setTeamMemberTarget(team); setTeamMembers([]); setTeamMembersLoading(true); setError('')
+    try { setTeamMembers(await getAdminTeamMembers(adminSession.sessionToken, team.teamId)) }
+    catch (err) { setError(err instanceof Error ? err.message : '读取团队成员失败') }
+    finally { setTeamMembersLoading(false) }
+  }
+
   async function loadUserGradeDashboard() {
     if (!adminSession || !canRunControlledIncome) return
     setLoading(true); setError('')
@@ -2564,6 +2591,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               if (item.href === ADMIN_SECTION_HASHES.platformGuildDirectory && !platformGuildDirectory) void loadPlatformGuildDirectory()
               if (item.href === ADMIN_SECTION_HASHES.commissionPolicies && !commissionPolicies) void loadCommissionPolicies()
               if ((item.href === ADMIN_SECTION_HASHES.mentorDirectory || item.href === ADMIN_SECTION_HASHES.mentorIncentives) && !mentorIncentiveDashboard) void loadMentorIncentiveDashboard()
+              if (item.href === ADMIN_SECTION_HASHES.teams && !teamManagementDashboard) void loadTeamManagementDashboard()
               if (item.href === ADMIN_SECTION_HASHES.operatingDividends && !operatingDividendDashboard) void loadOperatingDividendDashboard()
               if (item.href === ADMIN_SECTION_HASHES.userGrades && !userGradeDashboard) void loadUserGradeDashboard()
             }}>
@@ -2831,6 +2859,20 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                 {canManageMentorRules ? <InfoCard title="导师里程碑规则" tone="neutral"><p>先建立草稿，再填写审批说明后启用。限定公会只能从 MCN 权威目录中按平台和国家多选；每个公会会建立一条独立规则，避免规则范围混杂。</p><button className="primary-btn top-gap" onClick={() => { setIsMentorRuleGuildPickerOpen(false); setIsMentorRuleDialogOpen(true); void loadMentorRuleGuildDirectory() }} disabled={loading}>新增导师分成规则</button></InfoCard> : null}
                 <InfoCard title="已保存的导师规则" tone="neutral">{mentorIncentiveDashboard?.rules.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>规则版本</th><th>里程碑</th><th>适用范围</th><th>固定额度 / 冻结</th><th>生效期</th><th>状态</th><th>操作</th></tr></thead><tbody>{mentorIncentiveDashboard.rules.map((rule) => <tr key={rule.id}><td>{rule.ruleCode} · V{rule.ruleVersion}</td><td>{mentorMilestoneLabel(rule.milestoneCode)}</td><td>{rule.platformCode} / {rule.countryCode}{rule.guildId ? ` / ${rule.guildId}` : ' / 全部公会'}</td><td>{rule.amountMinor} {rule.currencyCode} / {rule.freezeDays} 天</td><td>{formatDateTime(rule.effectiveFrom)} {rule.effectiveTo ? `至 ${formatDateTime(rule.effectiveTo)}` : '起长期有效'}</td><td>{rule.status === 'DRAFT' ? '待审' : rule.status === 'ACTIVE' ? '已启用' : '已停用'}</td><td>{canManageMentorRules && rule.status === 'DRAFT' ? <button className="primary-btn small-btn" onClick={() => void handleActivateMentorRule(rule.id, rule.ruleCode)} disabled={loading}>审批并启用</button> : canManageMentorRules && rule.status === 'ACTIVE' ? <button className="ghost-btn small-btn" onClick={() => void handleRetireMentorRule(rule.id, rule.ruleCode)} disabled={loading}>停止使用</button> : '-'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未配置导师规则" description="规则必须先以草稿建立，审批启用后才会参与后续影子账本核验。" />}</InfoCard>
                 <InfoCard title="最近导师影子账本" tone="neutral">{mentorIncentiveDashboard?.recentShadowEntries.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>触发时间</th><th>导师 / 学员</th><th>平台</th><th>里程碑</th><th>规则</th><th>影子额度</th><th>状态</th></tr></thead><tbody>{mentorIncentiveDashboard.recentShadowEntries.map((entry) => <tr key={entry.id}><td>{formatDateTime(entry.triggeredAt)}</td><td>{entry.recipientUserId} / {entry.sourceUserId}</td><td>{entry.platformCode}</td><td>{mentorMilestoneLabel(entry.milestoneCode)}</td><td>{entry.ruleCode} · V{entry.ruleVersion}</td><td>{entry.amountMinor} {entry.currencyCode}</td><td>{entry.ledgerStatus}</td></tr>)}</tbody></table></div> : <EmptyState title="尚无导师影子记录" description="导师、学员、里程碑和已启用规则同时满足后，才会写入不可支付的影子账本。" />}</InfoCard>
+              </div>
+            </PanelSection>
+          ) : null}
+
+          {activeAdminSection === 'teams' && canManageTeams ? (
+            <PanelSection sectionId="admin-teams" eyebrow="Team governance · read only" title="团队列表" description="团队负责人由用户等级系统自动产生；运营人员在此查看团队层级、成员归属和经营事实，不可在本页人工授予负责人或修改历史归属。" action={<button className="ghost-btn" onClick={() => void loadTeamManagementDashboard()} disabled={loading}>刷新数据</button>}>
+              <div className="stack-gap">
+                <InfoCard title="团队治理概览" tone="neutral">
+                  {teamManagementDashboard ? <div className="relation-grid"><RelationItem label="有效团队" value={teamManagementDashboard.activeTeamCount} /><RelationItem label="已有负责人团队" value={teamManagementDashboard.leaderTeamCount} /><RelationItem label="当前成员归属" value={teamManagementDashboard.activeMemberRelationCount} /></div> : <EmptyState title="尚未读取团队数据" description="点击“刷新数据”读取当前团队及成员归属。" />}
+                  <InlineHint text="成员归属采用可叠加的历史关系：用户成为新团队负责人后，可保留在上级团队的成员记录。当前不产生分红、奖励、余额、提现或付款。" />
+                </InfoCard>
+                <InfoCard title="团队经营与成员" tone="neutral">
+                  {teamManagementDashboard?.teams.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>团队</th><th>负责人</th><th>上级团队</th><th>当前成员</th><th>最近经营事实</th><th>建立时间</th><th>操作</th></tr></thead><tbody>{teamManagementDashboard.teams.map((team) => <tr key={team.teamId}><td>{team.teamName}<small className="table-subtle">{team.teamCode} / {team.countryCode}</small></td><td>{team.leaderUserId ? `用户 ${team.leaderUserId}${team.leaderPhoneNumber ? ` · ${team.leaderPhoneNumber}` : ''}` : '待自动产生'}</td><td>{team.parentTeamCode || '—'}</td><td>{team.activeMemberCount}</td><td>{team.latestOperatingProfitMinor === null ? '尚无经营事实' : `${team.latestPlatformCode} · ${team.latestOperatingProfitMinor} ${team.latestCurrencyCode}（截至 ${team.latestPeriodEnd}）`}</td><td>{formatDateTime(team.createdAt)}</td><td><button className="ghost-btn small-btn" onClick={() => void openTeamMembers(team)} disabled={loading}>查看成员</button></td></tr>)}</tbody></table></div> : <EmptyState title="尚无团队记录" description="用户达到可授予团队负责人的等级后，系统会自动创建团队；在积分来源接通前，不会模拟创建团队。" />}
+                </InfoCard>
               </div>
             </PanelSection>
           ) : null}
@@ -3765,6 +3807,21 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           </form>
           <div className="mentor-current-students"><strong>当前归属学员（{mentorAssignedStudentsLoading ? '读取中…' : mentorAssignedStudents.length}）</strong>{mentorAssignedStudentsLoading ? <p>正在读取当前学员…</p> : mentorAssignedStudents.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>学员</th><th>国家 / 语言</th><th>归属生效</th><th>归属原因</th></tr></thead><tbody>{mentorAssignedStudents.map((student) => <tr key={student.userId}><td>用户 {student.userId}{student.phoneNumber ? ` · ${student.phoneNumber}` : ''}</td><td>{student.countryCode} / {student.languageCode}</td><td>{formatDateTime(student.assignedAt)}</td><td>{student.assignmentReason}</td></tr>)}</tbody></table></div> : <p>当前没有已归属学员。</p>}</div>
           <InlineHint text="保存后会为该学员创建新的导师归属版本；系统将校验导师带教上限，不会改写既有历史关系。" />
+        </ConfirmDialog>
+      ) : null}
+
+      {teamMemberTarget ? (
+        <ConfirmDialog
+          title={`团队成员 · ${teamMemberTarget.teamName}`}
+          tone="primary"
+          confirmText="关闭"
+          loading={false}
+          onCancel={() => { setTeamMemberTarget(null); setTeamMembers([]) }}
+          onConfirm={() => { setTeamMemberTarget(null); setTeamMembers([]) }}
+        >
+          <p>团队编码：{teamMemberTarget.teamCode}；当前成员 {teamMemberTarget.activeMemberCount} 人。</p>
+          {teamMembersLoading ? <p>正在读取团队成员…</p> : teamMembers.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>成员</th><th>国家</th><th>关系</th><th>归属来源</th><th>生效时间</th></tr></thead><tbody>{teamMembers.map((member) => <tr key={`${member.userId}-${member.memberRole}-${member.effectiveFrom}`}><td>用户 {member.userId}{member.phoneNumber ? ` · ${member.phoneNumber}` : ''}</td><td>{member.countryCode}</td><td>{member.memberRole === 'LEADER' ? '负责人' : '成员'}</td><td>{member.sourceType}</td><td>{formatDateTime(member.effectiveFrom)}</td></tr>)}</tbody></table></div> : <p>当前没有有效成员归属。</p>}
+          <InlineHint text="此列表仅展示当前有效归属。后续用户等级自动产生负责人时，会新增团队与成员关系，不会删除既有上级团队归属。" />
         </ConfirmDialog>
       ) : null}
 

@@ -5,6 +5,7 @@ import com.fenxiao.incentive.dto.*;
 import com.fenxiao.incentive.service.IncentiveShadowService;
 import com.fenxiao.incentive.service.MentorIncentiveAdminService;
 import com.fenxiao.incentive.service.OperatingDividendAdminService;
+import com.fenxiao.incentive.service.TeamManagementAdminService;
 import com.fenxiao.incentive.service.UserGradeAdminService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -17,7 +18,8 @@ public class IncentiveAdminController {
     private final MentorIncentiveAdminService mentorIncentives;
     private final OperatingDividendAdminService operatingDividends;
     private final UserGradeAdminService userGrades;
-    public IncentiveAdminController(DistributionAccessGuard guard, IncentiveShadowService service, MentorIncentiveAdminService mentorIncentives, OperatingDividendAdminService operatingDividends, UserGradeAdminService userGrades) { this.guard = guard; this.service = service; this.mentorIncentives = mentorIncentives; this.operatingDividends = operatingDividends; this.userGrades = userGrades; }
+    private final TeamManagementAdminService teams;
+    public IncentiveAdminController(DistributionAccessGuard guard, IncentiveShadowService service, MentorIncentiveAdminService mentorIncentives, OperatingDividendAdminService operatingDividends, UserGradeAdminService userGrades, TeamManagementAdminService teams) { this.guard = guard; this.service = service; this.mentorIncentives = mentorIncentives; this.operatingDividends = operatingDividends; this.userGrades = userGrades; this.teams = teams; }
 
     @PostMapping("/admin/incentives/mentor-rules")
     public MentorIncentiveRuleResponse mentorRule(@RequestHeader(value="X-Admin-Token",required=false) String token,
@@ -64,6 +66,19 @@ public class IncentiveAdminController {
     public OperatingDividendDashboardResponse operatingDividendDashboard(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                                            @RequestHeader(value="X-Admin-Session",required=false) String session) {
         guard.assertFinanceAccess(token, session); return operatingDividends.dashboard();
+    }
+
+    @GetMapping("/admin/incentives/team-management-dashboard")
+    public TeamManagementDashboardResponse teamManagementDashboard(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                     @RequestHeader(value="X-Admin-Session",required=false) String session) {
+        guard.assertTeamManageAccess(token, session); return teams.dashboard();
+    }
+
+    @GetMapping("/admin/incentives/teams/{teamId}/members")
+    public java.util.List<TeamManagementMemberResponse> teamMembers(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                      @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                                      @PathVariable long teamId) {
+        guard.assertTeamManageAccess(token, session); return teams.members(teamId);
     }
 
     @PostMapping("/admin/incentives/operating-dividend-policies")
