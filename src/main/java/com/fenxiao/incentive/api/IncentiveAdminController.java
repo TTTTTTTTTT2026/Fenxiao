@@ -6,6 +6,7 @@ import com.fenxiao.incentive.service.IncentiveShadowService;
 import com.fenxiao.incentive.service.MentorIncentiveAdminService;
 import com.fenxiao.incentive.service.OperatingDividendAdminService;
 import com.fenxiao.incentive.service.TeamManagementAdminService;
+import com.fenxiao.incentive.service.TokenPointConversionAdminService;
 import com.fenxiao.incentive.service.UserGradeAdminService;
 import com.fenxiao.incentive.service.UserGradeLevelAdminService;
 import jakarta.validation.Valid;
@@ -21,7 +22,8 @@ public class IncentiveAdminController {
     private final UserGradeAdminService userGrades;
     private final TeamManagementAdminService teams;
     private final UserGradeLevelAdminService gradeLevels;
-    public IncentiveAdminController(DistributionAccessGuard guard, IncentiveShadowService service, MentorIncentiveAdminService mentorIncentives, OperatingDividendAdminService operatingDividends, UserGradeAdminService userGrades, TeamManagementAdminService teams, UserGradeLevelAdminService gradeLevels) { this.guard = guard; this.service = service; this.mentorIncentives = mentorIncentives; this.operatingDividends = operatingDividends; this.userGrades = userGrades; this.teams = teams; this.gradeLevels = gradeLevels; }
+    private final TokenPointConversionAdminService tokenPointConversions;
+    public IncentiveAdminController(DistributionAccessGuard guard, IncentiveShadowService service, MentorIncentiveAdminService mentorIncentives, OperatingDividendAdminService operatingDividends, UserGradeAdminService userGrades, TeamManagementAdminService teams, UserGradeLevelAdminService gradeLevels, TokenPointConversionAdminService tokenPointConversions) { this.guard = guard; this.service = service; this.mentorIncentives = mentorIncentives; this.operatingDividends = operatingDividends; this.userGrades = userGrades; this.teams = teams; this.gradeLevels = gradeLevels; this.tokenPointConversions = tokenPointConversions; }
 
     @PostMapping("/admin/incentives/mentor-rules")
     public MentorIncentiveRuleResponse mentorRule(@RequestHeader(value="X-Admin-Token",required=false) String token,
@@ -108,6 +110,33 @@ public class IncentiveAdminController {
                                                        @RequestHeader(value="X-Admin-Session",required=false) String session,
                                                        @PathVariable long id) {
         return gradeLevels.retire(id, guard.assertTeamManageAccess(token, session));
+    }
+
+    @GetMapping("/admin/incentives/token-point-conversions/dashboard")
+    public TokenPointConversionDashboardResponse tokenPointConversionDashboard(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                                @RequestHeader(value="X-Admin-Session",required=false) String session) {
+        guard.assertTeamManageAccess(token, session); return tokenPointConversions.dashboard();
+    }
+
+    @PostMapping("/admin/incentives/token-point-conversions")
+    public TokenPointConversionResponse createTokenPointConversion(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                   @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                                   @Valid @RequestBody TokenPointConversionRequest request) {
+        return tokenPointConversions.createDraft(request, guard.assertTeamManageAccess(token, session));
+    }
+
+    @PostMapping("/admin/incentives/token-point-conversions/{id}/activate")
+    public TokenPointConversionResponse activateTokenPointConversion(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                     @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                                     @PathVariable long id, @Valid @RequestBody UserGradeApprovalRequest request) {
+        return tokenPointConversions.activate(id, request.approvalNote(), guard.assertTeamManageAccess(token, session));
+    }
+
+    @PostMapping("/admin/incentives/token-point-conversions/{id}/retire")
+    public TokenPointConversionResponse retireTokenPointConversion(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                   @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                                   @PathVariable long id) {
+        return tokenPointConversions.retire(id, guard.assertTeamManageAccess(token, session));
     }
 
     @PostMapping("/admin/incentives/operating-dividend-policies")
