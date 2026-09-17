@@ -1,0 +1,20 @@
+CREATE TABLE user_grade_level_version (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    level_code VARCHAR(64) NOT NULL,
+    level_version INT NOT NULL,
+    level_name VARCHAR(64) NOT NULL,
+    level_rank INT NOT NULL,
+    required_points DECIMAL(18,6) NOT NULL,
+    grants_team_leader BOOLEAN NOT NULL DEFAULT FALSE,
+    effective_from TIMESTAMP NOT NULL,
+    effective_to TIMESTAMP NULL,
+    rule_status VARCHAR(16) NOT NULL DEFAULT 'DRAFT',
+    created_by BIGINT NULL,
+    approved_by BIGINT NULL,
+    approved_at TIMESTAMP NULL,
+    approval_note VARCHAR(255) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_user_grade_level_version (level_code, level_version),
+    INDEX idx_user_grade_level_active_rank (rule_status, level_rank, effective_from)
+);

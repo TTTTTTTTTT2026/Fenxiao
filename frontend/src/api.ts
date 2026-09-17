@@ -208,6 +208,12 @@ export type UserGradeRuleResponse = {
 }
 export type UserGradeEvaluationResponse = { userId: number; platformCode: string; guildId: string; gradeCode: string; ruleId: number; status: string; directInviteCount: number; directIncome: number; qualifiedAt: string | null; evaluatedAt: string }
 export type UserGradeDashboardResponse = { activeRuleCount: number; qualifiedTeamLeaderCount: number; rules: UserGradeRuleResponse[]; recentEvaluations: UserGradeEvaluationResponse[] }
+export type UserGradeLevelResponse = {
+  id: number; levelCode: string; levelVersion: number; levelName: string; levelRank: number; requiredPoints: number
+  grantsTeamLeader: boolean; effectiveFrom: string; effectiveTo: string | null; status: 'DRAFT' | 'ACTIVE' | 'RETIRED' | string
+  createdBy: number | null; approvedBy: number | null; approvedAt: string | null; approvalNote: string | null
+}
+export type UserGradeLevelDashboardResponse = { activeLevelCount: number; activeTeamLeaderLevel: UserGradeLevelResponse | null; levels: UserGradeLevelResponse[] }
 export type PlatformIntegrationResponse = {
   platformCode: string
   displayName: string
@@ -923,6 +929,10 @@ export function retireAdminOperatingDividendPolicy(adminSessionToken: string, id
   return request<OperatingDividendPolicyResponse>(`/admin/incentives/operating-dividend-policies/${id}/retire`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken } })
 }
 export function getAdminUserGradeDashboard(adminSessionToken: string) { return request<UserGradeDashboardResponse>('/admin/incentives/user-grade-dashboard', { headers: { 'X-Admin-Session': adminSessionToken } }) }
+export function getAdminUserGradeLevelDashboard(adminSessionToken: string) { return request<UserGradeLevelDashboardResponse>('/admin/incentives/user-grade-levels/dashboard', { headers: { 'X-Admin-Session': adminSessionToken } }) }
+export function createAdminUserGradeLevel(adminSessionToken: string, payload: { levelName: string; levelRank: number; requiredPoints: number; grantsTeamLeader: boolean; effectiveFrom: string; effectiveTo: string | null }) { return request<UserGradeLevelResponse>('/admin/incentives/user-grade-levels', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) }) }
+export function activateAdminUserGradeLevel(adminSessionToken: string, id: number, approvalNote: string) { return request<UserGradeLevelResponse>(`/admin/incentives/user-grade-levels/${id}/activate`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ approvalNote }) }) }
+export function retireAdminUserGradeLevel(adminSessionToken: string, id: number) { return request<UserGradeLevelResponse>(`/admin/incentives/user-grade-levels/${id}/retire`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken } }) }
 export function createAdminUserGradeRule(adminSessionToken: string, payload: { gradeCode: string; platformCode: string; countryCode: string; guildId: string | null; requiredDirectInviteCount: number; requiredDirectIncome: number; effectiveFrom: string; effectiveTo: string | null }) { return request<UserGradeRuleResponse>('/admin/incentives/user-grade-rules', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) }) }
 export function activateAdminUserGradeRule(adminSessionToken: string, id: number, approvalNote: string) { return request<UserGradeRuleResponse>(`/admin/incentives/user-grade-rules/${id}/activate`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ approvalNote }) }) }
 export function retireAdminUserGradeRule(adminSessionToken: string, id: number) { return request<UserGradeRuleResponse>(`/admin/incentives/user-grade-rules/${id}/retire`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken } }) }
