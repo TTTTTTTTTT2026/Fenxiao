@@ -85,6 +85,14 @@ public class IncentiveAdminController {
         guard.assertTeamManageAccess(token, session); return teams.members(teamId);
     }
 
+    @PutMapping("/admin/incentives/teams/{teamId}/operating-profit-share-permission")
+    public TeamManagementItemResponse setTeamOperatingProfitSharePermission(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                              @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                                              @PathVariable long teamId,
+                                                                              @Valid @RequestBody TeamOperatingProfitSharePermissionRequest request) {
+        return teams.setOperatingProfitShareEnabled(teamId, request.enabled(), guard.assertTeamManageAccess(token, session));
+    }
+
     @GetMapping("/admin/incentives/user-grade-levels/dashboard")
     public UserGradeLevelDashboardResponse userGradeLevelDashboard(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                                     @RequestHeader(value="X-Admin-Session",required=false) String session) {
@@ -118,25 +126,12 @@ public class IncentiveAdminController {
         guard.assertTeamManageAccess(token, session); return tokenPointConversions.dashboard();
     }
 
-    @PostMapping("/admin/incentives/token-point-conversions")
-    public TokenPointConversionResponse createTokenPointConversion(@RequestHeader(value="X-Admin-Token",required=false) String token,
-                                                                   @RequestHeader(value="X-Admin-Session",required=false) String session,
-                                                                   @Valid @RequestBody TokenPointConversionRequest request) {
-        return tokenPointConversions.createDraft(request, guard.assertTeamManageAccess(token, session));
-    }
-
-    @PostMapping("/admin/incentives/token-point-conversions/{id}/activate")
-    public TokenPointConversionResponse activateTokenPointConversion(@RequestHeader(value="X-Admin-Token",required=false) String token,
-                                                                     @RequestHeader(value="X-Admin-Session",required=false) String session,
-                                                                     @PathVariable long id, @Valid @RequestBody UserGradeApprovalRequest request) {
-        return tokenPointConversions.activate(id, request.approvalNote(), guard.assertTeamManageAccess(token, session));
-    }
-
-    @PostMapping("/admin/incentives/token-point-conversions/{id}/retire")
-    public TokenPointConversionResponse retireTokenPointConversion(@RequestHeader(value="X-Admin-Token",required=false) String token,
-                                                                   @RequestHeader(value="X-Admin-Session",required=false) String session,
-                                                                   @PathVariable long id) {
-        return tokenPointConversions.retire(id, guard.assertTeamManageAccess(token, session));
+    @PutMapping("/admin/incentives/token-point-conversions/{platformCode}")
+    public TokenPointConversionResponse saveTokenPointConversion(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                 @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                                 @PathVariable String platformCode,
+                                                                 @Valid @RequestBody TokenPointConversionRequest request) {
+        return tokenPointConversions.save(platformCode, request, guard.assertTeamManageAccess(token, session));
     }
 
     @PostMapping("/admin/incentives/operating-dividend-policies")

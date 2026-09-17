@@ -4,17 +4,10 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public record TokenPointConversionResponse(
-        long id,
-        String conversionCode,
-        int conversionVersion,
+        Long id,
         String platformCode,
         String tokenUnit,
         BigDecimal pointsPerToken,
-        LocalDateTime effectiveFrom,
-        LocalDateTime effectiveTo,
-        String status,
-        Long createdBy,
-        Long approvedBy,
-        LocalDateTime approvedAt,
-        String approvalNote) {
+        boolean configured,
+        LocalDateTime updatedAt) {
 }

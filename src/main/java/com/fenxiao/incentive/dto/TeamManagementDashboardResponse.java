@@ -6,6 +6,7 @@ import java.util.List;
 public record TeamManagementDashboardResponse(
         long activeTeamCount,
         long leaderTeamCount,
+        long operatingProfitShareEnabledTeamCount,
         long activeMemberRelationCount,
         List<TeamManagementItemResponse> teams) {
 }

@@ -114,6 +114,7 @@ import {
   getAdminOperatingDividendDashboard,
   getAdminTeamManagementDashboard,
   getAdminTeamMembers,
+  saveAdminTeamOperatingProfitSharePermission,
   getAdminUserGradeDashboard,
   getAdminUserGradeLevelDashboard,
   getAdminTokenPointConversionDashboard,
@@ -122,13 +123,11 @@ import {
   retireAdminOperatingDividendPolicy,
   createAdminUserGradeRule,
   createAdminUserGradeLevel,
-  createAdminTokenPointConversion,
+  saveAdminTokenPointConversion,
   activateAdminUserGradeRule,
   activateAdminUserGradeLevel,
-  activateAdminTokenPointConversion,
   retireAdminUserGradeRule,
   retireAdminUserGradeLevel,
-  retireAdminTokenPointConversion,
   evaluateAdminUserGrade,
   qualifyAdminMentor,
   assignAdminMentor,
@@ -514,14 +513,15 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [teamManagementDashboard, setTeamManagementDashboard] = useState<TeamManagementDashboardResponse | null>(null)
   const [teamMemberTarget, setTeamMemberTarget] = useState<TeamManagementItemResponse | null>(null)
   const [teamMembers, setTeamMembers] = useState<TeamManagementMemberResponse[]>([])
+  const [teamOperatingProfitSharePermissionTarget, setTeamOperatingProfitSharePermissionTarget] = useState<{ team: TeamManagementItemResponse; enabled: boolean } | null>(null)
   const [teamMembersLoading, setTeamMembersLoading] = useState(false)
   const [userGradeDashboard, setUserGradeDashboard] = useState<UserGradeDashboardResponse | null>(null)
   const [userGradeLevelDashboard, setUserGradeLevelDashboard] = useState<UserGradeLevelDashboardResponse | null>(null)
   const [isUserGradeLevelDialogOpen, setIsUserGradeLevelDialogOpen] = useState(false)
   const [userGradeLevelForm, setUserGradeLevelForm] = useState({ levelName: '', levelRank: '1', requiredPoints: '0', grantsTeamLeader: false, effectiveFrom: '', effectiveTo: '' })
   const [tokenPointConversionDashboard, setTokenPointConversionDashboard] = useState<TokenPointConversionDashboardResponse | null>(null)
-  const [isTokenPointConversionDialogOpen, setIsTokenPointConversionDialogOpen] = useState(false)
-  const [tokenPointConversionForm, setTokenPointConversionForm] = useState({ platformCode: 'TIMO', pointsPerToken: '1', effectiveFrom: '', effectiveTo: '' })
+  const [tokenPointConversionValues, setTokenPointConversionValues] = useState<Record<string, string>>({ TIMO: '', LINKY: '' })
+  const [tokenPointConversionSaveTarget, setTokenPointConversionSaveTarget] = useState<{ platformCode: string; tokenUnit: string; pointsPerToken: string } | null>(null)
   const [userGradeForm, setUserGradeForm] = useState({ gradeCode: 'TEAM_LEADER', platformCode: 'TIMO', countryCode: 'BR', guildId: '', requiredDirectInviteCount: '1', requiredDirectIncome: '0', effectiveFrom: '', effectiveTo: '' })
   const [userGradeEvaluationForm, setUserGradeEvaluationForm] = useState({ userId: '', platformCode: 'TIMO' })
   const [isOperatingDividendDialogOpen, setIsOperatingDividendDialogOpen] = useState(false)
@@ -1917,6 +1917,23 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     finally { setTeamMembersLoading(false) }
   }
 
+  function requestTeamOperatingProfitSharePermission(team: TeamManagementItemResponse, enabled: boolean) {
+    if (!team.leaderUserId) { setError('只有已由等级机制产生负责人的团队，才可以设置团队经营利润分成许可。'); return }
+    setError(''); setTeamOperatingProfitSharePermissionTarget({ team, enabled })
+  }
+
+  async function confirmTeamOperatingProfitSharePermission() {
+    if (!adminSession || !canManageTeams || !teamOperatingProfitSharePermissionTarget) return
+    const { team, enabled } = teamOperatingProfitSharePermissionTarget
+    setLoading(true); setError(''); setSuccessMessage('')
+    try {
+      await saveAdminTeamOperatingProfitSharePermission(adminSession.sessionToken, team.teamId, enabled)
+      setTeamOperatingProfitSharePermissionTarget(null)
+      setSuccessMessage(enabled ? `已允许团队“${team.teamName}”参与后续团队经营利润分成演算。` : `已取消团队“${team.teamName}”的团队经营利润分成许可。`)
+      await loadTeamManagementDashboard()
+    } catch (err) { setError(err instanceof Error ? err.message : '保存团队经营利润分成许可失败') } finally { setLoading(false) }
+  }
+
   async function loadUserGradeDashboard() {
     if (!adminSession || !canRunControlledIncome) return
     setLoading(true); setError('')
@@ -1964,37 +1981,28 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   async function loadTokenPointConversionDashboard() {
     if (!adminSession || !canManageTeams) return
     setLoading(true); setError('')
-    try { setTokenPointConversionDashboard(await getAdminTokenPointConversionDashboard(adminSession.sessionToken)) }
+    try {
+      const dashboard = await getAdminTokenPointConversionDashboard(adminSession.sessionToken)
+      setTokenPointConversionDashboard(dashboard)
+      setTokenPointConversionValues(Object.fromEntries(dashboard.conversions.map((conversion) => [conversion.platformCode, conversion.pointsPerToken == null ? '' : String(conversion.pointsPerToken)])))
+    }
     catch (err) { setError(err instanceof Error ? err.message : '读取代币积分换算配置失败') }
     finally { setLoading(false) }
   }
 
-  function openTokenPointConversionDialog() {
-    setTokenPointConversionForm({ platformCode: 'TIMO', pointsPerToken: '1', effectiveFrom: '', effectiveTo: '' })
-    setIsTokenPointConversionDialogOpen(true)
+  function requestSaveTokenPointConversion(platformCode: string, tokenUnit: string) {
+    const pointsPerToken = tokenPointConversionValues[platformCode]?.trim() ?? ''
+    if (!pointsPerToken || !Number.isFinite(Number(pointsPerToken)) || Number(pointsPerToken) < 0) { setError('请填写不小于 0 的积分换算比例。'); return }
+    setError(''); setTokenPointConversionSaveTarget({ platformCode, tokenUnit, pointsPerToken })
   }
 
-  async function saveTokenPointConversion() {
-    if (!adminSession || !canManageTeams) return
+  async function confirmSaveTokenPointConversion() {
+    if (!adminSession || !canManageTeams || !tokenPointConversionSaveTarget) return
     setLoading(true); setError(''); setSuccessMessage('')
     try {
-      await createAdminTokenPointConversion(adminSession.sessionToken, { platformCode: tokenPointConversionForm.platformCode, pointsPerToken: Number(tokenPointConversionForm.pointsPerToken), effectiveFrom: tokenPointConversionForm.effectiveFrom, effectiveTo: tokenPointConversionForm.effectiveTo || null })
-      setIsTokenPointConversionDialogOpen(false); setSuccessMessage('已建立代币积分换算草稿，待审批启用。'); await loadTokenPointConversionDashboard()
-    } catch (err) { setError(err instanceof Error ? err.message : '建立代币积分换算失败') } finally { setLoading(false) }
-  }
-
-  async function activateTokenPointConversion(id: number, platform: string) {
-    if (!adminSession || !canManageTeams) return
-    const approvalNote = window.prompt(`审批启用 ${platform} 的代币积分换算说明：`, '换算比例已复核')
-    if (!approvalNote?.trim()) return
-    setLoading(true); setError('')
-    try { await activateAdminTokenPointConversion(adminSession.sessionToken, id, approvalNote.trim()); setSuccessMessage(`已启用 ${platform} 代币积分换算。`); await loadTokenPointConversionDashboard() } catch (err) { setError(err instanceof Error ? err.message : '启用代币积分换算失败') } finally { setLoading(false) }
-  }
-
-  async function retireTokenPointConversion(id: number, platform: string) {
-    if (!adminSession || !canManageTeams || !window.confirm(`停止 ${platform} 的代币积分换算？不会改写既有积分、等级或团队关系。`)) return
-    setLoading(true); setError('')
-    try { await retireAdminTokenPointConversion(adminSession.sessionToken, id); setSuccessMessage(`已停止 ${platform} 代币积分换算。`); await loadTokenPointConversionDashboard() } catch (err) { setError(err instanceof Error ? err.message : '停止代币积分换算失败') } finally { setLoading(false) }
+      await saveAdminTokenPointConversion(adminSession.sessionToken, tokenPointConversionSaveTarget.platformCode, { platformCode: tokenPointConversionSaveTarget.platformCode, pointsPerToken: Number(tokenPointConversionSaveTarget.pointsPerToken) })
+      setTokenPointConversionSaveTarget(null); setSuccessMessage(`已保存 ${tokenPointConversionSaveTarget.platformCode} 的长期代币积分换算。`); await loadTokenPointConversionDashboard()
+    } catch (err) { setError(err instanceof Error ? err.message : '保存代币积分换算失败') } finally { setLoading(false) }
   }
 
   async function saveUserGradeRule() {
@@ -2955,14 +2963,14 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           ) : null}
 
           {activeAdminSection === 'teams' && canManageTeams ? (
-            <PanelSection sectionId="admin-teams" eyebrow="Team governance · read only" title="团队列表" description="团队负责人由用户等级系统自动产生；运营人员在此查看团队层级、成员归属和经营事实，不可在本页人工授予负责人或修改历史归属。" action={<button className="ghost-btn" onClick={() => void loadTeamManagementDashboard()} disabled={loading}>刷新数据</button>}>
+            <PanelSection sectionId="admin-teams" eyebrow="Team governance · permission control" title="团队列表" description="团队负责人由用户等级系统自动产生；运营人员不可人工授予负责人或修改历史归属，但可明确许可团队是否参与后续经营利润分成演算。" action={<button className="ghost-btn" onClick={() => void loadTeamManagementDashboard()} disabled={loading}>刷新数据</button>}>
               <div className="stack-gap">
                 <InfoCard title="团队治理概览" tone="neutral">
-                  {teamManagementDashboard ? <div className="relation-grid"><RelationItem label="有效团队" value={teamManagementDashboard.activeTeamCount} /><RelationItem label="已有负责人团队" value={teamManagementDashboard.leaderTeamCount} /><RelationItem label="当前成员归属" value={teamManagementDashboard.activeMemberRelationCount} /></div> : <EmptyState title="尚未读取团队数据" description="点击“刷新数据”读取当前团队及成员归属。" />}
-                  <InlineHint text="成员归属采用可叠加的历史关系：用户成为新团队负责人后，可保留在上级团队的成员记录。当前不产生分红、奖励、余额、提现或付款。" />
+                  {teamManagementDashboard ? <div className="relation-grid"><RelationItem label="有效团队" value={teamManagementDashboard.activeTeamCount} /><RelationItem label="已有负责人团队" value={teamManagementDashboard.leaderTeamCount} /><RelationItem label="已许可经营分成" value={teamManagementDashboard.operatingProfitShareEnabledTeamCount} /><RelationItem label="当前成员归属" value={teamManagementDashboard.activeMemberRelationCount} /></div> : <EmptyState title="尚未读取团队数据" description="点击“刷新数据”读取当前团队及成员归属。" />}
+                  <InlineHint text="成员归属采用可叠加的历史关系：用户成为新团队负责人后，可保留在上级团队的成员记录。团队经营利润分成默认关闭，须由运营确认许可；此页不会产生奖励、余额、提现或付款。" />
                 </InfoCard>
                 <InfoCard title="团队经营与成员" tone="neutral">
-                  {teamManagementDashboard?.teams.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>团队</th><th>负责人</th><th>上级团队</th><th>当前成员</th><th>最近经营事实</th><th>建立时间</th><th>操作</th></tr></thead><tbody>{teamManagementDashboard.teams.map((team) => <tr key={team.teamId}><td>{team.teamName}<small className="table-subtle">{team.teamCode} / {team.countryCode}</small></td><td>{team.leaderUserId ? `用户 ${team.leaderUserId}${team.leaderPhoneNumber ? ` · ${team.leaderPhoneNumber}` : ''}` : '待自动产生'}</td><td>{team.parentTeamCode || '—'}</td><td>{team.activeMemberCount}</td><td>{team.latestOperatingProfitMinor === null ? '尚无经营事实' : `${team.latestPlatformCode} · ${team.latestOperatingProfitMinor} ${team.latestCurrencyCode}（截至 ${team.latestPeriodEnd}）`}</td><td>{formatDateTime(team.createdAt)}</td><td><button className="ghost-btn small-btn" onClick={() => void openTeamMembers(team)} disabled={loading}>查看成员</button></td></tr>)}</tbody></table></div> : <EmptyState title="尚无团队记录" description="用户达到可授予团队负责人的等级后，系统会自动创建团队；在积分来源接通前，不会模拟创建团队。" />}
+                  {teamManagementDashboard?.teams.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>团队</th><th>负责人</th><th>经营利润分成许可</th><th>上级团队</th><th>当前成员</th><th>最近经营事实</th><th>建立时间</th><th>操作</th></tr></thead><tbody>{teamManagementDashboard.teams.map((team) => <tr key={team.teamId}><td>{team.teamName}<small className="table-subtle">{team.teamCode} / {team.countryCode}</small></td><td>{team.leaderUserId ? `用户 ${team.leaderUserId}${team.leaderPhoneNumber ? ` · ${team.leaderPhoneNumber}` : ''}` : '待自动产生'}</td><td><label className="checkbox-label"><input type="checkbox" checked={team.operatingProfitShareEnabled} disabled={!team.leaderUserId || loading} onChange={(event) => requestTeamOperatingProfitSharePermission(team, event.target.checked)} />{team.leaderUserId ? (team.operatingProfitShareEnabled ? '已许可' : '未许可') : '负责人未产生'}</label></td><td>{team.parentTeamCode || '—'}</td><td>{team.activeMemberCount}</td><td>{team.latestOperatingProfitMinor === null ? '尚无经营事实' : `${team.latestPlatformCode} · ${team.latestOperatingProfitMinor} ${team.latestCurrencyCode}（截至 ${team.latestPeriodEnd}）`}</td><td>{formatDateTime(team.createdAt)}</td><td><button className="ghost-btn small-btn" onClick={() => void openTeamMembers(team)} disabled={loading}>查看成员</button></td></tr>)}</tbody></table></div> : <EmptyState title="尚无团队记录" description="用户达到可授予团队负责人的等级后，系统会自动创建团队；在积分来源接通前，不会模拟创建团队。" />}
                 </InfoCard>
               </div>
             </PanelSection>
@@ -2993,15 +3001,15 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           ) : null}
 
           {activeAdminSection === 'tokenPointConversions' && canManageTeams ? (
-            <PanelSection sectionId="admin-token-point-conversions" eyebrow="Points conversion · configuration" title="代币积分换算" description="按应用维护平台原始收入代币兑换积分的比例。积分只会来自直接邀请下级的已绑定、已定稿 MCN 收入事实；此页仅配置换算，不会立即记分。" action={<button className="ghost-btn" onClick={() => void loadTokenPointConversionDashboard()} disabled={loading}>刷新数据</button>}>
+            <PanelSection sectionId="admin-token-point-conversions" eyebrow="Points conversion · permanent configuration" title="代币积分换算" description="按应用维护长期有效的平台原始收入代币兑换积分比例。积分只会来自直接邀请下级的已绑定、已定稿 MCN 收入事实；此页仅配置换算，不会立即记分。" action={<button className="ghost-btn" onClick={() => void loadTokenPointConversionDashboard()} disabled={loading}>刷新数据</button>}>
               <div className="stack-gap">
                 <InfoCard title="换算配置概览" tone="neutral">
-                  {tokenPointConversionDashboard ? <div className="relation-grid"><RelationItem label="已启用换算" value={tokenPointConversionDashboard.activeConversionCount} /><RelationItem label="Timo 原始单位" value="TIMO_DIAMOND" /><RelationItem label="Linky 原始单位" value="LINKY_DIAMOND" /></div> : <EmptyState title="尚未读取换算配置" description="点击“刷新数据”读取 Timo 与 Linky 的配置。" />}
+                  {tokenPointConversionDashboard ? <div className="relation-grid"><RelationItem label="已配置单位" value={`${tokenPointConversionDashboard.configuredConversionCount} / 2`} /><RelationItem label="Timo 原始单位" value="TIMO_DIAMOND" /><RelationItem label="Linky 原始单位" value="LINKY_DIAMOND" /></div> : <EmptyState title="尚未读取换算配置" description="点击“刷新数据”读取 Timo 与 Linky 的配置。" />}
                   <InlineHint text="例如填写 0.2，表示该应用每 1 平台代币可兑换 0.2 积分。不同应用必须分别设置，不能把其原始代币直接相加。" />
                 </InfoCard>
-                <InfoCard title="新增换算配置" tone="neutral"><p>每个应用在同一时间只能有一条启用的换算比例。新比例先建立草稿，经单人审批后生效；历史配置与审批记录均保留。</p><button className="primary-btn top-gap" onClick={openTokenPointConversionDialog} disabled={loading}>新增代币积分换算</button></InfoCard>
-                <InfoCard title="已保存的换算配置" tone="neutral">
-                  {tokenPointConversionDashboard?.conversions.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>应用</th><th>收入代币单位</th><th>换算比例</th><th>生效期</th><th>状态</th><th>操作</th></tr></thead><tbody>{tokenPointConversionDashboard.conversions.map((conversion) => <tr key={conversion.id}><td>{conversion.platformCode}<small className="table-subtle">{conversion.conversionCode} · V{conversion.conversionVersion}</small></td><td>{conversion.tokenUnit}</td><td>1 代币 = {conversion.pointsPerToken} 积分</td><td>{formatDateTime(conversion.effectiveFrom)} {conversion.effectiveTo ? `至 ${formatDateTime(conversion.effectiveTo)}` : '起长期有效'}</td><td>{conversion.status === 'DRAFT' ? '待审' : conversion.status === 'ACTIVE' ? '已启用' : '已停用'}</td><td>{conversion.status === 'DRAFT' ? <button className="primary-btn small-btn" onClick={() => void activateTokenPointConversion(conversion.id, conversion.platformCode)} disabled={loading}>审批并启用</button> : conversion.status === 'ACTIVE' ? <button className="ghost-btn small-btn" onClick={() => void retireTokenPointConversion(conversion.id, conversion.platformCode)} disabled={loading}>停止使用</button> : '—'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未配置换算比例" description="请分别为 Timo、Linky 建立代币积分换算草稿。" />}
+                <InfoCard title="原始代币单位与积分换算" tone="neutral">
+                  {tokenPointConversionDashboard ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>应用</th><th>原始收入代币单位</th><th>每 1 代币兑换积分</th><th>配置状态</th><th>操作</th></tr></thead><tbody>{tokenPointConversionDashboard.conversions.map((conversion) => <tr key={conversion.platformCode}><td>{conversion.platformCode}</td><td>{conversion.tokenUnit}</td><td><input aria-label={`${conversion.platformCode} 每 1 代币兑换积分`} required min="0" step="0.000001" inputMode="decimal" value={tokenPointConversionValues[conversion.platformCode] ?? ''} onChange={(event) => setTokenPointConversionValues({ ...tokenPointConversionValues, [conversion.platformCode]: event.target.value })} placeholder="例如：0.2" /></td><td>{conversion.configured ? '已配置（长期有效）' : '尚未配置'}</td><td><button className="primary-btn small-btn" onClick={() => requestSaveTokenPointConversion(conversion.platformCode, conversion.tokenUnit)} disabled={loading}>保存</button></td></tr>)}</tbody></table></div> : <EmptyState title="尚未读取换算配置" description="点击“刷新数据”读取 Timo 与 Linky 的原始代币单位。" />}
+                  <InlineHint text="无需设置起始或结束时间。保存前会再次展示本次换算比例供确认；保存后成为该应用唯一的长期配置，并保留操作审计。" />
                 </InfoCard>
               </div>
             </PanelSection>
@@ -3946,6 +3954,21 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
         </ConfirmDialog>
       ) : null}
 
+      {teamOperatingProfitSharePermissionTarget ? (
+        <ConfirmDialog
+          title="确认团队经营利润分成许可"
+          tone={teamOperatingProfitSharePermissionTarget.enabled ? 'primary' : 'warning'}
+          confirmText={teamOperatingProfitSharePermissionTarget.enabled ? '确认许可' : '确认取消许可'}
+          loading={loading}
+          onCancel={() => setTeamOperatingProfitSharePermissionTarget(null)}
+          onConfirm={() => void confirmTeamOperatingProfitSharePermission()}
+        >
+          <p>团队：<strong>{teamOperatingProfitSharePermissionTarget.team.teamName}</strong>；负责人：用户 {teamOperatingProfitSharePermissionTarget.team.leaderUserId}。</p>
+          <p>{teamOperatingProfitSharePermissionTarget.enabled ? '确认后，该团队才可在同时满足团队利润事实、既有资格与分红规则时，进入后续团队经营利润分成演算。' : '确认后，该团队不再进入后续团队经营利润分成演算；既有团队、成员关系及历史影子记录不会被删除。'}</p>
+          <InlineHint text="团长身份仍由等级规则自动产生，运营在此只能控制团队经营利润分成许可，不能手工授予或撤销团长身份。此操作不产生真实奖励、余额、提现或付款。" />
+        </ConfirmDialog>
+      ) : null}
+
       {isUserGradeLevelDialogOpen ? (
         <ConfirmDialog
           title="新增积分等级"
@@ -3968,24 +3991,17 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
         </ConfirmDialog>
       ) : null}
 
-      {isTokenPointConversionDialogOpen ? (
+      {tokenPointConversionSaveTarget ? (
         <ConfirmDialog
-          title="新增代币积分换算"
+          title="确认保存代币积分换算"
           tone="primary"
-          confirmText="建立待审换算"
+          confirmText="确认保存"
           loading={loading}
-          confirmDisabled={!tokenPointConversionForm.pointsPerToken || !tokenPointConversionForm.effectiveFrom}
-          onCancel={() => setIsTokenPointConversionDialogOpen(false)}
-          onConfirm={() => void saveTokenPointConversion()}
+          onCancel={() => setTokenPointConversionSaveTarget(null)}
+          onConfirm={() => void confirmSaveTokenPointConversion()}
         >
-          <form className="grid-form compact-form" onSubmit={(event) => { event.preventDefault(); void saveTokenPointConversion() }}>
-            <label>应用<select value={tokenPointConversionForm.platformCode} onChange={(event) => setTokenPointConversionForm({ ...tokenPointConversionForm, platformCode: event.target.value })}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label>
-            <label>收入代币单位（系统固定）<input disabled value={`${tokenPointConversionForm.platformCode}_DIAMOND`} /></label>
-            <label>每 1 代币可获得积分<input required min="0" step="0.000001" inputMode="decimal" value={tokenPointConversionForm.pointsPerToken} onChange={(event) => setTokenPointConversionForm({ ...tokenPointConversionForm, pointsPerToken: event.target.value })} placeholder="例如：0.2" /></label>
-            <label>生效时间<input required type="datetime-local" value={tokenPointConversionForm.effectiveFrom} onChange={(event) => setTokenPointConversionForm({ ...tokenPointConversionForm, effectiveFrom: event.target.value })} /></label>
-            <label>失效时间（可选）<input type="datetime-local" value={tokenPointConversionForm.effectiveTo} onChange={(event) => setTokenPointConversionForm({ ...tokenPointConversionForm, effectiveTo: event.target.value })} /></label>
-          </form>
-          <InlineHint text="保存后仅形成待审换算配置。审批启用前不会影响积分；启用后也会等积分流水接通才参与直接下级的已定稿收入记分。" />
+          <p>将 {tokenPointConversionSaveTarget.platformCode} 的原始收入单位 <strong>{tokenPointConversionSaveTarget.tokenUnit}</strong> 设置为：每 1 代币兑换 <strong>{tokenPointConversionSaveTarget.pointsPerToken}</strong> 积分。</p>
+          <InlineHint text="这是长期配置，不设置起始或结束时间。确认保存只更新换算配置及操作审计；不会追溯记分、升级用户、创建团队或产生奖励、余额、提现和付款。" />
         </ConfirmDialog>
       ) : null}
 

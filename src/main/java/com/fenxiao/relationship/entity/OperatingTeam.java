@@ -12,7 +12,8 @@ public class OperatingTeam extends BaseEntity {
     @Column(name="country_code",nullable=false) private String countryCode;
     @Column(name="leader_user_id") private Long leaderUserId;
     @Column(name="team_status",nullable=false) private String teamStatus;
+    @Column(name="operating_profit_share_enabled",nullable=false) private boolean operatingProfitShareEnabled;
     protected OperatingTeam(){}
-    public static OperatingTeam create(String code,String name,String country,Long leader){var t=new OperatingTeam();t.teamCode=code;t.teamName=name;t.countryCode=country;t.leaderUserId=leader;t.teamStatus="ACTIVE";return t;}
-    public Long getId(){return id;} public String getTeamCode(){return teamCode;} public String getCountryCode(){return countryCode;} public Long getLeaderUserId(){return leaderUserId;}
+    public static OperatingTeam create(String code,String name,String country,Long leader){var t=new OperatingTeam();t.teamCode=code;t.teamName=name;t.countryCode=country;t.leaderUserId=leader;t.teamStatus="ACTIVE";t.operatingProfitShareEnabled=false;return t;}
+    public Long getId(){return id;} public String getTeamCode(){return teamCode;} public String getCountryCode(){return countryCode;} public Long getLeaderUserId(){return leaderUserId;} public boolean isOperatingProfitShareEnabled(){return operatingProfitShareEnabled;}
 }
