@@ -112,13 +112,19 @@ import {
   activateAdminMentorIncentiveRule,
   retireAdminMentorIncentiveRule,
   getAdminOperatingDividendDashboard,
+  getAdminTeamManagementDashboard,
+  getAdminTeamMembers,
   getAdminUserGradeDashboard,
+  getAdminUserGradeLevelDashboard,
   createAdminOperatingDividendPolicies,
   activateAdminOperatingDividendPolicy,
   retireAdminOperatingDividendPolicy,
   createAdminUserGradeRule,
+  createAdminUserGradeLevel,
   activateAdminUserGradeRule,
+  activateAdminUserGradeLevel,
   retireAdminUserGradeRule,
+  retireAdminUserGradeLevel,
   evaluateAdminUserGrade,
   qualifyAdminMentor,
   assignAdminMentor,
@@ -161,7 +167,11 @@ import {
   type MentorIncentiveDashboardResponse,
   type MentorAssignedStudentResponse,
   type OperatingDividendDashboardResponse,
+  type TeamManagementDashboardResponse,
+  type TeamManagementItemResponse,
+  type TeamManagementMemberResponse,
   type UserGradeDashboardResponse,
+  type UserGradeLevelDashboardResponse,
   type OverviewReportResponse,
   type OwnershipDetailResponse,
   type PhoneVerificationCodeListResponse,
@@ -231,7 +241,7 @@ type AdminAuthState = {
 }
 
 type AdminProductKey = 'ALL' | 'LINKY' | 'TIMO'
-type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'users' | 'platformGuildDirectory' | 'rewards' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'operatingDividends' | 'userGrades' | 'accounts' | 'settings'
+type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'users' | 'platformGuildDirectory' | 'rewards' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'teams' | 'operatingDividends' | 'userGrades' | 'accounts' | 'settings'
 type RiskActionName = 'HANDLE' | 'IGNORE' | 'FREEZE_USER' | 'UNFREEZE_USER'
 type WithdrawActionName = 'approve' | 'reject' | 'paid' | 'failed' | 'reverse'
 type WithdrawQuery = { userId: string; status: string; page: string; size: string }
@@ -250,6 +260,7 @@ const ADMIN_SECTION_HASHES: Record<AdminSectionKey, string> = {
   commissionPolicies: '#admin-commission-policies',
   mentorDirectory: '#admin-mentors',
   mentorIncentives: '#admin-mentor-incentives',
+  teams: '#admin-teams',
   operatingDividends: '#admin-operating-dividends',
   userGrades: '#admin-user-grades',
   accounts: '#admin-accounts',
@@ -494,7 +505,14 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [mentorQualificationForm, setMentorQualificationForm] = useState({ userId: '', countryCode: 'BR', languageCode: 'pt-br', maxActiveStudents: '20' })
   const [mentorAssignmentForm, setMentorAssignmentForm] = useState({ studentUserId: '', mentorUserId: '', reason: '' })
   const [operatingDividendDashboard, setOperatingDividendDashboard] = useState<OperatingDividendDashboardResponse | null>(null)
+  const [teamManagementDashboard, setTeamManagementDashboard] = useState<TeamManagementDashboardResponse | null>(null)
+  const [teamMemberTarget, setTeamMemberTarget] = useState<TeamManagementItemResponse | null>(null)
+  const [teamMembers, setTeamMembers] = useState<TeamManagementMemberResponse[]>([])
+  const [teamMembersLoading, setTeamMembersLoading] = useState(false)
   const [userGradeDashboard, setUserGradeDashboard] = useState<UserGradeDashboardResponse | null>(null)
+  const [userGradeLevelDashboard, setUserGradeLevelDashboard] = useState<UserGradeLevelDashboardResponse | null>(null)
+  const [isUserGradeLevelDialogOpen, setIsUserGradeLevelDialogOpen] = useState(false)
+  const [userGradeLevelForm, setUserGradeLevelForm] = useState({ levelName: '', levelRank: '1', requiredPoints: '0', grantsTeamLeader: false, effectiveFrom: '', effectiveTo: '' })
   const [userGradeForm, setUserGradeForm] = useState({ gradeCode: 'TEAM_LEADER', platformCode: 'TIMO', countryCode: 'BR', guildId: '', requiredDirectInviteCount: '1', requiredDirectIncome: '0', effectiveFrom: '', effectiveTo: '' })
   const [userGradeEvaluationForm, setUserGradeEvaluationForm] = useState({ userId: '', platformCode: 'TIMO' })
   const [isOperatingDividendDialogOpen, setIsOperatingDividendDialogOpen] = useState(false)
@@ -613,6 +631,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const canManageMentorRules = ['super_admin', 'admin', 'finance'].includes(adminSession?.role?.toLowerCase() ?? '')
   const canManageMentorRelations = ['super_admin', 'admin', 'operations'].includes(adminSession?.role?.toLowerCase() ?? '')
   const canManageOperatingDividends = canRunControlledIncome
+  const canManageTeams = ['super_admin', 'admin', 'operations'].includes(adminSession?.role?.toLowerCase() ?? '')
   const canManageLinkyInvitationGuild = ['super_admin', 'admin'].includes(adminSession?.role?.toLowerCase() ?? '')
   const linkyGuildOptions = useMemo(() => {
     return (linkyInvitationGuildOptions ?? [])
@@ -1873,12 +1892,64 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     finally { setLoading(false) }
   }
 
+  async function loadTeamManagementDashboard() {
+    if (!adminSession || !canManageTeams) return
+    setLoading(true); setError('')
+    try { setTeamManagementDashboard(await getAdminTeamManagementDashboard(adminSession.sessionToken)) }
+    catch (err) { setError(err instanceof Error ? err.message : '读取团队列表失败') }
+    finally { setLoading(false) }
+  }
+
+  async function openTeamMembers(team: TeamManagementItemResponse) {
+    if (!adminSession) return
+    setTeamMemberTarget(team); setTeamMembers([]); setTeamMembersLoading(true); setError('')
+    try { setTeamMembers(await getAdminTeamMembers(adminSession.sessionToken, team.teamId)) }
+    catch (err) { setError(err instanceof Error ? err.message : '读取团队成员失败') }
+    finally { setTeamMembersLoading(false) }
+  }
+
   async function loadUserGradeDashboard() {
     if (!adminSession || !canRunControlledIncome) return
     setLoading(true); setError('')
     try { setUserGradeDashboard(await getAdminUserGradeDashboard(adminSession.sessionToken)) }
     catch (err) { setError(err instanceof Error ? err.message : '加载用户等级失败') }
     finally { setLoading(false) }
+  }
+
+  async function loadUserGradeLevelDashboard() {
+    if (!adminSession || !canManageTeams) return
+    setLoading(true); setError('')
+    try { setUserGradeLevelDashboard(await getAdminUserGradeLevelDashboard(adminSession.sessionToken)) }
+    catch (err) { setError(err instanceof Error ? err.message : '读取积分等级配置失败') }
+    finally { setLoading(false) }
+  }
+
+  function openUserGradeLevelDialog() {
+    setUserGradeLevelForm({ levelName: '', levelRank: '1', requiredPoints: '0', grantsTeamLeader: false, effectiveFrom: '', effectiveTo: '' })
+    setIsUserGradeLevelDialogOpen(true)
+  }
+
+  async function saveUserGradeLevel() {
+    if (!adminSession || !canManageTeams) return
+    setLoading(true); setError(''); setSuccessMessage('')
+    try {
+      await createAdminUserGradeLevel(adminSession.sessionToken, { levelName: userGradeLevelForm.levelName.trim(), levelRank: Number(userGradeLevelForm.levelRank), requiredPoints: Number(userGradeLevelForm.requiredPoints), grantsTeamLeader: userGradeLevelForm.grantsTeamLeader, effectiveFrom: userGradeLevelForm.effectiveFrom, effectiveTo: userGradeLevelForm.effectiveTo || null })
+      setIsUserGradeLevelDialogOpen(false); setSuccessMessage('已建立积分等级草稿，待审批启用。'); await loadUserGradeLevelDashboard()
+    } catch (err) { setError(err instanceof Error ? err.message : '建立积分等级失败') } finally { setLoading(false) }
+  }
+
+  async function activateUserGradeLevel(id: number, name: string) {
+    if (!adminSession || !canManageTeams) return
+    const approvalNote = window.prompt(`审批启用积分等级“${name}”的说明：`, '等级与负责人资格已复核')
+    if (!approvalNote?.trim()) return
+    setLoading(true); setError('')
+    try { await activateAdminUserGradeLevel(adminSession.sessionToken, id, approvalNote.trim()); setSuccessMessage(`已启用积分等级“${name}”。`); await loadUserGradeLevelDashboard() } catch (err) { setError(err instanceof Error ? err.message : '启用积分等级失败') } finally { setLoading(false) }
+  }
+
+  async function retireUserGradeLevel(id: number, name: string) {
+    if (!adminSession || !canManageTeams || !window.confirm(`停止积分等级“${name}”？既有用户等级、团队负责人和团队关系不会被系统自动撤销。`)) return
+    setLoading(true); setError('')
+    try { await retireAdminUserGradeLevel(adminSession.sessionToken, id); setSuccessMessage(`已停止积分等级“${name}”。`); await loadUserGradeLevelDashboard() } catch (err) { setError(err instanceof Error ? err.message : '停止积分等级失败') } finally { setLoading(false) }
   }
 
   async function saveUserGradeRule() {
@@ -2564,8 +2635,10 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               if (item.href === ADMIN_SECTION_HASHES.platformGuildDirectory && !platformGuildDirectory) void loadPlatformGuildDirectory()
               if (item.href === ADMIN_SECTION_HASHES.commissionPolicies && !commissionPolicies) void loadCommissionPolicies()
               if ((item.href === ADMIN_SECTION_HASHES.mentorDirectory || item.href === ADMIN_SECTION_HASHES.mentorIncentives) && !mentorIncentiveDashboard) void loadMentorIncentiveDashboard()
+              if (item.href === ADMIN_SECTION_HASHES.teams && !teamManagementDashboard) void loadTeamManagementDashboard()
               if (item.href === ADMIN_SECTION_HASHES.operatingDividends && !operatingDividendDashboard) void loadOperatingDividendDashboard()
-              if (item.href === ADMIN_SECTION_HASHES.userGrades && !userGradeDashboard) void loadUserGradeDashboard()
+              if (item.href === ADMIN_SECTION_HASHES.userGrades && canManageTeams && !userGradeLevelDashboard) void loadUserGradeLevelDashboard()
+              if (item.href === ADMIN_SECTION_HASHES.userGrades && !canManageTeams && !userGradeDashboard) void loadUserGradeDashboard()
             }}>
               <AdminNavIcon label={item.label} />
               <span>{item.label}</span>
@@ -2835,6 +2908,20 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </PanelSection>
           ) : null}
 
+          {activeAdminSection === 'teams' && canManageTeams ? (
+            <PanelSection sectionId="admin-teams" eyebrow="Team governance · read only" title="团队列表" description="团队负责人由用户等级系统自动产生；运营人员在此查看团队层级、成员归属和经营事实，不可在本页人工授予负责人或修改历史归属。" action={<button className="ghost-btn" onClick={() => void loadTeamManagementDashboard()} disabled={loading}>刷新数据</button>}>
+              <div className="stack-gap">
+                <InfoCard title="团队治理概览" tone="neutral">
+                  {teamManagementDashboard ? <div className="relation-grid"><RelationItem label="有效团队" value={teamManagementDashboard.activeTeamCount} /><RelationItem label="已有负责人团队" value={teamManagementDashboard.leaderTeamCount} /><RelationItem label="当前成员归属" value={teamManagementDashboard.activeMemberRelationCount} /></div> : <EmptyState title="尚未读取团队数据" description="点击“刷新数据”读取当前团队及成员归属。" />}
+                  <InlineHint text="成员归属采用可叠加的历史关系：用户成为新团队负责人后，可保留在上级团队的成员记录。当前不产生分红、奖励、余额、提现或付款。" />
+                </InfoCard>
+                <InfoCard title="团队经营与成员" tone="neutral">
+                  {teamManagementDashboard?.teams.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>团队</th><th>负责人</th><th>上级团队</th><th>当前成员</th><th>最近经营事实</th><th>建立时间</th><th>操作</th></tr></thead><tbody>{teamManagementDashboard.teams.map((team) => <tr key={team.teamId}><td>{team.teamName}<small className="table-subtle">{team.teamCode} / {team.countryCode}</small></td><td>{team.leaderUserId ? `用户 ${team.leaderUserId}${team.leaderPhoneNumber ? ` · ${team.leaderPhoneNumber}` : ''}` : '待自动产生'}</td><td>{team.parentTeamCode || '—'}</td><td>{team.activeMemberCount}</td><td>{team.latestOperatingProfitMinor === null ? '尚无经营事实' : `${team.latestPlatformCode} · ${team.latestOperatingProfitMinor} ${team.latestCurrencyCode}（截至 ${team.latestPeriodEnd}）`}</td><td>{formatDateTime(team.createdAt)}</td><td><button className="ghost-btn small-btn" onClick={() => void openTeamMembers(team)} disabled={loading}>查看成员</button></td></tr>)}</tbody></table></div> : <EmptyState title="尚无团队记录" description="用户达到可授予团队负责人的等级后，系统会自动创建团队；在积分来源接通前，不会模拟创建团队。" />}
+                </InfoCard>
+              </div>
+            </PanelSection>
+          ) : null}
+
           {activeAdminSection === 'operatingDividends' && canManageOperatingDividends ? (
             <PanelSection sectionId="admin-operating-dividends" eyebrow="Operating dividend · shadow only" title="运营分红" description="运营分红以独立的团队经营利润事实为基数，满足团队资格门槛后按比例写入影子账本。它不包含邀请裂变分成或导师固定奖励，不会产生奖励、余额、提现或付款。" action={<button className="ghost-btn" onClick={() => void loadOperatingDividendDashboard()} disabled={loading}>刷新数据</button>}>
               <div className="stack-gap">
@@ -2859,7 +2946,22 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </PanelSection>
           ) : null}
 
-          {activeAdminSection === 'userGrades' && canRunControlledIncome ? (
+          {activeAdminSection === 'userGrades' && canManageTeams ? (
+            <PanelSection sectionId="admin-user-grades" eyebrow="User grade · points ready" title="用户等级管理" description="用户等级由积分评估；积分只会基于后续明确接通的直邀事实来源累计。达到唯一的团队负责人等级门槛时，系统将自动授予负责人身份并创建团队。" action={<button className="ghost-btn" onClick={() => void loadUserGradeLevelDashboard()} disabled={loading}>刷新数据</button>}>
+              <div className="stack-gap">
+                <InfoCard title="积分等级概览" tone="neutral">
+                  {userGradeLevelDashboard ? <div className="relation-grid"><RelationItem label="已启用等级" value={userGradeLevelDashboard.activeLevelCount} /><RelationItem label="团队负责人门槛" value={userGradeLevelDashboard.activeTeamLeaderLevel ? `等级 ${userGradeLevelDashboard.activeTeamLeaderLevel.levelRank} · ${userGradeLevelDashboard.activeTeamLeaderLevel.levelName}` : '尚未设置'} /></div> : <EmptyState title="尚未读取积分等级配置" description="点击“刷新数据”读取等级与审批状态。" />}
+                  <InlineHint text="积分获取方式尚待业务确认。当前页面只配置等级门槛和负责人资格，不会给用户加分、升级、创建团队或产生分红、奖励、余额、提现和付款。" />
+                </InfoCard>
+                <InfoCard title="等级配置" tone="neutral"><p>等级可按业务自定义。一个生效时段内只能有一个等级授予团队负责人资格；达到该门槛及以上等级的用户，后续会由系统自动创建其团队。</p><button className="primary-btn top-gap" onClick={openUserGradeLevelDialog} disabled={loading}>新增积分等级</button></InfoCard>
+                <InfoCard title="已保存的积分等级" tone="neutral">
+                  {userGradeLevelDashboard?.levels.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>等级</th><th>积分门槛</th><th>团队负责人资格</th><th>生效期</th><th>状态</th><th>操作</th></tr></thead><tbody>{userGradeLevelDashboard.levels.map((level) => <tr key={level.id}><td>{level.levelName}<small className="table-subtle">第 {level.levelRank} 级 · {level.levelCode} · V{level.levelVersion}</small></td><td>≥ {level.requiredPoints}</td><td>{level.grantsTeamLeader ? '是（唯一门槛）' : '否'}</td><td>{formatDateTime(level.effectiveFrom)} {level.effectiveTo ? `至 ${formatDateTime(level.effectiveTo)}` : '起长期有效'}</td><td>{level.status === 'DRAFT' ? '待审' : level.status === 'ACTIVE' ? '已启用' : '已停用'}</td><td>{level.status === 'DRAFT' ? <button className="primary-btn small-btn" onClick={() => void activateUserGradeLevel(level.id, level.levelName)} disabled={loading}>审批并启用</button> : level.status === 'ACTIVE' ? <button className="ghost-btn small-btn" onClick={() => void retireUserGradeLevel(level.id, level.levelName)} disabled={loading}>停止使用</button> : '—'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未配置积分等级" description="请先建立等级草稿，再审批启用。积分来源接通前，启用规则不会改变任何用户身份或团队关系。" />}
+                </InfoCard>
+              </div>
+            </PanelSection>
+          ) : null}
+
+          {activeAdminSection === 'userGrades' && canRunControlledIncome && !canManageTeams ? (
             <PanelSection sectionId="admin-user-grades" eyebrow="User grade · direct invite only" title="用户等级" description="用户等级只统计本人直接邀请的用户数量及其已绑定、已定稿 MCN 累计收入。A 邀请 B、B 邀请 C 时，A 只计 B，不计 C。等级合格后可自动授予团队长角色；系统不会自动降级或撤销。" action={<button className="ghost-btn" onClick={() => void loadUserGradeDashboard()} disabled={loading}>刷新数据</button>}>
               <div className="stack-gap">
                 <InfoCard title="等级规则概览" tone="neutral">
@@ -3765,6 +3867,43 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           </form>
           <div className="mentor-current-students"><strong>当前归属学员（{mentorAssignedStudentsLoading ? '读取中…' : mentorAssignedStudents.length}）</strong>{mentorAssignedStudentsLoading ? <p>正在读取当前学员…</p> : mentorAssignedStudents.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>学员</th><th>国家 / 语言</th><th>归属生效</th><th>归属原因</th></tr></thead><tbody>{mentorAssignedStudents.map((student) => <tr key={student.userId}><td>用户 {student.userId}{student.phoneNumber ? ` · ${student.phoneNumber}` : ''}</td><td>{student.countryCode} / {student.languageCode}</td><td>{formatDateTime(student.assignedAt)}</td><td>{student.assignmentReason}</td></tr>)}</tbody></table></div> : <p>当前没有已归属学员。</p>}</div>
           <InlineHint text="保存后会为该学员创建新的导师归属版本；系统将校验导师带教上限，不会改写既有历史关系。" />
+        </ConfirmDialog>
+      ) : null}
+
+      {teamMemberTarget ? (
+        <ConfirmDialog
+          title={`团队成员 · ${teamMemberTarget.teamName}`}
+          tone="primary"
+          confirmText="关闭"
+          loading={false}
+          onCancel={() => { setTeamMemberTarget(null); setTeamMembers([]) }}
+          onConfirm={() => { setTeamMemberTarget(null); setTeamMembers([]) }}
+        >
+          <p>团队编码：{teamMemberTarget.teamCode}；当前成员 {teamMemberTarget.activeMemberCount} 人。</p>
+          {teamMembersLoading ? <p>正在读取团队成员…</p> : teamMembers.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>成员</th><th>国家</th><th>关系</th><th>归属来源</th><th>生效时间</th></tr></thead><tbody>{teamMembers.map((member) => <tr key={`${member.userId}-${member.memberRole}-${member.effectiveFrom}`}><td>用户 {member.userId}{member.phoneNumber ? ` · ${member.phoneNumber}` : ''}</td><td>{member.countryCode}</td><td>{member.memberRole === 'LEADER' ? '负责人' : '成员'}</td><td>{member.sourceType}</td><td>{formatDateTime(member.effectiveFrom)}</td></tr>)}</tbody></table></div> : <p>当前没有有效成员归属。</p>}
+          <InlineHint text="此列表仅展示当前有效归属。后续用户等级自动产生负责人时，会新增团队与成员关系，不会删除既有上级团队归属。" />
+        </ConfirmDialog>
+      ) : null}
+
+      {isUserGradeLevelDialogOpen ? (
+        <ConfirmDialog
+          title="新增积分等级"
+          tone="primary"
+          confirmText="建立待审等级"
+          loading={loading}
+          confirmDisabled={!userGradeLevelForm.levelName.trim() || !userGradeLevelForm.levelRank || !userGradeLevelForm.requiredPoints || !userGradeLevelForm.effectiveFrom}
+          onCancel={() => setIsUserGradeLevelDialogOpen(false)}
+          onConfirm={() => void saveUserGradeLevel()}
+        >
+          <form className="grid-form compact-form" onSubmit={(event) => { event.preventDefault(); void saveUserGradeLevel() }}>
+            <label>等级名称<input required maxLength={64} value={userGradeLevelForm.levelName} onChange={(event) => setUserGradeLevelForm({ ...userGradeLevelForm, levelName: event.target.value })} placeholder="例如：黄金合伙人" /></label>
+            <label>等级级别<input required min="1" inputMode="numeric" value={userGradeLevelForm.levelRank} onChange={(event) => setUserGradeLevelForm({ ...userGradeLevelForm, levelRank: event.target.value.replace(/\D/g, '') })} placeholder="例如：5" /></label>
+            <label>积分门槛<input required min="0" step="0.000001" inputMode="decimal" value={userGradeLevelForm.requiredPoints} onChange={(event) => setUserGradeLevelForm({ ...userGradeLevelForm, requiredPoints: event.target.value })} placeholder="例如：1000" /></label>
+            <label className="checkbox-label"><input type="checkbox" checked={userGradeLevelForm.grantsTeamLeader} onChange={(event) => setUserGradeLevelForm({ ...userGradeLevelForm, grantsTeamLeader: event.target.checked })} />达到本等级可成为团队负责人</label>
+            <label>生效时间<input required type="datetime-local" value={userGradeLevelForm.effectiveFrom} onChange={(event) => setUserGradeLevelForm({ ...userGradeLevelForm, effectiveFrom: event.target.value })} /></label>
+            <label>失效时间（可选）<input type="datetime-local" value={userGradeLevelForm.effectiveTo} onChange={(event) => setUserGradeLevelForm({ ...userGradeLevelForm, effectiveTo: event.target.value })} /></label>
+          </form>
+          <InlineHint text="等级仅保存为待审配置。每个生效时段只能有一个“可成为团队负责人”的等级门槛；在积分来源明确并接通之前，不会自动给用户升级或创建团队。" />
         </ConfirmDialog>
       ) : null}
 

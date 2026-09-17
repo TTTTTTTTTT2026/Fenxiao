@@ -201,13 +201,13 @@ describe('buildAdminSectionLinks', () => {
         href: '#admin-mentor-incentives',
       },
       {
-        label: '运营分红',
-        description: '配置团队经营利润的影子分红规则。',
-        href: '#admin-operating-dividends',
+        label: '团队列表',
+        description: '查看团队负责人、成员归属与经营信息。',
+        href: '#admin-teams',
       },
       {
         label: '用户等级',
-        description: '管理直邀数量和直邀收入驱动的等级规则。',
+        description: '管理用户等级与团队负责人资格。',
         href: '#admin-user-grades',
       },
       {
@@ -225,7 +225,7 @@ describe('buildAdminSectionLinks', () => {
 
   it('shows finance only the overview, payout workbench, and personal account center', () => {
     expect(buildAdminSectionLinks('finance').map((item) => item.href)).toEqual([
-      '#admin-overview', '#admin-rewards', '#admin-commission-policies', '#admin-mentors', '#admin-mentor-incentives', '#admin-operating-dividends', '#admin-user-grades', '#admin-accounts',
+      '#admin-overview', '#admin-rewards', '#admin-commission-policies', '#admin-mentors', '#admin-mentor-incentives', '#admin-user-grades', '#admin-accounts',
     ])
   })
 
