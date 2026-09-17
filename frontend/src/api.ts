@@ -187,12 +187,13 @@ export type OperatingDividendDashboardResponse = {
   recentShadowEntries: Array<{ id: number; teamId: number; leaderUserId: number; platformCode: string; policyId: number; shareRate: number; shareAmountMinor: number; currencyCode: string; ledgerStatus: string; triggeredAt: string }>
 }
 export type TeamManagementDashboardResponse = {
-  activeTeamCount: number; leaderTeamCount: number; activeMemberRelationCount: number
+  activeTeamCount: number; leaderTeamCount: number; operatingProfitShareEnabledTeamCount: number; activeMemberRelationCount: number
   teams: TeamManagementItemResponse[]
 }
 export type TeamManagementItemResponse = {
   teamId: number; teamCode: string; teamName: string; countryCode: string
   leaderUserId: number | null; leaderPhoneNumber: string | null
+  operatingProfitShareEnabled: boolean
   parentTeamId: number | null; parentTeamCode: string | null; activeMemberCount: number
   latestPlatformCode: string | null; latestPeriodEnd: string | null
   latestOperatingProfitMinor: number | null; latestCurrencyCode: string | null; createdAt: string
@@ -920,6 +921,9 @@ export function getAdminTeamManagementDashboard(adminSessionToken: string) {
 }
 export function getAdminTeamMembers(adminSessionToken: string, teamId: number) {
   return request<TeamManagementMemberResponse[]>(`/admin/incentives/teams/${teamId}/members`, { headers: { 'X-Admin-Session': adminSessionToken } })
+}
+export function saveAdminTeamOperatingProfitSharePermission(adminSessionToken: string, teamId: number, enabled: boolean) {
+  return request<TeamManagementItemResponse>(`/admin/incentives/teams/${teamId}/operating-profit-share-permission`, { method: 'PUT', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ enabled }) })
 }
 export function createAdminOperatingDividendPolicy(adminSessionToken: string, payload: { platformCode: string; countryCode: string; guildId: string | null; requiredValidStarts: number; requiredWithdrawEligible: number; requiredActive7d: number; profitShareRate: number; effectiveFrom: string; effectiveTo: string | null }) {
   return request<OperatingDividendPolicyResponse>('/admin/incentives/operating-dividend-policies', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) })

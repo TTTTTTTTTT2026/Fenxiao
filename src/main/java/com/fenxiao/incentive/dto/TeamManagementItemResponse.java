@@ -10,6 +10,7 @@ public record TeamManagementItemResponse(
         String countryCode,
         Long leaderUserId,
         String leaderPhoneNumber,
+        boolean operatingProfitShareEnabled,
         Long parentTeamId,
         String parentTeamCode,
         long activeMemberCount,

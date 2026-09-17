@@ -85,6 +85,14 @@ public class IncentiveAdminController {
         guard.assertTeamManageAccess(token, session); return teams.members(teamId);
     }
 
+    @PutMapping("/admin/incentives/teams/{teamId}/operating-profit-share-permission")
+    public TeamManagementItemResponse setTeamOperatingProfitSharePermission(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                              @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                                              @PathVariable long teamId,
+                                                                              @Valid @RequestBody TeamOperatingProfitSharePermissionRequest request) {
+        return teams.setOperatingProfitShareEnabled(teamId, request.enabled(), guard.assertTeamManageAccess(token, session));
+    }
+
     @GetMapping("/admin/incentives/user-grade-levels/dashboard")
     public UserGradeLevelDashboardResponse userGradeLevelDashboard(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                                     @RequestHeader(value="X-Admin-Session",required=false) String session) {

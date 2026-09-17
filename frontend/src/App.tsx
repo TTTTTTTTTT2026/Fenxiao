@@ -114,6 +114,7 @@ import {
   getAdminOperatingDividendDashboard,
   getAdminTeamManagementDashboard,
   getAdminTeamMembers,
+  saveAdminTeamOperatingProfitSharePermission,
   getAdminUserGradeDashboard,
   getAdminUserGradeLevelDashboard,
   getAdminTokenPointConversionDashboard,
@@ -512,6 +513,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [teamManagementDashboard, setTeamManagementDashboard] = useState<TeamManagementDashboardResponse | null>(null)
   const [teamMemberTarget, setTeamMemberTarget] = useState<TeamManagementItemResponse | null>(null)
   const [teamMembers, setTeamMembers] = useState<TeamManagementMemberResponse[]>([])
+  const [teamOperatingProfitSharePermissionTarget, setTeamOperatingProfitSharePermissionTarget] = useState<{ team: TeamManagementItemResponse; enabled: boolean } | null>(null)
   const [teamMembersLoading, setTeamMembersLoading] = useState(false)
   const [userGradeDashboard, setUserGradeDashboard] = useState<UserGradeDashboardResponse | null>(null)
   const [userGradeLevelDashboard, setUserGradeLevelDashboard] = useState<UserGradeLevelDashboardResponse | null>(null)
@@ -1915,6 +1917,23 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     finally { setTeamMembersLoading(false) }
   }
 
+  function requestTeamOperatingProfitSharePermission(team: TeamManagementItemResponse, enabled: boolean) {
+    if (!team.leaderUserId) { setError('只有已由等级机制产生负责人的团队，才可以设置团队经营利润分成许可。'); return }
+    setError(''); setTeamOperatingProfitSharePermissionTarget({ team, enabled })
+  }
+
+  async function confirmTeamOperatingProfitSharePermission() {
+    if (!adminSession || !canManageTeams || !teamOperatingProfitSharePermissionTarget) return
+    const { team, enabled } = teamOperatingProfitSharePermissionTarget
+    setLoading(true); setError(''); setSuccessMessage('')
+    try {
+      await saveAdminTeamOperatingProfitSharePermission(adminSession.sessionToken, team.teamId, enabled)
+      setTeamOperatingProfitSharePermissionTarget(null)
+      setSuccessMessage(enabled ? `已允许团队“${team.teamName}”参与后续团队经营利润分成演算。` : `已取消团队“${team.teamName}”的团队经营利润分成许可。`)
+      await loadTeamManagementDashboard()
+    } catch (err) { setError(err instanceof Error ? err.message : '保存团队经营利润分成许可失败') } finally { setLoading(false) }
+  }
+
   async function loadUserGradeDashboard() {
     if (!adminSession || !canRunControlledIncome) return
     setLoading(true); setError('')
@@ -2944,14 +2963,14 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           ) : null}
 
           {activeAdminSection === 'teams' && canManageTeams ? (
-            <PanelSection sectionId="admin-teams" eyebrow="Team governance · read only" title="团队列表" description="团队负责人由用户等级系统自动产生；运营人员在此查看团队层级、成员归属和经营事实，不可在本页人工授予负责人或修改历史归属。" action={<button className="ghost-btn" onClick={() => void loadTeamManagementDashboard()} disabled={loading}>刷新数据</button>}>
+            <PanelSection sectionId="admin-teams" eyebrow="Team governance · permission control" title="团队列表" description="团队负责人由用户等级系统自动产生；运营人员不可人工授予负责人或修改历史归属，但可明确许可团队是否参与后续经营利润分成演算。" action={<button className="ghost-btn" onClick={() => void loadTeamManagementDashboard()} disabled={loading}>刷新数据</button>}>
               <div className="stack-gap">
                 <InfoCard title="团队治理概览" tone="neutral">
-                  {teamManagementDashboard ? <div className="relation-grid"><RelationItem label="有效团队" value={teamManagementDashboard.activeTeamCount} /><RelationItem label="已有负责人团队" value={teamManagementDashboard.leaderTeamCount} /><RelationItem label="当前成员归属" value={teamManagementDashboard.activeMemberRelationCount} /></div> : <EmptyState title="尚未读取团队数据" description="点击“刷新数据”读取当前团队及成员归属。" />}
-                  <InlineHint text="成员归属采用可叠加的历史关系：用户成为新团队负责人后，可保留在上级团队的成员记录。当前不产生分红、奖励、余额、提现或付款。" />
+                  {teamManagementDashboard ? <div className="relation-grid"><RelationItem label="有效团队" value={teamManagementDashboard.activeTeamCount} /><RelationItem label="已有负责人团队" value={teamManagementDashboard.leaderTeamCount} /><RelationItem label="已许可经营分成" value={teamManagementDashboard.operatingProfitShareEnabledTeamCount} /><RelationItem label="当前成员归属" value={teamManagementDashboard.activeMemberRelationCount} /></div> : <EmptyState title="尚未读取团队数据" description="点击“刷新数据”读取当前团队及成员归属。" />}
+                  <InlineHint text="成员归属采用可叠加的历史关系：用户成为新团队负责人后，可保留在上级团队的成员记录。团队经营利润分成默认关闭，须由运营确认许可；此页不会产生奖励、余额、提现或付款。" />
                 </InfoCard>
                 <InfoCard title="团队经营与成员" tone="neutral">
-                  {teamManagementDashboard?.teams.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>团队</th><th>负责人</th><th>上级团队</th><th>当前成员</th><th>最近经营事实</th><th>建立时间</th><th>操作</th></tr></thead><tbody>{teamManagementDashboard.teams.map((team) => <tr key={team.teamId}><td>{team.teamName}<small className="table-subtle">{team.teamCode} / {team.countryCode}</small></td><td>{team.leaderUserId ? `用户 ${team.leaderUserId}${team.leaderPhoneNumber ? ` · ${team.leaderPhoneNumber}` : ''}` : '待自动产生'}</td><td>{team.parentTeamCode || '—'}</td><td>{team.activeMemberCount}</td><td>{team.latestOperatingProfitMinor === null ? '尚无经营事实' : `${team.latestPlatformCode} · ${team.latestOperatingProfitMinor} ${team.latestCurrencyCode}（截至 ${team.latestPeriodEnd}）`}</td><td>{formatDateTime(team.createdAt)}</td><td><button className="ghost-btn small-btn" onClick={() => void openTeamMembers(team)} disabled={loading}>查看成员</button></td></tr>)}</tbody></table></div> : <EmptyState title="尚无团队记录" description="用户达到可授予团队负责人的等级后，系统会自动创建团队；在积分来源接通前，不会模拟创建团队。" />}
+                  {teamManagementDashboard?.teams.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>团队</th><th>负责人</th><th>经营利润分成许可</th><th>上级团队</th><th>当前成员</th><th>最近经营事实</th><th>建立时间</th><th>操作</th></tr></thead><tbody>{teamManagementDashboard.teams.map((team) => <tr key={team.teamId}><td>{team.teamName}<small className="table-subtle">{team.teamCode} / {team.countryCode}</small></td><td>{team.leaderUserId ? `用户 ${team.leaderUserId}${team.leaderPhoneNumber ? ` · ${team.leaderPhoneNumber}` : ''}` : '待自动产生'}</td><td><label className="checkbox-label"><input type="checkbox" checked={team.operatingProfitShareEnabled} disabled={!team.leaderUserId || loading} onChange={(event) => requestTeamOperatingProfitSharePermission(team, event.target.checked)} />{team.leaderUserId ? (team.operatingProfitShareEnabled ? '已许可' : '未许可') : '负责人未产生'}</label></td><td>{team.parentTeamCode || '—'}</td><td>{team.activeMemberCount}</td><td>{team.latestOperatingProfitMinor === null ? '尚无经营事实' : `${team.latestPlatformCode} · ${team.latestOperatingProfitMinor} ${team.latestCurrencyCode}（截至 ${team.latestPeriodEnd}）`}</td><td>{formatDateTime(team.createdAt)}</td><td><button className="ghost-btn small-btn" onClick={() => void openTeamMembers(team)} disabled={loading}>查看成员</button></td></tr>)}</tbody></table></div> : <EmptyState title="尚无团队记录" description="用户达到可授予团队负责人的等级后，系统会自动创建团队；在积分来源接通前，不会模拟创建团队。" />}
                 </InfoCard>
               </div>
             </PanelSection>
@@ -3932,6 +3951,21 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           <p>团队编码：{teamMemberTarget.teamCode}；当前成员 {teamMemberTarget.activeMemberCount} 人。</p>
           {teamMembersLoading ? <p>正在读取团队成员…</p> : teamMembers.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>成员</th><th>国家</th><th>关系</th><th>归属来源</th><th>生效时间</th></tr></thead><tbody>{teamMembers.map((member) => <tr key={`${member.userId}-${member.memberRole}-${member.effectiveFrom}`}><td>用户 {member.userId}{member.phoneNumber ? ` · ${member.phoneNumber}` : ''}</td><td>{member.countryCode}</td><td>{member.memberRole === 'LEADER' ? '负责人' : '成员'}</td><td>{member.sourceType}</td><td>{formatDateTime(member.effectiveFrom)}</td></tr>)}</tbody></table></div> : <p>当前没有有效成员归属。</p>}
           <InlineHint text="此列表仅展示当前有效归属。后续用户等级自动产生负责人时，会新增团队与成员关系，不会删除既有上级团队归属。" />
+        </ConfirmDialog>
+      ) : null}
+
+      {teamOperatingProfitSharePermissionTarget ? (
+        <ConfirmDialog
+          title="确认团队经营利润分成许可"
+          tone={teamOperatingProfitSharePermissionTarget.enabled ? 'primary' : 'warning'}
+          confirmText={teamOperatingProfitSharePermissionTarget.enabled ? '确认许可' : '确认取消许可'}
+          loading={loading}
+          onCancel={() => setTeamOperatingProfitSharePermissionTarget(null)}
+          onConfirm={() => void confirmTeamOperatingProfitSharePermission()}
+        >
+          <p>团队：<strong>{teamOperatingProfitSharePermissionTarget.team.teamName}</strong>；负责人：用户 {teamOperatingProfitSharePermissionTarget.team.leaderUserId}。</p>
+          <p>{teamOperatingProfitSharePermissionTarget.enabled ? '确认后，该团队才可在同时满足团队利润事实、既有资格与分红规则时，进入后续团队经营利润分成演算。' : '确认后，该团队不再进入后续团队经营利润分成演算；既有团队、成员关系及历史影子记录不会被删除。'}</p>
+          <InlineHint text="团长身份仍由等级规则自动产生，运营在此只能控制团队经营利润分成许可，不能手工授予或撤销团长身份。此操作不产生真实奖励、余额、提现或付款。" />
         </ConfirmDialog>
       ) : null}
 

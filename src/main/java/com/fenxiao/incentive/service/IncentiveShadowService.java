@@ -130,7 +130,9 @@ public class IncentiveShadowService {
         }, keys);
         long factId = Objects.requireNonNull(keys.getKey()).longValue();
         var team = teamRepository.findById(request.teamId()).orElseThrow(() -> new IllegalArgumentException("team not found"));
-        if (team.getLeaderUserId() == null || profit <= 0) return new TeamProfitResult(profit, 0, false);
+        // Leadership is automatic from the grade mechanism; participation in team-profit sharing
+        // is a separate explicit operations permission and defaults to disabled.
+        if (team.getLeaderUserId() == null || !team.isOperatingProfitShareEnabled() || profit <= 0) return new TeamProfitResult(profit, 0, false);
         QualificationResult qualification = evaluateLeadership(team.getLeaderUserId(), request.platformCode());
         if (!qualification.profitShareQualified() || qualification.shareRate() == null) return new TeamProfitResult(profit, 0, false);
         long share = BigDecimal.valueOf(profit).multiply(qualification.shareRate()).setScale(0, RoundingMode.HALF_UP).longValueExact();
