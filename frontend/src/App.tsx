@@ -302,6 +302,13 @@ type ConsoleAppProps = {
   initialAdminSession?: AdminAuthState | null
 }
 
+function toPlatformGuildOperatingShareRateMap(platforms: PlatformIntegrationResponse[]) {
+  return Object.fromEntries(platforms.flatMap((platform) => platform.targetGuilds.map((guild) => [
+    `${platform.platformCode}:${guild.officialGuildId}`,
+    guild.operatingShareRate,
+  ]))) as Record<string, number | null>
+}
+
 type SelectedLinkyDrawer =
   | { kind: 'webhook'; item: LinkyWebhookLogListResponse['items'][number] }
   | { kind: 'replay'; item: LinkyReplayRecordListResponse['items'][number] }
@@ -455,7 +462,9 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [adminBindingView, setAdminBindingView] = useState<'users' | 'risks'>('users')
   const [adminSettingsView, setAdminSettingsView] = useState<'experiment' | 'guilds' | 'platforms' | 'incomeControlled' | 'incomeShadow' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification'>('experiment')
   const [platformIntegrations, setPlatformIntegrations] = useState<PlatformIntegrationResponse[] | null>(null)
-  const [platformGuildShareInputs, setPlatformGuildShareInputs] = useState<Record<string, string>>({})
+  const [platformGuildOperatingShareRates, setPlatformGuildOperatingShareRates] = useState<Record<string, number | null>>({})
+  const [platformGuildShareRateDialogTarget, setPlatformGuildShareRateDialogTarget] = useState<{ platformCode: string; guildId: string; guildName: string } | null>(null)
+  const [platformGuildShareRateDraft, setPlatformGuildShareRateDraft] = useState('')
   const [platformVerificationRuntime, setPlatformVerificationRuntime] = useState<PlatformVerificationRuntimeResponse | null>(null)
   const [platformVerificationMocks, setPlatformVerificationMocks] = useState<PlatformVerificationMockResponse[] | null>(null)
   const [controlledIncomeForm, setControlledIncomeForm] = useState({ platformCode: 'LINKY', businessDate: '2026-09-11', pageSize: '200' })
@@ -1144,12 +1153,15 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     setPlatformGuildDirectoryLoading(true)
     setError('')
     try {
-      const [directory, syncRuns] = await Promise.all([
+      const [directory, syncRuns, integrations] = await Promise.all([
         getAdminPlatformGuildDirectory(adminSession.sessionToken, platform),
         getAdminPlatformGuildDirectorySyncRuns(adminSession.sessionToken, platform),
+        getAdminPlatformIntegrations(adminSession.sessionToken),
       ])
       setPlatformGuildDirectory(directory)
       setPlatformGuildDirectorySyncRuns(syncRuns)
+      setPlatformIntegrations(integrations)
+      setPlatformGuildOperatingShareRates(toPlatformGuildOperatingShareRateMap(integrations))
     } catch (err) {
       setPlatformGuildDirectory(null)
       setPlatformGuildDirectorySyncRuns(null)
@@ -1630,7 +1642,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     try {
       const values = await getAdminPlatformIntegrations(adminSession.sessionToken)
       setPlatformIntegrations(values)
-      setPlatformGuildShareInputs(Object.fromEntries(values.flatMap((platform) => platform.targetGuilds.map((guild) => [`${platform.platformCode}:${guild.officialGuildId}`, guild.operatingShareRate == null ? '' : String(guild.operatingShareRate)]))))
+      setPlatformGuildOperatingShareRates(toPlatformGuildOperatingShareRateMap(values))
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载平台接入配置失败')
     } finally {
@@ -1851,16 +1863,24 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     finally { setLoading(false) }
   }
 
-  async function savePlatformGuildOperatingShareRate(platformCode: string, guildId: string) {
-    if (!adminSession || !canRunControlledIncome) return
-    const key = `${platformCode}:${guildId}`
-    const raw = platformGuildShareInputs[key]
-    const rate = Number(raw)
-    if (!raw || !Number.isFinite(rate) || rate < 0 || rate > 1) { setError('公会经营分成比例请填写 0 到 1 之间的小数，例如 0.20 表示 20%。'); return }
+  function openPlatformGuildOperatingShareRateDialog(platformCode: string, guildId: string, guildName: string, currentRate: number | null | undefined) {
+    setPlatformGuildShareRateDialogTarget({ platformCode, guildId, guildName })
+    setPlatformGuildShareRateDraft(currentRate == null ? '' : String(currentRate))
+    setError('')
+  }
+
+  async function savePlatformGuildOperatingShareRate() {
+    if (!adminSession || !canRunControlledIncome || !platformGuildShareRateDialogTarget) return
+    const rate = Number(platformGuildShareRateDraft)
+    if (!platformGuildShareRateDraft.trim() || !Number.isFinite(rate) || rate < 0 || rate > 1) { setError('公会经营分成比例请填写 0 到 1 之间的小数，例如 0.20 表示 20%。'); return }
+    const { platformCode, guildId } = platformGuildShareRateDialogTarget
     setLoading(true); setError(''); setSuccessMessage('')
     try {
       await updateAdminPlatformGuildOperatingShareRate(adminSession.sessionToken, platformCode, guildId, rate)
       await loadPlatformIntegrations()
+      if (platformGuildDirectoryPlatform === platformCode) await loadPlatformGuildDirectory(platformCode)
+      setPlatformGuildShareRateDialogTarget(null)
+      setPlatformGuildShareRateDraft('')
       setSuccessMessage(`已保存 ${platformCode} 公会 ${guildId} 的经营分成比例；不会改写 MCN 收入事实或产生发奖。`)
     } catch (err) { setError(err instanceof Error ? err.message : '保存公会经营分成比例失败') } finally { setLoading(false) }
   }
@@ -2677,7 +2697,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                       rows={platform.targetGuilds.map((guild) => {
                         const key = `${platform.platformCode}:${guild.officialGuildId}`
                         const editable = guild.authoritative && guild.directoryStatus === 'NORMAL' && ['ACTIVE', 'ENABLED'].includes(guild.guildStatus.toUpperCase())
-                        return [guild.countryCode, guild.officialGuildId, guild.guildName, `${guild.directoryStatus} / ${guild.guildStatus}`, <input key={`${key}-input`} aria-label={`${guild.guildName} 经营分成比例`} type="number" min="0" max="1" step="0.001" placeholder="例如 0.20" value={platformGuildShareInputs[key] ?? ''} disabled={!editable || !canRunControlledIncome} onChange={(event) => setPlatformGuildShareInputs({ ...platformGuildShareInputs, [key]: event.target.value })} />, editable ? <button key={`${key}-save`} className="ghost-btn small-btn" disabled={loading || !canRunControlledIncome} onClick={() => void savePlatformGuildOperatingShareRate(platform.platformCode, guild.officialGuildId)}>保存比例</button> : '仅可配置 MCN 正常且启用的公会']
+                        return [guild.countryCode, guild.officialGuildId, guild.guildName, `${guild.directoryStatus} / ${guild.guildStatus}`, formatOperatingShareRate(platformGuildOperatingShareRates[key]), editable ? <button key={`${key}-edit`} className="ghost-btn small-btn" disabled={loading || !canRunControlledIncome} onClick={() => openPlatformGuildOperatingShareRateDialog(platform.platformCode, guild.officialGuildId, guild.guildName, platformGuildOperatingShareRates[key])}>编辑分成</button> : '仅可配置 MCN 正常且启用的公会']
                       })}
                       emptyText="MCN 权威公会目录暂无数据；请检查公会目录同步状态。"
                     />
@@ -3088,7 +3108,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               sectionId="admin-platform-guild-directory"
               eyebrow="MCN authoritative directory"
               title="平台公会目录"
-              description="只读查看 MCN 同步的 Linky 与 Timo 公会事实、异常状态及同步批次。BANDEIRA 不在此编辑权威公会资料。"
+              description="查看 MCN 同步的 Linky 与 Timo 公会事实、异常状态及同步批次。公会名称、状态等权威资料不可编辑；可单独维护本平台的经营分成比例。"
               action={<button className="primary-btn" onClick={() => void loadPlatformGuildDirectory()} disabled={platformGuildDirectoryLoading}>{platformGuildDirectoryLoading ? '刷新中…' : '刷新目录'}</button>}
             >
               <div className="stack-gap">
@@ -3101,21 +3121,28 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                     <RelationItem label="正常" value={`${platformGuildDirectory.filter((item) => item.directoryStatus === 'NORMAL').length} 个`} />
                     <RelationItem label="MCN 已缺失" value={`${platformGuildDirectory.filter((item) => item.directoryStatus === 'MISSING_ON_MCN').length} 个`} />
                     <RelationItem label="最后同步" value={formatDateTime(platformGuildDirectorySyncRuns?.[0]?.completedAt || platformGuildDirectory?.[0]?.lastSeenAt)} />
-                  </div> : <EmptyState title="尚未加载公会目录" description="点击“刷新目录”读取当前已同步的 MCN 权威目录。" actionLabel="目录只读，不可在此编辑" />}
+                  </div> : <EmptyState title="尚未加载公会目录" description="点击“刷新目录”读取当前已同步的 MCN 权威目录。" actionLabel="权威资料只读；经营分成可单独维护" />}
                 </InfoCard>
                 <InfoCard title="MCN 同步公会" tone="neutral">
                   <DataTable
-                    headers={['公会 ID / 名称', '国家', '平台状态', '目录状态', 'MCN 更新时间', '最后同步']}
-                    rows={(platformGuildDirectory ?? []).map((item) => [
-                      <div className="stack-gap small"><strong>{item.guildName}</strong><span>{item.guildId}</span></div>,
-                      item.country || '-',
-                      renderStatusBadge(item.guildStatus),
-                      renderStatusBadge(item.directoryStatus),
-                      formatDateTime(item.mcnRecordUpdatedAt || item.officialUpdatedAt || undefined),
-                      formatDateTime(item.lastSeenAt),
-                    ])}
+                    headers={['公会 ID / 名称', '国家', '平台状态', '目录状态', '经营分成比例', 'MCN 更新时间', '最后同步', '操作']}
+                    rows={(platformGuildDirectory ?? []).map((item) => {
+                      const key = `${item.platformCode}:${item.guildId}`
+                      const editable = item.directoryStatus === 'NORMAL' && ['ACTIVE', 'ENABLED'].includes(item.guildStatus.toUpperCase())
+                      return [
+                        <div className="stack-gap small"><strong>{item.guildName}</strong><span>{item.guildId}</span></div>,
+                        item.country || '-',
+                        renderStatusBadge(item.guildStatus),
+                        renderStatusBadge(item.directoryStatus),
+                        formatOperatingShareRate(platformGuildOperatingShareRates[key]),
+                        formatDateTime(item.mcnRecordUpdatedAt || item.officialUpdatedAt || undefined),
+                        formatDateTime(item.lastSeenAt),
+                        editable ? <button key={`${key}-edit`} className="ghost-btn small-btn" disabled={loading || !canRunControlledIncome} onClick={() => openPlatformGuildOperatingShareRateDialog(item.platformCode, item.guildId, item.guildName, platformGuildOperatingShareRates[key])}>编辑分成</button> : '仅可配置 MCN 正常且启用的公会',
+                      ]
+                    })}
                     emptyText={platformGuildDirectoryLoading ? '正在读取 MCN 同步目录…' : '当前平台还没有同步的公会。请检查最近同步批次。'}
                   />
+                  <InlineHint text="经营分成比例是 BANDEIRA 的业务配置，不会修改 MCN 公会事实。列表只展示当前值；请点击对应公会的“编辑分成”后在弹窗保存。" />
                 </InfoCard>
                 <InfoCard title="最近同步批次" tone="neutral">
                   <DataTable
@@ -3681,6 +3708,25 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             />
           ) : null}
         </DrawerDialog>
+      ) : null}
+
+      {platformGuildShareRateDialogTarget ? (
+        <ConfirmDialog
+          title={`编辑经营分成 · ${platformGuildShareRateDialogTarget.guildName}`}
+          tone="primary"
+          confirmText="保存分成比例"
+          loading={loading}
+          confirmDisabled={!platformGuildShareRateDraft.trim()}
+          onCancel={() => { setPlatformGuildShareRateDialogTarget(null); setPlatformGuildShareRateDraft('') }}
+          onConfirm={() => void savePlatformGuildOperatingShareRate()}
+        >
+          <form className="grid-form compact-form" onSubmit={(event) => { event.preventDefault(); void savePlatformGuildOperatingShareRate() }}>
+            <label>平台<input disabled value={platformGuildShareRateDialogTarget.platformCode} /></label>
+            <label>公会<input disabled value={`${platformGuildShareRateDialogTarget.guildName}（${platformGuildShareRateDialogTarget.guildId}）`} /></label>
+            <label className="full-span">经营分成比例<input required aria-label="经营分成比例" type="number" min="0" max="1" step="0.001" inputMode="decimal" value={platformGuildShareRateDraft} onChange={(event) => setPlatformGuildShareRateDraft(event.target.value)} placeholder="例如 0.20" /><small>填写 0 到 1 之间的小数；0.20 表示公会保留 20% 作为团队经营利润池。</small></label>
+          </form>
+          <InlineHint text="仅保存 BANDEIRA 的经营分成业务配置，不会编辑 MCN 权威公会资料、收入事实，也不会产生奖励、余额、提现或付款。" />
+        </ConfirmDialog>
       ) : null}
 
       {isCommissionPolicyDialogOpen ? (
@@ -4428,6 +4474,11 @@ function mentorMilestoneLabel(code: string) {
     ACTIVE_30D: '连续活跃 30 天',
   }
   return labels[code] || code
+}
+
+function formatOperatingShareRate(value?: number | null) {
+  if (value == null) return '-'
+  return `${value}（${(value * 100).toFixed(2).replace(/\.00$/, '')}%）`
 }
 
 function formatAdminRole(role: string) {

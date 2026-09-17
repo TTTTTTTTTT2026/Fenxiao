@@ -425,6 +425,8 @@ describe('Earnings landing page', () => {
     expect(markup).toContain('MCN 同步公会')
     expect(markup).toContain('最近同步批次')
     expect(markup).toContain('MCN 已缺失')
+    expect(markup).toContain('经营分成比例')
+    expect(markup).toContain('编辑分成')
   })
 
   it('renders a finished withdraw approval workspace with operator audit controls in admin mode', () => {
