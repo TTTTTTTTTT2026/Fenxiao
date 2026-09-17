@@ -186,6 +186,14 @@ export type OperatingDividendDashboardResponse = {
   recentProfitFacts: Array<{ id: number; teamId: number; platformCode: string; periodStart: string; periodEnd: string; operatingProfitMinor: number; currencyCode: string; sourceSystem: string; sourceEventId: string; receivedAt: string }>
   recentShadowEntries: Array<{ id: number; teamId: number; leaderUserId: number; platformCode: string; policyId: number; shareRate: number; shareAmountMinor: number; currencyCode: string; ledgerStatus: string; triggeredAt: string }>
 }
+export type UserGradeRuleResponse = {
+  id: number; ruleCode: string; ruleVersion: number; gradeCode: 'PROMOTER' | 'TEAM_LEADER' | string
+  platformCode: string; countryCode: string; guildId: string | null; requiredDirectInviteCount: number; requiredDirectIncome: number
+  effectiveFrom: string; effectiveTo: string | null; status: 'DRAFT' | 'ACTIVE' | 'RETIRED' | string
+  createdBy: number | null; approvedBy: number | null; approvedAt: string | null; approvalNote: string | null
+}
+export type UserGradeEvaluationResponse = { userId: number; platformCode: string; guildId: string; gradeCode: string; ruleId: number; status: string; directInviteCount: number; directIncome: number; qualifiedAt: string | null; evaluatedAt: string }
+export type UserGradeDashboardResponse = { activeRuleCount: number; qualifiedTeamLeaderCount: number; rules: UserGradeRuleResponse[]; recentEvaluations: UserGradeEvaluationResponse[] }
 export type PlatformIntegrationResponse = {
   platformCode: string
   displayName: string
@@ -195,7 +203,7 @@ export type PlatformIntegrationResponse = {
   revenueIngestionMode: string
   rewardMode: string
   enabled: boolean
-  targetGuilds: Array<{ countryCode: string; officialGuildId: string; officialGuildSid: string | null; guildName: string; enabled: boolean }>
+  targetGuilds: Array<{ countryCode: string; officialGuildId: string; officialGuildSid: string | null; guildName: string; enabled: boolean; authoritative: boolean; directoryStatus: string; guildStatus: string; operatingShareRate: number | null }>
 }
 
 export type PlatformGuildDirectoryItem = {
@@ -894,6 +902,11 @@ export function activateAdminOperatingDividendPolicy(adminSessionToken: string, 
 export function retireAdminOperatingDividendPolicy(adminSessionToken: string, id: number) {
   return request<OperatingDividendPolicyResponse>(`/admin/incentives/operating-dividend-policies/${id}/retire`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken } })
 }
+export function getAdminUserGradeDashboard(adminSessionToken: string) { return request<UserGradeDashboardResponse>('/admin/incentives/user-grade-dashboard', { headers: { 'X-Admin-Session': adminSessionToken } }) }
+export function createAdminUserGradeRule(adminSessionToken: string, payload: { gradeCode: string; platformCode: string; countryCode: string; guildId: string | null; requiredDirectInviteCount: number; requiredDirectIncome: number; effectiveFrom: string; effectiveTo: string | null }) { return request<UserGradeRuleResponse>('/admin/incentives/user-grade-rules', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) }) }
+export function activateAdminUserGradeRule(adminSessionToken: string, id: number, approvalNote: string) { return request<UserGradeRuleResponse>(`/admin/incentives/user-grade-rules/${id}/activate`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ approvalNote }) }) }
+export function retireAdminUserGradeRule(adminSessionToken: string, id: number) { return request<UserGradeRuleResponse>(`/admin/incentives/user-grade-rules/${id}/retire`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken } }) }
+export function evaluateAdminUserGrade(adminSessionToken: string, userId: number, platformCode: string) { return request<UserGradeEvaluationResponse[]>('/admin/incentives/user-grades/evaluate', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ userId, platformCode }) }) }
 export function getAdminAccounts() { return request<AdminAccountResponse[]>('/admin/accounts') }
 export function createAdminAccount(payload: { username: string; displayName: string; role: string; platformScope?: string; guildScope?: string; regionScope?: string }) { return request<AdminAccountCreatedResponse>('/admin/accounts', { method: 'POST', body: JSON.stringify(payload) }) }
 export function updateAdminAccount(id: number, payload: { displayName: string; role: string; enabled: boolean; platformScope?: string; guildScope?: string; regionScope?: string }) { return request<AdminAccountResponse>(`/admin/accounts/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }) }
@@ -1190,6 +1203,12 @@ export function updateAdminLinkyInvitationGuild(adminSessionToken: string, userI
 export function getAdminPlatformIntegrations(adminSessionToken: string) {
   return request<PlatformIntegrationResponse[]>('/admin/platform-integrations', {
     headers: { 'X-Admin-Session': adminSessionToken },
+  })
+}
+
+export function updateAdminPlatformGuildOperatingShareRate(adminSessionToken: string, platformCode: string, guildId: string, operatingShareRate: number) {
+  return request<PlatformIntegrationResponse['targetGuilds'][number]>(`/admin/platform-integrations/${encodeURIComponent(platformCode)}/guilds/${encodeURIComponent(guildId)}/operating-share-rate`, {
+    method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ operatingShareRate }),
   })
 }
 

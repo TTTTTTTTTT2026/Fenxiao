@@ -13,5 +13,6 @@ public record PlatformIntegrationResponse(
         boolean enabled,
         List<TargetGuild> targetGuilds) {
     public record TargetGuild(String countryCode, String officialGuildId, String officialGuildSid,
-                              String guildName, boolean enabled) {}
+                              String guildName, boolean enabled, boolean authoritative, String directoryStatus,
+                              String guildStatus, java.math.BigDecimal operatingShareRate) {}
 }

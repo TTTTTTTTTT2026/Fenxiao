@@ -101,8 +101,8 @@ public class IncentiveShadowService {
         int valid = (int) snapshots.stream().filter(PlatformLifecycleSnapshot::isValid72HourStart).count();
         int withdraw = (int) snapshots.stream().filter(value -> value.getFirstWithdrawEligibleAt() != null).count();
         int active7 = (int) snapshots.stream().filter(PlatformLifecycleSnapshot::isConsecutive7DayActive).count();
-        List<LeadershipPolicy> policies = jdbc.query("select id,required_valid_starts,required_withdraw_eligible,required_active_7d,profit_share_rate from leadership_policy_version where platform_code=? and country_code=? and enabled=true and effective_from<=? and effective_to is null and ((? is null and guild_id is null) or guild_id=?) order by policy_version desc limit 1",
-                (rs, row) -> new LeadershipPolicy(rs.getLong(1), rs.getInt(2), rs.getInt(3), rs.getInt(4), rs.getBigDecimal(5)), platform, user.getCountryCode(), LocalDateTime.now(clock), guildId, guildId);
+        List<LeadershipPolicy> policies = jdbc.query("select id,required_valid_starts,required_withdraw_eligible,required_active_7d,profit_share_rate from leadership_policy_version where platform_code=? and country_code=? and enabled=true and effective_from<=? and (effective_to is null or effective_to>?) and (guild_id is null or guild_id=?) order by case when guild_id=? then 0 else 1 end,policy_version desc limit 1",
+                (rs, row) -> new LeadershipPolicy(rs.getLong(1), rs.getInt(2), rs.getInt(3), rs.getInt(4), rs.getBigDecimal(5)), platform, user.getCountryCode(), LocalDateTime.now(clock), LocalDateTime.now(clock), guildId, guildId);
         if (policies.isEmpty()) return new QualificationResult(valid, withdraw, active7, false, false, null);
         LeadershipPolicy policy = policies.get(0);
         boolean newStar = valid >= policy.validStarts();
@@ -167,7 +167,7 @@ public class IncentiveShadowService {
         String status = qualified ? "QUALIFIED" : "IN_PROGRESS";
         LocalDateTime now = LocalDateTime.now(clock);
         if (guildId == null) return;
-        int updated = jdbc.update("update leadership_qualification set qualification_status=?,policy_id=?,valid_start_count=?,withdraw_eligible_count=?,active_7d_count=?,qualified_at=case when ?='QUALIFIED' and qualified_at is null then ? else qualified_at end,evaluated_at=?,shadow_only=true where user_id=? and platform_code=? and guild_id=? and qualification_code=?",
+        int updated = jdbc.update("update leadership_qualification set qualification_status=case when qualification_status='QUALIFIED' then 'QUALIFIED' else ? end,policy_id=?,valid_start_count=?,withdraw_eligible_count=?,active_7d_count=?,qualified_at=case when qualification_status='QUALIFIED' then qualified_at when ?='QUALIFIED' then ? else null end,evaluated_at=?,shadow_only=true where user_id=? and platform_code=? and guild_id=? and qualification_code=?",
                 status, policyId, valid, withdraw, active7, status, now, now, userId, platform, guildId, code);
         if (updated == 0) jdbc.update("insert into leadership_qualification(user_id,platform_code,guild_id,qualification_code,qualification_status,policy_id,valid_start_count,withdraw_eligible_count,active_7d_count,qualified_at,evaluated_at,shadow_only) values(?,?,?,?,?,?,?,?,?,?,?,true)",
                 userId, platform, guildId, code, status, policyId, valid, withdraw, active7, qualified ? now : null, now);

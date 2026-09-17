@@ -1,0 +1,40 @@
+CREATE TABLE user_grade_rule_version (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    rule_code VARCHAR(64) NOT NULL,
+    rule_version INT NOT NULL,
+    grade_code VARCHAR(32) NOT NULL,
+    platform_code VARCHAR(32) NOT NULL,
+    country_code VARCHAR(10) NOT NULL,
+    guild_id VARCHAR(64) NULL,
+    required_direct_invite_count INT NOT NULL,
+    required_direct_income DECIMAL(18,6) NOT NULL,
+    effective_from TIMESTAMP NOT NULL,
+    effective_to TIMESTAMP NULL,
+    rule_status VARCHAR(16) NOT NULL DEFAULT 'DRAFT',
+    created_by BIGINT NULL,
+    approved_by BIGINT NULL,
+    approved_at TIMESTAMP NULL,
+    approval_note VARCHAR(255) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_user_grade_rule_version (rule_code, rule_version),
+    INDEX idx_user_grade_rule_scope (rule_status, grade_code, platform_code, country_code, effective_from)
+);
+
+CREATE TABLE user_grade_evaluation (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    platform_code VARCHAR(32) NOT NULL,
+    guild_id VARCHAR(64) NOT NULL,
+    grade_code VARCHAR(32) NOT NULL,
+    rule_id BIGINT NOT NULL,
+    qualification_status VARCHAR(32) NOT NULL,
+    direct_invite_count INT NOT NULL,
+    direct_income DECIMAL(18,6) NOT NULL,
+    qualified_at TIMESTAMP NULL,
+    evaluated_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_user_grade_evaluation (user_id, platform_code, guild_id, grade_code),
+    INDEX idx_user_grade_evaluation_status (grade_code, qualification_status, platform_code, guild_id)
+);

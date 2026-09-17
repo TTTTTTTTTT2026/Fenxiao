@@ -11,6 +11,8 @@ public interface PlatformTargetGuildRepository extends JpaRepository<PlatformTar
 
     Optional<PlatformTargetGuild> findByPlatformCodeAndCountryCodeAndEnabledTrue(String platformCode, String countryCode);
 
+    Optional<PlatformTargetGuild> findByPlatformCodeAndOfficialGuildId(String platformCode, String officialGuildId);
+
     boolean existsByPlatformCodeAndCountryCodeAndOfficialGuildId(String platformCode, String countryCode, String officialGuildId);
 
     default void saveIfMissing(String platformCode, String countryCode, String officialGuildId, String guildName) {
