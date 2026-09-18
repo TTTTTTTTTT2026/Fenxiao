@@ -25,6 +25,14 @@ import java.util.*;
 @Service
 @Transactional
 public class IncentiveShadowService {
+    /**
+     * The former five-percent team-profit qualification is retired. Team-profit
+     * facts remain storable for future reconciliation, but no legacy candidate
+     * or qualification may be generated while the new team-governance model is built.
+     */
+    private static final boolean LEGACY_TEAM_PROFIT_CANDIDATES_RETIRED = true;
+    /** Mentor cash rules remain evidence-only until their independent incentive standard is approved. */
+    private static final boolean MENTOR_CASH_CANDIDATES_PENDING = true;
     private final JdbcTemplate jdbc;
     private final PlatformLifecycleSnapshotRepository snapshotRepository;
     private final PlatformAccountBindingRepository bindingRepository;
@@ -94,20 +102,20 @@ public class IncentiveShadowService {
     }
 
     public void evaluateLifecycle(PlatformLifecycleSnapshot snapshot) {
-        if (mentorCashIncentiveProgramEnabled) {
+        if (!MENTOR_CASH_CANDIDATES_PENDING && mentorCashIncentiveProgramEnabled) {
             mentorRepository.findTopByStudentUserIdOrderByVersionNoDesc(snapshot.getUserId())
                     .filter(value -> value.getMentorUserId() != null && value.getEffectiveTo() == null)
                     .ifPresent(value -> createMentorEntries(value.getMentorUserId(), snapshot));
         }
-        invitationRepository.findTopByUserIdOrderByVersionNoDesc(snapshot.getUserId())
-                .map(value -> value.getInviterUserId())
-                .filter(Objects::nonNull)
-                .ifPresent(inviter -> evaluateLeadership(inviter, snapshot.getPlatformCode()));
+        // Invitation-level lifecycle facts no longer create the retired team 5% qualification.
     }
 
     public QualificationResult evaluateLeadership(Long userId, String platformCode) {
         var user = userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("user not found"));
         String platform = upper(platformCode);
+        if (LEGACY_TEAM_PROFIT_CANDIDATES_RETIRED) {
+            return new QualificationResult(0, 0, 0, false, false, null);
+        }
         String guildId = bindingRepository.findByUserIdAndPlatformCode(userId, platform)
                 .map(PlatformAccountBinding::getOfficialGuildId)
                 .filter(value -> !value.isBlank())
@@ -149,7 +157,7 @@ public class IncentiveShadowService {
             statement.setLong(6, request.businessIncomeMinor()); statement.setLong(7, request.directCostMinor()); statement.setLong(8, request.recruiterRewardMinor()); statement.setLong(9, request.mentorRewardMinor()); statement.setLong(10, request.paymentAdjustmentMinor()); statement.setLong(11, profit); statement.setString(12, upper(request.currencyCode())); statement.setString(13, request.sourceSystem()); statement.setObject(14, LocalDateTime.now(clock)); return statement;
         }, keys);
         long factId = Objects.requireNonNull(keys.getKey()).longValue();
-        if (!teamOperatingRewardProgramEnabled) return new TeamProfitResult(profit, 0, false);
+        if (LEGACY_TEAM_PROFIT_CANDIDATES_RETIRED || !teamOperatingRewardProgramEnabled) return new TeamProfitResult(profit, 0, false);
         var team = teamRepository.findById(request.teamId()).orElseThrow(() -> new IllegalArgumentException("team not found"));
         // Leadership is automatic from the grade mechanism; participation in team-profit sharing
         // is a separate explicit operations permission and defaults to disabled.

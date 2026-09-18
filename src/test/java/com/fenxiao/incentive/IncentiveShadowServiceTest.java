@@ -56,7 +56,7 @@ class IncentiveShadowServiceTest {
                     assertThat(item.assignedStudentCount()).isEqualTo(1);
                     assertThat(item.maxActiveStudents()).isEqualTo(20);
                 });
-        assertThat(incentiveService.evaluateLeadership(leader.getUserId(), "LINKY").profitShareQualified()).isTrue();
+        assertThat(incentiveService.evaluateLeadership(leader.getUserId(), "LINKY").profitShareQualified()).isFalse();
 
         var team = relationshipService.createTeam("BR-TEST-721", "BR Test Team", "BR", leader.getUserId());
         jdbc.update("update operating_team set operating_profit_share_enabled = true where id = ?", team.getId());
