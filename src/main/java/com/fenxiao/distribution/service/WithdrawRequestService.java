@@ -2,6 +2,7 @@ package com.fenxiao.distribution.service;
 
 import com.fenxiao.distribution.entity.WithdrawRequest;
 import com.fenxiao.distribution.entity.WithdrawRequestItem;
+import com.fenxiao.distribution.config.RealFinanceProperties;
 import com.fenxiao.distribution.repository.WithdrawRequestItemRepository;
 import com.fenxiao.distribution.repository.WithdrawRequestRepository;
 import com.fenxiao.audit.entity.OperationAuditLog;
@@ -38,14 +39,16 @@ public class WithdrawRequestService {
     private final OperationAuditLogRepository operationAuditLogRepository;
     private final JdbcTemplate jdbc;
     private final Clock clock;
+    private final RealFinanceProperties realFinanceProperties;
 
     @Autowired
     public WithdrawRequestService(WithdrawRequestRepository withdrawRequestRepository,
                                   WithdrawRequestItemRepository withdrawRequestItemRepository,
                                   RewardRecordRepository rewardRecordRepository,
                                   OperationAuditLogRepository operationAuditLogRepository,
-                                  JdbcTemplate jdbc) {
-        this(withdrawRequestRepository, withdrawRequestItemRepository, rewardRecordRepository, operationAuditLogRepository, jdbc, Clock.systemUTC());
+                                  JdbcTemplate jdbc,
+                                  RealFinanceProperties realFinanceProperties) {
+        this(withdrawRequestRepository, withdrawRequestItemRepository, rewardRecordRepository, operationAuditLogRepository, jdbc, Clock.systemUTC(), realFinanceProperties);
     }
 
     WithdrawRequestService(WithdrawRequestRepository withdrawRequestRepository,
@@ -53,16 +56,19 @@ public class WithdrawRequestService {
                            RewardRecordRepository rewardRecordRepository,
                            OperationAuditLogRepository operationAuditLogRepository,
                            JdbcTemplate jdbc,
-                           Clock clock) {
+                           Clock clock,
+                           RealFinanceProperties realFinanceProperties) {
         this.withdrawRequestRepository = withdrawRequestRepository;
         this.withdrawRequestItemRepository = withdrawRequestItemRepository;
         this.rewardRecordRepository = rewardRecordRepository;
         this.operationAuditLogRepository = operationAuditLogRepository;
         this.jdbc = jdbc;
         this.clock = clock;
+        this.realFinanceProperties = realFinanceProperties;
     }
 
     public WithdrawRequest createRequest(Long userId) {
+        realFinanceProperties.assertWriteEnabled();
         String requestWeek = currentRequestWeek();
         if (withdrawRequestRepository.existsByUserIdAndRequestWeek(userId, requestWeek)) {
             throw new IllegalStateException("withdraw request already submitted this week");
@@ -94,6 +100,7 @@ public class WithdrawRequestService {
     }
 
     public WithdrawRequest approveRequest(String requestNo, Long reviewerId, String reviewerRole, String remark) {
+        realFinanceProperties.assertWriteEnabled();
         WithdrawRequest request = getByRequestNo(requestNo);
         String before = snapshot(request);
         List<RewardRecord> rewardRecords = loadRequestRewards(request);
@@ -111,6 +118,7 @@ public class WithdrawRequestService {
     }
 
     public WithdrawRequest rejectRequest(String requestNo, Long reviewerId, String reviewerRole, String reason) {
+        realFinanceProperties.assertWriteEnabled();
         WithdrawRequest request = getByRequestNo(requestNo);
         String before = snapshot(request);
         List<RewardRecord> rewardRecords = loadRequestRewards(request);
@@ -128,6 +136,7 @@ public class WithdrawRequestService {
     }
 
     public WithdrawRequest approveForPayment(String requestNo, Long reviewerId, String reviewerRole, String remark) {
+        realFinanceProperties.assertWriteEnabled();
         WithdrawRequest request = getByRequestNo(requestNo);
         String before = snapshot(request);
         request.approveForPayment(reviewerId, remark, now());
@@ -139,6 +148,7 @@ public class WithdrawRequestService {
 
     public WithdrawRequest recordPaymentSuccess(String requestNo, Long operatorId, String operatorRole,
                                                 String channel, String reference, String evidenceUri, String evidenceHash) {
+        realFinanceProperties.assertWriteEnabled();
         WithdrawRequest request = getByRequestNo(requestNo);
         String from = request.getRequestStatus();
         String before = snapshot(request);
@@ -157,6 +167,7 @@ public class WithdrawRequestService {
     public WithdrawRequest recordPaymentFailure(String requestNo, Long operatorId, String operatorRole,
                                                 String channel, String reference, String evidenceUri, String evidenceHash,
                                                 String failureReason) {
+        realFinanceProperties.assertWriteEnabled();
         WithdrawRequest request = getByRequestNo(requestNo);
         String before = snapshot(request);
         int attemptNo = nextAttemptNo(request.getId());
@@ -169,6 +180,7 @@ public class WithdrawRequestService {
     }
 
     public WithdrawRequest reversePayment(String requestNo, Long operatorId, String operatorRole, String reason, String currencyCode) {
+        realFinanceProperties.assertWriteEnabled();
         WithdrawRequest request = getByRequestNo(requestNo);
         String before = snapshot(request);
         request.markReversed(operatorId, reason, now());
@@ -182,6 +194,7 @@ public class WithdrawRequestService {
 
     public void reconcile(String requestNo, Long operatorId, String status, String externalReference,
                           BigDecimal externalAmount, String currencyCode, String details) {
+        realFinanceProperties.assertWriteEnabled();
         WithdrawRequest request = getByRequestNo(requestNo);
         String normalized = normalizeReconciliationStatus(status);
         jdbc.update("insert into withdraw_reconciliation_record(withdraw_request_id,reconciliation_status,external_reference,external_amount,currency_code,details,reconciled_by,reconciled_at) values(?,?,?,?,?,?,?,?)",
