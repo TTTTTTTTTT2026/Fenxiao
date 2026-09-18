@@ -131,6 +131,9 @@ import {
   retireAdminUserGradeRule,
   retireAdminUserGradeLevel,
   evaluateAdminUserGrade,
+  getAdminUserGradeAdvancementReviews,
+  createAdminUserGradeAdvancementReview,
+  confirmAdminUserGradeAdvancementReview,
   qualifyAdminMentor,
   assignAdminMentor,
   unlockAdminAccount,
@@ -177,6 +180,7 @@ import {
   type TeamManagementMemberResponse,
   type UserGradeDashboardResponse,
   type UserGradeLevelDashboardResponse,
+  type UserGradeAdvancementReviewResponse,
   type TokenPointConversionDashboardResponse,
   type OverviewReportResponse,
   type OwnershipDetailResponse,
@@ -522,6 +526,9 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [teamMembersLoading, setTeamMembersLoading] = useState(false)
   const [userGradeDashboard, setUserGradeDashboard] = useState<UserGradeDashboardResponse | null>(null)
   const [userGradeLevelDashboard, setUserGradeLevelDashboard] = useState<UserGradeLevelDashboardResponse | null>(null)
+  const [userGradeAdvancementReviews, setUserGradeAdvancementReviews] = useState<UserGradeAdvancementReviewResponse[]>([])
+  const [isUserGradeAdvancementDialogOpen, setIsUserGradeAdvancementDialogOpen] = useState(false)
+  const [userGradeAdvancementForm, setUserGradeAdvancementForm] = useState({ userId: '', platformCode: 'TIMO', guildId: '', targetGradeCode: 'PLATINUM' })
   const [isUserGradeLevelDialogOpen, setIsUserGradeLevelDialogOpen] = useState(false)
   const [userGradeLevelForm, setUserGradeLevelForm] = useState({ levelName: '', levelRank: '1', requiredPoints: '0', grantsTeamLeader: false, effectiveFrom: '', effectiveTo: '' })
   const [tokenPointConversionDashboard, setTokenPointConversionDashboard] = useState<TokenPointConversionDashboardResponse | null>(null)
@@ -1962,7 +1969,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   }
 
   async function loadUserGradeDashboard() {
-    if (!adminSession || !canRunControlledIncome) return
+    if (!adminSession || !canManageTeams) return
     setLoading(true); setError('')
     try { setUserGradeDashboard(await getAdminUserGradeDashboard(adminSession.sessionToken)) }
     catch (err) { setError(err instanceof Error ? err.message : '加载用户等级失败') }
@@ -1975,6 +1982,40 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     try { setUserGradeLevelDashboard(await getAdminUserGradeLevelDashboard(adminSession.sessionToken)) }
     catch (err) { setError(err instanceof Error ? err.message : '读取积分等级配置失败') }
     finally { setLoading(false) }
+  }
+
+  async function loadUserGradeAdvancementReviews() {
+    if (!adminSession || !canManageTeams) return
+    setLoading(true); setError('')
+    try { setUserGradeAdvancementReviews(await getAdminUserGradeAdvancementReviews(adminSession.sessionToken)) }
+    catch (err) { setError(err instanceof Error ? err.message : '读取高级等级验收记录失败') }
+    finally { setLoading(false) }
+  }
+
+  function openUserGradeAdvancementDialog() {
+    setUserGradeAdvancementForm({ userId: '', platformCode: 'TIMO', guildId: '', targetGradeCode: 'PLATINUM' })
+    setIsUserGradeAdvancementDialogOpen(true)
+  }
+
+  async function saveUserGradeAdvancementReview() {
+    if (!adminSession || !canManageTeams || !Number(userGradeAdvancementForm.userId) || !userGradeAdvancementForm.guildId.trim()) { setError('请填写用户 ID 和权威公会 ID。'); return }
+    setLoading(true); setError(''); setSuccessMessage('')
+    try {
+      await createAdminUserGradeAdvancementReview(adminSession.sessionToken, { userId: Number(userGradeAdvancementForm.userId), platformCode: userGradeAdvancementForm.platformCode, guildId: userGradeAdvancementForm.guildId.trim(), targetGradeCode: userGradeAdvancementForm.targetGradeCode })
+      setIsUserGradeAdvancementDialogOpen(false); setSuccessMessage('已建立高级等级培养与经营验收记录；不会自动授予负责人、创建团队或开启分成。'); await loadUserGradeAdvancementReviews()
+    } catch (err) { setError(err instanceof Error ? err.message : '建立高级等级验收记录失败') } finally { setLoading(false) }
+  }
+
+  async function confirmUserGradeAdvancementReview(review: UserGradeAdvancementReviewResponse, step: 'training-confirmation' | 'operating-confirmation' | 'responsibility-confirmation') {
+    if (!adminSession || !canManageTeams) return
+    const labels = { 'training-confirmation': '培养确认', 'operating-confirmation': '经营验收', 'responsibility-confirmation': '经营职责确认' }
+    const note = window.prompt(`填写${labels[step]}的依据：`)
+    if (!note?.trim()) return
+    setLoading(true); setError(''); setSuccessMessage('')
+    try {
+      await confirmAdminUserGradeAdvancementReview(adminSession.sessionToken, review.id, step, note.trim())
+      setSuccessMessage(`已记录用户 ${review.userId} 的${labels[step]}；不会自动变更负责人或团队分成。`); await loadUserGradeAdvancementReviews()
+    } catch (err) { setError(err instanceof Error ? err.message : '保存高级等级验收失败') } finally { setLoading(false) }
   }
 
   function openUserGradeLevelDialog() {
@@ -2033,7 +2074,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   }
 
   async function saveUserGradeRule() {
-    if (!adminSession || !canRunControlledIncome) return
+    if (!adminSession || !canManageTeams) return
     setLoading(true); setError(''); setSuccessMessage('')
     try {
       await createAdminUserGradeRule(adminSession.sessionToken, { gradeCode: userGradeForm.gradeCode, platformCode: userGradeForm.platformCode, countryCode: userGradeForm.countryCode, guildId: userGradeForm.guildId.trim() || null, requiredDirectInviteCount: Number(userGradeForm.requiredDirectInviteCount), requiredDirectIncome: Number(userGradeForm.requiredDirectIncome), effectiveFrom: userGradeForm.effectiveFrom, effectiveTo: userGradeForm.effectiveTo || null })
@@ -2042,7 +2083,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   }
 
   async function activateUserGradeRule(id: number, code: string) {
-    if (!adminSession || !canRunControlledIncome) return
+    if (!adminSession || !canManageTeams) return
     const approvalNote = window.prompt(`审批启用用户等级规则 ${code} 的说明：`, '业务规则已复核')
     if (!approvalNote?.trim()) return
     setLoading(true); setError('')
@@ -2050,13 +2091,13 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   }
 
   async function retireUserGradeRule(id: number, code: string) {
-    if (!adminSession || !canRunControlledIncome || !window.confirm(`停止用户等级规则 ${code}？既有合格团队长不会被系统自动降级。`)) return
+    if (!adminSession || !canManageTeams || !window.confirm(`停止用户等级规则 ${code}？既有合格团队长不会被系统自动降级。`)) return
     setLoading(true); setError('')
     try { await retireAdminUserGradeRule(adminSession.sessionToken, id); setSuccessMessage(`已停止用户等级规则 ${code}。`); await loadUserGradeDashboard() } catch (err) { setError(err instanceof Error ? err.message : '停止用户等级规则失败') } finally { setLoading(false) }
   }
 
   async function evaluateUserGrade() {
-    if (!adminSession || !canRunControlledIncome || !Number(userGradeEvaluationForm.userId)) { setError('请输入需要复核的用户 ID。'); return }
+    if (!adminSession || !canManageTeams || !Number(userGradeEvaluationForm.userId)) { setError('请输入需要复核的用户 ID。'); return }
     setLoading(true); setError('')
     try { const result = await evaluateAdminUserGrade(adminSession.sessionToken, Number(userGradeEvaluationForm.userId), userGradeEvaluationForm.platformCode); setSuccessMessage(result.length ? `已完成用户等级复核：${result.map((item) => `${item.gradeCode} ${item.status}`).join('；')}` : '该用户当前没有匹配的已启用等级规则。'); await loadUserGradeDashboard() } catch (err) { setError(err instanceof Error ? err.message : '用户等级复核失败') } finally { setLoading(false) }
   }
@@ -2713,8 +2754,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               if ((item.href === ADMIN_SECTION_HASHES.mentorDirectory || item.href === ADMIN_SECTION_HASHES.mentorIncentives) && !mentorIncentiveDashboard) void loadMentorIncentiveDashboard()
               if (item.href === ADMIN_SECTION_HASHES.teams && !teamManagementDashboard) void loadTeamManagementDashboard()
               if (item.href === ADMIN_SECTION_HASHES.operatingDividends && !operatingDividendDashboard) void loadOperatingDividendDashboard()
-              if (item.href === ADMIN_SECTION_HASHES.userGrades && canManageTeams && !userGradeLevelDashboard) void loadUserGradeLevelDashboard()
-              if (item.href === ADMIN_SECTION_HASHES.userGrades && !canManageTeams && !userGradeDashboard) void loadUserGradeDashboard()
+              if (item.href === ADMIN_SECTION_HASHES.userGrades && canManageTeams && !userGradeDashboard) void loadUserGradeDashboard()
+              if (item.href === ADMIN_SECTION_HASHES.userGrades && canManageTeams && !userGradeAdvancementReviews.length) void loadUserGradeAdvancementReviews()
               if (item.href === ADMIN_SECTION_HASHES.tokenPointConversions && !tokenPointConversionDashboard) void loadTokenPointConversionDashboard()
             }}>
               <AdminNavIcon label={item.label} />
@@ -3037,7 +3078,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </PanelSection>
           ) : null}
 
-          {activeAdminSection === 'userGrades' && canManageTeams ? (
+          {activeAdminSection === 'userGrades' && canManageTeams && window.location.hash === '#legacy-user-grade-levels' ? (
             <PanelSection sectionId="admin-user-grades" eyebrow="User grade · points ready" title="用户等级管理" description="用户等级由积分评估；积分只会基于后续明确接通的直邀事实来源累计。达到唯一的团队负责人等级门槛时，系统将自动授予负责人身份并创建团队。" action={<button className="ghost-btn" onClick={() => void loadUserGradeLevelDashboard()} disabled={loading}>刷新数据</button>}>
               <div className="stack-gap">
                 <InfoCard title="积分等级概览" tone="neutral">
@@ -3052,21 +3093,26 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </PanelSection>
           ) : null}
 
-          {activeAdminSection === 'userGrades' && canRunControlledIncome && !canManageTeams ? (
-            <PanelSection sectionId="admin-user-grades" eyebrow="User grade · direct invite only" title="用户等级" description="用户等级只统计本人直接邀请的用户数量及其已绑定、已定稿 MCN 累计收入。A 邀请 B、B 邀请 C 时，A 只计 B，不计 C。等级合格后可自动授予团队长角色；系统不会自动降级或撤销。" action={<button className="ghost-btn" onClick={() => void loadUserGradeDashboard()} disabled={loading}>刷新数据</button>}>
+          {activeAdminSection === 'userGrades' && canManageTeams ? (
+            <PanelSection sectionId="admin-user-grades" eyebrow="User grade · direct effective users" title="用户等级" description="等级只统计本人直接邀请的有效用户。有效用户须从首次真实、可结算收入起的 7 天内，至少在 3 个不同日期产生收入；A 邀请 B、B 邀请 C 时，A 只计 B，不计 C。金牌达标会自动建立团队和团长权限，但不会开启团队经营分成。" action={<button className="ghost-btn" onClick={() => { void loadUserGradeDashboard(); void loadUserGradeAdvancementReviews() }} disabled={loading}>刷新数据</button>}>
               <div className="stack-gap">
                 <InfoCard title="等级规则概览" tone="neutral">
                   {userGradeDashboard ? <div className="relation-grid"><RelationItem label="已启用等级规则" value={userGradeDashboard.activeRuleCount} /><RelationItem label="已合格团队长" value={userGradeDashboard.qualifiedTeamLeaderCount} /></div> : <EmptyState title="尚未读取用户等级数据" description="点击“刷新数据”读取规则与最近评估结果。" />}
-                  <InlineHint text="MCN 只提供收入事实；邀请关系、等级资格和团队长角色由分销平台计算及审计。本页不创建奖励、余额、提现或付款。" />
+                  <InlineHint text="MCN 只提供收入事实；邀请关系、有效用户资格和等级由分销平台计算及审计。本页不创建奖励、余额、提现或付款。累计达标人数与当前活跃有效人数将分开展示，当前活跃口径待业务确认后启用。" />
+                </InfoCard>
+                <InfoCard title="铂金、钻石、黑金：培养与经营验收" tone="neutral">
+                  <p>高级等级不由直邀人数规则自动晋级。先建立验收记录，再按顺序确认培养资格、经营验收和经营职责；三项均确认后仅进入“待负责人确认”，不会自动创建团队、任命负责人或开启团队经营分成。</p>
+                  <button className="primary-btn top-gap" onClick={openUserGradeAdvancementDialog} disabled={loading}>建立高级等级验收记录</button>
+                  {userGradeAdvancementReviews.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>用户 / 目标等级</th><th>平台 / 公会</th><th>培养资格</th><th>经营验收</th><th>经营职责</th><th>状态</th><th>操作</th></tr></thead><tbody>{userGradeAdvancementReviews.map((review) => <tr key={review.id}><td>用户 {review.userId} / {review.targetGradeCode}</td><td>{review.platformCode} / {review.guildId}</td><td>{review.trainingStatus === 'CONFIRMED' ? '已确认' : '待确认'}</td><td>{review.operatingValidationStatus === 'CONFIRMED' ? '已确认' : '待确认'}</td><td>{review.responsibilityStatus === 'CONFIRMED' ? '已确认' : '待确认'}</td><td>{review.reviewStatus === 'READY_FOR_LEADER_CONFIRMATION' ? '待负责人确认' : '验收中'}</td><td><div className="action-row">{review.trainingStatus !== 'CONFIRMED' ? <button className="ghost-btn small-btn" onClick={() => void confirmUserGradeAdvancementReview(review, 'training-confirmation')} disabled={loading}>确认培养</button> : null}{review.operatingValidationStatus !== 'CONFIRMED' ? <button className="ghost-btn small-btn" onClick={() => void confirmUserGradeAdvancementReview(review, 'operating-confirmation')} disabled={loading}>确认经营</button> : null}{review.responsibilityStatus !== 'CONFIRMED' ? <button className="ghost-btn small-btn" onClick={() => void confirmUserGradeAdvancementReview(review, 'responsibility-confirmation')} disabled={loading}>确认职责</button> : null}{review.trainingStatus === 'CONFIRMED' && review.operatingValidationStatus === 'CONFIRMED' && review.responsibilityStatus === 'CONFIRMED' ? '—' : null}</div></td></tr>)}</tbody></table></div> : <EmptyState title="尚无高级等级验收记录" description="培养与经营验收规则尚未自动化；请按已确认的业务证据建立记录。" />}
                 </InfoCard>
                 <InfoCard title="新增用户等级规则" tone="neutral">
                   <form className="grid-form compact-form exception-filter-grid" onSubmit={(event) => { event.preventDefault(); void saveUserGradeRule() }}>
-                    <label>等级<select value={userGradeForm.gradeCode} onChange={(event) => { const gradeCode = event.target.value; const thresholds: Record<string, string> = { NEW_STAR: '3', SILVER: '10', GOLD: '30', PLATINUM: '0', DIAMOND: '0', BLACK_GOLD: '0' }; setUserGradeForm({ ...userGradeForm, gradeCode, requiredDirectInviteCount: thresholds[gradeCode] ?? '0', requiredDirectIncome: '0' }) }}><option value="NEW_STAR">新星</option><option value="SILVER">银牌</option><option value="GOLD">金牌（自动建队、授予团长权限）</option><option value="PLATINUM">铂金</option><option value="DIAMOND">钻石</option><option value="BLACK_GOLD">黑金</option></select></label>
+                    <label>等级<select value={userGradeForm.gradeCode} onChange={(event) => { const gradeCode = event.target.value; const thresholds: Record<string, string> = { NEW_STAR: '3', SILVER: '10', GOLD: '30' }; setUserGradeForm({ ...userGradeForm, gradeCode, requiredDirectInviteCount: thresholds[gradeCode] ?? '0', requiredDirectIncome: '0' }) }}><option value="NEW_STAR">新星</option><option value="SILVER">银牌</option><option value="GOLD">金牌（自动建队、授予团长权限）</option></select></label>
                     <label>平台<select value={userGradeForm.platformCode} onChange={(event) => setUserGradeForm({ ...userGradeForm, platformCode: event.target.value })}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label>
                     <label>归属国家<select value={userGradeForm.countryCode} onChange={(event) => setUserGradeForm({ ...userGradeForm, countryCode: event.target.value })}>{phoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names.zh}（{country.countryCode}）</option>)}</select></label>
                     <label>限定公会（可选）<input value={userGradeForm.guildId} onChange={(event) => setUserGradeForm({ ...userGradeForm, guildId: event.target.value })} placeholder="留空为该国家全部公会" /><small>填写时必须为 MCN 权威目录中的对应公会 ID。</small></label>
                     <label>有效直邀用户门槛<input required min="0" type="number" disabled value={userGradeForm.requiredDirectInviteCount} /><small>新星 / 银牌 / 金牌固定为 3 / 10 / 30；有效用户须在首次收入后 7 天内有 3 个不同日期的真实、可结算收入。</small></label>
-                    <div className="form-static-note">等级不再使用直邀累计收入门槛；铂金、钻石、黑金的培养与经营验收条件将在明确后另行接入。</div>
+                    <div className="form-static-note">等级不再使用直邀累计收入门槛。铂金、钻石、黑金必须通过下方的培养、经营验收与职责确认记录，不会由本规则自动晋级。</div>
                     <label>生效时间<input required type="datetime-local" value={userGradeForm.effectiveFrom} onChange={(event) => setUserGradeForm({ ...userGradeForm, effectiveFrom: event.target.value })} /></label>
                     <label>失效时间（可选）<input type="datetime-local" value={userGradeForm.effectiveTo} onChange={(event) => setUserGradeForm({ ...userGradeForm, effectiveTo: event.target.value })} /></label>
                     <button className="primary-btn" type="submit" disabled={loading}>建立待审等级规则</button>
@@ -4009,6 +4055,26 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             <label>失效时间（可选）<input type="datetime-local" value={userGradeLevelForm.effectiveTo} onChange={(event) => setUserGradeLevelForm({ ...userGradeLevelForm, effectiveTo: event.target.value })} /></label>
           </form>
           <InlineHint text="等级仅保存为待审配置。每个生效时段只能有一个“可成为团队负责人”的等级门槛；在积分来源明确并接通之前，不会自动给用户升级或创建团队。" />
+        </ConfirmDialog>
+      ) : null}
+
+      {isUserGradeAdvancementDialogOpen ? (
+        <ConfirmDialog
+          title="建立高级等级培养与经营验收记录"
+          tone="primary"
+          confirmText="建立验收记录"
+          loading={loading}
+          confirmDisabled={!userGradeAdvancementForm.userId || !userGradeAdvancementForm.guildId.trim()}
+          onCancel={() => setIsUserGradeAdvancementDialogOpen(false)}
+          onConfirm={() => void saveUserGradeAdvancementReview()}
+        >
+          <form className="grid-form compact-form" onSubmit={(event) => { event.preventDefault(); void saveUserGradeAdvancementReview() }}>
+            <label>用户 ID<input required min="1" inputMode="numeric" value={userGradeAdvancementForm.userId} onChange={(event) => setUserGradeAdvancementForm({ ...userGradeAdvancementForm, userId: event.target.value.replace(/\D/g, '') })} placeholder="例如：10001" /></label>
+            <label>目标等级<select value={userGradeAdvancementForm.targetGradeCode} onChange={(event) => setUserGradeAdvancementForm({ ...userGradeAdvancementForm, targetGradeCode: event.target.value })}><option value="PLATINUM">铂金</option><option value="DIAMOND">钻石</option><option value="BLACK_GOLD">黑金</option></select></label>
+            <label>平台<select value={userGradeAdvancementForm.platformCode} onChange={(event) => setUserGradeAdvancementForm({ ...userGradeAdvancementForm, platformCode: event.target.value })}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label>
+            <label>权威公会 ID<input required value={userGradeAdvancementForm.guildId} onChange={(event) => setUserGradeAdvancementForm({ ...userGradeAdvancementForm, guildId: event.target.value })} placeholder="例如：22000448" /></label>
+          </form>
+          <InlineHint text="建立后依次补充培养、经营和职责三项确认。该记录只是等级与团队负责人流程的证据，不会自动授予负责人身份、创建团队或开启团队经营分成。" />
         </ConfirmDialog>
       ) : null}
 
