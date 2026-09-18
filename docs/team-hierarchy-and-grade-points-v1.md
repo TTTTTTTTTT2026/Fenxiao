@@ -1,6 +1,6 @@
 # 团队树与积分等级 V1（实施基线）
 
-> 状态：已确认，进入开发。本文不授权奖励、余额、提现或付款。
+> 状态：历史 V1 实施基线。自 2026-09-18 起，等级判定、金牌自动建队、团队经营分成关闭和邀请分成口径以 [20260918-user-grade-invitation-and-team-reward-decision.md](20260918-user-grade-invitation-and-team-reward-decision.md) 为准；本文不应单独作为后续实现依据。
 
 ## 业务模型
 

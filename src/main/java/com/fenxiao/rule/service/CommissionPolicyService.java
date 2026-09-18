@@ -68,6 +68,7 @@ public class CommissionPolicyService {
 
     private Levels validate(CommissionPolicyRequest request) {
         if (request.effectiveTo() != null && request.effectiveTo().isBefore(request.effectiveFrom())) throw new IllegalArgumentException("effectiveTo must not be before effectiveFrom");
+        if (request.maxRewardLevel() != 2) throw new IllegalArgumentException("invitation commission is fixed to two levels");
         if (request.levels().size() != 3) throw new IllegalArgumentException("all three commission levels must be supplied");
         Map<Integer, CommissionPolicyRequest.LevelRequest> byLevel = new HashMap<>();
         for (CommissionPolicyRequest.LevelRequest level : request.levels()) {
@@ -76,6 +77,9 @@ public class CommissionPolicyService {
         CommissionPolicyRequest.LevelRequest one = require(byLevel, 1), two = require(byLevel, 2), three = require(byLevel, 3);
         validateLevel(one, request.maxRewardLevel()); validateLevel(two, request.maxRewardLevel()); validateLevel(three, request.maxRewardLevel());
         if (!one.enabled()) throw new IllegalArgumentException("level 1 must be enabled in every active policy");
+        if (!two.enabled() || three.enabled() || new BigDecimal("0.10").compareTo(one.rewardRate()) != 0 || new BigDecimal("0.03").compareTo(two.rewardRate()) != 0) {
+            throw new IllegalArgumentException("invitation commission is fixed at level 1=10%, level 2=3%, and level 3 disabled");
+        }
         return new Levels(toLevel(one), toLevel(two), toLevel(three));
     }
     private CommissionPolicyRequest.LevelRequest require(Map<Integer, CommissionPolicyRequest.LevelRequest> levels, int level) {

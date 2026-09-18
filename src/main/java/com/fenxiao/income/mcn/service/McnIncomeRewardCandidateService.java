@@ -6,6 +6,7 @@ import com.fenxiao.income.mcn.api.dto.McnIncomeRewardCandidateSampleResponse;
 import com.fenxiao.income.mcn.api.dto.McnIncomeRewardCandidateSummaryResponse;
 import com.fenxiao.platform.domain.PlatformBindingStatus;
 import com.fenxiao.platform.repository.PlatformAccountBindingRepository;
+import com.fenxiao.platform.service.PlatformGuildCompanyShareService;
 import com.fenxiao.relationship.entity.InvitationRelationVersion;
 import com.fenxiao.relationship.repository.InvitationRelationVersionRepository;
 import com.fenxiao.rule.entity.CommissionPolicy;
@@ -37,11 +38,14 @@ import java.util.UUID;
 @Transactional
 public class McnIncomeRewardCandidateService {
     private static final String SOURCE_SYSTEM = "MCN";
+    private static final String CALCULATION_VERSION = "INVITATION_COMPANY_INCOME_V2";
+    private static final BigDecimal TEAM_REWARD_RESERVE_RATE = new BigDecimal("0.020000");
     private final JdbcTemplate jdbc;
     private final PlatformAccountBindingRepository bindingRepository;
     private final InvitationRelationVersionRepository invitationRepository;
     private final CommissionPolicyService commissionPolicies;
     private final UserDistributionProfileRepository userRepository;
+    private final PlatformGuildCompanyShareService companyShares;
     private final Clock clock;
 
     public McnIncomeRewardCandidateService(JdbcTemplate jdbc,
@@ -49,23 +53,24 @@ public class McnIncomeRewardCandidateService {
                                            InvitationRelationVersionRepository invitationRepository,
                                            CommissionPolicyService commissionPolicies,
                                            UserDistributionProfileRepository userRepository,
+                                           PlatformGuildCompanyShareService companyShares,
                                            Clock clock) {
         this.jdbc = jdbc; this.bindingRepository = bindingRepository; this.invitationRepository = invitationRepository;
-        this.commissionPolicies = commissionPolicies; this.userRepository = userRepository; this.clock = clock;
+        this.commissionPolicies = commissionPolicies; this.userRepository = userRepository; this.companyShares = companyShares; this.clock = clock;
     }
 
     public McnIncomeRewardCandidateSummaryResponse refresh(String platformCode, LocalDate businessDate) {
         String platform = platform(platformCode);
         List<CandidateInput> inputs = jdbc.query("""
-                SELECT p.source_event_id,p.raw_ledger_event_id,p.source_revision,p.business_date,p.resolved_user_id,p.shadow_status,
+                SELECT p.source_event_id,p.raw_ledger_event_id,p.source_revision,p.business_date,p.resolved_user_id,p.guild_id,p.shadow_status,
                        r.occurred_at,r.amount,r.currency_code,r.amount_unit
                 FROM mcn_income_shadow_ledger_projection p
                 JOIN mcn_income_raw_ledger_event r ON r.id=p.raw_ledger_event_id
                 WHERE p.source_system=? AND p.platform_code=? AND p.business_date=?
                 ORDER BY p.source_event_id
                 """, (rs, row) -> new CandidateInput(rs.getString(1), rs.getLong(2), rs.getString(3),
-                rs.getObject(4, LocalDate.class), rs.getObject(5, Long.class), rs.getString(6),
-                rs.getTimestamp(7).toInstant(), rs.getBigDecimal(8), rs.getString(9), rs.getString(10)), SOURCE_SYSTEM, platform, businessDate);
+                rs.getObject(4, LocalDate.class), rs.getObject(5, Long.class), rs.getString(6), rs.getString(7),
+                rs.getTimestamp(8).toInstant(), rs.getBigDecimal(9), rs.getString(10), rs.getString(11)), SOURCE_SYSTEM, platform, businessDate);
         Counts counts = new Counts();
         Instant now = clock.instant();
         // A corrected MCN revision can move an event out of this business date. Rebuild the current
@@ -132,14 +137,23 @@ public class McnIncomeRewardCandidateService {
         writeBase(platform, input, input.sourceUserId(), "SOURCE_READY", "bound final fact with time-effective binding", now);
         counts.sourceReady++;
         Optional<CommissionPolicy> policy = commissionPolicies.findEffective(platform, source.getCountryCode(), occurredAt);
-        if (policy.isEmpty()) {
+        if (policy.isEmpty() || !policy.get().isCompanyIncomeInvitationV2()) {
             writeCandidate(platform, input, input.sourceUserId(), null, 1, null, null, null, null,
-                    "BLOCKED_NO_POLICY", "no active commission policy at income occurrence time", now);
+                    "BLOCKED_NO_POLICY", "no active V2 invitation policy at income occurrence time", now);
             counts.blocked++;
             return;
         }
+        Optional<BigDecimal> companyShareRate = companyShares.findEffective(platform, input.sourceGuildId(), occurredAt);
+        if (companyShareRate.isEmpty()) {
+            writeCandidate(platform, input, input.sourceUserId(), null, 1, null, policy.get().getId(), policy.get().getPolicyCode(), null,
+                    "BLOCKED_NO_GUILD_COMPANY_SHARE", "source guild has no time-effective company share rate", now);
+            counts.blocked++;
+            return;
+        }
+        BigDecimal companyIncomeBase = input.amount().multiply(companyShareRate.get()).setScale(6, RoundingMode.HALF_UP);
+        writeReserve(platform, input, companyShareRate.get(), companyIncomeBase, now);
         Long currentUserId = input.sourceUserId();
-        for (int level = 1; level <= 3; level++) {
+        for (int level = 1; level <= 2; level++) {
             if (level > policy.get().getMaxRewardLevel() || !policy.get().level(level).enabled()) break;
             Optional<InvitationRelationVersion> relation = invitationRepository.findEffectiveAt(currentUserId, occurredAt);
             if (relation.isEmpty() || relation.get().getInviterUserId() == null) {
@@ -159,11 +173,11 @@ public class McnIncomeRewardCandidateService {
                 counts.blocked++; currentUserId = recipientId; continue;
             }
             BigDecimal rate = policy.get().level(level).rate();
-            BigDecimal amount = input.amount().multiply(rate).setScale(6, RoundingMode.HALF_UP);
+            BigDecimal amount = companyIncomeBase.multiply(rate).setScale(6, RoundingMode.HALF_UP);
             writeCandidate(platform, input, input.sourceUserId(), recipientId, level, snapshot.getVersionNo(), policy.get().getId(), policy.get().getPolicyCode(), rate,
                     "CANDIDATE", "commission policy and invitation snapshot matched", now);
             counts.candidates++; counts.amount = counts.amount.add(amount); counts.amountUnit = input.amountUnit();
-            updateCandidateAmount(platform, input.sourceEventId(), level, amount);
+            updateCandidateAmount(platform, input.sourceEventId(), level, amount, companyShareRate.get(), companyIncomeBase);
             currentUserId = recipientId;
         }
     }
@@ -176,15 +190,27 @@ public class McnIncomeRewardCandidateService {
                                 Long policyId, String policyCode, BigDecimal ruleRate, String status, String reason, Instant now) {
         jdbc.update("""
                 INSERT INTO mcn_income_reward_candidate_projection
-                (source_system,platform_code,source_event_id,raw_ledger_event_id,source_revision,business_date,occurred_at,source_user_id,recipient_user_id,reward_level,invitation_version_no,rule_id,commission_policy_id,commission_policy_code,rule_rate,base_amount,candidate_amount,currency_code,amount_unit,candidate_status,decision_reason,projected_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-                """, SOURCE_SYSTEM, platform, input.sourceEventId(), input.rawLedgerEventId(), input.sourceRevision(), input.businessDate(), Timestamp.from(input.occurredAt()),
-                sourceUserId, recipientUserId, level, invitationVersion, null, policyId, policyCode, ruleRate, input.amount(), null, input.currencyCode(), input.amountUnit(), status, reason, Timestamp.from(now));
+                (source_system,platform_code,source_event_id,raw_ledger_event_id,source_revision,calculation_version,business_date,occurred_at,source_user_id,source_guild_id,recipient_user_id,reward_level,invitation_version_no,rule_id,commission_policy_id,commission_policy_code,rule_rate,base_amount,candidate_amount,currency_code,amount_unit,candidate_status,decision_reason,projected_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                """, SOURCE_SYSTEM, platform, input.sourceEventId(), input.rawLedgerEventId(), input.sourceRevision(), CALCULATION_VERSION, input.businessDate(), Timestamp.from(input.occurredAt()),
+                sourceUserId, input.sourceGuildId(), recipientUserId, level, invitationVersion, null, policyId, policyCode, ruleRate, input.amount(), null, input.currencyCode(), input.amountUnit(), status, reason, Timestamp.from(now));
     }
 
-    private void updateCandidateAmount(String platform, String sourceEventId, int level, BigDecimal amount) {
-        jdbc.update("UPDATE mcn_income_reward_candidate_projection SET candidate_amount=? WHERE source_system=? AND platform_code=? AND source_event_id=? AND reward_level=?",
-                amount, SOURCE_SYSTEM, platform, sourceEventId, level);
+    private void updateCandidateAmount(String platform, String sourceEventId, int level, BigDecimal amount, BigDecimal companyShareRate, BigDecimal companyIncomeBase) {
+        jdbc.update("UPDATE mcn_income_reward_candidate_projection SET candidate_amount=?,company_share_rate=?,company_income_base_amount=? WHERE source_system=? AND platform_code=? AND source_event_id=? AND reward_level=?",
+                amount, companyShareRate, companyIncomeBase, SOURCE_SYSTEM, platform, sourceEventId, level);
+    }
+
+    private void writeReserve(String platform, CandidateInput input, BigDecimal companyShareRate, BigDecimal companyIncomeBase, Instant now) {
+        BigDecimal reserve = companyIncomeBase.multiply(TEAM_REWARD_RESERVE_RATE).setScale(6, RoundingMode.HALF_UP);
+        jdbc.update("""
+                INSERT INTO mcn_income_team_reward_reserve_fact
+                (source_system,platform_code,source_event_id,source_revision,business_date,occurred_at,source_user_id,source_guild_id,company_share_rate,company_income_base_amount,reserve_rate,reserve_amount,currency_code,amount_unit,reserve_status,decision_reason,projected_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'RESERVED_NOT_PAYABLE','team reserve is a non-payable fact',?)
+                ON DUPLICATE KEY UPDATE source_revision=VALUES(source_revision),company_share_rate=VALUES(company_share_rate),company_income_base_amount=VALUES(company_income_base_amount),reserve_amount=VALUES(reserve_amount),projected_at=VALUES(projected_at)
+                """, SOURCE_SYSTEM, platform, input.sourceEventId(), input.sourceRevision(), input.businessDate(), Timestamp.from(input.occurredAt()),
+                input.sourceUserId(), input.sourceGuildId(), companyShareRate, companyIncomeBase, TEAM_REWARD_RESERVE_RATE, reserve,
+                input.currencyCode(), input.amountUnit(), Timestamp.from(now));
     }
 
     /** Returns a deterministic, balanced audit sample from an immutable candidate-run snapshot. */
@@ -208,8 +234,8 @@ public class McnIncomeRewardCandidateService {
     private void snapshotRun(String runId, String platform, LocalDate businessDate) {
         jdbc.update("""
                 INSERT INTO mcn_income_reward_candidate_run_item
-                (run_id,source_system,platform_code,source_event_id,raw_ledger_event_id,source_revision,business_date,occurred_at,source_user_id,recipient_user_id,reward_level,invitation_version_no,commission_policy_id,commission_policy_code,rule_rate,base_amount,candidate_amount,currency_code,amount_unit,candidate_status,decision_reason,projected_at)
-                SELECT ?,source_system,platform_code,source_event_id,raw_ledger_event_id,source_revision,business_date,occurred_at,source_user_id,recipient_user_id,reward_level,invitation_version_no,commission_policy_id,commission_policy_code,rule_rate,base_amount,candidate_amount,currency_code,amount_unit,candidate_status,decision_reason,projected_at
+                (run_id,source_system,platform_code,source_event_id,raw_ledger_event_id,source_revision,calculation_version,business_date,occurred_at,source_user_id,source_guild_id,recipient_user_id,reward_level,invitation_version_no,commission_policy_id,commission_policy_code,rule_rate,base_amount,company_share_rate,company_income_base_amount,candidate_amount,currency_code,amount_unit,candidate_status,decision_reason,projected_at)
+                SELECT ?,source_system,platform_code,source_event_id,raw_ledger_event_id,source_revision,calculation_version,business_date,occurred_at,source_user_id,source_guild_id,recipient_user_id,reward_level,invitation_version_no,commission_policy_id,commission_policy_code,rule_rate,base_amount,company_share_rate,company_income_base_amount,candidate_amount,currency_code,amount_unit,candidate_status,decision_reason,projected_at
                 FROM mcn_income_reward_candidate_projection
                 WHERE source_system=? AND platform_code=? AND business_date=?
                 """, runId, SOURCE_SYSTEM, platform, businessDate);
@@ -259,7 +285,7 @@ public class McnIncomeRewardCandidateService {
     }
     private String platform(String value) { String v = value == null ? "" : value.trim().toUpperCase(Locale.ROOT); if (!"TIMO".equals(v) && !"LINKY".equals(v)) throw new IllegalArgumentException("income platform must be TIMO or LINKY"); return v; }
     static record CandidateInput(String sourceEventId, long rawLedgerEventId, String sourceRevision, LocalDate businessDate, Long sourceUserId,
-                                 String shadowStatus, Instant occurredAt, BigDecimal amount, String currencyCode, String amountUnit) { }
+                                 String sourceGuildId, String shadowStatus, Instant occurredAt, BigDecimal amount, String currencyCode, String amountUnit) { }
     private static class Counts { int sourceReady; int candidates; int blocked; BigDecimal amount = BigDecimal.ZERO.setScale(6); String amountUnit; }
     private record RunScope(String platformCode, LocalDate businessDate) { }
 }

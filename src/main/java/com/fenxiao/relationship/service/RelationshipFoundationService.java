@@ -71,6 +71,13 @@ public class RelationshipFoundationService {
         return teamRepository.save(OperatingTeam.create(normalizedCode, name.trim(), countryCode.trim().toUpperCase(Locale.ROOT), leaderUserId));
     }
 
+    /** A gold-grade promotion may create a leadership container, but never enables team-profit sharing. */
+    public OperatingTeam ensureGoldGradeTeam(UserDistributionProfile leader) {
+        String code = "GRADE-GOLD-" + leader.getUserId();
+        return teamRepository.findByTeamCode(code)
+                .orElseGet(() -> teamRepository.save(OperatingTeam.create(code, "Gold team " + leader.getUserId(), leader.getCountryCode(), leader.getUserId())));
+    }
+
     public TeamMembershipVersion transferTeam(Long userId, Long teamId, LocalDateTime effectiveAt, String reason, Long operatorId) {
         teamRepository.findById(teamId).orElseThrow(() -> new IllegalArgumentException("team not found"));
         LocalDateTime at = effectiveAt == null ? LocalDateTime.now(clock) : effectiveAt;

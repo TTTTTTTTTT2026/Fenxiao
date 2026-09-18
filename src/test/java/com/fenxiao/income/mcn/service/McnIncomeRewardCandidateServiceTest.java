@@ -3,6 +3,7 @@ package com.fenxiao.income.mcn.service;
 import com.fenxiao.income.mcn.api.dto.McnIncomeRewardCandidateSummaryResponse;
 import com.fenxiao.platform.entity.PlatformAccountBinding;
 import com.fenxiao.platform.repository.PlatformAccountBindingRepository;
+import com.fenxiao.platform.service.PlatformGuildCompanyShareService;
 import com.fenxiao.relationship.entity.InvitationRelationVersion;
 import com.fenxiao.relationship.repository.InvitationRelationVersionRepository;
 import com.fenxiao.rule.entity.CommissionPolicy;
@@ -53,7 +54,8 @@ class McnIncomeRewardCandidateServiceTest {
         when(fixture.relations.findEffectiveAt(100L, LocalDateTime.ofInstant(OCCURRED, ZoneOffset.UTC))).thenReturn(Optional.of(atIncome));
         when(fixture.relations.findEffectiveAt(200L, LocalDateTime.ofInstant(OCCURRED, ZoneOffset.UTC))).thenReturn(Optional.empty());
         when(fixture.policies.findEffective("TIMO", "ID", LocalDateTime.ofInstant(OCCURRED, ZoneOffset.UTC)))
-                .thenReturn(Optional.of(policy(1)));
+                .thenReturn(Optional.of(policy(2)));
+        when(fixture.companyShares.findEffective("TIMO", "guild", LocalDateTime.ofInstant(OCCURRED, ZoneOffset.UTC))).thenReturn(Optional.of(new BigDecimal("0.25")));
 
         McnIncomeRewardCandidateSummaryResponse result = fixture.service.refresh("TIMO", DAY);
 
@@ -61,7 +63,7 @@ class McnIncomeRewardCandidateServiceTest {
         assertThat(result.sourceReadyCount()).isEqualTo(1);
         assertThat(result.candidateCount()).isEqualTo(1);
         assertThat(result.blockedCount()).isZero();
-        assertThat(result.candidateAmount()).isEqualByComparingTo("10.000000");
+        assertThat(result.candidateAmount()).isEqualByComparingTo("2.500000");
         assertThat(result.amountUnit()).isEqualTo("TIMO_DIAMOND");
         verify(fixture.jdbc).update(contains("mcn_income_reward_candidate_run_item"), eq(result.latestRunId()), eq("MCN"), eq("TIMO"), eq(DAY));
     }
@@ -85,7 +87,7 @@ class McnIncomeRewardCandidateServiceTest {
 
     @Test
     @SuppressWarnings({"unchecked", "rawtypes"})
-    void shouldStopAtTheConfiguredDirectOnlyDepthInsteadOfTreatingLaterLevelsAsZeroRateRules() {
+    void shouldStopAfterTheConfirmedSecondInvitationLevel() {
         Fixture fixture = fixture();
         when(fixture.jdbc.query(anyString(), any(RowMapper.class), any(Object[].class))).thenReturn(List.of(input(100L)));
         UserDistributionProfile source = UserDistributionProfile.create(100L, "ID", "id", "SOURCE");
@@ -97,13 +99,14 @@ class McnIncomeRewardCandidateServiceTest {
         when(fixture.bindings.findByUserIdAndPlatformCode(100L, "TIMO")).thenReturn(Optional.of(binding));
         when(fixture.relations.findEffectiveAt(100L, LocalDateTime.ofInstant(OCCURRED, ZoneOffset.UTC))).thenReturn(Optional.of(
                 InvitationRelationVersion.create(100L, 200L, 1, LocalDateTime.ofInstant(OCCURRED.minusSeconds(3600), ZoneOffset.UTC), "test", "TEST", null, null)));
-        when(fixture.policies.findEffective("TIMO", "ID", LocalDateTime.ofInstant(OCCURRED, ZoneOffset.UTC))).thenReturn(Optional.of(policy(1)));
+        when(fixture.policies.findEffective("TIMO", "ID", LocalDateTime.ofInstant(OCCURRED, ZoneOffset.UTC))).thenReturn(Optional.of(policy(2)));
+        when(fixture.companyShares.findEffective("TIMO", "guild", LocalDateTime.ofInstant(OCCURRED, ZoneOffset.UTC))).thenReturn(Optional.of(new BigDecimal("0.25")));
 
         McnIncomeRewardCandidateSummaryResponse result = fixture.service.refresh("TIMO", DAY);
 
         assertThat(result.candidateCount()).isEqualTo(1);
         assertThat(result.blockedCount()).isZero();
-        verify(fixture.relations, never()).findEffectiveAt(200L, LocalDateTime.ofInstant(OCCURRED, ZoneOffset.UTC));
+        verify(fixture.relations).findEffectiveAt(200L, LocalDateTime.ofInstant(OCCURRED, ZoneOffset.UTC));
     }
 
     @Test
@@ -116,7 +119,7 @@ class McnIncomeRewardCandidateServiceTest {
 
     private McnIncomeRewardCandidateService.CandidateInput input(Long sourceUserId) {
         return new McnIncomeRewardCandidateService.CandidateInput("event-1", 1L, "revision-1", DAY, sourceUserId,
-                "BOUND_FINAL", OCCURRED, new BigDecimal("100.000000"), "XXX", "TIMO_DIAMOND");
+                "guild", "BOUND_FINAL", OCCURRED, new BigDecimal("100.000000"), "XXX", "TIMO_DIAMOND");
     }
 
     private Fixture fixture() {
@@ -126,18 +129,20 @@ class McnIncomeRewardCandidateServiceTest {
         InvitationRelationVersionRepository relations = mock(InvitationRelationVersionRepository.class);
         CommissionPolicyService policies = mock(CommissionPolicyService.class);
         UserDistributionProfileRepository users = mock(UserDistributionProfileRepository.class);
-        return new Fixture(jdbc, bindings, relations, policies, users,
-                new McnIncomeRewardCandidateService(jdbc, bindings, relations, policies, users, Clock.fixed(Instant.parse("2026-09-14T00:00:00Z"), ZoneOffset.UTC)));
+        PlatformGuildCompanyShareService companyShares = mock(PlatformGuildCompanyShareService.class);
+        return new Fixture(jdbc, bindings, relations, policies, users, companyShares,
+                new McnIncomeRewardCandidateService(jdbc, bindings, relations, policies, users, companyShares, Clock.fixed(Instant.parse("2026-09-14T00:00:00Z"), ZoneOffset.UTC)));
     }
 
     private CommissionPolicy policy(int maxLevel) {
         return CommissionPolicy.draft("CP-TEST", "TIMO", "ID", maxLevel,
                 true, new BigDecimal("0.10"), 7,
-                maxLevel >= 2, maxLevel >= 2 ? new BigDecimal("0.02") : null, maxLevel >= 2 ? 7 : null,
-                maxLevel >= 3, maxLevel >= 3 ? new BigDecimal("0.005") : null, maxLevel >= 3 ? 7 : null,
+                maxLevel >= 2, maxLevel >= 2 ? new BigDecimal("0.03") : null, maxLevel >= 2 ? 7 : null,
+                false, null, null,
                 LocalDateTime.ofInstant(OCCURRED.minusSeconds(3600), ZoneOffset.UTC), null, 1L);
     }
 
     private record Fixture(JdbcTemplate jdbc, PlatformAccountBindingRepository bindings, InvitationRelationVersionRepository relations,
-                           CommissionPolicyService policies, UserDistributionProfileRepository users, McnIncomeRewardCandidateService service) { }
+                           CommissionPolicyService policies, UserDistributionProfileRepository users, PlatformGuildCompanyShareService companyShares,
+                           McnIncomeRewardCandidateService service) { }
 }

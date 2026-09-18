@@ -17,6 +17,9 @@ spring:
 app:
   distribution:
     legacy-user-token-enabled: true
+    # Legacy reward-engine fixtures exercise historical data only; production defaults closed.
+    reward-engine:
+      enabled: true
   linky-verification:
     # Existing Spring integration fixtures use the legacy double; production is configured separately to MCN.
     source: LEGACY

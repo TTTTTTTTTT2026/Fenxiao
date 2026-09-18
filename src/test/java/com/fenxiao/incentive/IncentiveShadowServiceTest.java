@@ -32,7 +32,7 @@ class IncentiveShadowServiceTest {
     @Autowired JdbcTemplate jdbc;
 
     @Test
-    void shouldKeepMentorAndFivePercentTeamRewardsInSeparateShadowLedgers() {
+    void shouldKeepMentorAndTeamCashIncentivesClosedUntilTheirProgrammesAreEnabled() {
         LocalDateTime now = LocalDateTime.now(Clock.systemUTC()).withNano(0);
         var leader = bindingService.createProfile(72100L, "BR", "pt-br", null);
         var mentor = bindingService.createProfile(72101L, "BR", "pt-br", leader.getInviteCode());
@@ -49,7 +49,7 @@ class IncentiveShadowServiceTest {
         lifecycleService.ingest(new PlatformBusinessFactRequest("income-72102", "LINKY", "22345678", PlatformFactType.NET_INCOME,
                 new BigDecimal("10.00"), "DIAMOND", now.plusHours(1), "BR_GUILD_1", "NIUMA_PLATFORM_FACTS", "v1", "hash-72102"));
 
-        assertThat(jdbc.queryForObject("select count(*) from incentive_shadow_ledger where recipient_user_id=? and source_user_id=? and reward_type='MENTOR' and ledger_status='SHADOW'", Integer.class, mentor.getUserId(), source.getUserId())).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from incentive_shadow_ledger where recipient_user_id=? and source_user_id=? and reward_type='MENTOR' and ledger_status='SHADOW'", Integer.class, mentor.getUserId(), source.getUserId())).isZero();
         assertThat(mentorIncentiveAdminService.dashboard().mentors())
                 .anySatisfy(item -> {
                     assertThat(item.userId()).isEqualTo(mentor.getUserId());
@@ -63,9 +63,9 @@ class IncentiveShadowServiceTest {
         var result = incentiveService.ingestTeamProfit(new TeamProfitFactRequest("profit-721", team.getId(), "LINKY", LocalDate.now().minusDays(7), LocalDate.now(),
                 100_000, 20_000, 10_000, 5_000, 5_000, "BRL", "NIUMA_PLATFORM_FACTS"));
         assertThat(result.operatingProfitMinor()).isEqualTo(60_000);
-        assertThat(result.shareAmountMinor()).isEqualTo(3_000);
-        assertThat(result.shadowLedgerCreated()).isTrue();
-        assertThat(jdbc.queryForObject("select count(*) from team_profit_share_shadow_ledger where ledger_status='SHADOW'", Integer.class)).isEqualTo(1);
+        assertThat(result.shareAmountMinor()).isZero();
+        assertThat(result.shadowLedgerCreated()).isFalse();
+        assertThat(jdbc.queryForObject("select count(*) from team_profit_share_shadow_ledger where ledger_status='SHADOW'", Integer.class)).isZero();
     }
 
     @Test

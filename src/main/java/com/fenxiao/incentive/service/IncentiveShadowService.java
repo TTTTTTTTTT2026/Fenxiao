@@ -12,6 +12,8 @@ import com.fenxiao.user.repository.UserDistributionProfileRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +33,8 @@ public class IncentiveShadowService {
     private final OperatingTeamRepository teamRepository;
     private final UserDistributionProfileRepository userRepository;
     private final Clock clock;
+    private final boolean teamOperatingRewardProgramEnabled;
+    private final boolean mentorCashIncentiveProgramEnabled;
 
     public IncentiveShadowService(JdbcTemplate jdbc, PlatformLifecycleSnapshotRepository snapshotRepository,
                                   PlatformAccountBindingRepository bindingRepository,
@@ -38,9 +42,23 @@ public class IncentiveShadowService {
                                   MentorAssignmentVersionRepository mentorRepository,
                                   OperatingTeamRepository teamRepository,
                                   UserDistributionProfileRepository userRepository, Clock clock) {
+        this(jdbc, snapshotRepository, bindingRepository, invitationRepository, mentorRepository, teamRepository, userRepository, clock, false, false);
+    }
+
+    @Autowired
+    public IncentiveShadowService(JdbcTemplate jdbc, PlatformLifecycleSnapshotRepository snapshotRepository,
+                                  PlatformAccountBindingRepository bindingRepository,
+                                  InvitationRelationVersionRepository invitationRepository,
+                                  MentorAssignmentVersionRepository mentorRepository,
+                                  OperatingTeamRepository teamRepository,
+                                  UserDistributionProfileRepository userRepository, Clock clock,
+                                  @Value("${app.distribution.team-operating-reward.enabled:false}") boolean teamOperatingRewardProgramEnabled,
+                                  @Value("${app.distribution.mentor-cash-incentive.enabled:false}") boolean mentorCashIncentiveProgramEnabled) {
         this.jdbc = jdbc; this.snapshotRepository = snapshotRepository; this.bindingRepository = bindingRepository;
         this.invitationRepository = invitationRepository; this.mentorRepository = mentorRepository;
         this.teamRepository = teamRepository; this.userRepository = userRepository; this.clock = clock;
+        this.teamOperatingRewardProgramEnabled = teamOperatingRewardProgramEnabled;
+        this.mentorCashIncentiveProgramEnabled = mentorCashIncentiveProgramEnabled;
     }
 
     public long configureMentorRule(MentorRewardRuleRequest request) {
@@ -76,9 +94,11 @@ public class IncentiveShadowService {
     }
 
     public void evaluateLifecycle(PlatformLifecycleSnapshot snapshot) {
-        mentorRepository.findTopByStudentUserIdOrderByVersionNoDesc(snapshot.getUserId())
-                .filter(value -> value.getMentorUserId() != null && value.getEffectiveTo() == null)
-                .ifPresent(value -> createMentorEntries(value.getMentorUserId(), snapshot));
+        if (mentorCashIncentiveProgramEnabled) {
+            mentorRepository.findTopByStudentUserIdOrderByVersionNoDesc(snapshot.getUserId())
+                    .filter(value -> value.getMentorUserId() != null && value.getEffectiveTo() == null)
+                    .ifPresent(value -> createMentorEntries(value.getMentorUserId(), snapshot));
+        }
         invitationRepository.findTopByUserIdOrderByVersionNoDesc(snapshot.getUserId())
                 .map(value -> value.getInviterUserId())
                 .filter(Objects::nonNull)
@@ -129,6 +149,7 @@ public class IncentiveShadowService {
             statement.setLong(6, request.businessIncomeMinor()); statement.setLong(7, request.directCostMinor()); statement.setLong(8, request.recruiterRewardMinor()); statement.setLong(9, request.mentorRewardMinor()); statement.setLong(10, request.paymentAdjustmentMinor()); statement.setLong(11, profit); statement.setString(12, upper(request.currencyCode())); statement.setString(13, request.sourceSystem()); statement.setObject(14, LocalDateTime.now(clock)); return statement;
         }, keys);
         long factId = Objects.requireNonNull(keys.getKey()).longValue();
+        if (!teamOperatingRewardProgramEnabled) return new TeamProfitResult(profit, 0, false);
         var team = teamRepository.findById(request.teamId()).orElseThrow(() -> new IllegalArgumentException("team not found"));
         // Leadership is automatic from the grade mechanism; participation in team-profit sharing
         // is a separate explicit operations permission and defaults to disabled.
