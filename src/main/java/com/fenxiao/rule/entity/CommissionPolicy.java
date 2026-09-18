@@ -80,5 +80,11 @@ public class CommissionPolicy extends BaseEntity {
             default -> throw new IllegalArgumentException("reward level must be 1 to 3");
         };
     }
+    /** V2 is the only newly-creatable invitation policy: two fixed layers over company business income. */
+    public boolean isCompanyIncomeInvitationV2() {
+        return maxRewardLevel == 2 && level1Enabled && level2Enabled && !level3Enabled
+                && new BigDecimal("0.10").compareTo(level1Rate) == 0
+                && new BigDecimal("0.03").compareTo(level2Rate) == 0;
+    }
     public record Level(boolean enabled, BigDecimal rate, Integer freezeDays) { }
 }

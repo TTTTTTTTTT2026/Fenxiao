@@ -7,12 +7,14 @@ import com.fenxiao.incentive.dto.*;
 import com.fenxiao.platform.entity.PlatformGuildDirectory;
 import com.fenxiao.platform.repository.PlatformAccountBindingRepository;
 import com.fenxiao.platform.repository.PlatformGuildDirectoryRepository;
+import com.fenxiao.relationship.service.RelationshipFoundationService;
 import com.fenxiao.user.entity.UserDistributionProfile;
 import com.fenxiao.user.repository.UserDistributionProfileRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -34,17 +36,24 @@ public class UserGradeAdminService {
     private final UserDistributionProfileRepository users;
     private final PlatformAccountBindingRepository bindings;
     private final PlatformGuildDirectoryRepository guildDirectory;
+    private final RelationshipFoundationService relationships;
     private final Clock clock;
 
     public UserGradeAdminService(JdbcTemplate jdbc, OperationAuditLogRepository audits, UserDistributionProfileRepository users,
                                  PlatformAccountBindingRepository bindings, PlatformGuildDirectoryRepository guildDirectory, Clock clock) {
-        this.jdbc = jdbc; this.audits = audits; this.users = users; this.bindings = bindings; this.guildDirectory = guildDirectory; this.clock = clock;
+        this(jdbc, audits, users, bindings, guildDirectory, null, clock);
+    }
+    @Autowired
+    public UserGradeAdminService(JdbcTemplate jdbc, OperationAuditLogRepository audits, UserDistributionProfileRepository users,
+                                 PlatformAccountBindingRepository bindings, PlatformGuildDirectoryRepository guildDirectory,
+                                 RelationshipFoundationService relationships, Clock clock) {
+        this.jdbc = jdbc; this.audits = audits; this.users = users; this.bindings = bindings; this.guildDirectory = guildDirectory; this.relationships = relationships; this.clock = clock;
     }
 
     @Transactional(readOnly = true)
     public UserGradeDashboardResponse dashboard() {
         return new UserGradeDashboardResponse(count("select count(*) from user_grade_rule_version where rule_status='ACTIVE'"),
-                count("select count(*) from user_grade_evaluation where grade_code='TEAM_LEADER' and qualification_status='QUALIFIED'"),
+                count("select count(*) from user_grade_evaluation where grade_code='GOLD' and qualification_status='QUALIFIED'"),
                 rules(), recentEvaluations());
     }
 
@@ -105,10 +114,14 @@ public class UserGradeAdminService {
         List<UserGradeRuleResponse> all = jdbc.query(selectRules() + " where platform_code=? and country_code=? and rule_status='ACTIVE' and effective_from<=? and (effective_to is null or effective_to>?) and (guild_id is null or guild_id=?) order by grade_code,case when guild_id=? then 0 else 1 end,id desc", (rs, row) -> mapRule(rs), platform, upper(user.getCountryCode()), now, now, guild, guild);
         Map<String, UserGradeRuleResponse> selected = new LinkedHashMap<>();
         all.forEach(rule -> selected.putIfAbsent(rule.gradeCode(), rule));
-        int directCount = directInviteCount(user.getUserId(), platform, guild, now);
-        BigDecimal directIncome = directIncome(user.getUserId(), platform, guild);
+        int directCount = directEffectiveInviteCount(user.getUserId(), platform, now);
+        BigDecimal directIncome = BigDecimal.ZERO;
         List<UserGradeEvaluationResponse> results = selected.values().stream().map(rule -> upsertEvaluation(user, rule, guild, directCount, directIncome, now)).toList();
-        if (results.stream().anyMatch(result -> "TEAM_LEADER".equals(result.gradeCode()) && "QUALIFIED".equals(result.status()))) users.save(user);
+        if (results.stream().anyMatch(result -> "GOLD".equals(result.gradeCode()) && "QUALIFIED".equals(result.status()))) {
+            user.promoteToTeamLeader();
+            users.save(user);
+            if (relationships != null) relationships.ensureGoldGradeTeam(user);
+        }
         return results;
     }
 
@@ -128,18 +141,25 @@ public class UserGradeAdminService {
         int changed = jdbc.update("update user_grade_evaluation set qualification_status=case when qualification_status='QUALIFIED' then 'QUALIFIED' else ? end,rule_id=?,direct_invite_count=?,direct_income=?,qualified_at=case when qualification_status='QUALIFIED' then qualified_at when ?='QUALIFIED' then ? else null end,evaluated_at=? where user_id=? and platform_code=? and guild_id=? and grade_code=?", incoming, rule.id(), directCount, directIncome, incoming, now, now, user.getUserId(), rule.platformCode(), guild, rule.gradeCode());
         if (changed == 0) jdbc.update("insert into user_grade_evaluation(user_id,platform_code,guild_id,grade_code,rule_id,qualification_status,direct_invite_count,direct_income,qualified_at,evaluated_at) values(?,?,?,?,?,?,?,?,?,?)", user.getUserId(), rule.platformCode(), guild, rule.gradeCode(), rule.id(), incoming, directCount, directIncome, meets ? now : null, now);
         UserGradeEvaluationResponse value = evaluation(user.getUserId(), rule.platformCode(), guild, rule.gradeCode());
-        if ("TEAM_LEADER".equals(rule.gradeCode()) && "QUALIFIED".equals(value.status())) user.promoteToTeamLeader();
         return value;
     }
 
-    private int directInviteCount(long userId, String platform, String guild, LocalDateTime now) {
-        Integer value = jdbc.queryForObject("select count(distinct i.user_id) from invitation_relation_version i join platform_account_binding b on b.user_id=i.user_id and b.platform_code=? and b.binding_status='VERIFIED' and b.official_guild_id=? where i.inviter_user_id=? and i.effective_from<=? and (i.effective_to is null or i.effective_to>?)", Integer.class, platform, guild, userId, now, now);
+    /** Effective-user eligibility: three distinct income dates in the first seven days after first settled income. */
+    private int directEffectiveInviteCount(long userId, String platform, LocalDateTime now) {
+        Integer value = jdbc.queryForObject("""
+                select count(distinct i.user_id)
+                from invitation_relation_version i
+                where i.inviter_user_id=? and i.effective_from<=? and (i.effective_to is null or i.effective_to>?)
+                  and exists (
+                    select 1 from mcn_income_shadow_ledger_projection p
+                    join mcn_income_raw_ledger_event r on r.id=p.raw_ledger_event_id
+                    where p.resolved_user_id=i.user_id and p.platform_code=? and p.shadow_status='BOUND_FINAL'
+                      and r.occurred_at < date_add((select min(r0.occurred_at) from mcn_income_shadow_ledger_projection p0 join mcn_income_raw_ledger_event r0 on r0.id=p0.raw_ledger_event_id where p0.resolved_user_id=i.user_id and p0.platform_code=? and p0.shadow_status='BOUND_FINAL'), interval 7 day)
+                    group by p.resolved_user_id
+                    having count(distinct date(r.occurred_at)) >= 3
+                  )
+                """, Integer.class, userId, now, now, platform, platform);
         return value == null ? 0 : value;
-    }
-
-    private BigDecimal directIncome(long userId, String platform, String guild) {
-        BigDecimal value = jdbc.queryForObject("select coalesce(sum(p.amount),0) from mcn_income_shadow_ledger_projection p join mcn_income_raw_ledger_event r on r.id=p.raw_ledger_event_id join invitation_relation_version i on i.user_id=p.resolved_user_id and i.inviter_user_id=? and i.effective_from<=r.occurred_at and (i.effective_to is null or i.effective_to>r.occurred_at) where p.platform_code=? and p.guild_id=? and p.shadow_status='BOUND_FINAL'", BigDecimal.class, userId, platform, guild);
-        return value == null ? BigDecimal.ZERO : value;
     }
 
     private List<UserGradeEvaluationResponse> recentEvaluations() { return jdbc.query("select user_id,platform_code,guild_id,grade_code,rule_id,qualification_status,direct_invite_count,direct_income,qualified_at,evaluated_at from user_grade_evaluation order by evaluated_at desc,id desc limit 50", (rs, row) -> mapEvaluation(rs)); }
@@ -152,6 +172,10 @@ public class UserGradeAdminService {
     private void validate(UserGradeRuleRequest request) {
         if (request.effectiveTo() != null && request.effectiveFrom() != null && request.effectiveTo().isBefore(request.effectiveFrom())) throw new IllegalArgumentException("effectiveTo must not be before effectiveFrom");
         String platform = platform(request.platformCode()), country = upper(request.countryCode()); grade(request.gradeCode());
+        if (request.requiredDirectIncome().compareTo(BigDecimal.ZERO) != 0) throw new IllegalArgumentException("user grade uses direct effective users, not an income threshold");
+        Map<String, Integer> fixedDirectCounts = Map.of("NEW_STAR", 3, "SILVER", 10, "GOLD", 30);
+        Integer expected = fixedDirectCounts.get(upper(request.gradeCode()));
+        if (expected != null && request.requiredDirectInviteCount() != expected) throw new IllegalArgumentException("the configured direct-effective-user threshold does not match the confirmed grade definition");
         if (request.guildId() != null && !request.guildId().isBlank()) {
             List<PlatformGuildDirectory> found = guildDirectory.findByPlatformCodeAndExternalGuildIdIn(platform, List.of(request.guildId().trim()));
             if (found.isEmpty() || !country.equals(countryCode(found.getFirst().getCountry())) || !"NORMAL".equalsIgnoreCase(found.getFirst().getDirectoryStatus())) throw new IllegalArgumentException("user grade rule guild must be an authoritative guild in the selected country");
@@ -162,7 +186,7 @@ public class UserGradeAdminService {
     private Long nullableLong(java.sql.ResultSet rs, int index) throws java.sql.SQLException { long value = rs.getLong(index); return rs.wasNull() ? null : value; }
     private void audit(AdminSessionService.AdminPrincipal actor, long id, String action, String before, String after, String remark) { audits.save(OperationAuditLog.create(actor.accountId(), actor.role(), MODULE, "user_grade_rule", id, action, before, after, null, remark, LocalDateTime.now(clock))); }
     private String snapshot(UserGradeRuleResponse rule) { return "code=" + rule.ruleCode() + ";grade=" + rule.gradeCode() + ";scope=" + rule.platformCode() + "/" + rule.countryCode() + "/" + (rule.guildId() == null ? "ALL_GUILDS" : rule.guildId()) + ";directInvite=" + rule.requiredDirectInviteCount() + ";directIncome=" + rule.requiredDirectIncome(); }
-    private String grade(String value) { String normalized = upper(value); if (!"PROMOTER".equals(normalized) && !"TEAM_LEADER".equals(normalized)) throw new IllegalArgumentException("gradeCode must be PROMOTER or TEAM_LEADER"); return normalized; }
+    private String grade(String value) { String normalized = upper(value); if (!java.util.Set.of("NEW_STAR", "SILVER", "GOLD", "PLATINUM", "DIAMOND", "BLACK_GOLD").contains(normalized)) throw new IllegalArgumentException("gradeCode must be NEW_STAR, SILVER, GOLD, PLATINUM, DIAMOND or BLACK_GOLD"); return normalized; }
     private String platform(String value) { String normalized = upper(value); if (!"LINKY".equals(normalized) && !"TIMO".equals(normalized)) throw new IllegalArgumentException("unsupported platform"); return normalized; }
     private String upper(String value) { return required(value, "value").toUpperCase(Locale.ROOT); }
     private String required(String value, String name) { if (value == null || value.isBlank()) throw new IllegalArgumentException(name + " is required"); return value.trim(); }

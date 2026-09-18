@@ -36,7 +36,8 @@ public class PlatformIntegrationAdminController {
             @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
             @PathVariable String platformCode, @PathVariable String guildId,
             @Valid @RequestBody PlatformGuildOperatingShareRateRequest request) {
-        accessGuard.assertFinanceAccess(adminToken, adminSessionToken).requireScope(platformCode, guildId, null);
-        return service.setOperatingShareRate(platformCode, guildId, request.operatingShareRate());
+        var actor = accessGuard.assertFinanceAccess(adminToken, adminSessionToken);
+        actor.requireScope(platformCode, guildId, null);
+        return service.setOperatingShareRate(platformCode, guildId, request.operatingShareRate(), actor.accountId());
     }
 }

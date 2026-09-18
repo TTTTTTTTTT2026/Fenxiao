@@ -1,6 +1,6 @@
 # 用户等级机制 V1（业务决策记录）
 
-> 状态：已确认的业务口径，待进入开发排期。本文不授权奖励、钱包、提现或付款。
+> 状态：历史 V1 决策记录。自 2026-09-18 起，邀请分成基数、七级等级、有效用户、金牌自动建队及团队奖励边界以 [20260918-user-grade-invitation-and-team-reward-decision.md](20260918-user-grade-invitation-and-team-reward-decision.md) 为准；本文其余未冲突的审计与安全边界可继续参考。
 
 ## 目标
 

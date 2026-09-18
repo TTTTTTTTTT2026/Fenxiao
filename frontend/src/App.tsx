@@ -494,7 +494,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [incomeRewardCandidateSample, setIncomeRewardCandidateSample] = useState<McnIncomeRewardCandidateSampleResponse | null>(null)
   const [commissionPolicies, setCommissionPolicies] = useState<CommissionPolicyResponse[] | null>(null)
   const [isCommissionPolicyDialogOpen, setIsCommissionPolicyDialogOpen] = useState(false)
-  const [commissionPolicyForm, setCommissionPolicyForm] = useState({ platformCode: 'TIMO', countryCode: 'BR', effectiveFrom: '', effectiveTo: '', level1Enabled: true, level1Rate: '0.10', level1FreezeDays: '7', level2Enabled: false, level2Rate: '0.02', level2FreezeDays: '7', level3Enabled: false, level3Rate: '0.005', level3FreezeDays: '7' })
+  const [commissionPolicyForm, setCommissionPolicyForm] = useState({ platformCode: 'TIMO', countryCode: 'BR', effectiveFrom: '', effectiveTo: '', level1FreezeDays: '7', level2FreezeDays: '7' })
   const [mentorIncentiveDashboard, setMentorIncentiveDashboard] = useState<MentorIncentiveDashboardResponse | null>(null)
   const [isMentorRuleDialogOpen, setIsMentorRuleDialogOpen] = useState(false)
   const [isMentorRuleGuildPickerOpen, setIsMentorRuleGuildPickerOpen] = useState(false)
@@ -522,7 +522,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [tokenPointConversionDashboard, setTokenPointConversionDashboard] = useState<TokenPointConversionDashboardResponse | null>(null)
   const [tokenPointConversionValues, setTokenPointConversionValues] = useState<Record<string, string>>({ TIMO: '', LINKY: '' })
   const [tokenPointConversionSaveTarget, setTokenPointConversionSaveTarget] = useState<{ platformCode: string; tokenUnit: string; pointsPerToken: string } | null>(null)
-  const [userGradeForm, setUserGradeForm] = useState({ gradeCode: 'TEAM_LEADER', platformCode: 'TIMO', countryCode: 'BR', guildId: '', requiredDirectInviteCount: '1', requiredDirectIncome: '0', effectiveFrom: '', effectiveTo: '' })
+  const [userGradeForm, setUserGradeForm] = useState({ gradeCode: 'GOLD', platformCode: 'TIMO', countryCode: 'BR', guildId: '', requiredDirectInviteCount: '30', requiredDirectIncome: '0', effectiveFrom: '', effectiveTo: '' })
   const [userGradeEvaluationForm, setUserGradeEvaluationForm] = useState({ userId: '', platformCode: 'TIMO' })
   const [isOperatingDividendDialogOpen, setIsOperatingDividendDialogOpen] = useState(false)
   const [isOperatingDividendGuildPickerOpen, setIsOperatingDividendGuildPickerOpen] = useState(false)
@@ -2183,17 +2183,13 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   async function saveCommissionPolicy() {
     if (!adminSession || !canRunControlledIncome) return
     if (!commissionPolicyForm.effectiveFrom) { setError('请填写生效时间。'); return }
-    const levelEnabled = (rewardLevel: 1 | 2 | 3) => commissionPolicyForm[`level${rewardLevel}Enabled`]
-    const maxLevel = levelEnabled(3) ? 3 : levelEnabled(2) ? 2 : 1
-    const level = (rewardLevel: 1 | 2 | 3, rate: string, freeze: string) => ({
-      rewardLevel, enabled: levelEnabled(rewardLevel), rewardRate: levelEnabled(rewardLevel) ? Number(rate) : null, freezeDays: levelEnabled(rewardLevel) ? Number(freeze) : null,
-    })
+    const level = (rewardLevel: 1 | 2 | 3, enabled: boolean, rate: number | null, freeze: string | null) => ({ rewardLevel, enabled, rewardRate: rate, freezeDays: freeze === null ? null : Number(freeze) })
     setLoading(true); setError(''); setSuccessMessage('')
     try {
       const saved = await createAdminCommissionPolicy(adminSession.sessionToken, {
-        platformCode: commissionPolicyForm.platformCode, countryCode: commissionPolicyForm.countryCode.trim().toUpperCase(), maxRewardLevel: maxLevel,
+        platformCode: commissionPolicyForm.platformCode, countryCode: commissionPolicyForm.countryCode.trim().toUpperCase(), maxRewardLevel: 2,
         effectiveFrom: new Date(commissionPolicyForm.effectiveFrom).toISOString().slice(0, 19), effectiveTo: commissionPolicyForm.effectiveTo ? new Date(commissionPolicyForm.effectiveTo).toISOString().slice(0, 19) : null,
-        levels: [level(1, commissionPolicyForm.level1Rate, commissionPolicyForm.level1FreezeDays), level(2, commissionPolicyForm.level2Rate, commissionPolicyForm.level2FreezeDays), level(3, commissionPolicyForm.level3Rate, commissionPolicyForm.level3FreezeDays)],
+        levels: [level(1, true, 0.10, commissionPolicyForm.level1FreezeDays), level(2, true, 0.03, commissionPolicyForm.level2FreezeDays), level(3, false, null, null)],
       })
       setCommissionPolicies((current) => [saved, ...(current ?? [])]); setIsCommissionPolicyDialogOpen(false); setSuccessMessage(`已建立待审邀请裂变策略 ${saved.policyCode}；尚未启用，也未触发发奖。`)
     } catch (err) { setError(err instanceof Error ? err.message : '建立邀请裂变策略失败') }
@@ -3039,22 +3035,22 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                 </InfoCard>
                 <InfoCard title="新增用户等级规则" tone="neutral">
                   <form className="grid-form compact-form exception-filter-grid" onSubmit={(event) => { event.preventDefault(); void saveUserGradeRule() }}>
-                    <label>等级<select value={userGradeForm.gradeCode} onChange={(event) => setUserGradeForm({ ...userGradeForm, gradeCode: event.target.value })}><option value="PROMOTER">推广员</option><option value="TEAM_LEADER">团队负责人（团长）</option></select></label>
+                    <label>等级<select value={userGradeForm.gradeCode} onChange={(event) => { const gradeCode = event.target.value; const thresholds: Record<string, string> = { NEW_STAR: '3', SILVER: '10', GOLD: '30', PLATINUM: '0', DIAMOND: '0', BLACK_GOLD: '0' }; setUserGradeForm({ ...userGradeForm, gradeCode, requiredDirectInviteCount: thresholds[gradeCode] ?? '0', requiredDirectIncome: '0' }) }}><option value="NEW_STAR">新星</option><option value="SILVER">银牌</option><option value="GOLD">金牌（自动建队、授予团长权限）</option><option value="PLATINUM">铂金</option><option value="DIAMOND">钻石</option><option value="BLACK_GOLD">黑金</option></select></label>
                     <label>平台<select value={userGradeForm.platformCode} onChange={(event) => setUserGradeForm({ ...userGradeForm, platformCode: event.target.value })}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label>
                     <label>归属国家<select value={userGradeForm.countryCode} onChange={(event) => setUserGradeForm({ ...userGradeForm, countryCode: event.target.value })}>{phoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names.zh}（{country.countryCode}）</option>)}</select></label>
                     <label>限定公会（可选）<input value={userGradeForm.guildId} onChange={(event) => setUserGradeForm({ ...userGradeForm, guildId: event.target.value })} placeholder="留空为该国家全部公会" /><small>填写时必须为 MCN 权威目录中的对应公会 ID。</small></label>
-                    <label>直邀用户数量门槛<input required min="0" type="number" value={userGradeForm.requiredDirectInviteCount} onChange={(event) => setUserGradeForm({ ...userGradeForm, requiredDirectInviteCount: event.target.value })} /></label>
-                    <label>直邀累计收入门槛<input required min="0" step="0.000001" type="number" value={userGradeForm.requiredDirectIncome} onChange={(event) => setUserGradeForm({ ...userGradeForm, requiredDirectIncome: event.target.value })} /><small>使用 MCN 平台代币原始单位；仅累计已绑定且已定稿事实。</small></label>
+                    <label>有效直邀用户门槛<input required min="0" type="number" disabled value={userGradeForm.requiredDirectInviteCount} /><small>新星 / 银牌 / 金牌固定为 3 / 10 / 30；有效用户须在首次收入后 7 天内有 3 个不同日期的真实、可结算收入。</small></label>
+                    <div className="form-static-note">等级不再使用直邀累计收入门槛；铂金、钻石、黑金的培养与经营验收条件将在明确后另行接入。</div>
                     <label>生效时间<input required type="datetime-local" value={userGradeForm.effectiveFrom} onChange={(event) => setUserGradeForm({ ...userGradeForm, effectiveFrom: event.target.value })} /></label>
                     <label>失效时间（可选）<input type="datetime-local" value={userGradeForm.effectiveTo} onChange={(event) => setUserGradeForm({ ...userGradeForm, effectiveTo: event.target.value })} /></label>
                     <button className="primary-btn" type="submit" disabled={loading}>建立待审等级规则</button>
                   </form>
                 </InfoCard>
                 <InfoCard title="已保存的等级规则" tone="neutral">
-                  {userGradeDashboard?.rules.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>规则版本</th><th>等级</th><th>适用范围</th><th>直邀门槛</th><th>状态</th><th>操作</th></tr></thead><tbody>{userGradeDashboard.rules.map((rule) => <tr key={rule.id}><td>{rule.ruleCode} · V{rule.ruleVersion}</td><td>{rule.gradeCode === 'TEAM_LEADER' ? '团队负责人（团长）' : '推广员'}</td><td>{rule.platformCode} / {rule.countryCode}{rule.guildId ? ` / ${rule.guildId}` : ' / 全部公会'}</td><td>数量 ≥ {rule.requiredDirectInviteCount}；累计收入 ≥ {rule.requiredDirectIncome}</td><td>{rule.status === 'DRAFT' ? '待审' : rule.status === 'ACTIVE' ? '已启用' : '已停用'}</td><td>{rule.status === 'DRAFT' ? <button className="primary-btn small-btn" onClick={() => void activateUserGradeRule(rule.id, rule.ruleCode)} disabled={loading}>审批并启用</button> : rule.status === 'ACTIVE' ? <button className="ghost-btn small-btn" onClick={() => void retireUserGradeRule(rule.id, rule.ruleCode)} disabled={loading}>停止使用</button> : '-'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未配置用户等级规则" description="先建立推广员或团队负责人等级的待审规则。" />}
+                  {userGradeDashboard?.rules.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>规则版本</th><th>等级</th><th>适用范围</th><th>有效直邀门槛</th><th>状态</th><th>操作</th></tr></thead><tbody>{userGradeDashboard.rules.map((rule) => <tr key={rule.id}><td>{rule.ruleCode} · V{rule.ruleVersion}</td><td>{rule.gradeCode}</td><td>{rule.platformCode} / {rule.countryCode}{rule.guildId ? ` / ${rule.guildId}` : ' / 全部公会'}</td><td>数量 ≥ {rule.requiredDirectInviteCount}</td><td>{rule.status === 'DRAFT' ? '待审' : rule.status === 'ACTIVE' ? '已启用' : '已停用'}</td><td>{rule.status === 'DRAFT' ? <button className="primary-btn small-btn" onClick={() => void activateUserGradeRule(rule.id, rule.ruleCode)} disabled={loading}>审批并启用</button> : rule.status === 'ACTIVE' ? <button className="ghost-btn small-btn" onClick={() => void retireUserGradeRule(rule.id, rule.ruleCode)} disabled={loading}>停止使用</button> : '-'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未配置用户等级规则" description="先建立新星、银牌或金牌的待审规则。" />}
                 </InfoCard>
                 <InfoCard title="人工复核用户等级" tone="neutral"><div className="action-row"><input aria-label="用户 ID" type="number" min="1" value={userGradeEvaluationForm.userId} onChange={(event) => setUserGradeEvaluationForm({ ...userGradeEvaluationForm, userId: event.target.value })} placeholder="用户 ID" /><select value={userGradeEvaluationForm.platformCode} onChange={(event) => setUserGradeEvaluationForm({ ...userGradeEvaluationForm, platformCode: event.target.value })}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select><button className="ghost-btn" onClick={() => void evaluateUserGrade()} disabled={loading}>立即复核</button></div><InlineHint text="系统每小时也会自动重算已有直接邀请关系的已核验用户。人工复核仅刷新本地资格证据，不会请求 MCN。" /></InfoCard>
-                <InfoCard title="最近等级评估" tone="neutral">{userGradeDashboard?.recentEvaluations.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>用户</th><th>平台 / 公会</th><th>等级</th><th>直邀数量</th><th>直邀收入</th><th>结果</th><th>评估时间</th></tr></thead><tbody>{userGradeDashboard.recentEvaluations.map((item, index) => <tr key={`${item.userId}-${item.platformCode}-${item.guildId}-${item.gradeCode}-${index}`}><td>{item.userId}</td><td>{item.platformCode} / {item.guildId}</td><td>{item.gradeCode === 'TEAM_LEADER' ? '团队负责人' : '推广员'}</td><td>{item.directInviteCount}</td><td>{item.directIncome}</td><td>{item.status === 'QUALIFIED' ? '已合格' : '进行中'}</td><td>{formatDateTime(item.evaluatedAt)}</td></tr>)}</tbody></table></div> : <EmptyState title="暂无等级评估记录" description="启用规则后，由定时任务或人工复核生成记录。" />}</InfoCard>
+                <InfoCard title="最近等级评估" tone="neutral">{userGradeDashboard?.recentEvaluations.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>用户</th><th>平台 / 公会</th><th>等级</th><th>有效直邀人数</th><th>结果</th><th>评估时间</th></tr></thead><tbody>{userGradeDashboard.recentEvaluations.map((item, index) => <tr key={`${item.userId}-${item.platformCode}-${item.guildId}-${item.gradeCode}-${index}`}><td>{item.userId}</td><td>{item.platformCode} / {item.guildId}</td><td>{item.gradeCode}</td><td>{item.directInviteCount}</td><td>{item.status === 'QUALIFIED' ? '已合格' : '进行中'}</td><td>{formatDateTime(item.evaluatedAt)}</td></tr>)}</tbody></table></div> : <EmptyState title="暂无等级评估记录" description="启用规则后，由定时任务或人工复核生成记录。" />}</InfoCard>
               </div>
             </PanelSection>
           ) : null}
@@ -3870,32 +3866,11 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             <label>生效时间<input required type="datetime-local" value={commissionPolicyForm.effectiveFrom} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, effectiveFrom: event.target.value })} /></label>
             <label>失效时间（可选）<input type="datetime-local" value={commissionPolicyForm.effectiveTo} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, effectiveTo: event.target.value })} /></label>
             <div className="commission-level-list">
-              {([1, 2, 3] as const).map((level) => {
-                const enabledKey = `level${level}Enabled` as 'level1Enabled' | 'level2Enabled' | 'level3Enabled'
-                const rateKey = `level${level}Rate` as 'level1Rate' | 'level2Rate' | 'level3Rate'
-                const freezeKey = `level${level}FreezeDays` as 'level1FreezeDays' | 'level2FreezeDays' | 'level3FreezeDays'
-                const enabled = commissionPolicyForm[enabledKey]
-                const canToggle = level === 1 || commissionPolicyForm[`level${level - 1}Enabled` as 'level1Enabled' | 'level2Enabled']
-                const toggleLevel = (checked: boolean) => {
-                  if (level === 1) return
-                  setCommissionPolicyForm({ ...commissionPolicyForm, [enabledKey]: checked, ...(level === 2 && !checked ? { level3Enabled: false } : {}) })
-                }
-                const levelCopy = level === 1 ? '直接邀请（A 邀请 B）' : level === 2 ? '二级邀请（A-B-C）' : '三级邀请（A-B-C-D）'
-                return <section className={`commission-level-card ${enabled ? 'is-enabled' : 'is-disabled'}`} key={level}>
-                  <div className="commission-level-heading">
-                    <div><strong>第 {level} 层</strong><span>{levelCopy}</span></div>
-                    {level === 1 ? <span className="commission-level-fixed">基础层 · 固定启用</span> : <label className="checkbox-label"><input type="checkbox" checked={enabled} disabled={!canToggle} onChange={(event) => toggleLevel(event.target.checked)} />启用本层</label>}
-                  </div>
-                  <div className="commission-level-fields">
-                    <label>分成比例<input disabled={!enabled} required={enabled} inputMode="decimal" value={commissionPolicyForm[rateKey]} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, [rateKey]: event.target.value })} /></label>
-                    <label>冻结天数<input disabled={!enabled} required={enabled} inputMode="numeric" value={commissionPolicyForm[freezeKey]} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, [freezeKey]: event.target.value.replace(/\D/g, '') })} /></label>
-                  </div>
-                  {level === 1 ? <small>直接邀请层是邀请裂变规则的基础，必须启用。</small> : !canToggle ? <small>请先启用第 {level - 1} 层后，再开启本层。</small> : !enabled ? <small>本层关闭，不参与候选演算。</small> : null}
-                </section>
-              })}
+              <section className="commission-level-card is-enabled"><div className="commission-level-heading"><div><strong>第 1 层</strong><span>直接邀请（A 邀请 B）</span></div><span className="commission-level-fixed">固定 10%</span></div><div className="commission-level-fields"><label>冻结天数<input required inputMode="numeric" value={commissionPolicyForm.level1FreezeDays} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, level1FreezeDays: event.target.value.replace(/\D/g, '') })} /></label></div></section>
+              <section className="commission-level-card is-enabled"><div className="commission-level-heading"><div><strong>第 2 层</strong><span>间接邀请（A-B-C）</span></div><span className="commission-level-fixed">固定 3%</span></div><div className="commission-level-fields"><label>冻结天数<input required inputMode="numeric" value={commissionPolicyForm.level2FreezeDays} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, level2FreezeDays: event.target.value.replace(/\D/g, '') })} /></label></div><small>个人邀请奖励最多两层；等级不会延长层级或改变比例。</small></section>
             </div>
           </form>
-          <InlineHint text="本规则类型固定为“邀请裂变分成”。建立后仍为待审状态；审批启用前不会影响候选演算，更不会触发发奖。" />
+          <InlineHint text="本规则固定为“邀请裂变分成”：按来源用户所属公会的公司业务收入基数，第一层 10%、第二层 3%。建立后仍为待审状态；审批启用前不会影响候选演算，更不会触发发奖。" />
         </ConfirmDialog>
       ) : null}
 

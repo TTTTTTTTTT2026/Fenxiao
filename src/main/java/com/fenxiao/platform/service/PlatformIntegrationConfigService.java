@@ -6,6 +6,7 @@ import com.fenxiao.platform.entity.PlatformTargetGuild;
 import com.fenxiao.platform.repository.PlatformIntegrationConfigRepository;
 import com.fenxiao.platform.repository.PlatformGuildDirectoryRepository;
 import com.fenxiao.platform.repository.PlatformTargetGuildRepository;
+import com.fenxiao.admin.service.AdminSessionService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,13 +21,16 @@ public class PlatformIntegrationConfigService {
     private final PlatformIntegrationConfigRepository platforms;
     private final PlatformTargetGuildRepository targetGuilds;
     private final PlatformGuildDirectoryRepository authoritativeGuilds;
+    private final PlatformGuildCompanyShareService companyShares;
 
     public PlatformIntegrationConfigService(PlatformIntegrationConfigRepository platforms,
                                             PlatformTargetGuildRepository targetGuilds,
-                                            PlatformGuildDirectoryRepository authoritativeGuilds) {
+                                            PlatformGuildDirectoryRepository authoritativeGuilds,
+                                            PlatformGuildCompanyShareService companyShares) {
         this.platforms = platforms;
         this.targetGuilds = targetGuilds;
         this.authoritativeGuilds = authoritativeGuilds;
+        this.companyShares = companyShares;
     }
 
     @Transactional(readOnly = true)
@@ -54,7 +58,7 @@ public class PlatformIntegrationConfigService {
     }
 
     @Transactional
-    public PlatformIntegrationResponse.TargetGuild setOperatingShareRate(String platformCode, String guildId, java.math.BigDecimal rate) {
+    public PlatformIntegrationResponse.TargetGuild setOperatingShareRate(String platformCode, String guildId, java.math.BigDecimal rate, Long actorId) {
         String platform = platform(platformCode);
         PlatformGuildDirectory directory = authoritativeGuilds.findByPlatformCodeAndExternalGuildId(platform, required(guildId, "guildId"))
                 .orElseThrow(() -> new IllegalArgumentException("guild is not present in the authoritative MCN directory"));
@@ -65,6 +69,7 @@ public class PlatformIntegrationConfigService {
                 .orElseGet(() -> PlatformTargetGuild.create(platform, countryCode(directory.getCountry()), directory.getExternalGuildId(), null, directory.getGuildName(), true));
         target.setOperatingShareRate(rate);
         targetGuilds.save(target);
+        companyShares.replaceCurrentRate(platform, directory.getExternalGuildId(), rate, actorId);
         return toResponse(directory, target);
     }
 

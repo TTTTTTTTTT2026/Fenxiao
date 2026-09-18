@@ -1,13 +1,8 @@
 package com.fenxiao.incentive;
 
 import com.fenxiao.admin.service.AdminSessionService;
-import com.fenxiao.distribution.domain.DistributionRole;
-import com.fenxiao.distribution.service.DistributionBindingService;
 import com.fenxiao.incentive.dto.UserGradeRuleRequest;
 import com.fenxiao.incentive.service.UserGradeAdminService;
-import com.fenxiao.platform.dto.VerifyPlatformBindingRequest;
-import com.fenxiao.platform.service.PlatformLifecycleService;
-import com.fenxiao.user.repository.UserDistributionProfileRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,15 +14,12 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDateTime;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @ActiveProfiles("test")
 @SpringBootTest
 class UserGradeAdminServiceTest {
     @Autowired UserGradeAdminService grades;
-    @Autowired DistributionBindingService bindingService;
-    @Autowired PlatformLifecycleService lifecycleService;
-    @Autowired UserDistributionProfileRepository profiles;
     @Autowired JdbcTemplate jdbc;
 
     @BeforeEach
@@ -39,28 +31,11 @@ class UserGradeAdminServiceTest {
     }
 
     @Test
-    void shouldPromoteOnlyFromDirectInviteMetricsAndNeverAutoDowngrade() {
+    void shouldRejectTheRetiredLegacyTeamLeaderRule() {
         LocalDateTime now = LocalDateTime.now(Clock.systemUTC()).withNano(0);
         var finance = new AdminSessionService.AdminPrincipal(8001L, "finance", "Finance", "finance", false, 1L, false, now.plusHours(1), "*", "*", "*");
-        var draft = grades.createDraft(new UserGradeRuleRequest("TEAM_LEADER", "LINKY", "BR", null, 1, BigDecimal.ZERO, now.minusMinutes(1), null), finance);
-        grades.activate(draft.id(), "direct-invite rule reviewed", finance);
-
-        var leader = bindingService.createProfile(76100L, "BR", "pt-br", null);
-        var child = bindingService.createProfile(76101L, "BR", "pt-br", leader.getInviteCode());
-        lifecycleService.submit(leader.getUserId(), "LINKY", "76100001");
-        lifecycleService.verify(new VerifyPlatformBindingRequest("LINKY", "76100001", false, true, "BR_GRADE_1", now, "TEST", "leader"));
-        lifecycleService.submit(child.getUserId(), "LINKY", "76100002");
-        lifecycleService.verify(new VerifyPlatformBindingRequest("LINKY", "76100002", false, true, "BR_GRADE_1", now, "TEST", "child"));
-
-        var result = grades.evaluate(leader.getUserId(), "LINKY");
-        assertThat(result).singleElement().satisfies(value -> {
-            assertThat(value.gradeCode()).isEqualTo("TEAM_LEADER");
-            assertThat(value.status()).isEqualTo("QUALIFIED");
-            assertThat(value.directInviteCount()).isEqualTo(1);
-        });
-        assertThat(profiles.findById(leader.getUserId()).orElseThrow().getDistributionRole()).isEqualTo(DistributionRole.TEAM_LEADER);
-
-        jdbc.update("update invitation_relation_version set effective_to=? where user_id=? and effective_to is null", now.minusMinutes(1), child.getUserId());
-        assertThat(grades.evaluate(leader.getUserId(), "LINKY")).singleElement().satisfies(value -> assertThat(value.status()).isEqualTo("QUALIFIED"));
+        assertThatThrownBy(() -> grades.createDraft(new UserGradeRuleRequest("TEAM_LEADER", "LINKY", "BR", null, 1, BigDecimal.ZERO, now.minusMinutes(1), null), finance))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("gradeCode");
     }
 }

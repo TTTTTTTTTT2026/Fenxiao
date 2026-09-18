@@ -98,5 +98,10 @@ app:
     linky-oauth-token: ${LINKE_OAUTH_TOKEN:}
     linky-oauth-token-secret: ${LINKE_OAUTH_TOKEN_SECRET:}
     reward-engine:
-      enabled: ${REWARD_ENGINE_ENABLED:true}
+      enabled: ${REWARD_ENGINE_ENABLED:false}
       version: ${REWARD_ENGINE_VERSION:BANDEIRA_V1_DIRECT_ONLY}
+    # Both programmes remain closed until their separate business formulae and launch approvals are complete.
+    team-operating-reward:
+      enabled: ${TEAM_OPERATING_REWARD_ENABLED:false}
+    mentor-cash-incentive:
+      enabled: ${MENTOR_CASH_INCENTIVE_ENABLED:false}
