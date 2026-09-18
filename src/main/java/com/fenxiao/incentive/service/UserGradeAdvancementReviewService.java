@@ -5,6 +5,8 @@ import com.fenxiao.audit.entity.OperationAuditLog;
 import com.fenxiao.audit.repository.OperationAuditLogRepository;
 import com.fenxiao.incentive.dto.UserGradeAdvancementReviewRequest;
 import com.fenxiao.incentive.dto.UserGradeAdvancementReviewResponse;
+import com.fenxiao.relationship.service.RelationshipFoundationService;
+import com.fenxiao.user.repository.UserDistributionProfileRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
@@ -21,7 +23,8 @@ import java.util.UUID;
 
 /**
  * Advanced grade reviews are evidence records. They do not assign a legacy role,
- * create a team, enable a profit share, or generate any monetary record.
+ * create a team, enable a profit share, or generate any monetary record until
+ * an authorized operator explicitly confirms the final leadership appointment.
  */
 @Service
 @Transactional
@@ -29,10 +32,12 @@ public class UserGradeAdvancementReviewService {
     private static final String MODULE = "user_grade_advancement";
     private final JdbcTemplate jdbc;
     private final OperationAuditLogRepository audits;
+    private final UserDistributionProfileRepository users;
+    private final RelationshipFoundationService relationships;
     private final Clock clock;
 
-    public UserGradeAdvancementReviewService(JdbcTemplate jdbc, OperationAuditLogRepository audits, Clock clock) {
-        this.jdbc = jdbc; this.audits = audits; this.clock = clock;
+    public UserGradeAdvancementReviewService(JdbcTemplate jdbc, OperationAuditLogRepository audits, UserDistributionProfileRepository users, RelationshipFoundationService relationships, Clock clock) {
+        this.jdbc = jdbc; this.audits = audits; this.users = users; this.relationships = relationships; this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -67,6 +72,21 @@ public class UserGradeAdvancementReviewService {
 
     public UserGradeAdvancementReviewResponse confirmResponsibility(long id, String note, AdminSessionService.AdminPrincipal actor) {
         return decide(id, "RESPONSIBILITY", note, actor);
+    }
+
+    public UserGradeAdvancementReviewResponse confirmLeadershipAppointment(long id, String note, AdminSessionService.AdminPrincipal actor) {
+        UserGradeAdvancementReviewResponse before = requiredReview(id);
+        if (!"READY_FOR_LEADER_CONFIRMATION".equals(before.reviewStatus())) throw new IllegalStateException("training, operating validation and responsibility confirmation are required before leader appointment");
+        String requiredNote = required(note, "note");
+        var user = users.findById(before.userId()).orElseThrow(() -> new IllegalArgumentException("user not found"));
+        Integer goldQualified = jdbc.queryForObject("select count(*) from user_grade_evaluation where user_id=? and platform_code=? and guild_id=? and grade_code='GOLD' and qualification_status='QUALIFIED'", Integer.class, before.userId(), before.platformCode(), before.guildId());
+        if (goldQualified == null || goldQualified == 0) throw new IllegalStateException("a qualified GOLD grade is required before formal leader appointment");
+        var team = relationships.confirmAdvancedGradeLeadership(user, before.targetGradeCode());
+        LocalDateTime now = LocalDateTime.now(clock);
+        jdbc.update("update user_grade_advancement_review set review_status='LEADER_CONFIRMED',responsibility_note=concat(responsibility_note,' | appointment: ',?),updated_at=? where id=?", requiredNote, now, id);
+        UserGradeAdvancementReviewResponse after = requiredReview(id);
+        audit(actor, after, "CONFIRM_LEADER_APPOINTMENT", snapshot(before), snapshot(after), "已确认团队负责人并绑定团队 " + team.getTeamCode() + "；团队经营分成仍保持关闭");
+        return after;
     }
 
     private UserGradeAdvancementReviewResponse decide(long id, String decision, String note, AdminSessionService.AdminPrincipal actor) {

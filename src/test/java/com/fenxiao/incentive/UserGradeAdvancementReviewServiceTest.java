@@ -3,6 +3,8 @@ package com.fenxiao.incentive;
 import com.fenxiao.admin.service.AdminSessionService;
 import com.fenxiao.incentive.dto.UserGradeAdvancementReviewRequest;
 import com.fenxiao.incentive.service.UserGradeAdvancementReviewService;
+import com.fenxiao.user.entity.UserDistributionProfile;
+import com.fenxiao.user.repository.UserDistributionProfileRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class UserGradeAdvancementReviewServiceTest {
     @Autowired UserGradeAdvancementReviewService reviews;
     @Autowired JdbcTemplate jdbc;
+    @Autowired UserDistributionProfileRepository users;
 
     @BeforeEach
     void table() {
@@ -28,6 +31,8 @@ class UserGradeAdvancementReviewServiceTest {
 
     @Test
     void recordsEachAdvancedGradeGateWithoutChangingTeamOrRewardState() {
+        users.save(UserDistributionProfile.create(200L, "BR", "pt", "ADV-200"));
+        jdbc.update("insert into user_grade_evaluation(user_id,platform_code,guild_id,grade_code,rule_id,qualification_status,direct_invite_count,direct_income,qualified_at,evaluated_at) values(200,'LINKY','guild-1','GOLD',1,'QUALIFIED',30,0,current_timestamp,current_timestamp)");
         var actor = new AdminSessionService.AdminPrincipal(11L, "team_admin", "Team", "team", false, 1L, false, LocalDateTime.now().plusHours(1), "*", "*", "*");
         var opened = reviews.open(new UserGradeAdvancementReviewRequest(200L, "LINKY", "guild-1", "PLATINUM"), actor);
         assertThat(opened.trainingStatus()).isEqualTo("PENDING");
@@ -35,11 +40,14 @@ class UserGradeAdvancementReviewServiceTest {
         var trained = reviews.confirmTraining(opened.id(), "two silver members accepted for cultivation", actor);
         var operated = reviews.confirmOperatingValidation(opened.id(), "30-day group observation evidence reviewed", actor);
         var confirmed = reviews.confirmResponsibility(opened.id(), "operating responsibility confirmed", actor);
+        var appointed = reviews.confirmLeadershipAppointment(opened.id(), "formal leadership appointment approved", actor);
 
         assertThat(trained.trainingStatus()).isEqualTo("CONFIRMED");
         assertThat(operated.operatingValidationStatus()).isEqualTo("CONFIRMED");
         assertThat(confirmed.responsibilityStatus()).isEqualTo("CONFIRMED");
         assertThat(confirmed.reviewStatus()).isEqualTo("READY_FOR_LEADER_CONFIRMATION");
+        assertThat(appointed.reviewStatus()).isEqualTo("LEADER_CONFIRMED");
+        assertThat(jdbc.queryForObject("select leader_appointment_status from operating_team where leader_user_id=200", String.class)).isEqualTo("CONFIRMED");
         assertThat(reviews.recent()).hasSize(1);
     }
 }

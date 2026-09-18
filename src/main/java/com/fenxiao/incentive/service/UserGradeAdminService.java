@@ -120,8 +120,6 @@ public class UserGradeAdminService {
         BigDecimal directIncome = BigDecimal.ZERO;
         List<UserGradeEvaluationResponse> results = selected.values().stream().map(rule -> upsertEvaluation(user, rule, guild, directCount, directIncome, now)).toList();
         if (results.stream().anyMatch(result -> "GOLD".equals(result.gradeCode()) && "QUALIFIED".equals(result.status()))) {
-            user.promoteToTeamLeader();
-            users.save(user);
             if (relationships != null) relationships.ensureGoldGradeTeam(user);
         }
         return results;

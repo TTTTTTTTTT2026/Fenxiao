@@ -194,6 +194,8 @@ export type TeamManagementDashboardResponse = {
 export type TeamManagementItemResponse = {
   teamId: number; teamCode: string; teamName: string; countryCode: string
   leaderUserId: number | null; leaderPhoneNumber: string | null
+  leaderQualificationStatus: string; teamEstablishmentStatus: string; leaderAppointmentStatus: string
+  leadershipSource: string | null; leaderAppointedAt: string | null
   operatingProfitShareEnabled: boolean
   parentTeamId: number | null; parentTeamCode: string | null; activeMemberCount: number
   latestPlatformCode: string | null; latestPeriodEnd: string | null
@@ -963,7 +965,7 @@ export function retireAdminUserGradeRule(adminSessionToken: string, id: number) 
 export function evaluateAdminUserGrade(adminSessionToken: string, userId: number, platformCode: string) { return request<UserGradeEvaluationResponse[]>('/admin/incentives/user-grades/evaluate', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ userId, platformCode }) }) }
 export function getAdminUserGradeAdvancementReviews(adminSessionToken: string) { return request<UserGradeAdvancementReviewResponse[]>('/admin/incentives/user-grade-advancement-reviews', { headers: { 'X-Admin-Session': adminSessionToken } }) }
 export function createAdminUserGradeAdvancementReview(adminSessionToken: string, payload: { userId: number; platformCode: string; guildId: string; targetGradeCode: string }) { return request<UserGradeAdvancementReviewResponse>('/admin/incentives/user-grade-advancement-reviews', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) }) }
-export function confirmAdminUserGradeAdvancementReview(adminSessionToken: string, id: number, step: 'training-confirmation' | 'operating-confirmation' | 'responsibility-confirmation', note: string) { return request<UserGradeAdvancementReviewResponse>(`/admin/incentives/user-grade-advancement-reviews/${id}/${step}`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ note }) }) }
+export function confirmAdminUserGradeAdvancementReview(adminSessionToken: string, id: number, step: 'training-confirmation' | 'operating-confirmation' | 'responsibility-confirmation' | 'leadership-appointment', note: string) { return request<UserGradeAdvancementReviewResponse>(`/admin/incentives/user-grade-advancement-reviews/${id}/${step}`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ note }) }) }
 export function getAdminAccounts() { return request<AdminAccountResponse[]>('/admin/accounts') }
 export function createAdminAccount(payload: { username: string; displayName: string; role: string; platformScope?: string; guildScope?: string; regionScope?: string }) { return request<AdminAccountCreatedResponse>('/admin/accounts', { method: 'POST', body: JSON.stringify(payload) }) }
 export function updateAdminAccount(id: number, payload: { displayName: string; role: string; enabled: boolean; platformScope?: string; guildScope?: string; regionScope?: string }) { return request<AdminAccountResponse>(`/admin/accounts/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }) }

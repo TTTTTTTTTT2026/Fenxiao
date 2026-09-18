@@ -259,6 +259,13 @@ public class IncentiveAdminController {
         return advancementReviews.confirmResponsibility(id, request.note(), guard.assertTeamManageAccess(token, session));
     }
 
+    @PostMapping("/admin/incentives/user-grade-advancement-reviews/{id}/leadership-appointment")
+    public UserGradeAdvancementReviewResponse confirmGradeLeadershipAppointment(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                                  @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                                                  @PathVariable long id, @Valid @RequestBody UserGradeAdvancementReviewDecisionRequest request) {
+        return advancementReviews.confirmLeadershipAppointment(id, request.note(), guard.assertTeamManageAccess(token, session));
+    }
+
     @PostMapping("/admin/incentives/leadership-policies")
     public Map<String,Object> leadershipPolicy(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                @RequestHeader(value="X-Admin-Session",required=false) String session,

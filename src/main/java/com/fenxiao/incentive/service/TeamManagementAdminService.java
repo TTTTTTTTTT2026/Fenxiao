@@ -18,7 +18,8 @@ import java.util.List;
 
 /**
  * Team governance view. It intentionally has no create, payout or manual leader-grant
- * operation: a future points-based grade engine will create teams.
+ * operation: a qualified gold-grade rule may create a team, while advanced
+ * leadership appointment remains an explicitly confirmed governance step.
  */
 @Service
 @Transactional
@@ -35,7 +36,7 @@ public class TeamManagementAdminService {
     public TeamManagementDashboardResponse dashboard() {
         return new TeamManagementDashboardResponse(
                 count("select count(*) from operating_team where team_status='ACTIVE'"),
-                count("select count(*) from operating_team where team_status='ACTIVE' and leader_user_id is not null"),
+                count("select count(*) from operating_team where team_status='ACTIVE' and leader_appointment_status in ('AUTO_CONFIRMED','CONFIRMED')"),
                 count("select count(*) from operating_team where team_status='ACTIVE' and leader_user_id is not null and operating_profit_share_enabled=true"),
                 count("select count(*) from operating_team_member_relation where effective_to is null"),
                 teams());
@@ -52,7 +53,7 @@ public class TeamManagementAdminService {
 
     public TeamManagementItemResponse setOperatingProfitShareEnabled(long teamId, boolean enabled, AdminSessionService.AdminPrincipal actor) {
         TeamManagementItemResponse before = team(teamId);
-        if (before.leaderUserId() == null) throw new IllegalStateException("only a team with an automatically qualified leader can receive operating-profit-share permission");
+        if (before.leaderUserId() == null || !("AUTO_CONFIRMED".equals(before.leaderAppointmentStatus()) || "CONFIRMED".equals(before.leaderAppointmentStatus()))) throw new IllegalStateException("only a team with a confirmed leader appointment can receive operating-profit-share permission");
         jdbc.update("update operating_team set operating_profit_share_enabled=?,updated_at=? where id=?", enabled, LocalDateTime.now(clock), teamId);
         TeamManagementItemResponse after = team(teamId);
         audits.save(OperationAuditLog.create(actor.accountId(), actor.role(), "team_management", "operating_team", teamId,
@@ -62,14 +63,14 @@ public class TeamManagementAdminService {
     }
 
     private List<TeamManagementItemResponse> teams() {
-        String sql = "select t.id,t.team_code,t.team_name,t.country_code,t.leader_user_id,leader.phone_number,t.operating_profit_share_enabled,t.parent_team_id,parent.team_code," +
+        String sql = "select t.id,t.team_code,t.team_name,t.country_code,t.leader_user_id,leader.phone_number,t.leader_qualification_status,t.team_establishment_status,t.leader_appointment_status,t.leadership_source,t.leader_appointed_at,t.operating_profit_share_enabled,t.parent_team_id,parent.team_code," +
                 "count(distinct member.user_id),fact.platform_code,fact.period_end,fact.operating_profit_minor,fact.currency_code,t.created_at " +
                 "from operating_team t " +
                 "left join user_distribution_profile leader on leader.user_id=t.leader_user_id " +
                 "left join operating_team parent on parent.id=t.parent_team_id " +
                 "left join operating_team_member_relation member on member.team_id=t.id and member.effective_to is null " +
                 "left join team_profit_fact fact on fact.id=(select latest.id from team_profit_fact latest where latest.team_id=t.id order by latest.received_at desc,latest.id desc limit 1) " +
-                "group by t.id,t.team_code,t.team_name,t.country_code,t.leader_user_id,leader.phone_number,t.operating_profit_share_enabled,t.parent_team_id,parent.team_code,fact.platform_code,fact.period_end,fact.operating_profit_minor,fact.currency_code,t.created_at " +
+                "group by t.id,t.team_code,t.team_name,t.country_code,t.leader_user_id,leader.phone_number,t.leader_qualification_status,t.team_establishment_status,t.leader_appointment_status,t.leadership_source,t.leader_appointed_at,t.operating_profit_share_enabled,t.parent_team_id,parent.team_code,fact.platform_code,fact.period_end,fact.operating_profit_minor,fact.currency_code,t.created_at " +
                 "order by case when t.leader_user_id is null then 1 else 0 end,t.created_at desc,t.id desc";
         return jdbc.query(sql, this::mapTeam);
     }
@@ -80,8 +81,9 @@ public class TeamManagementAdminService {
 
     private TeamManagementItemResponse mapTeam(ResultSet rs, int row) throws SQLException {
         return new TeamManagementItemResponse(rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4), nullableLong(rs, 5),
-                rs.getString(6), rs.getBoolean(7), nullableLong(rs, 8), rs.getString(9), rs.getLong(10), rs.getString(11),
-                rs.getDate(12) == null ? null : rs.getDate(12).toLocalDate(), nullableLong(rs, 13), rs.getString(14), rs.getTimestamp(15).toLocalDateTime());
+                rs.getString(6), rs.getString(7), rs.getString(8), rs.getString(9), rs.getString(10), rs.getTimestamp(11) == null ? null : rs.getTimestamp(11).toLocalDateTime(),
+                rs.getBoolean(12), nullableLong(rs, 13), rs.getString(14), rs.getLong(15), rs.getString(16),
+                rs.getDate(17) == null ? null : rs.getDate(17).toLocalDate(), nullableLong(rs, 18), rs.getString(19), rs.getTimestamp(20).toLocalDateTime());
     }
 
     private void requireTeam(long teamId) {
@@ -100,6 +102,6 @@ public class TeamManagementAdminService {
     }
 
     private String snapshot(TeamManagementItemResponse team) {
-        return "team=" + team.teamCode() + ";leader=" + team.leaderUserId() + ";operatingProfitShareEnabled=" + team.operatingProfitShareEnabled();
+        return "team=" + team.teamCode() + ";leader=" + team.leaderUserId() + ";qualification=" + team.leaderQualificationStatus() + ";appointment=" + team.leaderAppointmentStatus() + ";operatingProfitShareEnabled=" + team.operatingProfitShareEnabled();
     }
 }

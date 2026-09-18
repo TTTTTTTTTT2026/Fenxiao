@@ -19,6 +19,7 @@ public class RelationshipFoundationService {
     private final MentorAssignmentVersionRepository mentorAssignmentRepository;
     private final OperatingTeamRepository teamRepository;
     private final TeamMembershipVersionRepository teamMembershipRepository;
+    private final OperatingTeamMemberRelationRepository teamMemberRelationRepository;
     private final Clock clock;
 
     public RelationshipFoundationService(InvitationRelationVersionRepository invitationRepository,
@@ -26,12 +27,14 @@ public class RelationshipFoundationService {
                                          MentorAssignmentVersionRepository mentorAssignmentRepository,
                                          OperatingTeamRepository teamRepository,
                                          TeamMembershipVersionRepository teamMembershipRepository,
+                                         OperatingTeamMemberRelationRepository teamMemberRelationRepository,
                                          Clock clock) {
         this.invitationRepository = invitationRepository;
         this.mentorProfileRepository = mentorProfileRepository;
         this.mentorAssignmentRepository = mentorAssignmentRepository;
         this.teamRepository = teamRepository;
         this.teamMembershipRepository = teamMembershipRepository;
+        this.teamMemberRelationRepository = teamMemberRelationRepository;
         this.clock = clock;
     }
 
@@ -74,8 +77,21 @@ public class RelationshipFoundationService {
     /** A gold-grade promotion may create a leadership container, but never enables team-profit sharing. */
     public OperatingTeam ensureGoldGradeTeam(UserDistributionProfile leader) {
         String code = "GRADE-GOLD-" + leader.getUserId();
-        return teamRepository.findByTeamCode(code)
-                .orElseGet(() -> teamRepository.save(OperatingTeam.create(code, "Gold team " + leader.getUserId(), leader.getCountryCode(), leader.getUserId())));
+        LocalDateTime now = LocalDateTime.now(clock);
+        OperatingTeam team = teamRepository.findByTeamCode(code)
+                .orElseGet(() -> teamRepository.save(OperatingTeam.createGoldQualified(code, "Gold team " + leader.getUserId(), leader.getCountryCode(), leader.getUserId(), now)));
+        ensureLeaderMembership(team, leader.getUserId(), now, "GOLD_GRADE_RULE", code);
+        return team;
+    }
+
+    /** Advanced-grade evidence may formally confirm the already-created team leader without changing profit-sharing permission. */
+    public OperatingTeam confirmAdvancedGradeLeadership(UserDistributionProfile leader, String gradeCode) {
+        LocalDateTime now = LocalDateTime.now(clock);
+        OperatingTeam team = ensureGoldGradeTeam(leader);
+        team.confirmLeadershipAppointment("ADVANCEMENT_REVIEW:" + gradeCode, now);
+        OperatingTeam saved = teamRepository.save(team);
+        ensureLeaderMembership(saved, leader.getUserId(), now, "ADVANCEMENT_REVIEW", gradeCode);
+        return saved;
     }
 
     public TeamMembershipVersion transferTeam(Long userId, Long teamId, LocalDateTime effectiveAt, String reason, Long operatorId) {
@@ -110,6 +126,12 @@ public class RelationshipFoundationService {
         OperatingTeam team = teamRepository.findByTeamCode(code)
                 .orElseGet(() -> teamRepository.save(OperatingTeam.create(code, "Awaiting team assignment (" + country + ")", country, null)));
         teamMembershipRepository.save(TeamMembershipVersion.create(user.getUserId(), team.getId(), 1, now, "REGISTRATION_HOLDING_TEAM", "SYSTEM", null, null));
+    }
+
+    private void ensureLeaderMembership(OperatingTeam team, long userId, LocalDateTime at, String source, String reference) {
+        if (!teamMemberRelationRepository.existsByTeamIdAndUserIdAndEffectiveToIsNull(team.getId(), userId)) {
+            teamMemberRelationRepository.save(OperatingTeamMemberRelation.leader(team.getId(), userId, at, source, reference));
+        }
     }
 
     private String normalizeReason(String reason) {
