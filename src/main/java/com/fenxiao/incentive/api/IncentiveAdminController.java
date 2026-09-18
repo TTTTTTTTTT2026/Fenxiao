@@ -10,6 +10,7 @@ import com.fenxiao.incentive.service.TokenPointConversionAdminService;
 import com.fenxiao.incentive.service.UserGradeAdminService;
 import com.fenxiao.incentive.service.UserGradeLevelAdminService;
 import com.fenxiao.incentive.service.EffectiveUserQualificationService;
+import com.fenxiao.incentive.service.UserGradeAdvancementReviewService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
@@ -25,7 +26,8 @@ public class IncentiveAdminController {
     private final UserGradeLevelAdminService gradeLevels;
     private final TokenPointConversionAdminService tokenPointConversions;
     private final EffectiveUserQualificationService effectiveUsers;
-    public IncentiveAdminController(DistributionAccessGuard guard, IncentiveShadowService service, MentorIncentiveAdminService mentorIncentives, OperatingDividendAdminService operatingDividends, UserGradeAdminService userGrades, TeamManagementAdminService teams, UserGradeLevelAdminService gradeLevels, TokenPointConversionAdminService tokenPointConversions, EffectiveUserQualificationService effectiveUsers) { this.guard = guard; this.service = service; this.mentorIncentives = mentorIncentives; this.operatingDividends = operatingDividends; this.userGrades = userGrades; this.teams = teams; this.gradeLevels = gradeLevels; this.tokenPointConversions = tokenPointConversions; this.effectiveUsers = effectiveUsers; }
+    private final UserGradeAdvancementReviewService advancementReviews;
+    public IncentiveAdminController(DistributionAccessGuard guard, IncentiveShadowService service, MentorIncentiveAdminService mentorIncentives, OperatingDividendAdminService operatingDividends, UserGradeAdminService userGrades, TeamManagementAdminService teams, UserGradeLevelAdminService gradeLevels, TokenPointConversionAdminService tokenPointConversions, EffectiveUserQualificationService effectiveUsers, UserGradeAdvancementReviewService advancementReviews) { this.guard = guard; this.service = service; this.mentorIncentives = mentorIncentives; this.operatingDividends = operatingDividends; this.userGrades = userGrades; this.teams = teams; this.gradeLevels = gradeLevels; this.tokenPointConversions = tokenPointConversions; this.effectiveUsers = effectiveUsers; this.advancementReviews = advancementReviews; }
 
     @PostMapping("/admin/incentives/mentor-rules")
     public MentorIncentiveRuleResponse mentorRule(@RequestHeader(value="X-Admin-Token",required=false) String token,
@@ -168,35 +170,35 @@ public class IncentiveAdminController {
     @GetMapping("/admin/incentives/user-grade-dashboard")
     public UserGradeDashboardResponse userGradeDashboard(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                           @RequestHeader(value="X-Admin-Session",required=false) String session) {
-        guard.assertFinanceAccess(token, session); return userGrades.dashboard();
+        guard.assertTeamManageAccess(token, session); return userGrades.dashboard();
     }
 
     @PostMapping("/admin/incentives/user-grade-rules")
     public UserGradeRuleResponse createUserGradeRule(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                       @RequestHeader(value="X-Admin-Session",required=false) String session,
                                                       @Valid @RequestBody UserGradeRuleRequest request) {
-        return userGrades.createDraft(request, guard.assertFinanceAccess(token, session));
+        return userGrades.createDraft(request, guard.assertTeamManageAccess(token, session));
     }
 
     @PostMapping("/admin/incentives/user-grade-rules/{id}/activate")
     public UserGradeRuleResponse activateUserGradeRule(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                         @RequestHeader(value="X-Admin-Session",required=false) String session,
                                                         @PathVariable long id, @Valid @RequestBody UserGradeApprovalRequest request) {
-        return userGrades.activate(id, request.approvalNote(), guard.assertFinanceAccess(token, session));
+        return userGrades.activate(id, request.approvalNote(), guard.assertTeamManageAccess(token, session));
     }
 
     @PostMapping("/admin/incentives/user-grade-rules/{id}/retire")
     public UserGradeRuleResponse retireUserGradeRule(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                       @RequestHeader(value="X-Admin-Session",required=false) String session,
                                                       @PathVariable long id) {
-        return userGrades.retire(id, guard.assertFinanceAccess(token, session));
+        return userGrades.retire(id, guard.assertTeamManageAccess(token, session));
     }
 
     @PostMapping("/admin/incentives/user-grades/evaluate")
     public java.util.List<UserGradeEvaluationResponse> evaluateUserGrade(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                                           @RequestHeader(value="X-Admin-Session",required=false) String session,
                                                                           @Valid @RequestBody UserGradeEvaluationRequest request) {
-        guard.assertFinanceAccess(token, session); return userGrades.evaluate(request.userId(), request.platformCode());
+        guard.assertTeamManageAccess(token, session); return userGrades.evaluate(request.userId(), request.platformCode());
     }
 
     @PostMapping("/admin/incentives/effective-users/refresh")
@@ -221,6 +223,40 @@ public class IncentiveAdminController {
                                                                     @RequestHeader(value="X-Admin-Session",required=false) String session,
                                                                     @Valid @RequestBody EffectiveUserCorrectionRequest request) {
         return effectiveUsers.exclude(request, guard.assertFinanceAccess(token, session));
+    }
+
+    @GetMapping("/admin/incentives/user-grade-advancement-reviews")
+    public java.util.List<UserGradeAdvancementReviewResponse> gradeAdvancementReviews(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                                        @RequestHeader(value="X-Admin-Session",required=false) String session) {
+        guard.assertTeamManageAccess(token, session); return advancementReviews.recent();
+    }
+
+    @PostMapping("/admin/incentives/user-grade-advancement-reviews")
+    public UserGradeAdvancementReviewResponse openGradeAdvancementReview(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                           @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                                           @Valid @RequestBody UserGradeAdvancementReviewRequest request) {
+        return advancementReviews.open(request, guard.assertTeamManageAccess(token, session));
+    }
+
+    @PostMapping("/admin/incentives/user-grade-advancement-reviews/{id}/training-confirmation")
+    public UserGradeAdvancementReviewResponse confirmGradeTraining(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                     @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                                     @PathVariable long id, @Valid @RequestBody UserGradeAdvancementReviewDecisionRequest request) {
+        return advancementReviews.confirmTraining(id, request.note(), guard.assertTeamManageAccess(token, session));
+    }
+
+    @PostMapping("/admin/incentives/user-grade-advancement-reviews/{id}/operating-confirmation")
+    public UserGradeAdvancementReviewResponse confirmGradeOperation(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                      @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                                      @PathVariable long id, @Valid @RequestBody UserGradeAdvancementReviewDecisionRequest request) {
+        return advancementReviews.confirmOperatingValidation(id, request.note(), guard.assertTeamManageAccess(token, session));
+    }
+
+    @PostMapping("/admin/incentives/user-grade-advancement-reviews/{id}/responsibility-confirmation")
+    public UserGradeAdvancementReviewResponse confirmGradeResponsibility(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                           @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                                           @PathVariable long id, @Valid @RequestBody UserGradeAdvancementReviewDecisionRequest request) {
+        return advancementReviews.confirmResponsibility(id, request.note(), guard.assertTeamManageAccess(token, session));
     }
 
     @PostMapping("/admin/incentives/leadership-policies")

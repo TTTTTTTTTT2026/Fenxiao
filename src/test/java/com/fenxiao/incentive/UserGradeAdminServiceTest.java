@@ -38,4 +38,13 @@ class UserGradeAdminServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("gradeCode");
     }
+
+    @Test
+    void shouldRequireAdvancedGradesToUseTheValidationWorkflow() {
+        LocalDateTime now = LocalDateTime.now(Clock.systemUTC()).withNano(0);
+        var operations = new AdminSessionService.AdminPrincipal(8002L, "operations", "Operations", "operations", false, 1L, false, now.plusHours(1), "*", "*", "*");
+        assertThatThrownBy(() -> grades.createDraft(new UserGradeRuleRequest("PLATINUM", "LINKY", "BR", null, 0, BigDecimal.ZERO, now.minusMinutes(1), null), operations))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("training and operating validation");
+    }
 }

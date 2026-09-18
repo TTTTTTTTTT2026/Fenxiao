@@ -1,0 +1,26 @@
+-- High-grade advancement is a separately auditable process, not an automatic extension of invite depth.
+CREATE TABLE user_grade_advancement_review (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    platform_code VARCHAR(32) NOT NULL,
+    guild_id VARCHAR(64) NOT NULL,
+    target_grade_code VARCHAR(32) NOT NULL,
+    training_status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+    training_note VARCHAR(512) NULL,
+    training_verified_by BIGINT NULL,
+    training_verified_at TIMESTAMP NULL,
+    operating_validation_status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+    operating_validation_note VARCHAR(512) NULL,
+    operating_verified_by BIGINT NULL,
+    operating_verified_at TIMESTAMP NULL,
+    responsibility_status VARCHAR(32) NOT NULL DEFAULT 'NOT_CONFIRMED',
+    responsibility_note VARCHAR(512) NULL,
+    responsibility_confirmed_by BIGINT NULL,
+    responsibility_confirmed_at TIMESTAMP NULL,
+    review_status VARCHAR(32) NOT NULL DEFAULT 'OPEN',
+    created_by BIGINT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_user_grade_advancement_review (user_id, platform_code, guild_id, target_grade_code),
+    INDEX idx_user_grade_advancement_review_status (target_grade_code, review_status, platform_code, guild_id)
+);

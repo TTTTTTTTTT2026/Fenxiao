@@ -114,7 +114,7 @@ public class UserGradeAdminService {
     private List<UserGradeEvaluationResponse> evaluateRules(UserDistributionProfile user, String platform, String guild, LocalDateTime now) {
         List<UserGradeRuleResponse> all = jdbc.query(selectRules() + " where platform_code=? and country_code=? and rule_status='ACTIVE' and effective_from<=? and (effective_to is null or effective_to>?) and (guild_id is null or guild_id=?) order by grade_code,case when guild_id=? then 0 else 1 end,id desc", (rs, row) -> mapRule(rs), platform, upper(user.getCountryCode()), now, now, guild, guild);
         Map<String, UserGradeRuleResponse> selected = new LinkedHashMap<>();
-        all.forEach(rule -> selected.putIfAbsent(rule.gradeCode(), rule));
+        all.stream().filter(rule -> baseGrade(rule.gradeCode())).forEach(rule -> selected.putIfAbsent(rule.gradeCode(), rule));
         if (effectiveUsers != null) effectiveUsers.refreshDirectInvitees(user.getUserId(), platform);
         int directCount = effectiveUsers == null ? directEffectiveInviteCount(user.getUserId(), platform, now) : effectiveUsers.qualifiedDirectInviteCount(user.getUserId(), platform, now);
         BigDecimal directIncome = BigDecimal.ZERO;
@@ -173,7 +173,9 @@ public class UserGradeAdminService {
 
     private void validate(UserGradeRuleRequest request) {
         if (request.effectiveTo() != null && request.effectiveFrom() != null && request.effectiveTo().isBefore(request.effectiveFrom())) throw new IllegalArgumentException("effectiveTo must not be before effectiveFrom");
-        String platform = platform(request.platformCode()), country = upper(request.countryCode()); grade(request.gradeCode());
+        String platform = platform(request.platformCode()), country = upper(request.countryCode());
+        String grade = grade(request.gradeCode());
+        if (!baseGrade(grade)) throw new IllegalArgumentException("PLATINUM, DIAMOND and BLACK_GOLD are assessed through training and operating validation records, not direct-invite rules");
         if (request.requiredDirectIncome().compareTo(BigDecimal.ZERO) != 0) throw new IllegalArgumentException("user grade uses direct effective users, not an income threshold");
         Map<String, Integer> fixedDirectCounts = Map.of("NEW_STAR", 3, "SILVER", 10, "GOLD", 30);
         Integer expected = fixedDirectCounts.get(upper(request.gradeCode()));
@@ -189,6 +191,7 @@ public class UserGradeAdminService {
     private void audit(AdminSessionService.AdminPrincipal actor, long id, String action, String before, String after, String remark) { audits.save(OperationAuditLog.create(actor.accountId(), actor.role(), MODULE, "user_grade_rule", id, action, before, after, null, remark, LocalDateTime.now(clock))); }
     private String snapshot(UserGradeRuleResponse rule) { return "code=" + rule.ruleCode() + ";grade=" + rule.gradeCode() + ";scope=" + rule.platformCode() + "/" + rule.countryCode() + "/" + (rule.guildId() == null ? "ALL_GUILDS" : rule.guildId()) + ";directInvite=" + rule.requiredDirectInviteCount() + ";directIncome=" + rule.requiredDirectIncome(); }
     private String grade(String value) { String normalized = upper(value); if (!java.util.Set.of("NEW_STAR", "SILVER", "GOLD", "PLATINUM", "DIAMOND", "BLACK_GOLD").contains(normalized)) throw new IllegalArgumentException("gradeCode must be NEW_STAR, SILVER, GOLD, PLATINUM, DIAMOND or BLACK_GOLD"); return normalized; }
+    private boolean baseGrade(String value) { return java.util.Set.of("NEW_STAR", "SILVER", "GOLD").contains(value); }
     private String platform(String value) { String normalized = upper(value); if (!"LINKY".equals(normalized) && !"TIMO".equals(normalized)) throw new IllegalArgumentException("unsupported platform"); return normalized; }
     private String upper(String value) { return required(value, "value").toUpperCase(Locale.ROOT); }
     private String required(String value, String name) { if (value == null || value.isBlank()) throw new IllegalArgumentException(name + " is required"); return value.trim(); }
