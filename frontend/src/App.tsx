@@ -121,6 +121,8 @@ import {
   getAdminEffectiveUserQualifications,
   getAdminUserGradeLevelDashboard,
   getAdminTokenPointConversionDashboard,
+  getAdminUserPointDashboard,
+  refreshAdminUserPoints,
   createAdminOperatingDividendPolicies,
   activateAdminOperatingDividendPolicy,
   retireAdminOperatingDividendPolicy,
@@ -186,6 +188,7 @@ import {
   type UserGradeLevelDashboardResponse,
   type UserGradeAdvancementReviewResponse,
   type TokenPointConversionDashboardResponse,
+  type UserPointDashboardResponse,
   type OverviewReportResponse,
   type OwnershipDetailResponse,
   type PhoneVerificationCodeListResponse,
@@ -542,6 +545,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [tokenPointConversionDashboard, setTokenPointConversionDashboard] = useState<TokenPointConversionDashboardResponse | null>(null)
   const [tokenPointConversionValues, setTokenPointConversionValues] = useState<Record<string, string>>({ TIMO: '', LINKY: '' })
   const [tokenPointConversionSaveTarget, setTokenPointConversionSaveTarget] = useState<{ platformCode: string; tokenUnit: string; pointsPerToken: string } | null>(null)
+  const [userPointDashboard, setUserPointDashboard] = useState<UserPointDashboardResponse | null>(null)
+  const [userPointPlatform, setUserPointPlatform] = useState<'TIMO' | 'LINKY'>('TIMO')
   const [userGradeForm, setUserGradeForm] = useState({ gradeCode: 'GOLD', platformCode: 'TIMO', countryCode: 'BR', guildId: '', requiredDirectInviteCount: '30', requiredDirectIncome: '0', effectiveFrom: '', effectiveTo: '' })
   const [userGradeEvaluationForm, setUserGradeEvaluationForm] = useState({ userId: '', platformCode: 'TIMO' })
   const [isOperatingDividendDialogOpen, setIsOperatingDividendDialogOpen] = useState(false)
@@ -2035,6 +2040,24 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     finally { setLoading(false) }
   }
 
+  async function loadUserPointDashboard(platformCode = userPointPlatform) {
+    if (!adminSession || !canManageTeams) return
+    setLoading(true); setError('')
+    try { setUserPointDashboard(await getAdminUserPointDashboard(adminSession.sessionToken, platformCode)) }
+    catch (err) { setError(err instanceof Error ? err.message : '读取用户积分事实失败') }
+    finally { setLoading(false) }
+  }
+
+  async function refreshUserPointFacts() {
+    if (!adminSession || !canManageTeams) return
+    setLoading(true); setError(''); setSuccessMessage('')
+    try {
+      const result = await refreshAdminUserPoints(adminSession.sessionToken, userPointPlatform)
+      await loadUserPointDashboard(userPointPlatform)
+      setSuccessMessage(`已按本地已定稿收入刷新 ${result.platformCode} 的直接邀请积分事实，共处理 ${result.refreshedCount} 条收入事实。`)
+    } catch (err) { setError(err instanceof Error ? err.message : '刷新用户积分事实失败') } finally { setLoading(false) }
+  }
+
   async function loadUserGradeAdvancementReviews() {
     if (!adminSession || !canManageTeams) return
     setLoading(true); setError('')
@@ -2807,6 +2830,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               if (item.href === ADMIN_SECTION_HASHES.operatingDividends && !operatingDividendDashboard) void loadOperatingDividendDashboard()
               if (item.href === ADMIN_SECTION_HASHES.userGrades && canManageTeams && !userGradeDashboard) void loadUserGradeDashboard()
               if (item.href === ADMIN_SECTION_HASHES.userGrades && canManageTeams && !userGradeAdvancementReviews.length) void loadUserGradeAdvancementReviews()
+              if (item.href === ADMIN_SECTION_HASHES.userGrades && canManageTeams && !userPointDashboard) void loadUserPointDashboard()
               if (item.href === ADMIN_SECTION_HASHES.tokenPointConversions && !tokenPointConversionDashboard) void loadTokenPointConversionDashboard()
             }}>
               <AdminNavIcon label={item.label} />
@@ -3150,6 +3174,19 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                 <InfoCard title="等级规则概览" tone="neutral">
                   {userGradeDashboard ? <div className="relation-grid"><RelationItem label="已启用等级规则" value={userGradeDashboard.activeRuleCount} /><RelationItem label="已合格团队长" value={userGradeDashboard.qualifiedTeamLeaderCount} /></div> : <EmptyState title="尚未读取用户等级数据" description="点击“刷新数据”读取规则与最近评估结果。" />}
                   <InlineHint text="MCN 只提供收入事实；邀请关系、有效用户资格和等级由分销平台计算及审计。本页不创建奖励、余额、提现或付款。累计达标人数与当前活跃有效人数将分开展示，当前活跃口径待业务确认后启用。" />
+                </InfoCard>
+                <InfoCard title="直接邀请积分事实" tone="neutral">
+                  <div className="action-row">
+                    <label>来源平台<select value={userPointPlatform} onChange={(event) => { const platform = event.target.value as 'TIMO' | 'LINKY'; setUserPointPlatform(platform); setUserPointDashboard(null); void loadUserPointDashboard(platform) }}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label>
+                    <button className="ghost-btn" onClick={() => void loadUserPointDashboard()} disabled={loading}>读取积分事实</button>
+                    <button className="primary-btn" onClick={() => void refreshUserPointFacts()} disabled={loading}>按本地定稿收入刷新</button>
+                  </div>
+                  {userPointDashboard ? <>
+                    <div className="relation-grid top-gap"><RelationItem label="已累计积分事实" value={userPointDashboard.accruedFactCount} /><RelationItem label="暂无法记分" value={userPointDashboard.blockedFactCount} /><RelationItem label="证据已撤销" value={userPointDashboard.revokedFactCount} /><RelationItem label="本平台累计积分" value={userPointDashboard.accruedPointTotal.toFixed(6)} /></div>
+                    <InlineHint text="只取下级用户在收入发生时的直接邀请关系及本地 BOUND_FINAL 收入；积分基数是平台原始可结算代币金额。换算比例和邀请关系均保存快照，换算变更不会倒算历史积分。" />
+                    {userPointDashboard.topBalances.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>邀请人用户</th><th>累计积分（跨平台）</th><th>有效积分事实</th><th>最近下级收入</th></tr></thead><tbody>{userPointDashboard.topBalances.map((balance) => <tr key={balance.userId}><td>{balance.userId}</td><td>{balance.totalPoints.toFixed(6)}</td><td>{balance.accruedFactCount}</td><td>{formatDateTime(balance.latestIncomeAt ?? undefined)}</td></tr>)}</tbody></table></div> : <EmptyState title="尚无可累计积分" description="需先为该平台保存代币积分换算，并存在已绑定、已定稿且具有直接邀请人的收入事实。" />}
+                    {userPointDashboard.recentFacts.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>收入事实</th><th>下级 / 邀请人</th><th>原始收入</th><th>换算比例</th><th>积分</th><th>状态</th><th>依据</th></tr></thead><tbody>{userPointDashboard.recentFacts.map((fact) => <tr key={`${fact.platformCode}-${fact.sourceEventId}`}><td>{fact.sourceEventId}<small className="table-subtle">{formatDateTime(fact.occurredAt)}</small></td><td>{fact.sourceUserId ?? '—'} / {fact.beneficiaryUserId ?? '—'}</td><td>{fact.sourceAmount} {fact.tokenUnit}</td><td>{fact.pointsPerToken ?? '—'}</td><td>{fact.pointAmount ?? '—'}</td><td>{fact.factStatus}</td><td>{fact.decisionReason}</td></tr>)}</tbody></table></div> : null}
+                  </> : <EmptyState title="尚未读取积分事实" description="选择平台后读取，或按本地已定稿收入刷新。该操作不会请求 MCN。" />}
                 </InfoCard>
                 <InfoCard title="铂金、钻石、黑金：培养与经营验收" tone="neutral">
                   <p>高级等级不由直邀人数规则自动晋级。先建立验收记录，再按顺序确认培养资格、经营验收和经营职责；三项均确认后仅进入“待负责人确认”，不会自动创建团队、任命负责人或开启团队经营分成。</p>
