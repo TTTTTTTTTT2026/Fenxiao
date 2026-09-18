@@ -37,17 +37,18 @@ public class UserGradeAdminService {
     private final PlatformAccountBindingRepository bindings;
     private final PlatformGuildDirectoryRepository guildDirectory;
     private final RelationshipFoundationService relationships;
+    private final EffectiveUserQualificationService effectiveUsers;
     private final Clock clock;
 
     public UserGradeAdminService(JdbcTemplate jdbc, OperationAuditLogRepository audits, UserDistributionProfileRepository users,
                                  PlatformAccountBindingRepository bindings, PlatformGuildDirectoryRepository guildDirectory, Clock clock) {
-        this(jdbc, audits, users, bindings, guildDirectory, null, clock);
+        this(jdbc, audits, users, bindings, guildDirectory, null, null, clock);
     }
     @Autowired
     public UserGradeAdminService(JdbcTemplate jdbc, OperationAuditLogRepository audits, UserDistributionProfileRepository users,
                                  PlatformAccountBindingRepository bindings, PlatformGuildDirectoryRepository guildDirectory,
-                                 RelationshipFoundationService relationships, Clock clock) {
-        this.jdbc = jdbc; this.audits = audits; this.users = users; this.bindings = bindings; this.guildDirectory = guildDirectory; this.relationships = relationships; this.clock = clock;
+                                 RelationshipFoundationService relationships, EffectiveUserQualificationService effectiveUsers, Clock clock) {
+        this.jdbc = jdbc; this.audits = audits; this.users = users; this.bindings = bindings; this.guildDirectory = guildDirectory; this.relationships = relationships; this.effectiveUsers = effectiveUsers; this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -114,7 +115,8 @@ public class UserGradeAdminService {
         List<UserGradeRuleResponse> all = jdbc.query(selectRules() + " where platform_code=? and country_code=? and rule_status='ACTIVE' and effective_from<=? and (effective_to is null or effective_to>?) and (guild_id is null or guild_id=?) order by grade_code,case when guild_id=? then 0 else 1 end,id desc", (rs, row) -> mapRule(rs), platform, upper(user.getCountryCode()), now, now, guild, guild);
         Map<String, UserGradeRuleResponse> selected = new LinkedHashMap<>();
         all.forEach(rule -> selected.putIfAbsent(rule.gradeCode(), rule));
-        int directCount = directEffectiveInviteCount(user.getUserId(), platform, now);
+        if (effectiveUsers != null) effectiveUsers.refreshDirectInvitees(user.getUserId(), platform);
+        int directCount = effectiveUsers == null ? directEffectiveInviteCount(user.getUserId(), platform, now) : effectiveUsers.qualifiedDirectInviteCount(user.getUserId(), platform, now);
         BigDecimal directIncome = BigDecimal.ZERO;
         List<UserGradeEvaluationResponse> results = selected.values().stream().map(rule -> upsertEvaluation(user, rule, guild, directCount, directIncome, now)).toList();
         if (results.stream().anyMatch(result -> "GOLD".equals(result.gradeCode()) && "QUALIFIED".equals(result.status()))) {
@@ -138,7 +140,7 @@ public class UserGradeAdminService {
     private UserGradeEvaluationResponse upsertEvaluation(UserDistributionProfile user, UserGradeRuleResponse rule, String guild, int directCount, BigDecimal directIncome, LocalDateTime now) {
         boolean meets = directCount >= rule.requiredDirectInviteCount() && directIncome.compareTo(rule.requiredDirectIncome()) >= 0;
         String incoming = meets ? "QUALIFIED" : "IN_PROGRESS";
-        int changed = jdbc.update("update user_grade_evaluation set qualification_status=case when qualification_status='QUALIFIED' then 'QUALIFIED' else ? end,rule_id=?,direct_invite_count=?,direct_income=?,qualified_at=case when qualification_status='QUALIFIED' then qualified_at when ?='QUALIFIED' then ? else null end,evaluated_at=? where user_id=? and platform_code=? and guild_id=? and grade_code=?", incoming, rule.id(), directCount, directIncome, incoming, now, now, user.getUserId(), rule.platformCode(), guild, rule.gradeCode());
+        int changed = jdbc.update("update user_grade_evaluation set qualification_status=case when qualification_status in ('QUALIFIED','REQUIRES_MANUAL_REVIEW') then qualification_status else ? end,rule_id=?,direct_invite_count=?,direct_income=?,qualified_at=case when qualification_status in ('QUALIFIED','REQUIRES_MANUAL_REVIEW') then qualified_at when ?='QUALIFIED' then ? else null end,evaluated_at=? where user_id=? and platform_code=? and guild_id=? and grade_code=?", incoming, rule.id(), directCount, directIncome, incoming, now, now, user.getUserId(), rule.platformCode(), guild, rule.gradeCode());
         if (changed == 0) jdbc.update("insert into user_grade_evaluation(user_id,platform_code,guild_id,grade_code,rule_id,qualification_status,direct_invite_count,direct_income,qualified_at,evaluated_at) values(?,?,?,?,?,?,?,?,?,?)", user.getUserId(), rule.platformCode(), guild, rule.gradeCode(), rule.id(), incoming, directCount, directIncome, meets ? now : null, now);
         UserGradeEvaluationResponse value = evaluation(user.getUserId(), rule.platformCode(), guild, rule.gradeCode());
         return value;
