@@ -161,6 +161,14 @@ public class DistributionAccessGuard {
         return adminSessionService.assertPermission(sessionToken, AdminPermission.FINANCE);
     }
 
+    public AdminSessionService.AdminPrincipal assertEffectiveUserReadAccess(String token, String sessionToken) {
+        return adminSessionService.assertPermission(sessionToken, AdminPermission.EFFECTIVE_USER_READ);
+    }
+
+    public AdminSessionService.AdminPrincipal assertEffectiveUserCorrectionAccess(String token, String sessionToken) {
+        return adminSessionService.assertPermission(sessionToken, AdminPermission.EFFECTIVE_USER_CORRECTION);
+    }
+
     public AdminSessionService.AdminPrincipal assertPhoneVerificationAuditAccess(String token, String sessionToken) {
         return adminSessionService.assertPermission(sessionToken, AdminPermission.OTP_AUDIT);
     }

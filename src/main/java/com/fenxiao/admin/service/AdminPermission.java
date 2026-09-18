@@ -9,6 +9,8 @@ public enum AdminPermission {
     MENTOR_MANAGE(Set.of("super_admin", "admin", "operations")),
     TEAM_MANAGE(Set.of("super_admin", "admin", "operations")),
     FINANCE(Set.of("super_admin", "finance")),
+    EFFECTIVE_USER_READ(Set.of("super_admin", "admin", "operations", "finance")),
+    EFFECTIVE_USER_CORRECTION(Set.of("super_admin")),
     CUSTOMER_SUPPORT(Set.of("super_admin", "customer_support")),
     OTP_AUDIT(Set.of("super_admin")),
     SEED_INVITER_MANAGE(Set.of("super_admin")),
