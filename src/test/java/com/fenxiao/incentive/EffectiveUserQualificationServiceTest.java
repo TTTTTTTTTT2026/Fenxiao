@@ -27,7 +27,12 @@ class EffectiveUserQualificationServiceTest {
         jdbc.execute("create table if not exists mcn_income_raw_ledger_event (id bigint auto_increment primary key,occurred_at timestamp not null)");
         jdbc.execute("create table mcn_income_shadow_ledger_projection (id bigint auto_increment primary key,raw_ledger_event_id bigint not null,platform_code varchar(32) not null,resolved_user_id bigint,shadow_status varchar(32) not null)");
         jdbc.execute("create table if not exists invitation_relation_version (id bigint auto_increment primary key,user_id bigint not null,inviter_user_id bigint,effective_from timestamp not null,effective_to timestamp)");
-        jdbc.execute("create table if not exists user_grade_evaluation (id bigint auto_increment primary key,user_id bigint not null,platform_code varchar(32) not null,qualification_status varchar(32) not null,evaluated_at timestamp not null)");
+        jdbc.execute("create table if not exists user_grade_evaluation (id bigint auto_increment primary key,user_id bigint not null,platform_code varchar(32) not null,guild_id varchar(64),grade_code varchar(32),rule_id bigint,qualification_status varchar(32) not null,direct_invite_count int,direct_income decimal(18,6),qualified_at timestamp,evaluated_at timestamp not null)");
+        // The shared in-memory context can create this projection from either the
+        // effective-user or grade-admin fixture. Keep the common schema additive.
+        for (String column : new String[]{"guild_id varchar(64)", "grade_code varchar(32)", "rule_id bigint", "direct_invite_count int", "direct_income decimal(18,6)", "qualified_at timestamp"}) {
+            jdbc.execute("alter table user_grade_evaluation add column if not exists " + column);
+        }
         jdbc.execute("create table if not exists effective_user_qualification_fact (id bigint auto_increment primary key,user_id bigint not null,platform_code varchar(32) not null,qualification_status varchar(32) not null,first_income_at timestamp,observation_ends_at timestamp,qualifying_income_date_count int not null default 0,qualifying_income_dates varchar(255),latest_income_at timestamp,source_evidence_snapshot varchar(1024),qualified_at timestamp,evidence_revoked_at timestamp,manual_correction_reason varchar(32),manual_correction_note varchar(255),corrected_by bigint,corrected_at timestamp,evaluated_at timestamp not null,unique(user_id,platform_code))");
     }
 
