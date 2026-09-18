@@ -28,6 +28,7 @@
 
    ```env
    REWARD_ENGINE_ENABLED=false
+   REAL_FINANCE_ENABLED=false
    LIFECYCLE_SHADOW_ONLY=true
    MCN_INCOME_FACTS_ENABLED=false
    MCN_INCOME_FACTS_CONTROLLED_READ_ONLY_ENABLED=false
@@ -35,7 +36,7 @@
    APP_DISTRIBUTION_MENTOR_CASH_INCENTIVE_ENABLED=false
    ```
 
-   如需进入 MCN 的受控只读窗口，必须有单独书面批准；仅在批准窗口内调整相应的 MCN 读取开关，窗口结束后立即恢复关闭。任何情况下不得因为本 Runbook 开启真实奖励或资金能力。
+   如需进入 MCN 的受控只读窗口，必须有单独书面批准；仅在批准窗口内调整相应的 MCN 读取开关，窗口结束后立即恢复关闭。任何情况下不得因为本 Runbook 开启真实奖励或资金能力；`REAL_FINANCE_ENABLED` 也必须保持 `false`。
 
 ## 3. 备份与发布包
 
@@ -77,7 +78,7 @@ docker compose ps
 
 3. 前端后台：访问 `/admin`，预期 HTTP `200` 并可以完成管理员登录。
 4. 查看后端启动日志，确认本次 Flyway 迁移成功；只记录迁移版本号，不记录连接串或凭据。
-5. 在容器环境中复核第 2 节的安全开关为预期值。历史生产验收要求至少确认 `REWARD_ENGINE_ENABLED=false` 和 `LIFECYCLE_SHADOW_ONLY=true`。
+5. 在容器环境中复核第 2 节的安全开关为预期值。至少确认 `REWARD_ENGINE_ENABLED=false`、`REAL_FINANCE_ENABLED=false` 和 `LIFECYCLE_SHADOW_ONLY=true`。
 6. 本次 V2 规则相关发布额外检查：
    - `V51` 成功执行；
    - 后台“收入影子账本”可读取历史结果；
