@@ -3,6 +3,8 @@ package com.fenxiao.platform.api;
 import com.fenxiao.common.security.DistributionAccessGuard;
 import com.fenxiao.platform.dto.PlatformIntegrationResponse;
 import com.fenxiao.platform.dto.PlatformGuildOperatingShareRateRequest;
+import com.fenxiao.platform.dto.PlatformGuildCompanyShareRuleApprovalRequest;
+import com.fenxiao.platform.dto.PlatformGuildCompanyShareRuleResponse;
 import com.fenxiao.platform.service.PlatformIntegrationConfigService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -31,13 +33,31 @@ public class PlatformIntegrationAdminController {
     }
 
     @PostMapping("/{platformCode}/guilds/{guildId}/operating-share-rate")
-    public PlatformIntegrationResponse.TargetGuild setOperatingShareRate(
+    public PlatformGuildCompanyShareRuleResponse createOperatingShareRateDraft(
             @RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
             @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
             @PathVariable String platformCode, @PathVariable String guildId,
             @Valid @RequestBody PlatformGuildOperatingShareRateRequest request) {
         var actor = accessGuard.assertFinanceAccess(adminToken, adminSessionToken);
         actor.requireScope(platformCode, guildId, null);
-        return service.setOperatingShareRate(platformCode, guildId, request.operatingShareRate(), actor.accountId());
+        return service.createOperatingShareDraft(platformCode, guildId, request.operatingShareRate(), request.effectiveFrom(), actor.accountId());
+    }
+
+    @GetMapping("/{platformCode}/guilds/{guildId}/operating-share-rules")
+    public List<PlatformGuildCompanyShareRuleResponse> companyShareHistory(
+            @RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
+            @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
+            @PathVariable String platformCode, @PathVariable String guildId) {
+        var actor = accessGuard.assertFinanceAccess(adminToken, adminSessionToken);
+        actor.requireScope(platformCode, guildId, null);
+        return service.companyShareHistory(platformCode, guildId);
+    }
+
+    @PostMapping("/operating-share-rules/{id}/activate")
+    public PlatformGuildCompanyShareRuleResponse activateOperatingShareRateDraft(
+            @RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
+            @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
+            @PathVariable long id, @Valid @RequestBody PlatformGuildCompanyShareRuleApprovalRequest request) {
+        return service.activateOperatingShareDraft(id, request.approvalNote(), accessGuard.assertFinanceAccess(adminToken, adminSessionToken).accountId());
     }
 }

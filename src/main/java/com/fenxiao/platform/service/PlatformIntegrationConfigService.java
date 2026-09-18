@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.time.LocalDateTime;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -58,26 +59,31 @@ public class PlatformIntegrationConfigService {
     }
 
     @Transactional
-    public PlatformIntegrationResponse.TargetGuild setOperatingShareRate(String platformCode, String guildId, java.math.BigDecimal rate, Long actorId) {
+    public com.fenxiao.platform.dto.PlatformGuildCompanyShareRuleResponse createOperatingShareDraft(String platformCode, String guildId, java.math.BigDecimal rate, LocalDateTime effectiveFrom, Long actorId) {
         String platform = platform(platformCode);
         PlatformGuildDirectory directory = authoritativeGuilds.findByPlatformCodeAndExternalGuildId(platform, required(guildId, "guildId"))
                 .orElseThrow(() -> new IllegalArgumentException("guild is not present in the authoritative MCN directory"));
         if (!"NORMAL".equalsIgnoreCase(directory.getDirectoryStatus()) || !("ACTIVE".equalsIgnoreCase(directory.getGuildStatus()) || "ENABLED".equalsIgnoreCase(directory.getGuildStatus()))) {
             throw new IllegalArgumentException("only an active authoritative guild can have an operating share rate");
         }
-        PlatformTargetGuild target = targetGuilds.findByPlatformCodeAndOfficialGuildId(platform, directory.getExternalGuildId())
-                .orElseGet(() -> PlatformTargetGuild.create(platform, countryCode(directory.getCountry()), directory.getExternalGuildId(), null, directory.getGuildName(), true));
-        target.setOperatingShareRate(rate);
-        targetGuilds.save(target);
-        companyShares.replaceCurrentRate(platform, directory.getExternalGuildId(), rate, actorId);
-        return toResponse(directory, target);
+        return companyShares.createDraft(platform, directory.getExternalGuildId(), rate, effectiveFrom, actorId);
+    }
+
+    @Transactional
+    public com.fenxiao.platform.dto.PlatformGuildCompanyShareRuleResponse activateOperatingShareDraft(long id, String approvalNote, Long actorId) {
+        return companyShares.activate(id, approvalNote, actorId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.fenxiao.platform.dto.PlatformGuildCompanyShareRuleResponse> companyShareHistory(String platformCode, String guildId) {
+        return companyShares.history(platform(platformCode), required(guildId, "guildId"));
     }
 
     private PlatformIntegrationResponse.TargetGuild toResponse(PlatformGuildDirectory directory, PlatformTargetGuild configured) {
         return new PlatformIntegrationResponse.TargetGuild(countryCode(directory.getCountry()), directory.getExternalGuildId(),
                 configured == null ? null : configured.getOfficialGuildSid(), directory.getGuildName(),
                 configured == null || configured.isEnabled(), true, directory.getDirectoryStatus(), directory.getGuildStatus(),
-                configured == null ? null : configured.getOperatingShareRate());
+                companyShares.findEffective(directory.getPlatformCode(), directory.getExternalGuildId(), LocalDateTime.now()).orElse(configured == null ? null : configured.getOperatingShareRate()));
     }
 
     private String countryCode(String country) {
