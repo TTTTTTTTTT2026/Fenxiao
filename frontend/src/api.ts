@@ -232,6 +232,11 @@ export type PlatformIntegrationResponse = {
   enabled: boolean
   targetGuilds: Array<{ countryCode: string; officialGuildId: string; officialGuildSid: string | null; guildName: string; enabled: boolean; authoritative: boolean; directoryStatus: string; guildStatus: string; operatingShareRate: number | null }>
 }
+export type PlatformGuildCompanyShareRuleResponse = {
+  id: number; platformCode: string; guildId: string; shareVersion: number; shareRate: number
+  effectiveFrom: string; effectiveTo: string | null; status: 'DRAFT' | 'ACTIVE' | string
+  createdBy: number | null; approvedBy: number | null; approvedAt: string | null; approvalNote: string | null
+}
 
 export type PlatformGuildDirectoryItem = {
   platformCode: 'LINKY' | 'TIMO' | string
@@ -1248,10 +1253,16 @@ export function getAdminPlatformIntegrations(adminSessionToken: string) {
   })
 }
 
-export function updateAdminPlatformGuildOperatingShareRate(adminSessionToken: string, platformCode: string, guildId: string, operatingShareRate: number) {
-  return request<PlatformIntegrationResponse['targetGuilds'][number]>(`/admin/platform-integrations/${encodeURIComponent(platformCode)}/guilds/${encodeURIComponent(guildId)}/operating-share-rate`, {
-    method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ operatingShareRate }),
+export function createAdminPlatformGuildOperatingShareRate(adminSessionToken: string, platformCode: string, guildId: string, operatingShareRate: number, effectiveFrom: string) {
+  return request<PlatformGuildCompanyShareRuleResponse>(`/admin/platform-integrations/${encodeURIComponent(platformCode)}/guilds/${encodeURIComponent(guildId)}/operating-share-rate`, {
+    method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ operatingShareRate, effectiveFrom }),
   })
+}
+export function getAdminPlatformGuildCompanyShareRules(adminSessionToken: string, platformCode: string, guildId: string) {
+  return request<PlatformGuildCompanyShareRuleResponse[]>(`/admin/platform-integrations/${encodeURIComponent(platformCode)}/guilds/${encodeURIComponent(guildId)}/operating-share-rules`, { headers: { 'X-Admin-Session': adminSessionToken } })
+}
+export function activateAdminPlatformGuildCompanyShareRule(adminSessionToken: string, id: number, approvalNote: string) {
+  return request<PlatformGuildCompanyShareRuleResponse>(`/admin/platform-integrations/operating-share-rules/${id}/activate`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ approvalNote }) })
 }
 
 export function getAdminPlatformGuildDirectory(adminSessionToken: string, platform: 'LINKY' | 'TIMO') {
