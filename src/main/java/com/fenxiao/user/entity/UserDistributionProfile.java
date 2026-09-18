@@ -149,11 +149,6 @@ public class UserDistributionProfile extends BaseEntity {
         this.userStatus = UserStatus.NORMAL;
     }
 
-    /** Promotion is intentionally monotonic. Qualification loss is a manual operations decision. */
-    public void promoteToTeamLeader() {
-        this.distributionRole = DistributionRole.TEAM_LEADER;
-    }
-
     public void bindPhoneNumber(String phoneNumber) {
         this.phoneNumber = phoneNumber;
     }
