@@ -118,6 +118,7 @@ import {
   getAdminTeamMembers,
   saveAdminTeamOperatingProfitSharePermission,
   getAdminUserGradeDashboard,
+  getAdminEffectiveUserQualifications,
   getAdminUserGradeLevelDashboard,
   getAdminTokenPointConversionDashboard,
   createAdminOperatingDividendPolicies,
@@ -131,6 +132,8 @@ import {
   retireAdminUserGradeRule,
   retireAdminUserGradeLevel,
   evaluateAdminUserGrade,
+  refreshAdminEffectiveUserQualifications,
+  excludeAdminEffectiveUserQualification,
   getAdminUserGradeAdvancementReviews,
   createAdminUserGradeAdvancementReview,
   confirmAdminUserGradeAdvancementReview,
@@ -179,6 +182,7 @@ import {
   type TeamManagementItemResponse,
   type TeamManagementMemberResponse,
   type UserGradeDashboardResponse,
+  type EffectiveUserQualificationResponse,
   type UserGradeLevelDashboardResponse,
   type UserGradeAdvancementReviewResponse,
   type TokenPointConversionDashboardResponse,
@@ -525,6 +529,10 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [teamOperatingProfitSharePermissionTarget, setTeamOperatingProfitSharePermissionTarget] = useState<{ team: TeamManagementItemResponse; enabled: boolean } | null>(null)
   const [teamMembersLoading, setTeamMembersLoading] = useState(false)
   const [userGradeDashboard, setUserGradeDashboard] = useState<UserGradeDashboardResponse | null>(null)
+  const [effectiveUserPlatform, setEffectiveUserPlatform] = useState<'TIMO' | 'LINKY'>('TIMO')
+  const [effectiveUserQualifications, setEffectiveUserQualifications] = useState<EffectiveUserQualificationResponse[]>([])
+  const [effectiveUserCorrectionTarget, setEffectiveUserCorrectionTarget] = useState<EffectiveUserQualificationResponse | null>(null)
+  const [effectiveUserCorrectionForm, setEffectiveUserCorrectionForm] = useState<{ correctionReason: 'FRAUD' | 'FAKE_INCOME' | 'FABRICATED_PERFORMANCE'; correctionNote: string }>({ correctionReason: 'FRAUD', correctionNote: '' })
   const [userGradeLevelDashboard, setUserGradeLevelDashboard] = useState<UserGradeLevelDashboardResponse | null>(null)
   const [userGradeAdvancementReviews, setUserGradeAdvancementReviews] = useState<UserGradeAdvancementReviewResponse[]>([])
   const [isUserGradeAdvancementDialogOpen, setIsUserGradeAdvancementDialogOpen] = useState(false)
@@ -649,6 +657,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const canManageSeedInviters = adminSession?.role?.toLowerCase() === 'super_admin'
   const canManagePlatformMocks = adminSession?.role?.toLowerCase() === 'super_admin'
   const canRunControlledIncome = ['super_admin', 'finance'].includes(adminSession?.role?.toLowerCase() ?? '')
+  const canReadEffectiveUsers = ['super_admin', 'admin', 'operations', 'finance'].includes(adminSession?.role?.toLowerCase() ?? '')
+  const canCorrectEffectiveUsers = adminSession?.role?.toLowerCase() === 'super_admin'
   const canManageMentorRules = ['super_admin', 'admin', 'finance'].includes(adminSession?.role?.toLowerCase() ?? '')
   const canManageMentorRelations = ['super_admin', 'admin', 'operations'].includes(adminSession?.role?.toLowerCase() ?? '')
   const canManageOperatingDividends = canRunControlledIncome
@@ -1976,6 +1986,47 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     finally { setLoading(false) }
   }
 
+  async function loadEffectiveUserQualifications(platform = effectiveUserPlatform) {
+    if (!adminSession || !canReadEffectiveUsers) return
+    setLoading(true); setError('')
+    try { setEffectiveUserQualifications(await getAdminEffectiveUserQualifications(adminSession.sessionToken, platform, 50)) }
+    catch (err) { setError(err instanceof Error ? err.message : '读取有效用户资格事实失败') }
+    finally { setLoading(false) }
+  }
+
+  async function refreshEffectiveUserQualifications() {
+    if (!adminSession || !canRunControlledIncome) return
+    setLoading(true); setError(''); setSuccessMessage('')
+    try {
+      const result = await refreshAdminEffectiveUserQualifications(adminSession.sessionToken, effectiveUserPlatform)
+      setSuccessMessage(`已按已定稿收入事实刷新 ${result.platformCode} 的 ${result.refreshedCount} 条有效用户资格；不会产生奖励、余额或付款。`)
+      await loadEffectiveUserQualifications()
+      await loadUserGradeDashboard()
+    } catch (err) { setError(err instanceof Error ? err.message : '刷新有效用户资格失败') } finally { setLoading(false) }
+  }
+
+  function openEffectiveUserCorrectionDialog(fact: EffectiveUserQualificationResponse) {
+    setEffectiveUserCorrectionForm({ correctionReason: 'FRAUD', correctionNote: '' })
+    setEffectiveUserCorrectionTarget(fact)
+  }
+
+  async function confirmEffectiveUserCorrection() {
+    if (!adminSession || !canCorrectEffectiveUsers || !effectiveUserCorrectionTarget || !effectiveUserCorrectionForm.correctionNote.trim()) return
+    setLoading(true); setError(''); setSuccessMessage('')
+    try {
+      const corrected = await excludeAdminEffectiveUserQualification(adminSession.sessionToken, {
+        userId: effectiveUserCorrectionTarget.userId,
+        platformCode: effectiveUserCorrectionTarget.platformCode,
+        correctionReason: effectiveUserCorrectionForm.correctionReason,
+        correctionNote: effectiveUserCorrectionForm.correctionNote.trim(),
+      })
+      setEffectiveUserCorrectionTarget(null)
+      setSuccessMessage(`已将用户 ${corrected.userId} 的 ${corrected.platformCode} 有效用户资格标记为人工排除，并将上级等级评估转入人工复核。`)
+      await loadEffectiveUserQualifications()
+      await loadUserGradeDashboard()
+    } catch (err) { setError(err instanceof Error ? err.message : '保存有效用户资格纠偏失败') } finally { setLoading(false) }
+  }
+
   async function loadUserGradeLevelDashboard() {
     if (!adminSession || !canManageTeams) return
     setLoading(true); setError('')
@@ -3094,7 +3145,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           ) : null}
 
           {activeAdminSection === 'userGrades' && canManageTeams ? (
-            <PanelSection sectionId="admin-user-grades" eyebrow="User grade · direct effective users" title="用户等级" description="等级只统计本人直接邀请的有效用户。有效用户须从首次真实、可结算收入起的 7 天内，至少在 3 个不同日期产生收入；A 邀请 B、B 邀请 C 时，A 只计 B，不计 C。金牌达标会自动建立团队和团长权限，但不会开启团队经营分成。" action={<button className="ghost-btn" onClick={() => { void loadUserGradeDashboard(); void loadUserGradeAdvancementReviews() }} disabled={loading}>刷新数据</button>}>
+            <PanelSection sectionId="admin-user-grades" eyebrow="User grade · direct effective users" title="用户等级" description="等级只统计本人直接邀请的有效用户。有效用户须从首次真实、可结算收入起的 7 天内，至少在 3 个不同日期产生收入；A 邀请 B、B 邀请 C 时，A 只计 B，不计 C。金牌达标会自动建立团队和团长权限，但不会开启团队经营分成。" action={<button className="ghost-btn" onClick={() => { void loadUserGradeDashboard(); void loadUserGradeAdvancementReviews(); if (canReadEffectiveUsers) void loadEffectiveUserQualifications() }} disabled={loading}>刷新数据</button>}>
               <div className="stack-gap">
                 <InfoCard title="等级规则概览" tone="neutral">
                   {userGradeDashboard ? <div className="relation-grid"><RelationItem label="已启用等级规则" value={userGradeDashboard.activeRuleCount} /><RelationItem label="已合格团队长" value={userGradeDashboard.qualifiedTeamLeaderCount} /></div> : <EmptyState title="尚未读取用户等级数据" description="点击“刷新数据”读取规则与最近评估结果。" />}
@@ -3122,7 +3173,13 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   {userGradeDashboard?.rules.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>规则版本</th><th>等级</th><th>适用范围</th><th>有效直邀门槛</th><th>状态</th><th>操作</th></tr></thead><tbody>{userGradeDashboard.rules.map((rule) => <tr key={rule.id}><td>{rule.ruleCode} · V{rule.ruleVersion}</td><td>{rule.gradeCode}</td><td>{rule.platformCode} / {rule.countryCode}{rule.guildId ? ` / ${rule.guildId}` : ' / 全部公会'}</td><td>数量 ≥ {rule.requiredDirectInviteCount}</td><td>{rule.status === 'DRAFT' ? '待审' : rule.status === 'ACTIVE' ? '已启用' : '已停用'}</td><td>{rule.status === 'DRAFT' ? <button className="primary-btn small-btn" onClick={() => void activateUserGradeRule(rule.id, rule.ruleCode)} disabled={loading}>审批并启用</button> : rule.status === 'ACTIVE' ? <button className="ghost-btn small-btn" onClick={() => void retireUserGradeRule(rule.id, rule.ruleCode)} disabled={loading}>停止使用</button> : '-'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未配置用户等级规则" description="先建立新星、银牌或金牌的待审规则。" />}
                 </InfoCard>
                 <InfoCard title="人工复核用户等级" tone="neutral"><div className="action-row"><input aria-label="用户 ID" type="number" min="1" value={userGradeEvaluationForm.userId} onChange={(event) => setUserGradeEvaluationForm({ ...userGradeEvaluationForm, userId: event.target.value })} placeholder="用户 ID" /><select value={userGradeEvaluationForm.platformCode} onChange={(event) => setUserGradeEvaluationForm({ ...userGradeEvaluationForm, platformCode: event.target.value })}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select><button className="ghost-btn" onClick={() => void evaluateUserGrade()} disabled={loading}>立即复核</button></div><InlineHint text="系统每小时也会自动重算已有直接邀请关系的已核验用户。人工复核仅刷新本地资格证据，不会请求 MCN。" /></InfoCard>
-                <InfoCard title="最近等级评估" tone="neutral">{userGradeDashboard?.recentEvaluations.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>用户</th><th>平台 / 公会</th><th>等级</th><th>有效直邀人数</th><th>结果</th><th>评估时间</th></tr></thead><tbody>{userGradeDashboard.recentEvaluations.map((item, index) => <tr key={`${item.userId}-${item.platformCode}-${item.guildId}-${item.gradeCode}-${index}`}><td>{item.userId}</td><td>{item.platformCode} / {item.guildId}</td><td>{item.gradeCode}</td><td>{item.directInviteCount}</td><td>{item.status === 'QUALIFIED' ? '已合格' : '进行中'}</td><td>{formatDateTime(item.evaluatedAt)}</td></tr>)}</tbody></table></div> : <EmptyState title="暂无等级评估记录" description="启用规则后，由定时任务或人工复核生成记录。" />}</InfoCard>
+                <InfoCard title="最近等级评估" tone="neutral">{userGradeDashboard?.recentEvaluations.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>用户</th><th>平台 / 公会</th><th>等级</th><th>有效直邀人数</th><th>结果</th><th>评估时间</th></tr></thead><tbody>{userGradeDashboard.recentEvaluations.map((item, index) => <tr key={`${item.userId}-${item.platformCode}-${item.guildId}-${item.gradeCode}-${index}`}><td>{item.userId}</td><td>{item.platformCode} / {item.guildId}</td><td>{item.gradeCode}</td><td>{item.directInviteCount}</td><td>{item.status === 'QUALIFIED' ? '已合格' : item.status === 'REQUIRES_MANUAL_REVIEW' ? '待人工复核' : '进行中'}</td><td>{formatDateTime(item.evaluatedAt)}</td></tr>)}</tbody></table></div> : <EmptyState title="暂无等级评估记录" description="启用规则后，由定时任务或人工复核生成记录。" />}</InfoCard>
+                {canReadEffectiveUsers ? <InfoCard title="有效用户资格事实与纠偏" tone="neutral">
+                  <div className="action-row"><select value={effectiveUserPlatform} onChange={(event) => { const platform = event.target.value as 'TIMO' | 'LINKY'; setEffectiveUserPlatform(platform); void loadEffectiveUserQualifications(platform) }}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select><button className="ghost-btn" onClick={() => void loadEffectiveUserQualifications()} disabled={loading}>读取资格事实</button>{canRunControlledIncome ? <button className="primary-btn" onClick={() => void refreshEffectiveUserQualifications()} disabled={loading}>按定稿收入刷新</button> : null}</div>
+                  <InlineHint text="有效用户资格是“首次真实、可结算收入后的 7 天内出现至少 3 个不同收入日期”的本地事实。刷新只重算本地事实；不请求 MCN，不产生奖励、余额、提现或付款。" />
+                  {effectiveUserQualifications.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>用户</th><th>状态</th><th>有效收入日期</th><th>观察期</th><th>证据快照</th><th>人工纠偏</th></tr></thead><tbody>{effectiveUserQualifications.map((fact) => <tr key={`${fact.platformCode}-${fact.userId}`}><td>用户 {fact.userId}<small className="table-subtle">{fact.platformCode}</small></td><td>{fact.qualificationStatus === 'QUALIFIED' ? '已合格' : fact.qualificationStatus === 'MANUALLY_EXCLUDED' ? '人工排除' : fact.qualificationStatus === 'EVIDENCE_REVOKED' ? '证据已撤销' : fact.qualificationStatus === 'OBSERVING' ? '观察中' : '未合格'}{fact.manualCorrectionReason ? <small className="table-subtle">原因：{fact.manualCorrectionReason}</small> : null}</td><td>{fact.qualifyingIncomeDateCount} 天<small className="table-subtle">{fact.qualifyingIncomeDates || '—'}</small></td><td>{formatDateTime(fact.firstIncomeAt ?? undefined)} 至 {formatDateTime(fact.observationEndsAt ?? undefined)}</td><td><small>{fact.sourceEvidenceSnapshot || '—'}</small></td><td>{canCorrectEffectiveUsers && fact.qualificationStatus !== 'MANUALLY_EXCLUDED' ? <button className="ghost-btn small-btn" onClick={() => openEffectiveUserCorrectionDialog(fact)} disabled={loading}>证据纠偏</button> : fact.manualCorrectionNote || '—'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未读取资格事实" description="选择平台后点击“读取资格事实”。当前活跃有效人数仍待业务定义，不会用此表替代。" />}
+                  <InlineHint text={canCorrectEffectiveUsers ? '人工纠偏仅限确认的刷号、虚假收入或伪造业绩；正常停业、收入减少或观察期结束均不得使用。纠偏后上级的已合格等级转为“待人工复核”，不会自动降级。' : '资格事实可供查看。证据纠偏仅限超级管理员操作，并需要填写具体证据说明。'} />
+                </InfoCard> : null}
               </div>
             </PanelSection>
           ) : null}
@@ -4075,6 +4132,24 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             <label>权威公会 ID<input required value={userGradeAdvancementForm.guildId} onChange={(event) => setUserGradeAdvancementForm({ ...userGradeAdvancementForm, guildId: event.target.value })} placeholder="例如：22000448" /></label>
           </form>
           <InlineHint text="建立后依次补充培养、经营和职责三项确认。该记录只是等级与团队负责人流程的证据，不会自动授予负责人身份、创建团队或开启团队经营分成。" />
+        </ConfirmDialog>
+      ) : null}
+
+      {effectiveUserCorrectionTarget ? (
+        <ConfirmDialog
+          title="人工纠偏有效用户资格"
+          tone="warning"
+          confirmText="确认排除资格"
+          loading={loading}
+          confirmDisabled={!effectiveUserCorrectionForm.correctionNote.trim()}
+          onCancel={() => setEffectiveUserCorrectionTarget(null)}
+          onConfirm={() => void confirmEffectiveUserCorrection()}
+        >
+          <p>用户：<strong>{effectiveUserCorrectionTarget.userId}</strong>；平台：<strong>{effectiveUserCorrectionTarget.platformCode}</strong>；当前资格：<strong>{effectiveUserCorrectionTarget.qualificationStatus}</strong>。</p>
+          <p>本操作仅允许超级管理员在确认刷号、虚假收入或伪造业绩后执行。正常停业、收入下降和观察期结束不能作为理由。</p>
+          <label>纠偏原因<select value={effectiveUserCorrectionForm.correctionReason} onChange={(event) => setEffectiveUserCorrectionForm({ ...effectiveUserCorrectionForm, correctionReason: event.target.value as 'FRAUD' | 'FAKE_INCOME' | 'FABRICATED_PERFORMANCE' })}><option value="FRAUD">刷号 / 异常作弊</option><option value="FAKE_INCOME">虚假收入</option><option value="FABRICATED_PERFORMANCE">伪造业绩</option></select></label>
+          <label className="top-gap">证据说明<textarea required maxLength={255} value={effectiveUserCorrectionForm.correctionNote} onChange={(event) => setEffectiveUserCorrectionForm({ ...effectiveUserCorrectionForm, correctionNote: event.target.value })} placeholder="填写已核验的证据编号、核验结论和处理依据" /></label>
+          <InlineHint text="确认后仅将这条有效用户资格标记为人工排除，并把直接上级的相关等级评估转为人工复核；不会删除 MCN 原始收入，不会自动降级，也不会产生奖励、余额、提现或付款。" />
         </ConfirmDialog>
       ) : null}
 

@@ -212,6 +212,12 @@ export type UserGradeRuleResponse = {
 }
 export type UserGradeEvaluationResponse = { userId: number; platformCode: string; guildId: string; gradeCode: string; ruleId: number; status: string; directInviteCount: number; directIncome: number; qualifiedAt: string | null; evaluatedAt: string }
 export type UserGradeDashboardResponse = { activeRuleCount: number; qualifiedTeamLeaderCount: number; rules: UserGradeRuleResponse[]; recentEvaluations: UserGradeEvaluationResponse[] }
+export type EffectiveUserQualificationResponse = {
+  userId: number; platformCode: string; qualificationStatus: string
+  firstIncomeAt: string | null; observationEndsAt: string | null; qualifyingIncomeDateCount: number; qualifyingIncomeDates: string
+  latestIncomeAt: string | null; sourceEvidenceSnapshot: string | null; qualifiedAt: string | null; evidenceRevokedAt: string | null
+  manualCorrectionReason: string | null; manualCorrectionNote: string | null; correctedBy: number | null; correctedAt: string | null; evaluatedAt: string
+}
 export type UserGradeLevelResponse = {
   id: number; levelCode: string; levelVersion: number; levelName: string; levelRank: number; requiredPoints: number
   grantsTeamLeader: boolean; effectiveFrom: string; effectiveTo: string | null; status: 'DRAFT' | 'ACTIVE' | 'RETIRED' | string
@@ -963,6 +969,9 @@ export function createAdminUserGradeRule(adminSessionToken: string, payload: { g
 export function activateAdminUserGradeRule(adminSessionToken: string, id: number, approvalNote: string) { return request<UserGradeRuleResponse>(`/admin/incentives/user-grade-rules/${id}/activate`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ approvalNote }) }) }
 export function retireAdminUserGradeRule(adminSessionToken: string, id: number) { return request<UserGradeRuleResponse>(`/admin/incentives/user-grade-rules/${id}/retire`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken } }) }
 export function evaluateAdminUserGrade(adminSessionToken: string, userId: number, platformCode: string) { return request<UserGradeEvaluationResponse[]>('/admin/incentives/user-grades/evaluate', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ userId, platformCode }) }) }
+export function getAdminEffectiveUserQualifications(adminSessionToken: string, platformCode: string, limit = 50) { return request<EffectiveUserQualificationResponse[]>(`/admin/incentives/effective-users?platformCode=${encodeURIComponent(platformCode)}&limit=${limit}`, { headers: { 'X-Admin-Session': adminSessionToken } }) }
+export function refreshAdminEffectiveUserQualifications(adminSessionToken: string, platformCode: string) { return request<{ platformCode: string; refreshedCount: number }>(`/admin/incentives/effective-users/refresh?platformCode=${encodeURIComponent(platformCode)}`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken } }) }
+export function excludeAdminEffectiveUserQualification(adminSessionToken: string, payload: { userId: number; platformCode: string; correctionReason: 'FRAUD' | 'FAKE_INCOME' | 'FABRICATED_PERFORMANCE'; correctionNote: string }) { return request<EffectiveUserQualificationResponse>('/admin/incentives/effective-users/manual-exclusions', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) }) }
 export function getAdminUserGradeAdvancementReviews(adminSessionToken: string) { return request<UserGradeAdvancementReviewResponse[]>('/admin/incentives/user-grade-advancement-reviews', { headers: { 'X-Admin-Session': adminSessionToken } }) }
 export function createAdminUserGradeAdvancementReview(adminSessionToken: string, payload: { userId: number; platformCode: string; guildId: string; targetGradeCode: string }) { return request<UserGradeAdvancementReviewResponse>('/admin/incentives/user-grade-advancement-reviews', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) }) }
 export function confirmAdminUserGradeAdvancementReview(adminSessionToken: string, id: number, step: 'training-confirmation' | 'operating-confirmation' | 'responsibility-confirmation' | 'leadership-appointment', note: string) { return request<UserGradeAdvancementReviewResponse>(`/admin/incentives/user-grade-advancement-reviews/${id}/${step}`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ note }) }) }

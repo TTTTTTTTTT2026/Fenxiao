@@ -214,7 +214,7 @@ public class IncentiveAdminController {
                                                                               @RequestHeader(value="X-Admin-Session",required=false) String session,
                                                                               @RequestParam String platformCode,
                                                                               @RequestParam(defaultValue="50") int limit) {
-        guard.assertFinanceAccess(token, session);
+        guard.assertEffectiveUserReadAccess(token, session);
         return effectiveUsers.recent(platformCode, limit);
     }
 
@@ -222,7 +222,7 @@ public class IncentiveAdminController {
     public EffectiveUserQualificationResponse excludeEffectiveUser(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                                     @RequestHeader(value="X-Admin-Session",required=false) String session,
                                                                     @Valid @RequestBody EffectiveUserCorrectionRequest request) {
-        return effectiveUsers.exclude(request, guard.assertFinanceAccess(token, session));
+        return effectiveUsers.exclude(request, guard.assertEffectiveUserCorrectionAccess(token, session));
     }
 
     @GetMapping("/admin/incentives/user-grade-advancement-reviews")
