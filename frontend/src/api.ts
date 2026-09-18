@@ -142,7 +142,8 @@ export type McnIncomeRewardCandidateSummaryResponse = {
 export type McnIncomeRewardCandidateItemResponse = {
   sourceEventReference: string; businessDate: string; sourceUserId: number | null; recipientUserId: number | null
   rewardLevel: number; status: string; reason: string; baseAmount: number; candidateAmount: number | null; amountUnit: string
-  invitationVersion: number | null; policyCode: string | null; ruleRate: number | null
+  invitationVersion: number | null; policyCode: string | null; ruleRate: number | null; calculationVersion: string
+  sourceGuildId: string | null; companyShareRate: number | null; companyIncomeBaseAmount: number | null
 }
 export type McnIncomeRewardCandidateSampleResponse = {
   runId: string; platformCode: string; businessDate: string; requestedSize: number; availableCount: number

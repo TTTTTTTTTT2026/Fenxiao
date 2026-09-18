@@ -101,14 +101,15 @@ public class McnIncomeRewardCandidateService {
         String platform = platform(platformCode); int safeLimit = Math.max(1, Math.min(limit, 100));
         return jdbc.query("""
                 SELECT source_event_id,business_date,source_user_id,recipient_user_id,reward_level,candidate_status,decision_reason,base_amount,candidate_amount,amount_unit,
-                       invitation_version_no,commission_policy_code,rule_rate
+                       invitation_version_no,commission_policy_code,rule_rate,calculation_version,source_guild_id,company_share_rate,company_income_base_amount
                 FROM mcn_income_reward_candidate_projection
                 WHERE source_system=? AND platform_code=? AND business_date=? AND reward_level > 0
                 ORDER BY CASE candidate_status WHEN 'CANDIDATE' THEN 1 ELSE 0 END, source_event_id, reward_level
                 LIMIT ?
                 """, (rs, row) -> new McnIncomeRewardCandidateItemResponse(rs.getString(1), rs.getObject(2, LocalDate.class),
                 rs.getObject(3, Long.class), rs.getObject(4, Long.class), rs.getInt(5), rs.getString(6), rs.getString(7),
-                rs.getBigDecimal(8), rs.getBigDecimal(9), rs.getString(10), rs.getObject(11, Integer.class), rs.getString(12), rs.getBigDecimal(13)), SOURCE_SYSTEM, platform, businessDate, safeLimit);
+                rs.getBigDecimal(8), rs.getBigDecimal(9), rs.getString(10), rs.getObject(11, Integer.class), rs.getString(12), rs.getBigDecimal(13),
+                rs.getString(14), rs.getString(15), rs.getBigDecimal(16), rs.getBigDecimal(17)), SOURCE_SYSTEM, platform, businessDate, safeLimit);
     }
 
     private void project(String platform, CandidateInput input, Instant now, Counts counts) {
@@ -258,14 +259,15 @@ public class McnIncomeRewardCandidateService {
         if (limit <= 0) return List.of();
         return jdbc.query("""
                 SELECT source_event_id,business_date,source_user_id,recipient_user_id,reward_level,candidate_status,decision_reason,base_amount,candidate_amount,amount_unit,
-                       invitation_version_no,commission_policy_code,rule_rate
+                       invitation_version_no,commission_policy_code,rule_rate,calculation_version,source_guild_id,company_share_rate,company_income_base_amount
                 FROM mcn_income_reward_candidate_run_item
                 WHERE run_id=? AND %s
                 ORDER BY SHA2(CONCAT(source_event_id, ':', reward_level), 256), source_event_id, reward_level
                 LIMIT ?
                 """.formatted(statusPredicate), (rs, row) -> new McnIncomeRewardCandidateItemResponse(rs.getString(1), rs.getObject(2, LocalDate.class),
                 rs.getObject(3, Long.class), rs.getObject(4, Long.class), rs.getInt(5), rs.getString(6), rs.getString(7),
-                rs.getBigDecimal(8), rs.getBigDecimal(9), rs.getString(10), rs.getObject(11, Integer.class), rs.getString(12), rs.getBigDecimal(13)), runId, limit);
+                rs.getBigDecimal(8), rs.getBigDecimal(9), rs.getString(10), rs.getObject(11, Integer.class), rs.getString(12), rs.getBigDecimal(13),
+                rs.getString(14), rs.getString(15), rs.getBigDecimal(16), rs.getBigDecimal(17)), runId, limit);
     }
 
     static int sampleQuota(int requested, int candidateAvailable, int blockedAvailable) {
