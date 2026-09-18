@@ -5,6 +5,8 @@ import com.fenxiao.audit.entity.OperationAuditLog;
 import com.fenxiao.audit.repository.OperationAuditLogRepository;
 import com.fenxiao.incentive.dto.UserGradeAdvancementReviewRequest;
 import com.fenxiao.incentive.dto.UserGradeAdvancementReviewResponse;
+import com.fenxiao.incentive.dto.UserGradePlatinumEvidenceRequest;
+import com.fenxiao.incentive.dto.UserGradePlatinumEvidenceResponse;
 import com.fenxiao.relationship.service.RelationshipFoundationService;
 import com.fenxiao.user.repository.UserDistributionProfileRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -15,7 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.PreparedStatement;
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -63,11 +67,45 @@ public class UserGradeAdvancementReviewService {
     }
 
     public UserGradeAdvancementReviewResponse confirmTraining(long id, String note, AdminSessionService.AdminPrincipal actor) {
+        UserGradeAdvancementReviewResponse review = requiredReview(id);
+        if ("PLATINUM".equals(review.targetGradeCode())) {
+            assertGoldQualified(review);
+            assertPlatinumEvidence(review);
+        }
         return decide(id, "TRAINING", note, actor);
     }
 
     public UserGradeAdvancementReviewResponse confirmOperatingValidation(long id, String note, AdminSessionService.AdminPrincipal actor) {
+        UserGradeAdvancementReviewResponse review = requiredReview(id);
+        if ("PLATINUM".equals(review.targetGradeCode())) assertPlatinumEvidence(review);
         return decide(id, "OPERATING", note, actor);
+    }
+
+    /**
+     * Records one of Platinum's two required Silver-member cultivation groups.
+     * The supplied counts are reviewed operational evidence, never reward input.
+     */
+    public UserGradeAdvancementReviewResponse recordPlatinumEvidence(long reviewId, UserGradePlatinumEvidenceRequest request, AdminSessionService.AdminPrincipal actor) {
+        UserGradeAdvancementReviewResponse before = requiredReview(reviewId);
+        if (!"PLATINUM".equals(before.targetGradeCode())) throw new IllegalStateException("structured cultivation evidence is currently required only for PLATINUM");
+        if (!"PENDING".equals(before.trainingStatus())) throw new IllegalStateException("platinum cultivation evidence is locked after training confirmation");
+        if (request.traineeUserId().longValue() == before.userId()) throw new IllegalArgumentException("trainee must be different from the advancement user");
+        LocalDate start = request.observationStart(), end = request.observationEnd();
+        if (end.isBefore(start) || ChronoUnit.DAYS.between(start, end) + 1 < 30) throw new IllegalArgumentException("platinum group observation must cover at least 30 calendar days");
+        if (request.finalWeekEffectiveUserCount() < 5 || request.finalWeekMinIncomeDateCount() < 3) throw new IllegalArgumentException("platinum evidence requires at least five effective users and three income dates in the final seven days");
+        assertSilverQualified(request.traineeUserId(), before.platformCode(), before.guildId());
+        String group = required(request.groupReference(), "groupReference");
+        String note = required(request.evidenceNote(), "evidenceNote");
+        LocalDateTime now = LocalDateTime.now(clock);
+        Integer existing = jdbc.queryForObject("select count(*) from user_grade_platinum_training_evidence where advancement_review_id=? and trainee_user_id=?", Integer.class, reviewId, request.traineeUserId());
+        if (existing != null && existing > 0) {
+            jdbc.update("update user_grade_platinum_training_evidence set group_reference=?,observation_start=?,observation_end=?,final_week_effective_user_count=?,final_week_min_income_date_count=?,evidence_note=?,evidence_status='RECORDED',recorded_by=?,recorded_at=?,confirmed_by=null,confirmed_at=null,updated_at=? where advancement_review_id=? and trainee_user_id=?", group, start, end, request.finalWeekEffectiveUserCount(), request.finalWeekMinIncomeDateCount(), note, actor.accountId(), now, now, reviewId, request.traineeUserId());
+        } else {
+            jdbc.update("insert into user_grade_platinum_training_evidence(advancement_review_id,trainee_user_id,group_reference,observation_start,observation_end,final_week_effective_user_count,final_week_min_income_date_count,evidence_note,evidence_status,recorded_by,recorded_at,updated_at) values(?,?,?,?,?,?,?,?,'RECORDED',?,?,?)", reviewId, request.traineeUserId(), group, start, end, request.finalWeekEffectiveUserCount(), request.finalWeekMinIncomeDateCount(), note, actor.accountId(), now, now);
+        }
+        UserGradeAdvancementReviewResponse after = requiredReview(reviewId);
+        audit(actor, after, "RECORD_PLATINUM_EVIDENCE", snapshot(before), snapshot(after), "记录银牌培养成员及其 30 天小组经营证据；不会升级、建队或产生奖励");
+        return after;
     }
 
     public UserGradeAdvancementReviewResponse confirmResponsibility(long id, String note, AdminSessionService.AdminPrincipal actor) {
@@ -99,6 +137,9 @@ public class UserGradeAdvancementReviewService {
             case "RESPONSIBILITY" -> jdbc.update("update user_grade_advancement_review set responsibility_status='CONFIRMED',responsibility_note=?,responsibility_confirmed_by=?,responsibility_confirmed_at=?,updated_at=? where id=?", requiredNote, actor.accountId(), now, now, id);
             default -> throw new IllegalArgumentException("unsupported decision");
         }
+        if ("TRAINING".equals(decision) && "PLATINUM".equals(before.targetGradeCode())) {
+            jdbc.update("update user_grade_platinum_training_evidence set evidence_status='CONFIRMED',confirmed_by=?,confirmed_at=?,updated_at=? where advancement_review_id=?", actor.accountId(), now, now, id);
+        }
         UserGradeAdvancementReviewResponse after = requiredReview(id);
         if ("CONFIRMED".equals(after.trainingStatus()) && "CONFIRMED".equals(after.operatingValidationStatus()) && "CONFIRMED".equals(after.responsibilityStatus())) {
             jdbc.update("update user_grade_advancement_review set review_status='READY_FOR_LEADER_CONFIRMATION',updated_at=? where id=?", now, id);
@@ -108,6 +149,27 @@ public class UserGradeAdvancementReviewService {
         return after;
     }
 
+    private void assertGoldQualified(UserGradeAdvancementReviewResponse review) {
+        Integer count = jdbc.queryForObject("select count(*) from user_grade_evaluation where user_id=? and platform_code=? and guild_id=? and grade_code='GOLD' and qualification_status='QUALIFIED'", Integer.class, review.userId(), review.platformCode(), review.guildId());
+        if (count == null || count == 0) throw new IllegalStateException("a qualified GOLD grade is required before Platinum evidence can be confirmed");
+    }
+
+    private void assertSilverQualified(long userId, String platform, String guild) {
+        Integer count = jdbc.queryForObject("select count(*) from user_grade_evaluation where user_id=? and platform_code=? and guild_id=? and grade_code='SILVER' and qualification_status='QUALIFIED'", Integer.class, userId, platform, guild);
+        if (count == null || count == 0) throw new IllegalStateException("each Platinum trainee must have a qualified SILVER grade in the same platform and guild");
+    }
+
+    private void assertPlatinumEvidence(UserGradeAdvancementReviewResponse review) {
+        List<UserGradePlatinumEvidenceResponse> evidence = evidence(review.id());
+        if (evidence.size() != 2) throw new IllegalStateException("Platinum requires exactly two independently recorded Silver-member cultivation groups");
+        for (UserGradePlatinumEvidenceResponse item : evidence) {
+            assertSilverQualified(item.traineeUserId(), review.platformCode(), review.guildId());
+            if (ChronoUnit.DAYS.between(item.observationStart(), item.observationEnd()) + 1 < 30 || item.finalWeekEffectiveUserCount() < 5 || item.finalWeekMinIncomeDateCount() < 3) {
+                throw new IllegalStateException("Platinum group evidence does not satisfy the confirmed 30-day and final-seven-day thresholds");
+            }
+        }
+    }
+
     private UserGradeAdvancementReviewResponse requiredReview(long id) {
         List<UserGradeAdvancementReviewResponse> values = jdbc.query(select() + " where id=?", (rs, row) -> map(rs), id);
         if (values.isEmpty()) throw new IllegalArgumentException("grade advancement review not found");
@@ -115,7 +177,8 @@ public class UserGradeAdvancementReviewService {
     }
 
     private String select() { return "select id,user_id,platform_code,guild_id,target_grade_code,training_status,training_note,training_verified_by,training_verified_at,operating_validation_status,operating_validation_note,operating_verified_by,operating_verified_at,responsibility_status,responsibility_note,responsibility_confirmed_by,responsibility_confirmed_at,review_status,created_by,created_at,updated_at from user_grade_advancement_review"; }
-    private UserGradeAdvancementReviewResponse map(java.sql.ResultSet rs) throws java.sql.SQLException { return new UserGradeAdvancementReviewResponse(rs.getLong(1),rs.getLong(2),rs.getString(3),rs.getString(4),rs.getString(5),rs.getString(6),rs.getString(7),nullableLong(rs,8),time(rs,9),rs.getString(10),rs.getString(11),nullableLong(rs,12),time(rs,13),rs.getString(14),rs.getString(15),nullableLong(rs,16),time(rs,17),rs.getString(18),nullableLong(rs,19),time(rs,20),time(rs,21)); }
+    private UserGradeAdvancementReviewResponse map(java.sql.ResultSet rs) throws java.sql.SQLException { long reviewId = rs.getLong(1); return new UserGradeAdvancementReviewResponse(reviewId,rs.getLong(2),rs.getString(3),rs.getString(4),rs.getString(5),rs.getString(6),rs.getString(7),nullableLong(rs,8),time(rs,9),rs.getString(10),rs.getString(11),nullableLong(rs,12),time(rs,13),rs.getString(14),rs.getString(15),nullableLong(rs,16),time(rs,17),rs.getString(18),nullableLong(rs,19),time(rs,20),time(rs,21),evidence(reviewId)); }
+    private List<UserGradePlatinumEvidenceResponse> evidence(long reviewId) { return jdbc.query("select id,trainee_user_id,group_reference,observation_start,observation_end,final_week_effective_user_count,final_week_min_income_date_count,evidence_note,evidence_status,recorded_by,recorded_at,confirmed_by,confirmed_at from user_grade_platinum_training_evidence where advancement_review_id=? order by id", (rs, row) -> new UserGradePlatinumEvidenceResponse(rs.getLong(1),rs.getLong(2),rs.getString(3),rs.getDate(4).toLocalDate(),rs.getDate(5).toLocalDate(),rs.getInt(6),rs.getInt(7),rs.getString(8),rs.getString(9),nullableLong(rs,10),time(rs,11),nullableLong(rs,12),time(rs,13)), reviewId); }
     private LocalDateTime time(java.sql.ResultSet rs, int index) throws java.sql.SQLException { return rs.getTimestamp(index) == null ? null : rs.getTimestamp(index).toLocalDateTime(); }
     private Long nullableLong(java.sql.ResultSet rs, int index) throws java.sql.SQLException { long value = rs.getLong(index); return rs.wasNull() ? null : value; }
     private String advancedGrade(String value) { String grade = required(value, "targetGradeCode").toUpperCase(Locale.ROOT); if (!List.of("PLATINUM", "DIAMOND", "BLACK_GOLD").contains(grade)) throw new IllegalArgumentException("targetGradeCode must be PLATINUM, DIAMOND or BLACK_GOLD"); return grade; }

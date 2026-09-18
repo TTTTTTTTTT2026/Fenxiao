@@ -118,7 +118,8 @@ public class UserGradeAdminService {
         if (effectiveUsers != null) effectiveUsers.refreshDirectInvitees(user.getUserId(), platform);
         int directCount = effectiveUsers == null ? directEffectiveInviteCount(user.getUserId(), platform, now) : effectiveUsers.qualifiedDirectInviteCount(user.getUserId(), platform, now);
         BigDecimal directIncome = BigDecimal.ZERO;
-        List<UserGradeEvaluationResponse> results = selected.values().stream().map(rule -> upsertEvaluation(user, rule, guild, directCount, directIncome, now)).toList();
+        int currentActiveCount = currentActiveEffectiveInviteCount(user.getUserId(), platform, now);
+        List<UserGradeEvaluationResponse> results = selected.values().stream().map(rule -> upsertEvaluation(user, rule, guild, directCount, currentActiveCount, directIncome, now)).toList();
         if (results.stream().anyMatch(result -> "GOLD".equals(result.gradeCode()) && "QUALIFIED".equals(result.status()))) {
             if (relationships != null) relationships.ensureGoldGradeTeam(user);
         }
@@ -135,12 +136,12 @@ public class UserGradeAdminService {
         return completed;
     }
 
-    private UserGradeEvaluationResponse upsertEvaluation(UserDistributionProfile user, UserGradeRuleResponse rule, String guild, int directCount, BigDecimal directIncome, LocalDateTime now) {
+    private UserGradeEvaluationResponse upsertEvaluation(UserDistributionProfile user, UserGradeRuleResponse rule, String guild, int directCount, int currentActiveCount, BigDecimal directIncome, LocalDateTime now) {
         boolean meets = directCount >= rule.requiredDirectInviteCount() && directIncome.compareTo(rule.requiredDirectIncome()) >= 0;
         String incoming = meets ? "QUALIFIED" : "IN_PROGRESS";
         int changed = jdbc.update("update user_grade_evaluation set qualification_status=case when qualification_status in ('QUALIFIED','REQUIRES_MANUAL_REVIEW') then qualification_status else ? end,rule_id=?,direct_invite_count=?,direct_income=?,qualified_at=case when qualification_status in ('QUALIFIED','REQUIRES_MANUAL_REVIEW') then qualified_at when ?='QUALIFIED' then ? else null end,evaluated_at=? where user_id=? and platform_code=? and guild_id=? and grade_code=?", incoming, rule.id(), directCount, directIncome, incoming, now, now, user.getUserId(), rule.platformCode(), guild, rule.gradeCode());
         if (changed == 0) jdbc.update("insert into user_grade_evaluation(user_id,platform_code,guild_id,grade_code,rule_id,qualification_status,direct_invite_count,direct_income,qualified_at,evaluated_at) values(?,?,?,?,?,?,?,?,?,?)", user.getUserId(), rule.platformCode(), guild, rule.gradeCode(), rule.id(), incoming, directCount, directIncome, meets ? now : null, now);
-        UserGradeEvaluationResponse value = evaluation(user.getUserId(), rule.platformCode(), guild, rule.gradeCode());
+        UserGradeEvaluationResponse value = evaluation(user.getUserId(), rule.platformCode(), guild, rule.gradeCode(), currentActiveCount);
         return value;
     }
 
@@ -162,12 +163,37 @@ public class UserGradeAdminService {
         return value == null ? 0 : value;
     }
 
-    private List<UserGradeEvaluationResponse> recentEvaluations() { return jdbc.query("select user_id,platform_code,guild_id,grade_code,rule_id,qualification_status,direct_invite_count,direct_income,qualified_at,evaluated_at from user_grade_evaluation order by evaluated_at desc,id desc limit 50", (rs, row) -> mapEvaluation(rs)); }
-    private UserGradeEvaluationResponse evaluation(long userId, String platform, String guild, String grade) { return jdbc.query("select user_id,platform_code,guild_id,grade_code,rule_id,qualification_status,direct_invite_count,direct_income,qualified_at,evaluated_at from user_grade_evaluation where user_id=? and platform_code=? and guild_id=? and grade_code=?", (rs, row) -> mapEvaluation(rs), userId, platform, guild, grade).getFirst(); }
+    /**
+     * Current activity is deliberately separate from the permanent effective-user fact:
+     * within the seven complete natural days before today, a qualified direct invitee
+     * needs real, settled income on at least three distinct business dates. It never
+     * downgrades a user or changes an earned grade.
+     */
+    public int currentActiveEffectiveInviteCount(long inviterUserId, String platform, LocalDateTime now) {
+        java.time.LocalDate endExclusive = now.toLocalDate();
+        java.time.LocalDate startInclusive = endExclusive.minusDays(7);
+        Integer value = jdbc.queryForObject("""
+                select count(*) from (
+                    select i.user_id
+                    from invitation_relation_version i
+                    join effective_user_qualification_fact f on f.user_id=i.user_id and f.platform_code=? and f.qualification_status='QUALIFIED'
+                    join mcn_income_shadow_ledger_projection p on p.resolved_user_id=i.user_id and p.platform_code=?
+                    where i.inviter_user_id=? and i.effective_from<=? and (i.effective_to is null or i.effective_to>?)
+                      and p.shadow_status='BOUND_FINAL' and p.settlement_status='SETTLED' and p.event_type='INCOME'
+                      and p.business_date>=? and p.business_date<?
+                    group by i.user_id
+                    having count(distinct p.business_date)>=3
+                ) active_direct_invitees
+                """, Integer.class, platform, platform, inviterUserId, now, now, startInclusive, endExclusive);
+        return value == null ? 0 : value;
+    }
+
+    private List<UserGradeEvaluationResponse> recentEvaluations() { LocalDateTime now = LocalDateTime.now(clock); return jdbc.query("select user_id,platform_code,guild_id,grade_code,rule_id,qualification_status,direct_invite_count,direct_income,qualified_at,evaluated_at from user_grade_evaluation order by evaluated_at desc,id desc limit 50", (rs, row) -> mapEvaluation(rs, currentActiveEffectiveInviteCount(rs.getLong(1), rs.getString(2), now))); }
+    private UserGradeEvaluationResponse evaluation(long userId, String platform, String guild, String grade, int currentActiveCount) { return jdbc.query("select user_id,platform_code,guild_id,grade_code,rule_id,qualification_status,direct_invite_count,direct_income,qualified_at,evaluated_at from user_grade_evaluation where user_id=? and platform_code=? and guild_id=? and grade_code=?", (rs, row) -> mapEvaluation(rs, currentActiveCount), userId, platform, guild, grade).getFirst(); }
     private UserGradeRuleResponse rule(long id) { List<UserGradeRuleResponse> values = jdbc.query(selectRules() + " where id=?", (rs, row) -> mapRule(rs), id); if (values.isEmpty()) throw new IllegalArgumentException("user grade rule not found"); return values.getFirst(); }
     private String selectRules() { return "select id,rule_code,rule_version,grade_code,platform_code,country_code,guild_id,required_direct_invite_count,required_direct_income,effective_from,effective_to,rule_status,created_by,approved_by,approved_at,approval_note from user_grade_rule_version"; }
     private UserGradeRuleResponse mapRule(java.sql.ResultSet rs) throws java.sql.SQLException { return new UserGradeRuleResponse(rs.getLong(1), rs.getString(2), rs.getInt(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getString(7), rs.getInt(8), rs.getBigDecimal(9), rs.getTimestamp(10).toLocalDateTime(), rs.getTimestamp(11) == null ? null : rs.getTimestamp(11).toLocalDateTime(), rs.getString(12), nullableLong(rs, 13), nullableLong(rs, 14), rs.getTimestamp(15) == null ? null : rs.getTimestamp(15).toLocalDateTime(), rs.getString(16)); }
-    private UserGradeEvaluationResponse mapEvaluation(java.sql.ResultSet rs) throws java.sql.SQLException { return new UserGradeEvaluationResponse(rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getLong(5), rs.getString(6), rs.getInt(7), rs.getBigDecimal(8), rs.getTimestamp(9) == null ? null : rs.getTimestamp(9).toLocalDateTime(), rs.getTimestamp(10).toLocalDateTime()); }
+    private UserGradeEvaluationResponse mapEvaluation(java.sql.ResultSet rs, int currentActiveCount) throws java.sql.SQLException { return new UserGradeEvaluationResponse(rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getLong(5), rs.getString(6), rs.getInt(7), currentActiveCount, rs.getBigDecimal(8), rs.getTimestamp(9) == null ? null : rs.getTimestamp(9).toLocalDateTime(), rs.getTimestamp(10).toLocalDateTime()); }
 
     private void validate(UserGradeRuleRequest request) {
         if (request.effectiveTo() != null && request.effectiveFrom() != null && request.effectiveTo().isBefore(request.effectiveFrom())) throw new IllegalArgumentException("effectiveTo must not be before effectiveFrom");

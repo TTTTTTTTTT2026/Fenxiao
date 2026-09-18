@@ -257,6 +257,13 @@ public class IncentiveAdminController {
         return advancementReviews.open(request, guard.assertTeamManageAccess(token, session));
     }
 
+    @PostMapping("/admin/incentives/user-grade-advancement-reviews/{id}/platinum-evidence")
+    public UserGradeAdvancementReviewResponse recordPlatinumEvidence(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                       @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                                       @PathVariable long id, @Valid @RequestBody UserGradePlatinumEvidenceRequest request) {
+        return advancementReviews.recordPlatinumEvidence(id, request, guard.assertTeamManageAccess(token, session));
+    }
+
     @PostMapping("/admin/incentives/user-grade-advancement-reviews/{id}/training-confirmation")
     public UserGradeAdvancementReviewResponse confirmGradeTraining(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                                      @RequestHeader(value="X-Admin-Session",required=false) String session,
