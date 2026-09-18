@@ -86,11 +86,11 @@ public class EffectiveUserQualificationService {
         Map<Long, List<IncomeEvidence>> byUser = new LinkedHashMap<>();
         String scope = inviterUserId == null ? "" : " and p.resolved_user_id in (select user_id from invitation_relation_version where inviter_user_id=? and effective_to is null)";
         List<IncomeEvidence> evidence = jdbc.query("""
-                select p.resolved_user_id,r.occurred_at,p.source_event_id,p.source_revision
+                select p.resolved_user_id,r.occurred_at,r.source_event_id,r.source_revision
                 from mcn_income_shadow_ledger_projection p
                 join mcn_income_raw_ledger_event r on r.id=p.raw_ledger_event_id
                 where p.platform_code=? and p.shadow_status='BOUND_FINAL' and p.resolved_user_id is not null
-                """ + scope + " order by p.resolved_user_id,r.occurred_at,p.source_event_id", (rs, row) -> new IncomeEvidence(rs.getLong(1), rs.getTimestamp(2).toInstant(), rs.getString(3), rs.getString(4)), inviterUserId == null ? new Object[]{platform} : new Object[]{platform, inviterUserId});
+                """ + scope + " order by p.resolved_user_id,r.occurred_at,r.source_event_id", (rs, row) -> new IncomeEvidence(rs.getLong(1), rs.getTimestamp(2).toInstant(), rs.getString(3), rs.getString(4)), inviterUserId == null ? new Object[]{platform} : new Object[]{platform, inviterUserId});
         evidence.forEach(item -> byUser.computeIfAbsent(item.userId(), ignored -> new ArrayList<>()).add(item));
         String factScope = inviterUserId == null ? "" : " and f.user_id in (select user_id from invitation_relation_version where inviter_user_id=? and effective_to is null)";
         List<Long> existingUsers = jdbc.query("select f.user_id from effective_user_qualification_fact f where f.platform_code=?" + factScope,
