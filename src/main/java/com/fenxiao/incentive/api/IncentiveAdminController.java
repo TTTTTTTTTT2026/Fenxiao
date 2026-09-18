@@ -11,6 +11,7 @@ import com.fenxiao.incentive.service.UserGradeAdminService;
 import com.fenxiao.incentive.service.UserGradeLevelAdminService;
 import com.fenxiao.incentive.service.EffectiveUserQualificationService;
 import com.fenxiao.incentive.service.UserGradeAdvancementReviewService;
+import com.fenxiao.incentive.service.UserPointFactService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
@@ -27,7 +28,8 @@ public class IncentiveAdminController {
     private final TokenPointConversionAdminService tokenPointConversions;
     private final EffectiveUserQualificationService effectiveUsers;
     private final UserGradeAdvancementReviewService advancementReviews;
-    public IncentiveAdminController(DistributionAccessGuard guard, IncentiveShadowService service, MentorIncentiveAdminService mentorIncentives, OperatingDividendAdminService operatingDividends, UserGradeAdminService userGrades, TeamManagementAdminService teams, UserGradeLevelAdminService gradeLevels, TokenPointConversionAdminService tokenPointConversions, EffectiveUserQualificationService effectiveUsers, UserGradeAdvancementReviewService advancementReviews) { this.guard = guard; this.service = service; this.mentorIncentives = mentorIncentives; this.operatingDividends = operatingDividends; this.userGrades = userGrades; this.teams = teams; this.gradeLevels = gradeLevels; this.tokenPointConversions = tokenPointConversions; this.effectiveUsers = effectiveUsers; this.advancementReviews = advancementReviews; }
+    private final UserPointFactService userPoints;
+    public IncentiveAdminController(DistributionAccessGuard guard, IncentiveShadowService service, MentorIncentiveAdminService mentorIncentives, OperatingDividendAdminService operatingDividends, UserGradeAdminService userGrades, TeamManagementAdminService teams, UserGradeLevelAdminService gradeLevels, TokenPointConversionAdminService tokenPointConversions, EffectiveUserQualificationService effectiveUsers, UserGradeAdvancementReviewService advancementReviews, UserPointFactService userPoints) { this.guard = guard; this.service = service; this.mentorIncentives = mentorIncentives; this.operatingDividends = operatingDividends; this.userGrades = userGrades; this.teams = teams; this.gradeLevels = gradeLevels; this.tokenPointConversions = tokenPointConversions; this.effectiveUsers = effectiveUsers; this.advancementReviews = advancementReviews; this.userPoints = userPoints; }
 
     @PostMapping("/admin/incentives/mentor-rules")
     public MentorIncentiveRuleResponse mentorRule(@RequestHeader(value="X-Admin-Token",required=false) String token,
@@ -136,6 +138,23 @@ public class IncentiveAdminController {
                                                                  @PathVariable String platformCode,
                                                                  @Valid @RequestBody TokenPointConversionRequest request) {
         return tokenPointConversions.save(platformCode, request, guard.assertTeamManageAccess(token, session));
+    }
+
+    @PostMapping("/admin/incentives/user-points/refresh")
+    public Map<String, Object> refreshUserPoints(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                 @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                 @RequestParam String platformCode) {
+        guard.assertTeamManageAccess(token, session);
+        return Map.of("platformCode", platformCode.toUpperCase(java.util.Locale.ROOT), "refreshedCount", userPoints.refresh(platformCode));
+    }
+
+    @GetMapping("/admin/incentives/user-points/dashboard")
+    public UserPointDashboardResponse userPointDashboard(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                         @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                         @RequestParam String platformCode,
+                                                         @RequestParam(defaultValue="20") int limit) {
+        guard.assertTeamManageAccess(token, session);
+        return userPoints.dashboard(platformCode, limit);
     }
 
     @PostMapping("/admin/incentives/operating-dividend-policies")
