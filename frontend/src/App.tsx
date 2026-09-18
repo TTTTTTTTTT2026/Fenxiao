@@ -138,6 +138,7 @@ import {
   excludeAdminEffectiveUserQualification,
   getAdminUserGradeAdvancementReviews,
   createAdminUserGradeAdvancementReview,
+  recordAdminUserGradePlatinumEvidence,
   confirmAdminUserGradeAdvancementReview,
   qualifyAdminMentor,
   assignAdminMentor,
@@ -540,6 +541,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [userGradeAdvancementReviews, setUserGradeAdvancementReviews] = useState<UserGradeAdvancementReviewResponse[]>([])
   const [isUserGradeAdvancementDialogOpen, setIsUserGradeAdvancementDialogOpen] = useState(false)
   const [userGradeAdvancementForm, setUserGradeAdvancementForm] = useState({ userId: '', platformCode: 'TIMO', guildId: '', targetGradeCode: 'PLATINUM' })
+  const [platinumEvidenceTarget, setPlatinumEvidenceTarget] = useState<UserGradeAdvancementReviewResponse | null>(null)
+  const [platinumEvidenceForm, setPlatinumEvidenceForm] = useState({ traineeUserId: '', groupReference: '', observationStart: '', observationEnd: '', finalWeekEffectiveUserCount: '5', finalWeekMinIncomeDateCount: '3', evidenceNote: '' })
   const [isUserGradeLevelDialogOpen, setIsUserGradeLevelDialogOpen] = useState(false)
   const [userGradeLevelForm, setUserGradeLevelForm] = useState({ levelName: '', levelRank: '1', requiredPoints: '0', grantsTeamLeader: false, effectiveFrom: '', effectiveTo: '' })
   const [tokenPointConversionDashboard, setTokenPointConversionDashboard] = useState<TokenPointConversionDashboardResponse | null>(null)
@@ -2080,6 +2083,20 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     } catch (err) { setError(err instanceof Error ? err.message : '建立高级等级验收记录失败') } finally { setLoading(false) }
   }
 
+  function openPlatinumEvidenceDialog(review: UserGradeAdvancementReviewResponse) {
+    setPlatinumEvidenceTarget(review)
+    setPlatinumEvidenceForm({ traineeUserId: '', groupReference: '', observationStart: '', observationEnd: '', finalWeekEffectiveUserCount: '5', finalWeekMinIncomeDateCount: '3', evidenceNote: '' })
+  }
+
+  async function savePlatinumEvidence() {
+    if (!adminSession || !platinumEvidenceTarget || !Number(platinumEvidenceForm.traineeUserId) || !platinumEvidenceForm.groupReference.trim() || !platinumEvidenceForm.observationStart || !platinumEvidenceForm.observationEnd || !platinumEvidenceForm.evidenceNote.trim()) { setError('请完整填写两名银牌成员各自的小组经营证据。'); return }
+    setLoading(true); setError(''); setSuccessMessage('')
+    try {
+      const saved = await recordAdminUserGradePlatinumEvidence(adminSession.sessionToken, platinumEvidenceTarget.id, { traineeUserId: Number(platinumEvidenceForm.traineeUserId), groupReference: platinumEvidenceForm.groupReference.trim(), observationStart: platinumEvidenceForm.observationStart, observationEnd: platinumEvidenceForm.observationEnd, finalWeekEffectiveUserCount: Number(platinumEvidenceForm.finalWeekEffectiveUserCount), finalWeekMinIncomeDateCount: Number(platinumEvidenceForm.finalWeekMinIncomeDateCount), evidenceNote: platinumEvidenceForm.evidenceNote.trim() })
+      setPlatinumEvidenceTarget(null); setSuccessMessage(`已保存铂金培养证据（当前 ${saved.platinumEvidence.length}/2）。不会自动升级、建队或开启团队分成。`); await loadUserGradeAdvancementReviews()
+    } catch (err) { setError(err instanceof Error ? err.message : '保存铂金培养证据失败') } finally { setLoading(false) }
+  }
+
   async function confirmUserGradeAdvancementReview(review: UserGradeAdvancementReviewResponse, step: 'training-confirmation' | 'operating-confirmation' | 'responsibility-confirmation' | 'leadership-appointment') {
     if (!adminSession || !canManageTeams) return
     const labels = { 'training-confirmation': '培养确认', 'operating-confirmation': '经营验收', 'responsibility-confirmation': '经营职责确认', 'leadership-appointment': '负责人任命' }
@@ -3173,7 +3190,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               <div className="stack-gap">
                 <InfoCard title="等级规则概览" tone="neutral">
                   {userGradeDashboard ? <div className="relation-grid"><RelationItem label="已启用等级规则" value={userGradeDashboard.activeRuleCount} /><RelationItem label="已合格团队长" value={userGradeDashboard.qualifiedTeamLeaderCount} /></div> : <EmptyState title="尚未读取用户等级数据" description="点击“刷新数据”读取规则与最近评估结果。" />}
-                  <InlineHint text="MCN 只提供收入事实；邀请关系、有效用户资格和等级由分销平台计算及审计。本页不创建奖励、余额、提现或付款。累计达标人数与当前活跃有效人数将分开展示，当前活跃口径待业务确认后启用。" />
+                  <InlineHint text="MCN 只提供收入事实；邀请关系、有效用户资格和等级由分销平台计算及审计。本页不创建奖励、余额、提现或付款。累计达标人数与当前活跃有效人数分开展示：当前活跃指最近 7 个完整自然日（不含当天）至少 3 个不同日期有本人真实、可结算聊天业务收入。" />
                 </InfoCard>
                 <InfoCard title="直接邀请积分事实" tone="neutral">
                   <div className="action-row">
@@ -3189,9 +3206,9 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   </> : <EmptyState title="尚未读取积分事实" description="选择平台后读取，或按本地已定稿收入刷新。该操作不会请求 MCN。" />}
                 </InfoCard>
                 <InfoCard title="铂金、钻石、黑金：培养与经营验收" tone="neutral">
-                  <p>高级等级不由直邀人数规则自动晋级。先建立验收记录，再按顺序确认培养资格、经营验收和经营职责；三项均确认后仅进入“待负责人确认”，不会自动创建团队、任命负责人或开启团队经营分成。</p>
+                  <p>高级等级不由直邀人数规则自动晋级。铂金须先录入两名银牌成员各自的小组、连续 30 天观察和最后 7 天指标；钻石、黑金的细化经营指标尚未确认，仍只能保留人工验收记录。三项均确认后仅进入“待负责人确认”，不会自动创建团队、任命负责人或开启团队经营分成。</p>
                   <button className="primary-btn top-gap" onClick={openUserGradeAdvancementDialog} disabled={loading}>建立高级等级验收记录</button>
-                  {userGradeAdvancementReviews.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>用户 / 目标等级</th><th>平台 / 公会</th><th>培养资格</th><th>经营验收</th><th>经营职责</th><th>状态</th><th>操作</th></tr></thead><tbody>{userGradeAdvancementReviews.map((review) => <tr key={review.id}><td>用户 {review.userId} / {review.targetGradeCode}</td><td>{review.platformCode} / {review.guildId}</td><td>{review.trainingStatus === 'CONFIRMED' ? '已确认' : '待确认'}</td><td>{review.operatingValidationStatus === 'CONFIRMED' ? '已确认' : '待确认'}</td><td>{review.responsibilityStatus === 'CONFIRMED' ? '已确认' : '待确认'}</td><td>{review.reviewStatus === 'LEADER_CONFIRMED' ? '负责人已确认' : review.reviewStatus === 'READY_FOR_LEADER_CONFIRMATION' ? '待负责人确认' : '验收中'}</td><td><div className="action-row">{review.trainingStatus !== 'CONFIRMED' ? <button className="ghost-btn small-btn" onClick={() => void confirmUserGradeAdvancementReview(review, 'training-confirmation')} disabled={loading}>确认培养</button> : null}{review.operatingValidationStatus !== 'CONFIRMED' ? <button className="ghost-btn small-btn" onClick={() => void confirmUserGradeAdvancementReview(review, 'operating-confirmation')} disabled={loading}>确认经营</button> : null}{review.responsibilityStatus !== 'CONFIRMED' ? <button className="ghost-btn small-btn" onClick={() => void confirmUserGradeAdvancementReview(review, 'responsibility-confirmation')} disabled={loading}>确认职责</button> : null}{review.reviewStatus === 'READY_FOR_LEADER_CONFIRMATION' ? <button className="primary-btn small-btn" onClick={() => void confirmUserGradeAdvancementReview(review, 'leadership-appointment')} disabled={loading}>确认负责人并建队</button> : null}{review.reviewStatus === 'LEADER_CONFIRMED' ? '—' : null}</div></td></tr>)}</tbody></table></div> : <EmptyState title="尚无高级等级验收记录" description="培养与经营验收规则尚未自动化；请按已确认的业务证据建立记录。" />}
+                  {userGradeAdvancementReviews.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>用户 / 目标等级</th><th>平台 / 公会</th><th>培养资格</th><th>经营验收</th><th>经营职责</th><th>状态</th><th>操作</th></tr></thead><tbody>{userGradeAdvancementReviews.map((review) => <tr key={review.id}><td>用户 {review.userId} / {review.targetGradeCode}</td><td>{review.platformCode} / {review.guildId}</td><td>{review.targetGradeCode === 'PLATINUM' ? <span>{review.trainingStatus === 'CONFIRMED' ? '已确认' : `待确认（证据 ${review.platinumEvidence.length}/2）`}<small className="table-subtle">{review.platinumEvidence.map((item) => `银牌用户 ${item.traineeUserId} · ${item.groupReference} · ${item.evidenceStatus}`).join('\n') || '需两名银牌成员及不同小组证据'}</small></span> : review.trainingStatus === 'CONFIRMED' ? '已确认' : '待确认'}</td><td>{review.operatingValidationStatus === 'CONFIRMED' ? '已确认' : '待确认'}</td><td>{review.responsibilityStatus === 'CONFIRMED' ? '已确认' : '待确认'}</td><td>{review.reviewStatus === 'LEADER_CONFIRMED' ? '负责人已确认' : review.reviewStatus === 'READY_FOR_LEADER_CONFIRMATION' ? '待负责人确认' : '验收中'}</td><td><div className="action-row">{review.targetGradeCode === 'PLATINUM' && review.trainingStatus !== 'CONFIRMED' ? <button className="ghost-btn small-btn" onClick={() => openPlatinumEvidenceDialog(review)} disabled={loading}>录入培养证据</button> : null}{review.trainingStatus !== 'CONFIRMED' ? <button className="ghost-btn small-btn" onClick={() => void confirmUserGradeAdvancementReview(review, 'training-confirmation')} disabled={loading}>确认培养</button> : null}{review.operatingValidationStatus !== 'CONFIRMED' ? <button className="ghost-btn small-btn" onClick={() => void confirmUserGradeAdvancementReview(review, 'operating-confirmation')} disabled={loading}>确认经营</button> : null}{review.responsibilityStatus !== 'CONFIRMED' ? <button className="ghost-btn small-btn" onClick={() => void confirmUserGradeAdvancementReview(review, 'responsibility-confirmation')} disabled={loading}>确认职责</button> : null}{review.reviewStatus === 'READY_FOR_LEADER_CONFIRMATION' ? <button className="primary-btn small-btn" onClick={() => void confirmUserGradeAdvancementReview(review, 'leadership-appointment')} disabled={loading}>确认负责人并建队</button> : null}{review.reviewStatus === 'LEADER_CONFIRMED' ? '—' : null}</div></td></tr>)}</tbody></table></div> : <EmptyState title="尚无高级等级验收记录" description="培养与经营验收规则尚未自动化；请按已确认的业务证据建立记录。" />}
                 </InfoCard>
                 <InfoCard title="新增用户等级规则" tone="neutral">
                   <form className="grid-form compact-form exception-filter-grid" onSubmit={(event) => { event.preventDefault(); void saveUserGradeRule() }}>
@@ -3210,7 +3227,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   {userGradeDashboard?.rules.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>规则版本</th><th>等级</th><th>适用范围</th><th>有效直邀门槛</th><th>状态</th><th>操作</th></tr></thead><tbody>{userGradeDashboard.rules.map((rule) => <tr key={rule.id}><td>{rule.ruleCode} · V{rule.ruleVersion}</td><td>{rule.gradeCode}</td><td>{rule.platformCode} / {rule.countryCode}{rule.guildId ? ` / ${rule.guildId}` : ' / 全部公会'}</td><td>数量 ≥ {rule.requiredDirectInviteCount}</td><td>{rule.status === 'DRAFT' ? '待审' : rule.status === 'ACTIVE' ? '已启用' : '已停用'}</td><td>{rule.status === 'DRAFT' ? <button className="primary-btn small-btn" onClick={() => void activateUserGradeRule(rule.id, rule.ruleCode)} disabled={loading}>审批并启用</button> : rule.status === 'ACTIVE' ? <button className="ghost-btn small-btn" onClick={() => void retireUserGradeRule(rule.id, rule.ruleCode)} disabled={loading}>停止使用</button> : '-'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未配置用户等级规则" description="先建立新星、银牌或金牌的待审规则。" />}
                 </InfoCard>
                 <InfoCard title="人工复核用户等级" tone="neutral"><div className="action-row"><input aria-label="用户 ID" type="number" min="1" value={userGradeEvaluationForm.userId} onChange={(event) => setUserGradeEvaluationForm({ ...userGradeEvaluationForm, userId: event.target.value })} placeholder="用户 ID" /><select value={userGradeEvaluationForm.platformCode} onChange={(event) => setUserGradeEvaluationForm({ ...userGradeEvaluationForm, platformCode: event.target.value })}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select><button className="ghost-btn" onClick={() => void evaluateUserGrade()} disabled={loading}>立即复核</button></div><InlineHint text="系统每小时也会自动重算已有直接邀请关系的已核验用户。人工复核仅刷新本地资格证据，不会请求 MCN。" /></InfoCard>
-                <InfoCard title="最近等级评估" tone="neutral">{userGradeDashboard?.recentEvaluations.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>用户</th><th>平台 / 公会</th><th>等级</th><th>有效直邀人数</th><th>结果</th><th>评估时间</th></tr></thead><tbody>{userGradeDashboard.recentEvaluations.map((item, index) => <tr key={`${item.userId}-${item.platformCode}-${item.guildId}-${item.gradeCode}-${index}`}><td>{item.userId}</td><td>{item.platformCode} / {item.guildId}</td><td>{item.gradeCode}</td><td>{item.directInviteCount}</td><td>{item.status === 'QUALIFIED' ? '已合格' : item.status === 'REQUIRES_MANUAL_REVIEW' ? '待人工复核' : '进行中'}</td><td>{formatDateTime(item.evaluatedAt)}</td></tr>)}</tbody></table></div> : <EmptyState title="暂无等级评估记录" description="启用规则后，由定时任务或人工复核生成记录。" />}</InfoCard>
+                <InfoCard title="最近等级评估" tone="neutral">{userGradeDashboard?.recentEvaluations.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>用户</th><th>平台 / 公会</th><th>等级</th><th>累计达标有效直邀</th><th>当前活跃有效直邀</th><th>结果</th><th>评估时间</th></tr></thead><tbody>{userGradeDashboard.recentEvaluations.map((item, index) => <tr key={`${item.userId}-${item.platformCode}-${item.guildId}-${item.gradeCode}-${index}`}><td>{item.userId}</td><td>{item.platformCode} / {item.guildId}</td><td>{item.gradeCode}</td><td>{item.directInviteCount}</td><td>{item.currentActiveEffectiveInviteCount}</td><td>{item.status === 'QUALIFIED' ? '已合格' : item.status === 'REQUIRES_MANUAL_REVIEW' ? '待人工复核' : '进行中'}</td><td>{formatDateTime(item.evaluatedAt)}</td></tr>)}</tbody></table></div> : <EmptyState title="暂无等级评估记录" description="启用规则后，由定时任务或人工复核生成记录。" />}</InfoCard>
                 {canReadEffectiveUsers ? <InfoCard title="有效用户资格事实与纠偏" tone="neutral">
                   <div className="action-row"><select value={effectiveUserPlatform} onChange={(event) => { const platform = event.target.value as 'TIMO' | 'LINKY'; setEffectiveUserPlatform(platform); void loadEffectiveUserQualifications(platform) }}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select><button className="ghost-btn" onClick={() => void loadEffectiveUserQualifications()} disabled={loading}>读取资格事实</button>{canRunControlledIncome ? <button className="primary-btn" onClick={() => void refreshEffectiveUserQualifications()} disabled={loading}>按定稿收入刷新</button> : null}</div>
                   <InlineHint text="有效用户资格是“首次真实、可结算收入后的 7 天内出现至少 3 个不同收入日期”的本地事实。刷新只重算本地事实；不请求 MCN，不产生奖励、余额、提现或付款。" />
@@ -4169,6 +4186,29 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             <label>权威公会 ID<input required value={userGradeAdvancementForm.guildId} onChange={(event) => setUserGradeAdvancementForm({ ...userGradeAdvancementForm, guildId: event.target.value })} placeholder="例如：22000448" /></label>
           </form>
           <InlineHint text="建立后依次补充培养、经营和职责三项确认。该记录只是等级与团队负责人流程的证据，不会自动授予负责人身份、创建团队或开启团队经营分成。" />
+        </ConfirmDialog>
+      ) : null}
+
+      {platinumEvidenceTarget ? (
+        <ConfirmDialog
+          title={`录入铂金培养与小组经营证据 · 用户 ${platinumEvidenceTarget.userId}`}
+          tone="primary"
+          confirmText="保存证据"
+          loading={loading}
+          confirmDisabled={!platinumEvidenceForm.traineeUserId || !platinumEvidenceForm.groupReference.trim() || !platinumEvidenceForm.observationStart || !platinumEvidenceForm.observationEnd || !platinumEvidenceForm.evidenceNote.trim()}
+          onCancel={() => setPlatinumEvidenceTarget(null)}
+          onConfirm={() => void savePlatinumEvidence()}
+        >
+          <form className="grid-form compact-form" onSubmit={(event) => { event.preventDefault(); void savePlatinumEvidence() }}>
+            <label>银牌成员用户 ID<input required min="1" inputMode="numeric" value={platinumEvidenceForm.traineeUserId} onChange={(event) => setPlatinumEvidenceForm({ ...platinumEvidenceForm, traineeUserId: event.target.value.replace(/\D/g, '') })} placeholder="必须为同平台、同公会已达标银牌" /></label>
+            <label>成员负责小组标识<input required maxLength={128} value={platinumEvidenceForm.groupReference} onChange={(event) => setPlatinumEvidenceForm({ ...platinumEvidenceForm, groupReference: event.target.value })} placeholder="两个成员不得填写同一小组" /></label>
+            <label>观察开始日期<input required type="date" value={platinumEvidenceForm.observationStart} onChange={(event) => setPlatinumEvidenceForm({ ...platinumEvidenceForm, observationStart: event.target.value })} /></label>
+            <label>观察结束日期<input required type="date" value={platinumEvidenceForm.observationEnd} onChange={(event) => setPlatinumEvidenceForm({ ...platinumEvidenceForm, observationEnd: event.target.value })} /></label>
+            <label>最后 7 天有效用户数<input required min="5" type="number" value={platinumEvidenceForm.finalWeekEffectiveUserCount} onChange={(event) => setPlatinumEvidenceForm({ ...platinumEvidenceForm, finalWeekEffectiveUserCount: event.target.value })} /></label>
+            <label>最后 7 天每位成员最少收入日期数<input required min="3" max="7" type="number" value={platinumEvidenceForm.finalWeekMinIncomeDateCount} onChange={(event) => setPlatinumEvidenceForm({ ...platinumEvidenceForm, finalWeekMinIncomeDateCount: event.target.value })} /></label>
+            <label className="full-width">验收依据<textarea required maxLength={1000} value={platinumEvidenceForm.evidenceNote} onChange={(event) => setPlatinumEvidenceForm({ ...platinumEvidenceForm, evidenceNote: event.target.value })} placeholder="记录培养事实、经营验收材料与复核结论" /></label>
+          </form>
+          <InlineHint text="系统会校验：铂金本人已达标金牌；每条记录对应不同银牌成员与不同小组；观察期至少 30 天；最后 7 天至少 5 名有效用户且每位至少 3 个收入日期。保存两条后才能确认培养。不会自动升级、建队或开启团队经营分成。" />
         </ConfirmDialog>
       ) : null}
 

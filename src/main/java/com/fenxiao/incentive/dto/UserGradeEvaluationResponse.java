@@ -5,6 +5,6 @@ import java.time.LocalDateTime;
 
 public record UserGradeEvaluationResponse(long userId, String platformCode, String guildId, String gradeCode,
                                           long ruleId, String status, int directInviteCount,
-                                          BigDecimal directIncome, LocalDateTime qualifiedAt,
+                                          int currentActiveEffectiveInviteCount, BigDecimal directIncome, LocalDateTime qualifiedAt,
                                           LocalDateTime evaluatedAt) {
 }

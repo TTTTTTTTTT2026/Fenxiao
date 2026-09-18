@@ -34,6 +34,7 @@ class EffectiveUserQualificationServiceTest {
             jdbc.execute("alter table user_grade_evaluation add column if not exists " + column);
         }
         jdbc.execute("create table if not exists effective_user_qualification_fact (id bigint auto_increment primary key,user_id bigint not null,platform_code varchar(32) not null,qualification_status varchar(32) not null,first_income_at timestamp,observation_ends_at timestamp,qualifying_income_date_count int not null default 0,qualifying_income_dates varchar(255),latest_income_at timestamp,source_evidence_snapshot varchar(1024),qualified_at timestamp,evidence_revoked_at timestamp,manual_correction_reason varchar(32),manual_correction_note varchar(255),corrected_by bigint,corrected_at timestamp,evaluated_at timestamp not null,unique(user_id,platform_code))");
+        jdbc.execute("delete from effective_user_qualification_fact");
     }
 
     @Test
