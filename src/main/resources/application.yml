@@ -100,6 +100,9 @@ app:
     reward-engine:
       enabled: ${REWARD_ENGINE_ENABLED:false}
       version: ${REWARD_ENGINE_VERSION:BANDEIRA_V1_DIRECT_ONLY}
+    # Rewards, wallets, withdrawal and payment writes require a separate launch decision.
+    real-finance:
+      enabled: ${REAL_FINANCE_ENABLED:false}
     # Both programmes remain closed until their separate business formulae and launch approvals are complete.
     team-operating-reward:
       enabled: ${TEAM_OPERATING_REWARD_ENABLED:false}
