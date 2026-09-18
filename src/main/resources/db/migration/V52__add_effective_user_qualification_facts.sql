@@ -1,0 +1,25 @@
+-- Effective-user qualification is an auditable fact, separate from rewards and user role fields.
+CREATE TABLE effective_user_qualification_fact (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    platform_code VARCHAR(32) NOT NULL,
+    qualification_status VARCHAR(32) NOT NULL,
+    first_income_at TIMESTAMP NULL,
+    observation_ends_at TIMESTAMP NULL,
+    qualifying_income_date_count INT NOT NULL DEFAULT 0,
+    qualifying_income_dates VARCHAR(255) NULL,
+    latest_income_at TIMESTAMP NULL,
+    source_evidence_snapshot VARCHAR(1024) NULL,
+    qualified_at TIMESTAMP NULL,
+    evidence_revoked_at TIMESTAMP NULL,
+    manual_correction_reason VARCHAR(32) NULL,
+    manual_correction_note VARCHAR(255) NULL,
+    corrected_by BIGINT NULL,
+    corrected_at TIMESTAMP NULL,
+    evaluated_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_effective_user_qualification (user_id, platform_code),
+    INDEX idx_effective_user_qualification_status (platform_code, qualification_status, latest_income_at),
+    INDEX idx_effective_user_qualification_user (user_id, qualification_status)
+);
