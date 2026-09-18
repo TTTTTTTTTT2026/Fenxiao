@@ -9,4 +9,6 @@ public record McnIncomeRewardCandidateItemResponse(String sourceEventReference, 
                                                     String status, String reason, BigDecimal baseAmount,
                                                     BigDecimal candidateAmount, String amountUnit,
                                                     Integer invitationVersion, String policyCode,
-                                                    BigDecimal ruleRate) { }
+                                                    BigDecimal ruleRate, String calculationVersion,
+                                                    String sourceGuildId, BigDecimal companyShareRate,
+                                                    BigDecimal companyIncomeBaseAmount) { }
