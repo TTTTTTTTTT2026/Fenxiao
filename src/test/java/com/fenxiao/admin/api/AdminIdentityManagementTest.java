@@ -90,6 +90,18 @@ class AdminIdentityManagementTest {
         assertThat(events).isEqualTo(1);
     }
 
+    @Test void retiresLegacyOperatingDividendPolicyWritesEvenForSuperAdmin() throws Exception {
+        String root=login("root_admin","Root-Secure-Password-2026!",true);
+        mvc.perform(post("/admin/incentives/operating-dividend-policies")
+                        .header("X-Admin-Session",root).contentType(MediaType.APPLICATION_JSON).content("""
+                                {"platformCode":"LINKY","countryCode":"BR","requiredValidStarts":1,
+                                "requiredWithdrawEligible":0,"requiredActive7d":0,"profitShareRate":0.05,
+                                "effectiveFrom":"2026-09-19T00:00:00"}
+                                """))
+                .andExpect(status().isGone())
+                .andExpect(content().string(org.hamcrest.Matchers.blankOrNullString()));
+    }
+
     @Test void slidesRememberedSessionAndExpiresAfterSevenIdleDays() throws Exception {
         String token=login("root_admin","Root-Secure-Password-2026!",true);
         jdbc.update("update admin_session set last_seen_at=dateadd('DAY',-1,current_timestamp),expires_at=dateadd('DAY',6,current_timestamp) where token_hash=?",sha(token));
