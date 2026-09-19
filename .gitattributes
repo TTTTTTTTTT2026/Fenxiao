@@ -1,0 +1,5 @@
+# Deployment scripts are executed directly on Linux hosts. Keep their checkout
+# representation stable even when the release package is prepared on Windows.
+*.sh text eol=lf
+*.service text eol=lf
+*.timer text eol=lf
