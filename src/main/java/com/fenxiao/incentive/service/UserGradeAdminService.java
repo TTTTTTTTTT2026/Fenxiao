@@ -145,21 +145,14 @@ public class UserGradeAdminService {
         return value;
     }
 
-    /** Effective-user eligibility: three distinct income dates in the first seven days after first settled income. */
+    /** Fallback for non-Spring callers: read the same permanent effective-user fact as the main path. */
     private int directEffectiveInviteCount(long userId, String platform, LocalDateTime now) {
         Integer value = jdbc.queryForObject("""
-                select count(distinct i.user_id)
-                from invitation_relation_version i
+                select count(*) from effective_user_qualification_fact f
+                join invitation_relation_version i on i.user_id=f.user_id
                 where i.inviter_user_id=? and i.effective_from<=? and (i.effective_to is null or i.effective_to>?)
-                  and exists (
-                    select 1 from mcn_income_shadow_ledger_projection p
-                    join mcn_income_raw_ledger_event r on r.id=p.raw_ledger_event_id
-                    where p.resolved_user_id=i.user_id and p.platform_code=? and p.shadow_status='BOUND_FINAL'
-                      and r.occurred_at < date_add((select min(r0.occurred_at) from mcn_income_shadow_ledger_projection p0 join mcn_income_raw_ledger_event r0 on r0.id=p0.raw_ledger_event_id where p0.resolved_user_id=i.user_id and p0.platform_code=? and p0.shadow_status='BOUND_FINAL'), interval 7 day)
-                    group by p.resolved_user_id
-                    having count(distinct date(r.occurred_at)) >= 3
-                  )
-                """, Integer.class, userId, now, now, platform, platform);
+                  and f.platform_code=? and f.qualification_status='QUALIFIED'
+                """, Integer.class, userId, now, now, platform);
         return value == null ? 0 : value;
     }
 
