@@ -14,7 +14,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -23,7 +22,10 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Builds a local, revision-aware effective-user fact from MCN BOUND_FINAL income.
+ * Builds a local, revision-aware effective-user fact from MCN BOUND_FINAL,
+ * settled INCOME facts. Qualification is earned from a seven-complete-natural-day
+ * window with income on at least three dates; current activity is retained
+ * separately and never performs an automatic downgrade.
  * It has no dependency on rewards, wallets, withdrawals, or payment services.
  */
 @Service
@@ -86,11 +88,12 @@ public class EffectiveUserQualificationService {
         Map<Long, List<IncomeEvidence>> byUser = new LinkedHashMap<>();
         String scope = inviterUserId == null ? "" : " and p.resolved_user_id in (select user_id from invitation_relation_version where inviter_user_id=? and effective_to is null)";
         List<IncomeEvidence> evidence = jdbc.query("""
-                select p.resolved_user_id,r.occurred_at,r.source_event_id,r.source_revision
+                select p.resolved_user_id,p.business_date,r.occurred_at,r.source_event_id,r.source_revision
                 from mcn_income_shadow_ledger_projection p
                 join mcn_income_raw_ledger_event r on r.id=p.raw_ledger_event_id
-                where p.platform_code=? and p.shadow_status='BOUND_FINAL' and p.resolved_user_id is not null
-                """ + scope + " order by p.resolved_user_id,r.occurred_at,r.source_event_id", (rs, row) -> new IncomeEvidence(rs.getLong(1), rs.getTimestamp(2).toInstant(), rs.getString(3), rs.getString(4)), inviterUserId == null ? new Object[]{platform} : new Object[]{platform, inviterUserId});
+                where p.platform_code=? and p.shadow_status='BOUND_FINAL'
+                  and p.settlement_status='SETTLED' and p.event_type='INCOME' and p.resolved_user_id is not null
+                """ + scope + " order by p.resolved_user_id,p.business_date,r.occurred_at,r.source_event_id", (rs, row) -> new IncomeEvidence(rs.getLong(1), rs.getDate(2).toLocalDate(), rs.getTimestamp(3).toInstant(), rs.getString(4), rs.getString(5)), inviterUserId == null ? new Object[]{platform} : new Object[]{platform, inviterUserId});
         evidence.forEach(item -> byUser.computeIfAbsent(item.userId(), ignored -> new ArrayList<>()).add(item));
         String factScope = inviterUserId == null ? "" : " and f.user_id in (select user_id from invitation_relation_version where inviter_user_id=? and effective_to is null)";
         List<Long> existingUsers = jdbc.query("select f.user_id from effective_user_qualification_fact f where f.platform_code=?" + factScope,
@@ -107,32 +110,37 @@ public class EffectiveUserQualificationService {
     private void upsert(String platform, long userId, List<IncomeEvidence> income) {
         Existing existing = existing(userId, platform);
         LocalDateTime now = LocalDateTime.now(clock);
+        LocalDate currentWindowEnd = LocalDate.now(clock);
+        LocalDate currentWindowStart = currentWindowEnd.minusDays(7);
         if (income.isEmpty()) {
             if (existing != null && existing.manualCorrectionReason() == null) {
                 String status = "QUALIFIED".equals(existing.status()) ? "EVIDENCE_REVOKED" : "NOT_QUALIFIED";
-                jdbc.update("update effective_user_qualification_fact set qualification_status=?,qualifying_income_date_count=0,qualifying_income_dates='',latest_income_at=null,evidence_revoked_at=?,evaluated_at=? where user_id=? and platform_code=?",
-                        status, "EVIDENCE_REVOKED".equals(status) ? now : null, now, userId, platform);
+                jdbc.update("update effective_user_qualification_fact set qualification_status=?,qualifying_income_date_count=0,qualifying_income_dates='',latest_income_at=null,qualification_window_start=null,qualification_window_end=null,current_activity_status='NOT_ACTIVE',current_activity_window_start=?,current_activity_window_end=?,evidence_revoked_at=?,evaluated_at=? where user_id=? and platform_code=?",
+                        status, currentWindowStart, currentWindowEnd, "EVIDENCE_REVOKED".equals(status) ? now : null, now, userId, platform);
             }
             return;
         }
-        income.sort(Comparator.comparing(IncomeEvidence::occurredAt));
+        income.sort(Comparator.comparing(IncomeEvidence::businessDate).thenComparing(IncomeEvidence::occurredAt));
         IncomeEvidence first = income.getFirst();
-        Instant windowEnd = first.occurredAt().plusSeconds(7 * 24 * 60 * 60L);
-        List<LocalDate> dates = income.stream().filter(item -> item.occurredAt().isBefore(windowEnd))
-                .map(item -> item.occurredAt().atOffset(ZoneOffset.UTC).toLocalDate()).distinct().sorted().toList();
+        WindowEvidence earnedWindow = firstQualifyingWindow(income, currentWindowEnd);
+        List<LocalDate> earnedDates = earnedWindow == null ? List.of() : earnedWindow.incomeDates();
+        List<LocalDate> currentDates = income.stream().map(IncomeEvidence::businessDate)
+                .filter(date -> !date.isBefore(currentWindowStart) && date.isBefore(currentWindowEnd))
+                .distinct().sorted().toList();
+        String currentActivity = currentDates.size() >= 3 ? "ACTIVE" : "NOT_ACTIVE";
         if (existing != null && existing.manualCorrectionReason() != null) {
-            jdbc.update("update effective_user_qualification_fact set first_income_at=?,observation_ends_at=?,qualifying_income_date_count=?,qualifying_income_dates=?,latest_income_at=?,source_evidence_snapshot=?,evaluated_at=? where user_id=? and platform_code=?",
-                    Timestamp.from(first.occurredAt()), Timestamp.from(windowEnd), dates.size(), joinDates(dates), Timestamp.from(income.getLast().occurredAt()), snapshotEvidence(income), now, first.userId(), platform);
+            jdbc.update("update effective_user_qualification_fact set first_income_at=?,observation_ends_at=?,qualifying_income_date_count=?,qualifying_income_dates=?,latest_income_at=?,source_evidence_snapshot=?,qualification_window_start=?,qualification_window_end=?,current_activity_status=?,current_activity_window_start=?,current_activity_window_end=?,evaluated_at=? where user_id=? and platform_code=?",
+                    Timestamp.from(first.occurredAt()), earnedWindow == null ? null : Timestamp.valueOf(earnedWindow.endExclusive().atStartOfDay()), earnedDates.size(), joinDates(earnedDates), Timestamp.from(income.getLast().occurredAt()), snapshotEvidence(income), earnedWindow == null ? null : earnedWindow.startInclusive(), earnedWindow == null ? null : earnedWindow.endExclusive(), currentActivity, currentWindowStart, currentWindowEnd, now, first.userId(), platform);
             return;
         }
-        String incoming = Instant.now(clock).isBefore(windowEnd) ? "OBSERVING" : dates.size() >= 3 ? "QUALIFIED" : "NOT_QUALIFIED";
+        String incoming = earnedWindow == null ? "NOT_QUALIFIED" : "QUALIFIED";
         if (existing != null && "QUALIFIED".equals(existing.status()) && !"QUALIFIED".equals(incoming)) incoming = "EVIDENCE_REVOKED";
         LocalDateTime qualifiedAt = "QUALIFIED".equals(incoming) ? (existing != null && existing.qualifiedAt() != null ? existing.qualifiedAt() : now) : null;
         LocalDateTime revokedAt = "EVIDENCE_REVOKED".equals(incoming) ? now : null;
-        int changed = jdbc.update("update effective_user_qualification_fact set qualification_status=?,first_income_at=?,observation_ends_at=?,qualifying_income_date_count=?,qualifying_income_dates=?,latest_income_at=?,source_evidence_snapshot=?,qualified_at=?,evidence_revoked_at=?,evaluated_at=? where user_id=? and platform_code=?",
-                incoming, Timestamp.from(first.occurredAt()), Timestamp.from(windowEnd), dates.size(), joinDates(dates), Timestamp.from(income.getLast().occurredAt()), snapshotEvidence(income), qualifiedAt, revokedAt, now, first.userId(), platform);
-        if (changed == 0) jdbc.update("insert into effective_user_qualification_fact(user_id,platform_code,qualification_status,first_income_at,observation_ends_at,qualifying_income_date_count,qualifying_income_dates,latest_income_at,source_evidence_snapshot,qualified_at,evidence_revoked_at,evaluated_at) values(?,?,?,?,?,?,?,?,?,?,?,?)",
-                first.userId(), platform, incoming, Timestamp.from(first.occurredAt()), Timestamp.from(windowEnd), dates.size(), joinDates(dates), Timestamp.from(income.getLast().occurredAt()), snapshotEvidence(income), qualifiedAt, revokedAt, now);
+        int changed = jdbc.update("update effective_user_qualification_fact set qualification_status=?,first_income_at=?,observation_ends_at=?,qualifying_income_date_count=?,qualifying_income_dates=?,latest_income_at=?,source_evidence_snapshot=?,qualified_at=?,evidence_revoked_at=?,qualification_window_start=?,qualification_window_end=?,current_activity_status=?,current_activity_window_start=?,current_activity_window_end=?,evaluated_at=? where user_id=? and platform_code=?",
+                incoming, Timestamp.from(first.occurredAt()), earnedWindow == null ? null : Timestamp.valueOf(earnedWindow.endExclusive().atStartOfDay()), earnedDates.size(), joinDates(earnedDates), Timestamp.from(income.getLast().occurredAt()), snapshotEvidence(income), qualifiedAt, revokedAt, earnedWindow == null ? null : earnedWindow.startInclusive(), earnedWindow == null ? null : earnedWindow.endExclusive(), currentActivity, currentWindowStart, currentWindowEnd, now, first.userId(), platform);
+        if (changed == 0) jdbc.update("insert into effective_user_qualification_fact(user_id,platform_code,qualification_status,first_income_at,observation_ends_at,qualifying_income_date_count,qualifying_income_dates,latest_income_at,source_evidence_snapshot,qualified_at,evidence_revoked_at,qualification_window_start,qualification_window_end,current_activity_status,current_activity_window_start,current_activity_window_end,evaluated_at) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                first.userId(), platform, incoming, Timestamp.from(first.occurredAt()), earnedWindow == null ? null : Timestamp.valueOf(earnedWindow.endExclusive().atStartOfDay()), earnedDates.size(), joinDates(earnedDates), Timestamp.from(income.getLast().occurredAt()), snapshotEvidence(income), qualifiedAt, revokedAt, earnedWindow == null ? null : earnedWindow.startInclusive(), earnedWindow == null ? null : earnedWindow.endExclusive(), currentActivity, currentWindowStart, currentWindowEnd, now);
     }
 
     private Existing existing(long userId, String platform) {
@@ -146,9 +154,10 @@ public class EffectiveUserQualificationService {
         return values.getFirst();
     }
 
-    private String select() { return "select user_id,platform_code,qualification_status,first_income_at,observation_ends_at,qualifying_income_date_count,qualifying_income_dates,latest_income_at,source_evidence_snapshot,qualified_at,evidence_revoked_at,manual_correction_reason,manual_correction_note,corrected_by,corrected_at,evaluated_at from effective_user_qualification_fact"; }
-    private EffectiveUserQualificationResponse map(java.sql.ResultSet rs) throws java.sql.SQLException { return new EffectiveUserQualificationResponse(rs.getLong(1), rs.getString(2), rs.getString(3), time(rs, 4), time(rs, 5), rs.getInt(6), rs.getString(7), time(rs, 8), rs.getString(9), time(rs, 10), time(rs, 11), rs.getString(12), rs.getString(13), nullableLong(rs, 14), time(rs, 15), time(rs, 16)); }
+    private String select() { return "select user_id,platform_code,qualification_status,first_income_at,observation_ends_at,qualifying_income_date_count,qualifying_income_dates,latest_income_at,source_evidence_snapshot,qualified_at,evidence_revoked_at,manual_correction_reason,manual_correction_note,corrected_by,corrected_at,evaluated_at,qualification_window_start,qualification_window_end,current_activity_status,current_activity_window_start,current_activity_window_end from effective_user_qualification_fact"; }
+    private EffectiveUserQualificationResponse map(java.sql.ResultSet rs) throws java.sql.SQLException { return new EffectiveUserQualificationResponse(rs.getLong(1), rs.getString(2), rs.getString(3), time(rs, 4), time(rs, 5), rs.getInt(6), rs.getString(7), time(rs, 8), rs.getString(9), time(rs, 10), time(rs, 11), rs.getString(12), rs.getString(13), nullableLong(rs, 14), time(rs, 15), time(rs, 16), date(rs, 17), date(rs, 18), rs.getString(19), date(rs, 20), date(rs, 21)); }
     private LocalDateTime time(java.sql.ResultSet rs, int index) throws java.sql.SQLException { return rs.getTimestamp(index) == null ? null : rs.getTimestamp(index).toLocalDateTime(); }
+    private LocalDate date(java.sql.ResultSet rs, int index) throws java.sql.SQLException { return rs.getDate(index) == null ? null : rs.getDate(index).toLocalDate(); }
     private Long nullableLong(java.sql.ResultSet rs, int index) throws java.sql.SQLException { long value = rs.getLong(index); return rs.wasNull() ? null : value; }
     private String joinDates(List<LocalDate> dates) { return dates.stream().map(LocalDate::toString).reduce((left, right) -> left + "," + right).orElse(""); }
     private void markInvitersForManualGradeReview(long userId, String platform, LocalDateTime now) {
@@ -169,10 +178,21 @@ public class EffectiveUserQualificationService {
         }
         return result.toString();
     }
+    private WindowEvidence firstQualifyingWindow(List<IncomeEvidence> income, LocalDate completedThroughExclusive) {
+        List<LocalDate> allDates = income.stream().map(IncomeEvidence::businessDate)
+                .filter(date -> date.isBefore(completedThroughExclusive)).distinct().sorted().toList();
+        for (LocalDate start : allDates) {
+            LocalDate end = start.plusDays(7);
+            List<LocalDate> dates = allDates.stream().filter(date -> !date.isBefore(start) && date.isBefore(end)).toList();
+            if (dates.size() >= 3) return new WindowEvidence(start, end, dates);
+        }
+        return null;
+    }
     private String snapshot(EffectiveUserQualificationResponse value) { return "user=" + value.userId() + ";platform=" + value.platformCode() + ";status=" + value.qualificationStatus() + ";dates=" + value.qualifyingIncomeDates() + ";correction=" + value.manualCorrectionReason(); }
     private String platform(String value) { String normalized = required(value, "platformCode").toUpperCase(Locale.ROOT); if (!"TIMO".equals(normalized) && !"LINKY".equals(normalized)) throw new IllegalArgumentException("unsupported platform"); return normalized; }
     private String correctionReason(String value) { String normalized = required(value, "correctionReason").toUpperCase(Locale.ROOT); if (!List.of("FRAUD", "FAKE_INCOME", "FABRICATED_PERFORMANCE").contains(normalized)) throw new IllegalArgumentException("correctionReason must be FRAUD, FAKE_INCOME or FABRICATED_PERFORMANCE"); return normalized; }
     private String required(String value, String name) { if (value == null || value.isBlank()) throw new IllegalArgumentException(name + " is required"); return value.trim(); }
-    private record IncomeEvidence(long userId, Instant occurredAt, String sourceEventId, String sourceRevision) { }
+    private record IncomeEvidence(long userId, LocalDate businessDate, Instant occurredAt, String sourceEventId, String sourceRevision) { }
+    private record WindowEvidence(LocalDate startInclusive, LocalDate endExclusive, List<LocalDate> incomeDates) { }
     private record Existing(String status, LocalDateTime qualifiedAt, String manualCorrectionReason) { }
 }

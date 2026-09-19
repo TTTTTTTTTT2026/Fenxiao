@@ -14,6 +14,8 @@ import com.fenxiao.incentive.service.UserGradeAdvancementReviewService;
 import com.fenxiao.incentive.service.UserPointFactService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import java.util.Map;
 
 @RestController
@@ -109,21 +111,24 @@ public class IncentiveAdminController {
     public UserGradeLevelResponse createUserGradeLevel(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                        @RequestHeader(value="X-Admin-Session",required=false) String session,
                                                        @Valid @RequestBody UserGradeLevelRequest request) {
-        return gradeLevels.createDraft(request, guard.assertTeamManageAccess(token, session));
+        guard.assertTeamManageAccess(token, session);
+        throw legacyPointGradeAuthorityRetired();
     }
 
     @PostMapping("/admin/incentives/user-grade-levels/{id}/activate")
     public UserGradeLevelResponse activateUserGradeLevel(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                          @RequestHeader(value="X-Admin-Session",required=false) String session,
                                                          @PathVariable long id, @Valid @RequestBody UserGradeApprovalRequest request) {
-        return gradeLevels.activate(id, request.approvalNote(), guard.assertTeamManageAccess(token, session));
+        guard.assertTeamManageAccess(token, session);
+        throw legacyPointGradeAuthorityRetired();
     }
 
     @PostMapping("/admin/incentives/user-grade-levels/{id}/retire")
     public UserGradeLevelResponse retireUserGradeLevel(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                        @RequestHeader(value="X-Admin-Session",required=false) String session,
                                                        @PathVariable long id) {
-        return gradeLevels.retire(id, guard.assertTeamManageAccess(token, session));
+        guard.assertTeamManageAccess(token, session);
+        throw legacyPointGradeAuthorityRetired();
     }
 
     @GetMapping("/admin/incentives/token-point-conversions/dashboard")
@@ -307,5 +312,9 @@ public class IncentiveAdminController {
     public IncentiveShadowService.TeamProfitResult teamProfit(@RequestHeader(value="X-Internal-Token",required=false) String token,
                                                                @Valid @RequestBody TeamProfitFactRequest request) {
         guard.assertInternalToken(token); return service.ingestTeamProfit(request);
+    }
+
+    private ResponseStatusException legacyPointGradeAuthorityRetired() {
+        return new ResponseStatusException(HttpStatus.GONE, "point-based grade configuration is retired; use direct-effective-user grade rules");
     }
 }
