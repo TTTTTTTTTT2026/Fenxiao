@@ -217,6 +217,9 @@ export type EffectiveUserQualificationResponse = {
   firstIncomeAt: string | null; observationEndsAt: string | null; qualifyingIncomeDateCount: number; qualifyingIncomeDates: string
   latestIncomeAt: string | null; sourceEvidenceSnapshot: string | null; qualifiedAt: string | null; evidenceRevokedAt: string | null
   manualCorrectionReason: string | null; manualCorrectionNote: string | null; correctedBy: number | null; correctedAt: string | null; evaluatedAt: string
+  qualificationWindowStart: string | null; qualificationWindowEnd: string | null
+  currentActivityStatus: 'ACTIVE' | 'NOT_ACTIVE' | string
+  currentActivityWindowStart: string | null; currentActivityWindowEnd: string | null
 }
 export type UserGradeLevelResponse = {
   id: number; levelCode: string; levelVersion: number; levelName: string; levelRank: number; requiredPoints: number

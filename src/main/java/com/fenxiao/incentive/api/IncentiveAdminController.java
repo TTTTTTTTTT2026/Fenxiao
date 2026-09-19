@@ -14,6 +14,8 @@ import com.fenxiao.incentive.service.UserGradeAdvancementReviewService;
 import com.fenxiao.incentive.service.UserPointFactService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import java.util.Map;
 
 @RestController
@@ -109,21 +111,24 @@ public class IncentiveAdminController {
     public UserGradeLevelResponse createUserGradeLevel(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                        @RequestHeader(value="X-Admin-Session",required=false) String session,
                                                        @Valid @RequestBody UserGradeLevelRequest request) {
-        return gradeLevels.createDraft(request, guard.assertTeamManageAccess(token, session));
+        guard.assertTeamManageAccess(token, session);
+        throw legacyPointGradeAuthorityRetired();
     }
 
     @PostMapping("/admin/incentives/user-grade-levels/{id}/activate")
     public UserGradeLevelResponse activateUserGradeLevel(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                          @RequestHeader(value="X-Admin-Session",required=false) String session,
                                                          @PathVariable long id, @Valid @RequestBody UserGradeApprovalRequest request) {
-        return gradeLevels.activate(id, request.approvalNote(), guard.assertTeamManageAccess(token, session));
+        guard.assertTeamManageAccess(token, session);
+        throw legacyPointGradeAuthorityRetired();
     }
 
     @PostMapping("/admin/incentives/user-grade-levels/{id}/retire")
     public UserGradeLevelResponse retireUserGradeLevel(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                        @RequestHeader(value="X-Admin-Session",required=false) String session,
                                                        @PathVariable long id) {
-        return gradeLevels.retire(id, guard.assertTeamManageAccess(token, session));
+        guard.assertTeamManageAccess(token, session);
+        throw legacyPointGradeAuthorityRetired();
     }
 
     @GetMapping("/admin/incentives/token-point-conversions/dashboard")
@@ -161,14 +166,16 @@ public class IncentiveAdminController {
     public OperatingDividendPolicyResponse createOperatingDividendPolicy(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                                            @RequestHeader(value="X-Admin-Session",required=false) String session,
                                                                            @Valid @RequestBody OperatingDividendPolicyRequest request) {
-        return operatingDividends.createDraft(request, guard.assertFinanceAccess(token, session));
+        guard.assertFinanceAccess(token, session);
+        throw legacyOperatingDividendPolicyRetired();
     }
 
     @PostMapping("/admin/incentives/operating-dividend-policies/batch")
     public java.util.List<OperatingDividendPolicyResponse> createOperatingDividendPolicies(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                                                               @RequestHeader(value="X-Admin-Session",required=false) String session,
                                                                                               @Valid @RequestBody OperatingDividendPolicyBatchRequest request) {
-        return operatingDividends.createDrafts(request, guard.assertFinanceAccess(token, session));
+        guard.assertFinanceAccess(token, session);
+        throw legacyOperatingDividendPolicyRetired();
     }
 
     @PostMapping("/admin/incentives/operating-dividend-policies/{id}/activate")
@@ -176,14 +183,16 @@ public class IncentiveAdminController {
                                                                              @RequestHeader(value="X-Admin-Session",required=false) String session,
                                                                              @PathVariable long id,
                                                                              @Valid @RequestBody OperatingDividendPolicyApprovalRequest request) {
-        return operatingDividends.activate(id, request.approvalNote(), guard.assertFinanceAccess(token, session));
+        guard.assertFinanceAccess(token, session);
+        throw legacyOperatingDividendPolicyRetired();
     }
 
     @PostMapping("/admin/incentives/operating-dividend-policies/{id}/retire")
     public OperatingDividendPolicyResponse retireOperatingDividendPolicy(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                                            @RequestHeader(value="X-Admin-Session",required=false) String session,
                                                                            @PathVariable long id) {
-        return operatingDividends.retire(id, guard.assertFinanceAccess(token, session));
+        guard.assertFinanceAccess(token, session);
+        throw legacyOperatingDividendPolicyRetired();
     }
 
     @GetMapping("/admin/incentives/user-grade-dashboard")
@@ -296,7 +305,8 @@ public class IncentiveAdminController {
     public Map<String,Object> leadershipPolicy(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                @RequestHeader(value="X-Admin-Session",required=false) String session,
                                                @Valid @RequestBody LeadershipPolicyRequest request) {
-        guard.assertAdminWriteAccess(token, session); return Map.of("policyId", service.configureLeadershipPolicy(request), "ledgerMode", "SHADOW");
+        guard.assertAdminWriteAccess(token, session);
+        throw legacyOperatingDividendPolicyRetired();
     }
     @GetMapping("/admin/incentives/shadow-report")
     public Map<String,Long> report(@RequestHeader(value="X-Admin-Token",required=false) String token,
@@ -307,5 +317,13 @@ public class IncentiveAdminController {
     public IncentiveShadowService.TeamProfitResult teamProfit(@RequestHeader(value="X-Internal-Token",required=false) String token,
                                                                @Valid @RequestBody TeamProfitFactRequest request) {
         guard.assertInternalToken(token); return service.ingestTeamProfit(request);
+    }
+
+    private ResponseStatusException legacyPointGradeAuthorityRetired() {
+        return new ResponseStatusException(HttpStatus.GONE, "point-based grade configuration is retired; use direct-effective-user grade rules");
+    }
+
+    private ResponseStatusException legacyOperatingDividendPolicyRetired() {
+        return new ResponseStatusException(HttpStatus.GONE, "legacy operating-dividend policies are retired; manage teams in the team directory while the future team-reward plan remains closed");
     }
 }
