@@ -102,6 +102,21 @@ class AdminIdentityManagementTest {
                 .andExpect(content().string(org.hamcrest.Matchers.blankOrNullString()));
     }
 
+    @Test void keepsMentorCashAndTeamOperatingRewardWritesClosedEvenForSuperAdmin() throws Exception {
+        String root=login("root_admin","Root-Secure-Password-2026!",true);
+        mvc.perform(post("/admin/incentives/mentor-rules")
+                        .header("X-Admin-Session",root).contentType(MediaType.APPLICATION_JSON).content("""
+                                {"milestoneCode":"FIRST_INCOME","platformCode":"LINKY","countryCode":"BR",
+                                "amountMinor":200,"currencyCode":"DIAMOND","freezeDays":7,
+                                "effectiveFrom":"2026-09-20T00:00:00"}
+                                """))
+                .andExpect(status().isGone());
+        mvc.perform(put("/admin/incentives/teams/{id}/operating-profit-share-permission",999L)
+                        .header("X-Admin-Session",root).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"enabled\":true}"))
+                .andExpect(status().isGone());
+    }
+
     @Test void slidesRememberedSessionAndExpiresAfterSevenIdleDays() throws Exception {
         String token=login("root_admin","Root-Secure-Password-2026!",true);
         jdbc.update("update admin_session set last_seen_at=dateadd('DAY',-1,current_timestamp),expires_at=dateadd('DAY',6,current_timestamp) where token_hash=?",sha(token));

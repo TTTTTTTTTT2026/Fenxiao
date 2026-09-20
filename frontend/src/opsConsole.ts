@@ -184,11 +184,6 @@ export function buildAdminSectionLinks(role?: string): AdminSectionLink[] {
       href: '#admin-mentors',
     },
     {
-      label: '导师分成',
-      description: '配置导师里程碑规则与影子核验。',
-      href: '#admin-mentor-incentives',
-    },
-    {
       label: '团队列表',
       description: '查看团队负责人、成员归属与经营信息。',
       href: '#admin-teams',
@@ -221,8 +216,8 @@ export function buildAdminSectionLinks(role?: string): AdminSectionLink[] {
   if (normalizedRole === 'admin') return links
 
   const roleSections: Record<string, string[]> = {
-    finance: ['#admin-overview', '#admin-rewards', '#admin-commission-policies', '#admin-mentors', '#admin-mentor-incentives', '#admin-user-grades', '#admin-accounts'],
-    operations: ['#admin-overview', '#admin-channel-entries', '#admin-bindings', '#admin-users', '#admin-platform-guild-directory', '#admin-mentors', '#admin-mentor-incentives', '#admin-teams', '#admin-user-grades', '#admin-token-point-conversions', '#admin-accounts'],
+    finance: ['#admin-overview', '#admin-rewards', '#admin-commission-policies', '#admin-mentors', '#admin-user-grades', '#admin-accounts'],
+    operations: ['#admin-overview', '#admin-channel-entries', '#admin-bindings', '#admin-users', '#admin-platform-guild-directory', '#admin-mentors', '#admin-teams', '#admin-user-grades', '#admin-token-point-conversions', '#admin-accounts'],
     operator: ['#admin-overview', '#admin-channel-entries', '#admin-bindings', '#admin-users', '#admin-platform-guild-directory', '#admin-accounts'],
     customer_support: ['#admin-overview', '#admin-bindings', '#admin-users', '#admin-accounts'],
     mentor: ['#admin-overview', '#admin-bindings', '#admin-users', '#admin-accounts'],

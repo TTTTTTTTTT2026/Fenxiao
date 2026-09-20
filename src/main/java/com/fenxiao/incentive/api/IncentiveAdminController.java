@@ -37,13 +37,15 @@ public class IncentiveAdminController {
     public MentorIncentiveRuleResponse mentorRule(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                          @RequestHeader(value="X-Admin-Session",required=false) String session,
                                          @Valid @RequestBody MentorIncentiveRuleRequest request) {
-        return mentorIncentives.createDraft(request, guard.assertFinanceAccess(token, session));
+        guard.assertFinanceAccess(token, session);
+        throw mentorCashIncentivePending();
     }
     @PostMapping("/admin/incentives/mentor-rules/batch")
     public java.util.List<MentorIncentiveRuleResponse> mentorRules(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                                       @RequestHeader(value="X-Admin-Session",required=false) String session,
                                                                       @Valid @RequestBody MentorIncentiveRuleBatchRequest request) {
-        return mentorIncentives.createDrafts(request, guard.assertFinanceAccess(token, session));
+        guard.assertFinanceAccess(token, session);
+        throw mentorCashIncentivePending();
     }
     @GetMapping("/admin/incentives/mentor-rules")
     public java.util.List<MentorIncentiveRuleResponse> mentorRules(@RequestHeader(value="X-Admin-Token",required=false) String token,
@@ -54,7 +56,8 @@ public class IncentiveAdminController {
     public MentorIncentiveRuleResponse activateMentorRule(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                            @RequestHeader(value="X-Admin-Session",required=false) String session,
                                                            @PathVariable long id, @Valid @RequestBody MentorIncentiveRuleApprovalRequest request) {
-        return mentorIncentives.activate(id, request.approvalNote(), guard.assertFinanceAccess(token, session));
+        guard.assertFinanceAccess(token, session);
+        throw mentorCashIncentivePending();
     }
     @PostMapping("/admin/incentives/mentor-rules/{id}/retire")
     public MentorIncentiveRuleResponse retireMentorRule(@RequestHeader(value="X-Admin-Token",required=false) String token,
@@ -98,7 +101,9 @@ public class IncentiveAdminController {
                                                                               @RequestHeader(value="X-Admin-Session",required=false) String session,
                                                                               @PathVariable long teamId,
                                                                               @Valid @RequestBody TeamOperatingProfitSharePermissionRequest request) {
-        return teams.setOperatingProfitShareEnabled(teamId, request.enabled(), guard.assertTeamManageAccess(token, session));
+        var actor = guard.assertTeamManageAccess(token, session);
+        if (request.enabled()) throw teamRewardPlanClosed();
+        return teams.setOperatingProfitShareEnabled(teamId, false, actor);
     }
 
     @GetMapping("/admin/incentives/user-grade-levels/dashboard")
@@ -332,5 +337,13 @@ public class IncentiveAdminController {
 
     private ResponseStatusException legacyOperatingDividendPolicyRetired() {
         return new ResponseStatusException(HttpStatus.GONE, "legacy operating-dividend policies are retired; manage teams in the team directory while the future team-reward plan remains closed");
+    }
+
+    private ResponseStatusException mentorCashIncentivePending() {
+        return new ResponseStatusException(HttpStatus.GONE, "mentor cash incentives are pending a separately approved qualification, result, formula and budget plan; mentor qualification and student relationships remain available");
+    }
+
+    private ResponseStatusException teamRewardPlanClosed() {
+        return new ResponseStatusException(HttpStatus.GONE, "team operating rewards are globally closed; a team may retain a disabled future-permission record but cannot be enabled before the independent plan is approved");
     }
 }
