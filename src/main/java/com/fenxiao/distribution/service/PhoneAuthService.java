@@ -105,7 +105,8 @@ public class PhoneAuthService {
                     generatedUserId,
                     defaultIfBlank(request.countryCode(), "BR").toUpperCase(Locale.ROOT),
                     defaultIfBlank(request.languageCode(), "pt-BR").toLowerCase(Locale.ROOT),
-                    request.inviteCode());
+                    request.inviteCode(),
+                    UserDistributionProfile.CREATION_SOURCE_CLIENT);
             createdProfile.bindPhoneNumber(normalizedPhone);
             return profileRepository.save(createdProfile);
         });

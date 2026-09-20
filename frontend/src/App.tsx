@@ -3465,11 +3465,12 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                 </InfoCard>
                 <InfoCard title="用户与平台核验信息" tone="neutral">
                   <DataTable
-                    headers={['用户 / 邀请码', '手机号', '注册时间', '直接邀请人', 'Linky 实际绑定', 'Timo 实际绑定', 'Linky 邀请链归属', '操作']}
+                    headers={['用户 / 邀请码', '手机号', '注册时间', '创建来源', '直接邀请人', 'Linky 实际绑定', 'Timo 实际绑定', 'Linky 邀请链归属', '操作']}
                     rows={(userPlatformProfiles?.items ?? []).map((item) => [
                       <div className="stack-gap small"><strong>#{item.userId}</strong><span>{item.inviteCode} · {item.countryCode}</span></div>,
                       item.phoneNumber || '-',
                       formatDateTime(item.registeredAt),
+                      item.creationSource === 'CLIENT' ? '客户端注册' : item.creationSource === 'INTERNAL' ? '内部创建' : '历史待确认',
                       item.directInviterUserId == null ? '根节点' : `#${item.directInviterUserId}`,
                       item.linky ? <div className="stack-gap small"><strong>{item.linky.accountId}</strong><span>{item.linky.status} · {item.linky.guildName || item.linky.guildId || '未返回公会'}{item.linky.expectedGuildSource ? ` · 目标来源 ${item.linky.expectedGuildSource}` : ''}</span></div> : '-',
                       item.timo ? <div className="stack-gap small"><strong>{item.timo.accountId}</strong><span>{item.timo.status} · {item.timo.guildId || '未返回公会'}</span></div> : '-',

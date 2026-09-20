@@ -503,6 +503,7 @@ export type UserPlatformProfileItem = {
   countryCode: string
   phoneNumber: string | null
   registeredAt: string
+  creationSource: string
   directInviterUserId: number | null
   linky: UserPlatformProfileBinding | null
   timo: UserPlatformProfileBinding | null

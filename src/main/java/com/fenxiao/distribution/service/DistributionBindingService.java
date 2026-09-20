@@ -34,6 +34,11 @@ public class DistributionBindingService {
     }
 
     public UserDistributionProfile createProfile(Long userId, String countryCode, String languageCode, String inviteCode) {
+        return createProfile(userId, countryCode, languageCode, inviteCode, UserDistributionProfile.CREATION_SOURCE_INTERNAL);
+    }
+
+    public UserDistributionProfile createProfile(Long userId, String countryCode, String languageCode, String inviteCode,
+                                                 String creationSource) {
         if (userProfileRepository.existsById(userId)) {
             throw new IllegalStateException("user profile already exists");
         }
@@ -42,7 +47,8 @@ public class DistributionBindingService {
                 userId,
                 normalizeCountry(countryCode),
                 languageCode.trim().toLowerCase(Locale.ROOT),
-                generateUniqueInviteCode()
+                generateUniqueInviteCode(),
+                creationSource
         );
         userProfileRepository.save(profile);
 

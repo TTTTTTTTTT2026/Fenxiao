@@ -1,6 +1,17 @@
 -- Local-only schema supplement for JDBC-backed income shadow projections.
 -- Production creates these structures through Flyway migrations V34-V36.
 
+-- Flyway V62 makes this non-null in production. Local profiles can predate the
+-- field, so add it after Hibernate creates/updates the profile table, backfill
+-- them conservatively, then enforce the same local invariant.
+ALTER TABLE user_distribution_profile
+    ADD COLUMN IF NOT EXISTS creation_source VARCHAR(32) NULL;
+UPDATE user_distribution_profile
+SET creation_source = 'HISTORICAL_UNVERIFIED'
+WHERE creation_source IS NULL;
+ALTER TABLE user_distribution_profile
+    ALTER COLUMN creation_source SET NOT NULL;
+
 -- Production creates this table through Flyway V49. Local acceptance disables
 -- Flyway, so keep the long-lived token-to-points configuration available after
 -- upgrading an existing local H2 database.

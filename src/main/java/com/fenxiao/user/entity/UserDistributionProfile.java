@@ -20,6 +20,10 @@ import java.util.UUID;
 @Table(name = "user_distribution_profile")
 public class UserDistributionProfile extends BaseEntity {
 
+    public static final String CREATION_SOURCE_INTERNAL = "INTERNAL";
+    public static final String CREATION_SOURCE_CLIENT = "CLIENT";
+    public static final String CREATION_SOURCE_HISTORICAL_UNVERIFIED = "HISTORICAL_UNVERIFIED";
+
     @Id
     @Column(name = "user_id", nullable = false)
     private Long userId;
@@ -55,6 +59,11 @@ public class UserDistributionProfile extends BaseEntity {
 
     @Column(name = "registered_at", nullable = false)
     private LocalDateTime registeredAt;
+
+    // Production is enforced as NOT NULL by Flyway V62. Keep this nullable in
+    // JPA so local schema upgrades can backfill existing acceptance data first.
+    @Column(name = "creation_source", length = 32)
+    private String creationSource;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "account_status", nullable = false, length = 32)
@@ -113,11 +122,20 @@ public class UserDistributionProfile extends BaseEntity {
         return registeredAt;
     }
 
+    public String getCreationSource() {
+        return creationSource;
+    }
+
     public AccountStatus getAccountStatus() { return accountStatus; }
     public LocalDateTime getCancelledAt() { return cancelledAt; }
     public long getSessionVersion() { return sessionVersion; }
 
     public static UserDistributionProfile create(Long userId, String countryCode, String languageCode, String inviteCode) {
+        return create(userId, countryCode, languageCode, inviteCode, CREATION_SOURCE_INTERNAL);
+    }
+
+    public static UserDistributionProfile create(Long userId, String countryCode, String languageCode, String inviteCode,
+                                                 String creationSource) {
         UserDistributionProfile profile = new UserDistributionProfile();
         profile.userId = userId;
         profile.countryCode = countryCode;
@@ -129,9 +147,17 @@ public class UserDistributionProfile extends BaseEntity {
         profile.effectiveUser = false;
         profile.confirmedIncomeTotal = BigDecimal.ZERO;
         profile.registeredAt = LocalDateTime.now(Clock.systemUTC());
+        profile.creationSource = normalizeCreationSource(creationSource);
         profile.accountStatus = AccountStatus.ACTIVE;
         profile.sessionVersion = 0L;
         return profile;
+    }
+
+    private static String normalizeCreationSource(String creationSource) {
+        if (CREATION_SOURCE_CLIENT.equals(creationSource) || CREATION_SOURCE_INTERNAL.equals(creationSource)) {
+            return creationSource;
+        }
+        throw new IllegalArgumentException("unsupported profile creation source");
     }
 
     public void addConfirmedIncome(BigDecimal incomeAmount) {
