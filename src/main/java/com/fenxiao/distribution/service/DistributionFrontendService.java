@@ -20,6 +20,7 @@ import com.fenxiao.user.entity.UserDistributionProfile;
 import com.fenxiao.user.repository.UserDistributionProfileRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.dao.DataAccessException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -98,16 +99,21 @@ public class DistributionFrontendService {
     }
 
     private String userGradeCode(Long userId) {
-        List<String> grades = jdbc.query("""
-                select grade_code from user_grade_evaluation
-                where user_id=? and qualification_status='QUALIFIED'
-                union all
-                select target_grade_code from user_grade_advancement_review
-                where user_id=? and review_status='LEADER_CONFIRMED'
-                """, (rs, rowNum) -> rs.getString(1), userId, userId);
-        return grades.stream()
-                .max(java.util.Comparator.comparingInt(this::gradeRank))
-                .orElse("NORMAL_MEMBER");
+        try {
+            List<String> grades = jdbc.query("""
+                    select grade_code from user_grade_evaluation
+                    where user_id=? and qualification_status='QUALIFIED'
+                    union all
+                    select target_grade_code from user_grade_advancement_review
+                    where user_id=? and review_status='LEADER_CONFIRMED'
+                    """, (rs, rowNum) -> rs.getString(1), userId, userId);
+            return grades.stream()
+                    .max(java.util.Comparator.comparingInt(this::gradeRank))
+                    .orElse("NORMAL_MEMBER");
+        } catch (DataAccessException ignored) {
+            // A grade-schema rollout must never make the customer earnings page unavailable.
+            return "NORMAL_MEMBER";
+        }
     }
 
     private int gradeRank(String gradeCode) {

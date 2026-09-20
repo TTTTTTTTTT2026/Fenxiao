@@ -3240,6 +3240,10 @@ code {
   align-items: center;
 }
 
+.consumer-account-overview > div:nth-child(2) {
+  flex: 1;
+}
+
 .consumer-account-overview-icon,
 .consumer-platform-icon {
   display: grid;
@@ -3276,23 +3280,26 @@ code {
   color: #0c1933;
 }
 
-.consumer-account-overview .consumer-user-grade {
-  display: inline-flex;
-  width: fit-content;
-  gap: 6px;
-  align-items: center;
-  margin-top: 3px;
-  padding: 4px 9px;
-  border-radius: 999px;
-  background: #fff4e8;
+.consumer-account-overview .consumer-user-grade-card {
+  width: auto;
+  min-width: 104px;
+  margin-left: auto;
+  padding: 9px 11px;
+  border: 1px solid #ffd6ac;
+  border-radius: 13px;
+  background: #fff8f1;
+  align-items: flex-start;
   color: #9a4b0a;
-  font-size: 12px;
-  font-weight: 600;
 }
 
-.consumer-account-overview .consumer-user-grade b {
+.consumer-account-overview .consumer-user-grade-card span {
   color: #b76018;
-  font-weight: 700;
+  font-size: 12px;
+}
+
+.consumer-account-overview .consumer-user-grade-card strong {
+  color: #7d3b08;
+  font-size: 15px;
 }
 
 .consumer-settings-card {

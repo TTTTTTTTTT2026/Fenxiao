@@ -6323,7 +6323,8 @@ function AccountPage() {
             <section className="consumer-commercial-heading"><p><Diamond weight="fill" aria-hidden="true" /> BANDEIRA REWARDS</p><h1>{copy.title}</h1><span>{copy.subtitle}</span></section>
             <section className="consumer-account-overview">
               <div className="consumer-account-overview-icon"><IdentificationCard weight="duotone" aria-hidden="true" /></div>
-              <div><span>{copy.accountInfo}</span><strong>{copy.accountId} · {session.userId}</strong><small className="consumer-user-grade"><b>{consumerUserGradeLabel[locale]}</b>{formatConsumerUserGrade(userGradeCode, locale)}</small><small>{copy.inviteRelationship}</small></div>
+              <div><span>{copy.accountInfo}</span><strong>{copy.accountId} · {session.userId}</strong><small>{copy.inviteRelationship}</small></div>
+              <div className="consumer-user-grade-card"><span>{consumerUserGradeLabel[locale]}</span><strong>{formatConsumerUserGrade(userGradeCode, locale)}</strong></div>
             </section>
             <section className="consumer-settings-card">
               <h2>{copy.accountInfo}</h2>
