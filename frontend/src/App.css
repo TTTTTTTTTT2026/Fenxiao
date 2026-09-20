@@ -3276,6 +3276,25 @@ code {
   color: #0c1933;
 }
 
+.consumer-account-overview .consumer-user-grade {
+  display: inline-flex;
+  width: fit-content;
+  gap: 6px;
+  align-items: center;
+  margin-top: 3px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #fff4e8;
+  color: #9a4b0a;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.consumer-account-overview .consumer-user-grade b {
+  color: #b76018;
+  font-weight: 700;
+}
+
 .consumer-settings-card {
   flex-direction: column;
   gap: 16px;

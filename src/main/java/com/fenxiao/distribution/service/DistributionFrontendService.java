@@ -19,6 +19,7 @@ import com.fenxiao.reward.repository.RewardRecordRepository;
 import com.fenxiao.user.entity.UserDistributionProfile;
 import com.fenxiao.user.repository.UserDistributionProfileRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -39,16 +40,19 @@ public class DistributionFrontendService {
     private final DistributionRelationRepository distributionRelationRepository;
     private final RewardRecordRepository rewardRecordRepository;
     private final IncomeEventRepository incomeEventRepository;
+    private final JdbcTemplate jdbc;
     private final Clock clock;
 
     public DistributionFrontendService(UserDistributionProfileRepository userDistributionProfileRepository,
                                        DistributionRelationRepository distributionRelationRepository,
                                        RewardRecordRepository rewardRecordRepository,
-                                       IncomeEventRepository incomeEventRepository) {
+                                       IncomeEventRepository incomeEventRepository,
+                                       JdbcTemplate jdbc) {
         this.userDistributionProfileRepository = userDistributionProfileRepository;
         this.distributionRelationRepository = distributionRelationRepository;
         this.rewardRecordRepository = rewardRecordRepository;
         this.incomeEventRepository = incomeEventRepository;
+        this.jdbc = jdbc;
         this.clock = Clock.systemUTC();
     }
 
@@ -88,8 +92,34 @@ public class DistributionFrontendService {
                 directEffectiveUsers,
                 secondLevelEffectiveUsers,
                 thirdLevelEffectiveUsers,
-                totalEffectiveUsers
+                totalEffectiveUsers,
+                userGradeCode(userId)
         );
+    }
+
+    private String userGradeCode(Long userId) {
+        List<String> grades = jdbc.query("""
+                select grade_code from user_grade_evaluation
+                where user_id=? and qualification_status='QUALIFIED'
+                union all
+                select target_grade_code from user_grade_advancement_review
+                where user_id=? and review_status='LEADER_CONFIRMED'
+                """, (rs, rowNum) -> rs.getString(1), userId, userId);
+        return grades.stream()
+                .max(java.util.Comparator.comparingInt(this::gradeRank))
+                .orElse("NORMAL_MEMBER");
+    }
+
+    private int gradeRank(String gradeCode) {
+        return switch (gradeCode) {
+            case "BLACK_GOLD" -> 6;
+            case "DIAMOND" -> 5;
+            case "PLATINUM" -> 4;
+            case "GOLD" -> 3;
+            case "SILVER" -> 2;
+            case "NEW_STAR" -> 1;
+            default -> 0;
+        };
     }
 
     public TeamListResponse getDirectTeam(Long userId) {

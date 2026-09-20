@@ -19,6 +19,7 @@ public record DistributionHomeResponse(
         long directEffectiveUsers,
         long secondLevelEffectiveUsers,
         long thirdLevelEffectiveUsers,
-        long totalEffectiveUsers
+        long totalEffectiveUsers,
+        String userGradeCode
 ) {
 }

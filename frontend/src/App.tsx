@@ -730,6 +730,20 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   }, [activeAdminSection, adminSectionLinks, adminSession])
 
   useEffect(() => {
+    if (activeAdminSection !== 'users' || !adminSession) return
+    void loadUserPlatformProfiles()
+  }, [activeAdminSection, adminSession?.sessionToken])
+
+  useEffect(() => {
+    if (!error && !successMessage) return undefined
+    const timeout = window.setTimeout(() => {
+      setError('')
+      setSuccessMessage('')
+    }, error ? 8000 : 6000)
+    return () => window.clearTimeout(timeout)
+  }, [error, successMessage])
+
+  useEffect(() => {
     if (!isMentorRuleGuildPickerOpen) return undefined
     const closeWhenClickingOutside = (event: MouseEvent) => {
       if (!mentorRuleGuildPickerRef.current?.contains(event.target as Node)) setIsMentorRuleGuildPickerOpen(false)
@@ -2839,7 +2853,6 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </div>
           ) : (
             <a key={item.label} className={`admin-nav-chip ${item.href === ADMIN_SECTION_HASHES[activeAdminSection] ? 'is-active' : ''}`} href={item.href} aria-current={item.href === ADMIN_SECTION_HASHES[activeAdminSection] ? 'page' : undefined} onClick={() => {
-              if (item.href === ADMIN_SECTION_HASHES.users && !userPlatformProfiles) void loadUserPlatformProfiles()
               if (item.href === ADMIN_SECTION_HASHES.platformGuildDirectory && !platformGuildDirectory) void loadPlatformGuildDirectory()
               if (item.href === ADMIN_SECTION_HASHES.commissionPolicies && !commissionPolicies) void loadCommissionPolicies()
               if (item.href === ADMIN_SECTION_HASHES.mentorDirectory && !mentorIncentiveDashboard) void loadMentorIncentiveDashboard()
@@ -3398,7 +3411,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               eyebrow="User directory"
               title="用户信息与平台归属"
               description="集中查询用户资料、邀请码关系、平台绑定事实与 Linky 邀请链归属。人工调整仅改变该用户未来下级的 Linky 目标公会。"
-              action={<button className="primary-btn" onClick={() => void loadUserPlatformProfiles()} disabled={loading}>{loading ? '查询中…' : '查询用户'}</button>}
+              action={<button className="primary-btn" onClick={() => void loadUserPlatformProfiles()} disabled={loading}>{loading ? '加载中…' : '刷新用户'}</button>}
             >
               <div className="stack-gap">
                 <InfoCard title="查询用户信息" tone="neutral">
@@ -5919,6 +5932,22 @@ function normalizeLocalPhoneNumber(value: string, callingCode: string) {
 type ConsumerLocale = 'zh' | 'en' | 'es' | 'id' | 'pt'
 type ConsumerNavigationKey = 'earnings' | 'invite' | 'account'
 
+const consumerUserGradeLabel: Record<ConsumerLocale, string> = {
+  zh: '用户等级', en: 'Member level', es: 'Nivel de miembro', id: 'Level pengguna', pt: 'Nível do usuário',
+}
+
+const consumerUserGradeNames: Record<ConsumerLocale, Record<string, string>> = {
+  zh: { NORMAL_MEMBER: '普通成员', NEW_STAR: '新星', SILVER: '银牌', GOLD: '金牌', PLATINUM: '铂金', DIAMOND: '钻石', BLACK_GOLD: '黑金' },
+  en: { NORMAL_MEMBER: 'Member', NEW_STAR: 'Rising Star', SILVER: 'Silver', GOLD: 'Gold', PLATINUM: 'Platinum', DIAMOND: 'Diamond', BLACK_GOLD: 'Black Gold' },
+  es: { NORMAL_MEMBER: 'Miembro', NEW_STAR: 'Nueva estrella', SILVER: 'Plata', GOLD: 'Oro', PLATINUM: 'Platino', DIAMOND: 'Diamante', BLACK_GOLD: 'Oro negro' },
+  id: { NORMAL_MEMBER: 'Anggota', NEW_STAR: 'Bintang baru', SILVER: 'Perak', GOLD: 'Emas', PLATINUM: 'Platinum', DIAMOND: 'Berlian', BLACK_GOLD: 'Emas hitam' },
+  pt: { NORMAL_MEMBER: 'Membro', NEW_STAR: 'Nova estrela', SILVER: 'Prata', GOLD: 'Ouro', PLATINUM: 'Platina', DIAMOND: 'Diamante', BLACK_GOLD: 'Ouro negro' },
+}
+
+function formatConsumerUserGrade(gradeCode: string | null | undefined, locale: ConsumerLocale) {
+  return consumerUserGradeNames[locale][gradeCode ?? 'NORMAL_MEMBER'] ?? consumerUserGradeNames[locale].NORMAL_MEMBER
+}
+
 const consumerNavigationCopy: Record<ConsumerLocale, Record<ConsumerNavigationKey, string>> = {
   zh: { earnings: '收益', invite: '邀请', account: '我的' },
   en: { earnings: 'Earnings', invite: 'Invite', account: 'Account' },
@@ -6242,6 +6271,7 @@ function AccountPage() {
   const [signingOut, setSigningOut] = useState(false)
   const [linkyBinding, setLinkyBinding] = useState<LinkyAccountBindingResponse | null>(null)
   const [timoBinding, setTimoBinding] = useState<PlatformBindingResponse | null>(null)
+  const [userGradeCode, setUserGradeCode] = useState('NORMAL_MEMBER')
   const copy = consumerAccountCopy[locale]
   const timoCopy = timoBindingCopy[locale]
 
@@ -6258,6 +6288,9 @@ function AccountPage() {
     void getPlatformBinding(session.userId, session.accessToken, 'TIMO')
       .then((value) => { if (active) setTimoBinding(value) })
       .catch(() => { if (active) setTimoBinding(null) })
+    void getDistributionHome(session.userId, session.accessToken)
+      .then((value) => { if (active) setUserGradeCode(value.userGradeCode) })
+      .catch(() => { if (active) setUserGradeCode('NORMAL_MEMBER') })
     return () => { active = false }
   }, [session])
 
@@ -6290,7 +6323,7 @@ function AccountPage() {
             <section className="consumer-commercial-heading"><p><Diamond weight="fill" aria-hidden="true" /> BANDEIRA REWARDS</p><h1>{copy.title}</h1><span>{copy.subtitle}</span></section>
             <section className="consumer-account-overview">
               <div className="consumer-account-overview-icon"><IdentificationCard weight="duotone" aria-hidden="true" /></div>
-              <div><span>{copy.accountInfo}</span><strong>{copy.accountId} · {session.userId}</strong><small>{copy.inviteRelationship}</small></div>
+              <div><span>{copy.accountInfo}</span><strong>{copy.accountId} · {session.userId}</strong><small className="consumer-user-grade"><b>{consumerUserGradeLabel[locale]}</b>{formatConsumerUserGrade(userGradeCode, locale)}</small><small>{copy.inviteRelationship}</small></div>
             </section>
             <section className="consumer-settings-card">
               <h2>{copy.accountInfo}</h2>
