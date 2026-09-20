@@ -2778,7 +2778,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             <label>临时密码<input type="password" name="temporary-admin-password" autoComplete="new-password" value={adminPasswordForm.currentPassword} onChange={(e) => setAdminPasswordForm({ ...adminPasswordForm, currentPassword: e.target.value })} /></label>
             <label>新密码<input type="password" autoComplete="new-password" value={adminPasswordForm.newPassword} onChange={(e) => setAdminPasswordForm({ ...adminPasswordForm, newPassword: e.target.value })} /></label>
             <label>确认新密码<input type="password" autoComplete="new-password" value={adminPasswordForm.confirmPassword} onChange={(e) => setAdminPasswordForm({ ...adminPasswordForm, confirmPassword: e.target.value })} /></label>
-            <p className="inline-hint">请手动输入临时密码；至少 12 位，并包含大小写字母、数字、符号中的至少三类。</p>
+            <p className="inline-hint">请手动输入临时密码；新密码至少 8 位，且须同时包含英文字符和数字。</p>
             <button className="primary-btn admin-login-submit" type="submit">修改密码并重新登录</button>
             <button className="ghost-btn" type="button" onClick={() => { void handleAdminLogout() }}>返回账号密码登录</button>
           </form>
@@ -2872,6 +2872,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                       <label>当前密码<input type="password" autoComplete="current-password" value={adminPasswordForm.currentPassword} onChange={(e) => setAdminPasswordForm({ ...adminPasswordForm, currentPassword: e.target.value })} /></label>
                       <label>新密码<input type="password" autoComplete="new-password" value={adminPasswordForm.newPassword} onChange={(e) => setAdminPasswordForm({ ...adminPasswordForm, newPassword: e.target.value })} /></label>
                       <label>确认新密码<input type="password" autoComplete="new-password" value={adminPasswordForm.confirmPassword} onChange={(e) => setAdminPasswordForm({ ...adminPasswordForm, confirmPassword: e.target.value })} /></label>
+                      <p className="inline-hint">新密码至少 8 位，且须同时包含英文字符和数字。</p>
                       <button className="primary-btn small-btn" type="submit">修改并退出全部设备</button>
                     </form>
                   </InfoCard>
