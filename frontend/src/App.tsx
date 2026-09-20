@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import {
   ArrowRight,
   Bell,
@@ -720,19 +720,10 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   }, [])
 
   useEffect(() => {
-    if (['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection)) setIsUserGradeNavOpen(true)
-  }, [activeAdminSection])
-
-  useEffect(() => {
     const isVisibleUserGradeChild = ['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.userGradeList)
     if (!adminSession || isVisibleUserGradeChild || adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])) return
     window.location.hash = ADMIN_SECTION_HASHES.overview
   }, [activeAdminSection, adminSectionLinks, adminSession])
-
-  useEffect(() => {
-    if (activeAdminSection !== 'users' || !adminSession) return
-    void loadUserPlatformProfiles()
-  }, [activeAdminSection, adminSession?.sessionToken])
 
   useEffect(() => {
     if (!error && !successMessage) return undefined
@@ -1213,7 +1204,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     }
   }
 
-  async function loadUserPlatformProfiles(query = userPlatformQuery) {
+  const loadUserPlatformProfiles = useCallback(async (query = userPlatformQuery) => {
     if (!adminSession) return
     setLoading(true)
     setError('')
@@ -1229,7 +1220,13 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     } finally {
       setLoading(false)
     }
-  }
+  }, [adminSession, userPlatformQuery])
+
+  useEffect(() => {
+    if (activeAdminSection !== 'users' || !adminSession) return
+    const timer = window.setTimeout(() => { void loadUserPlatformProfiles() }, 0)
+    return () => window.clearTimeout(timer)
+  }, [activeAdminSection, adminSession, loadUserPlatformProfiles])
 
   async function loadPlatformGuildDirectory(platform = platformGuildDirectoryPlatform) {
     if (!adminSession) return
@@ -2853,6 +2850,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </div>
           ) : (
             <a key={item.label} className={`admin-nav-chip ${item.href === ADMIN_SECTION_HASHES[activeAdminSection] ? 'is-active' : ''}`} href={item.href} aria-current={item.href === ADMIN_SECTION_HASHES[activeAdminSection] ? 'page' : undefined} onClick={() => {
+              if (item.href === ADMIN_SECTION_HASHES.users) void loadUserPlatformProfiles()
               if (item.href === ADMIN_SECTION_HASHES.platformGuildDirectory && !platformGuildDirectory) void loadPlatformGuildDirectory()
               if (item.href === ADMIN_SECTION_HASHES.commissionPolicies && !commissionPolicies) void loadCommissionPolicies()
               if (item.href === ADMIN_SECTION_HASHES.mentorDirectory && !mentorIncentiveDashboard) void loadMentorIncentiveDashboard()
