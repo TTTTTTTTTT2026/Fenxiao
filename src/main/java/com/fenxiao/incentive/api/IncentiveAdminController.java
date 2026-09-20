@@ -273,6 +273,13 @@ public class IncentiveAdminController {
         return advancementReviews.recordPlatinumEvidence(id, request, guard.assertTeamManageAccess(token, session));
     }
 
+    @PostMapping("/admin/incentives/user-grade-advancement-reviews/{id}/advanced-evidence")
+    public UserGradeAdvancementReviewResponse recordAdvancedEvidence(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                      @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                                      @PathVariable long id, @Valid @RequestBody com.fenxiao.incentive.dto.UserGradeAdvancedEvidenceRequest request) {
+        return advancementReviews.recordAdvancedEvidence(id, request, guard.assertTeamManageAccess(token, session));
+    }
+
     @PostMapping("/admin/incentives/user-grade-advancement-reviews/{id}/training-confirmation")
     public UserGradeAdvancementReviewResponse confirmGradeTraining(@RequestHeader(value="X-Admin-Token",required=false) String token,
                                                                      @RequestHeader(value="X-Admin-Session",required=false) String session,

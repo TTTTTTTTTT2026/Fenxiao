@@ -139,6 +139,7 @@ import {
   getAdminUserGradeAdvancementReviews,
   createAdminUserGradeAdvancementReview,
   recordAdminUserGradePlatinumEvidence,
+  recordAdminUserGradeAdvancedEvidence,
   confirmAdminUserGradeAdvancementReview,
   qualifyAdminMentor,
   assignAdminMentor,
@@ -2100,6 +2101,20 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     } catch (err) { setError(err instanceof Error ? err.message : '保存铂金培养证据失败') } finally { setLoading(false) }
   }
 
+  function openAdvancedEvidenceDialog(review: UserGradeAdvancementReviewResponse) {
+    setPlatinumEvidenceTarget(review)
+    setPlatinumEvidenceForm({ traineeUserId: '', groupReference: '', observationStart: '', observationEnd: '', finalWeekEffectiveUserCount: '5', finalWeekMinIncomeDateCount: '3', evidenceNote: '' })
+  }
+
+  async function saveAdvancedEvidence() {
+    if (!adminSession || !platinumEvidenceTarget || !Number(platinumEvidenceForm.traineeUserId) || !platinumEvidenceForm.groupReference.trim() || !platinumEvidenceForm.observationStart || !platinumEvidenceForm.observationEnd || !platinumEvidenceForm.evidenceNote.trim()) { setError('请完整填写两名培养成员各自的经营范围和完整自然月证据。'); return }
+    setLoading(true); setError(''); setSuccessMessage('')
+    try {
+      const saved = await recordAdminUserGradeAdvancedEvidence(adminSession.sessionToken, platinumEvidenceTarget.id, { traineeUserId: Number(platinumEvidenceForm.traineeUserId), scopeReference: platinumEvidenceForm.groupReference.trim(), observationStart: platinumEvidenceForm.observationStart, observationEnd: platinumEvidenceForm.observationEnd, evidenceNote: platinumEvidenceForm.evidenceNote.trim() })
+      setPlatinumEvidenceTarget(null); setSuccessMessage(`已保存${saved.targetGradeCode === 'DIAMOND' ? '钻石' : '黑金'}培养证据（当前 ${saved.advancedEvidence.length}/2）。系统已校验前序等级、成员不重复和完整自然月。`); await loadUserGradeAdvancementReviews()
+    } catch (err) { setError(err instanceof Error ? err.message : '保存高级等级培养证据失败') } finally { setLoading(false) }
+  }
+
   async function confirmUserGradeAdvancementReview(review: UserGradeAdvancementReviewResponse, step: 'training-confirmation' | 'operating-confirmation' | 'responsibility-confirmation' | 'leadership-appointment') {
     if (!adminSession || !canManageTeams) return
     const labels = { 'training-confirmation': '培养确认', 'operating-confirmation': '经营验收', 'responsibility-confirmation': '经营职责确认', 'leadership-appointment': '负责人任命' }
@@ -3211,7 +3226,13 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                 <InfoCard title="铂金、钻石、黑金：培养与经营验收" tone="neutral">
                   <p>高级等级不由直邀人数规则自动晋级。铂金须先录入两名银牌成员各自的小组、连续 30 天观察和最后 7 天指标；钻石、黑金的细化经营指标尚未确认，仍只能保留人工验收记录。三项均确认后仅进入“待负责人确认”，不会自动创建团队、任命负责人或开启团队经营分成。</p>
                   <button className="primary-btn top-gap" onClick={openUserGradeAdvancementDialog} disabled={loading}>建立高级等级验收记录</button>
-                  {userGradeAdvancementReviews.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>用户 / 目标等级</th><th>平台 / 公会</th><th>培养资格</th><th>经营验收</th><th>经营职责</th><th>状态</th><th>操作</th></tr></thead><tbody>{userGradeAdvancementReviews.map((review) => <tr key={review.id}><td>用户 {review.userId} / {review.targetGradeCode}</td><td>{review.platformCode} / {review.guildId}</td><td>{review.targetGradeCode === 'PLATINUM' ? <span>{review.trainingStatus === 'CONFIRMED' ? '已确认' : `待确认（证据 ${review.platinumEvidence.length}/2）`}<small className="table-subtle">{review.platinumEvidence.map((item) => `银牌用户 ${item.traineeUserId} · ${item.groupReference} · ${item.evidenceStatus}`).join('\n') || '需两名银牌成员及不同小组证据'}</small></span> : review.trainingStatus === 'CONFIRMED' ? '已确认' : '待确认'}</td><td>{review.operatingValidationStatus === 'CONFIRMED' ? '已确认' : '待确认'}</td><td>{review.responsibilityStatus === 'CONFIRMED' ? '已确认' : '待确认'}</td><td>{review.reviewStatus === 'LEADER_CONFIRMED' ? '负责人已确认' : review.reviewStatus === 'READY_FOR_LEADER_CONFIRMATION' ? '待负责人确认' : '验收中'}</td><td><div className="action-row">{review.targetGradeCode === 'PLATINUM' && review.trainingStatus !== 'CONFIRMED' ? <button className="ghost-btn small-btn" onClick={() => openPlatinumEvidenceDialog(review)} disabled={loading}>录入培养证据</button> : null}{review.trainingStatus !== 'CONFIRMED' ? <button className="ghost-btn small-btn" onClick={() => void confirmUserGradeAdvancementReview(review, 'training-confirmation')} disabled={loading}>确认培养</button> : null}{review.operatingValidationStatus !== 'CONFIRMED' ? <button className="ghost-btn small-btn" onClick={() => void confirmUserGradeAdvancementReview(review, 'operating-confirmation')} disabled={loading}>确认经营</button> : null}{review.responsibilityStatus !== 'CONFIRMED' ? <button className="ghost-btn small-btn" onClick={() => void confirmUserGradeAdvancementReview(review, 'responsibility-confirmation')} disabled={loading}>确认职责</button> : null}{review.reviewStatus === 'READY_FOR_LEADER_CONFIRMATION' ? <button className="primary-btn small-btn" onClick={() => void confirmUserGradeAdvancementReview(review, 'leadership-appointment')} disabled={loading}>确认负责人并建队</button> : null}{review.reviewStatus === 'LEADER_CONFIRMED' ? '—' : null}</div></td></tr>)}</tbody></table></div> : <EmptyState title="尚无高级等级验收记录" description="培养与经营验收规则尚未自动化；请按已确认的业务证据建立记录。" />}
+                  {userGradeAdvancementReviews.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>用户 / 目标等级</th><th>平台 / 公会</th><th>培养资格</th><th>经营验收</th><th>经营职责</th><th>状态</th><th>操作</th></tr></thead><tbody>{userGradeAdvancementReviews.map((review) => {
+                    const isPlatinum = review.targetGradeCode === 'PLATINUM'
+                    const evidence = isPlatinum ? review.platinumEvidence : review.advancedEvidence
+                    const traineeGrade = isPlatinum ? '银牌' : review.targetGradeCode === 'DIAMOND' ? '金牌' : '钻石'
+                    const scopeLabel = isPlatinum ? '小组' : review.targetGradeCode === 'DIAMOND' ? '团队' : '经营范围'
+                    return <tr key={review.id}><td>用户 {review.userId} / {review.targetGradeCode}</td><td>{review.platformCode} / {review.guildId}</td><td><span>{review.trainingStatus === 'CONFIRMED' ? '已确认' : `待确认（证据 ${evidence.length}/2）`}<small className="table-subtle">{isPlatinum ? review.platinumEvidence.map((item) => `${traineeGrade}用户 ${item.traineeUserId} · ${item.groupReference} · ${item.evidenceStatus}`).join('\n') : review.advancedEvidence.map((item) => `${traineeGrade}用户 ${item.traineeUserId} · ${item.scopeReference} · ${item.evidenceStatus}`).join('\n') || `需两名${traineeGrade}成员及不同${scopeLabel}证据`}</small></span></td><td>{review.operatingValidationStatus === 'CONFIRMED' ? '已确认' : '待确认'}</td><td>{review.responsibilityStatus === 'CONFIRMED' ? '已确认' : '待确认'}</td><td>{review.reviewStatus === 'LEADER_CONFIRMED' ? '负责人已确认' : review.reviewStatus === 'READY_FOR_LEADER_CONFIRMATION' ? '待负责人确认' : '验收中'}</td><td><div className="action-row">{review.trainingStatus !== 'CONFIRMED' ? <button className="ghost-btn small-btn" onClick={() => isPlatinum ? openPlatinumEvidenceDialog(review) : openAdvancedEvidenceDialog(review)} disabled={loading}>录入培养证据</button> : null}{review.trainingStatus !== 'CONFIRMED' ? <button className="ghost-btn small-btn" onClick={() => void confirmUserGradeAdvancementReview(review, 'training-confirmation')} disabled={loading}>确认培养</button> : null}{review.operatingValidationStatus !== 'CONFIRMED' ? <button className="ghost-btn small-btn" onClick={() => void confirmUserGradeAdvancementReview(review, 'operating-confirmation')} disabled={loading}>确认经营</button> : null}{review.responsibilityStatus !== 'CONFIRMED' ? <button className="ghost-btn small-btn" onClick={() => void confirmUserGradeAdvancementReview(review, 'responsibility-confirmation')} disabled={loading}>确认职责</button> : null}{review.reviewStatus === 'READY_FOR_LEADER_CONFIRMATION' ? <button className="primary-btn small-btn" onClick={() => void confirmUserGradeAdvancementReview(review, 'leadership-appointment')} disabled={loading}>确认负责人</button> : null}{review.reviewStatus === 'LEADER_CONFIRMED' ? '—' : null}</div></td></tr>
+                  })}</tbody></table></div> : <EmptyState title="尚无高级等级验收记录" description="培养与经营验收会自动校验已确认的等级、成员、范围和观察期；经营 KPI 结论仍由运营复核。" />}
                 </InfoCard>
                 <InfoCard title="新增用户等级规则" tone="neutral">
                   <form className="grid-form compact-form exception-filter-grid" onSubmit={(event) => { event.preventDefault(); void saveUserGradeRule() }}>
@@ -4194,24 +4215,23 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
 
       {platinumEvidenceTarget ? (
         <ConfirmDialog
-          title={`录入铂金培养与小组经营证据 · 用户 ${platinumEvidenceTarget.userId}`}
+          title={`录入${platinumEvidenceTarget.targetGradeCode === 'PLATINUM' ? '铂金' : platinumEvidenceTarget.targetGradeCode === 'DIAMOND' ? '钻石' : '黑金'}培养与经营证据 · 用户 ${platinumEvidenceTarget.userId}`}
           tone="primary"
           confirmText="保存证据"
           loading={loading}
           confirmDisabled={!platinumEvidenceForm.traineeUserId || !platinumEvidenceForm.groupReference.trim() || !platinumEvidenceForm.observationStart || !platinumEvidenceForm.observationEnd || !platinumEvidenceForm.evidenceNote.trim()}
           onCancel={() => setPlatinumEvidenceTarget(null)}
-          onConfirm={() => void savePlatinumEvidence()}
+          onConfirm={() => void (platinumEvidenceTarget.targetGradeCode === 'PLATINUM' ? savePlatinumEvidence() : saveAdvancedEvidence())}
         >
-          <form className="grid-form compact-form" onSubmit={(event) => { event.preventDefault(); void savePlatinumEvidence() }}>
-            <label>银牌成员用户 ID<input required min="1" inputMode="numeric" value={platinumEvidenceForm.traineeUserId} onChange={(event) => setPlatinumEvidenceForm({ ...platinumEvidenceForm, traineeUserId: event.target.value.replace(/\D/g, '') })} placeholder="必须为同平台、同公会已达标银牌" /></label>
-            <label>成员负责小组标识<input required maxLength={128} value={platinumEvidenceForm.groupReference} onChange={(event) => setPlatinumEvidenceForm({ ...platinumEvidenceForm, groupReference: event.target.value })} placeholder="两个成员不得填写同一小组" /></label>
+          <form className="grid-form compact-form" onSubmit={(event) => { event.preventDefault(); void (platinumEvidenceTarget.targetGradeCode === 'PLATINUM' ? savePlatinumEvidence() : saveAdvancedEvidence()) }}>
+            <label>{platinumEvidenceTarget.targetGradeCode === 'PLATINUM' ? '银牌' : platinumEvidenceTarget.targetGradeCode === 'DIAMOND' ? '金牌' : '钻石'}成员用户 ID<input required min="1" inputMode="numeric" value={platinumEvidenceForm.traineeUserId} onChange={(event) => setPlatinumEvidenceForm({ ...platinumEvidenceForm, traineeUserId: event.target.value.replace(/\D/g, '') })} placeholder={`必须为同平台、同公会已达标${platinumEvidenceTarget.targetGradeCode === 'PLATINUM' ? '银牌' : platinumEvidenceTarget.targetGradeCode === 'DIAMOND' ? '金牌' : '钻石'}`} /></label>
+            <label>成员负责{platinumEvidenceTarget.targetGradeCode === 'DIAMOND' ? '团队' : platinumEvidenceTarget.targetGradeCode === 'BLACK_GOLD' ? '经营范围' : '小组'}标识<input required maxLength={128} value={platinumEvidenceForm.groupReference} onChange={(event) => setPlatinumEvidenceForm({ ...platinumEvidenceForm, groupReference: event.target.value })} placeholder="两个成员不得填写同一标识" /></label>
             <label>观察开始日期<input required type="date" value={platinumEvidenceForm.observationStart} onChange={(event) => setPlatinumEvidenceForm({ ...platinumEvidenceForm, observationStart: event.target.value })} /></label>
             <label>观察结束日期<input required type="date" value={platinumEvidenceForm.observationEnd} onChange={(event) => setPlatinumEvidenceForm({ ...platinumEvidenceForm, observationEnd: event.target.value })} /></label>
-            <label>最后 7 天有效用户数<input required min="5" type="number" value={platinumEvidenceForm.finalWeekEffectiveUserCount} onChange={(event) => setPlatinumEvidenceForm({ ...platinumEvidenceForm, finalWeekEffectiveUserCount: event.target.value })} /></label>
-            <label>最后 7 天每位成员最少收入日期数<input required min="3" max="7" type="number" value={platinumEvidenceForm.finalWeekMinIncomeDateCount} onChange={(event) => setPlatinumEvidenceForm({ ...platinumEvidenceForm, finalWeekMinIncomeDateCount: event.target.value })} /></label>
+            {platinumEvidenceTarget.targetGradeCode === 'PLATINUM' ? <><label>最后 7 天有效用户数<input required min="5" type="number" value={platinumEvidenceForm.finalWeekEffectiveUserCount} onChange={(event) => setPlatinumEvidenceForm({ ...platinumEvidenceForm, finalWeekEffectiveUserCount: event.target.value })} /></label><label>最后 7 天每位成员最少收入日期数<input required min="3" max="7" type="number" value={platinumEvidenceForm.finalWeekMinIncomeDateCount} onChange={(event) => setPlatinumEvidenceForm({ ...platinumEvidenceForm, finalWeekMinIncomeDateCount: event.target.value })} /></label></> : null}
             <label className="full-width">验收依据<textarea required maxLength={1000} value={platinumEvidenceForm.evidenceNote} onChange={(event) => setPlatinumEvidenceForm({ ...platinumEvidenceForm, evidenceNote: event.target.value })} placeholder="记录培养事实、经营验收材料与复核结论" /></label>
           </form>
-          <InlineHint text="系统会校验：铂金本人已达标金牌；每条记录对应不同银牌成员与不同小组；观察期至少 30 天；最后 7 天至少 5 名有效用户且每位至少 3 个收入日期。保存两条后才能确认培养。不会自动升级、建队或开启团队经营分成。" />
+          <InlineHint text={platinumEvidenceTarget.targetGradeCode === 'PLATINUM' ? '系统会校验：铂金本人已达标金牌；每条记录对应不同银牌成员与不同小组；观察期至少 30 天；最后 7 天至少 5 名有效用户且每位至少 3 个收入日期。保存两条后才能确认培养。不会自动升级、建队或开启团队经营分成。' : platinumEvidenceTarget.targetGradeCode === 'DIAMOND' ? '系统会校验：本人已有已确认铂金记录；两名不同金牌成员、不同团队范围，以及各自至少连续 2 个完整自然月。经营 KPI 结论仍需运营复核。' : '系统会校验：本人已有已确认钻石记录；两名不同钻石成员、不同经营范围，以及各自至少连续 3 个完整自然月。经营 KPI 结论仍需运营复核。'} />
         </ConfirmDialog>
       ) : null}
 
