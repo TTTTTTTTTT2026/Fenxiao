@@ -124,12 +124,9 @@ import {
   createAdminOperatingDividendPolicies,
   activateAdminOperatingDividendPolicy,
   retireAdminOperatingDividendPolicy,
-  createAdminUserGradeRule,
   createAdminUserGradeLevel,
   saveAdminTokenPointConversion,
-  activateAdminUserGradeRule,
   activateAdminUserGradeLevel,
-  retireAdminUserGradeRule,
   retireAdminUserGradeLevel,
   evaluateAdminUserGrade,
   refreshAdminEffectiveUserQualifications,
@@ -259,7 +256,7 @@ type AdminAuthState = {
 }
 
 type AdminProductKey = 'ALL' | 'LINKY' | 'TIMO'
-type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'users' | 'platformGuildDirectory' | 'rewards' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'teams' | 'operatingDividends' | 'userGrades' | 'tokenPointConversions' | 'accounts' | 'settings'
+type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'users' | 'platformGuildDirectory' | 'rewards' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'teams' | 'operatingDividends' | 'userGrades' | 'userGradeList' | 'advancedGradeAcceptance' | 'userGradeFacts' | 'tokenPointConversions' | 'accounts' | 'settings'
 type RiskActionName = 'HANDLE' | 'IGNORE' | 'FREEZE_USER' | 'UNFREEZE_USER'
 type WithdrawActionName = 'approve' | 'reject' | 'paid' | 'failed' | 'reverse'
 type WithdrawQuery = { userId: string; status: string; page: string; size: string }
@@ -281,15 +278,29 @@ const ADMIN_SECTION_HASHES: Record<AdminSectionKey, string> = {
   teams: '#admin-teams',
   operatingDividends: '#admin-operating-dividends',
   userGrades: '#admin-user-grades',
+  userGradeList: '#admin-user-grade-list',
+  advancedGradeAcceptance: '#admin-advanced-grade-acceptance',
+  userGradeFacts: '#admin-user-grade-facts',
   tokenPointConversions: '#admin-token-point-conversions',
   accounts: '#admin-accounts',
   settings: '#admin-settings',
 }
 
+const USER_GRADE_CATALOG = [
+  { grade: '普通成员', condition: '注册加入，无须购买课程。', responsibility: '了解基础邀请规则；可参与业务并获得符合规则的个人推荐奖励。', referral: '直邀 10% / 间邀 3%', team: '暂不发放' },
+  { grade: '新星', condition: '累计直接推荐 3 名有效用户。', responsibility: '获得新星身份标识，可参加免费带人训练与集体复盘。', referral: '直邀 10% / 间邀 3%', team: '暂不发放' },
+  { grade: '银牌', condition: '累计直接推荐 10 名有效用户。', responsibility: '保留新星权益；每月接受一次真实案例小组指导。', referral: '直邀 10% / 间邀 3%', team: '暂不发放' },
+  { grade: '金牌', condition: '累计直接推荐 30 名有效用户。', responsibility: '自动建立团队、授予团长权限与培养资格；可培养 1–2 名成员。并不等同于经营分红资格。', referral: '直邀 10% / 间邀 3%', team: '暂不发放；团队经营奖励全局关闭' },
+  { grade: '铂金', condition: '金牌基础上，实际培养 2 名银牌成员；两个小组各完成 30 天试运营验收。', responsibility: '承担实际培养、小组经营与验收责任，需经过运营复核。', referral: '直邀 10% / 间邀 3%', team: '暂不发放；团队经营奖励全局关闭' },
+  { grade: '钻石', condition: '铂金基础上，实际培养 2 名金牌成员；相关团队连续 2 个完整自然月完成经营验收。', responsibility: '获得多团队经营视图并承担负责人培养支持，需经过运营复核。', referral: '直邀 10% / 间邀 3%', team: '暂不发放；团队经营奖励全局关闭' },
+  { grade: '黑金', condition: '钻石基础上，实际培养 2 名钻石成员；负责业务连续 3 个完整自然月完成经营验收。', responsibility: '具备区域经营试点候选资格及更深度的公司协作责任，需经过运营复核。', referral: '直邀 10% / 间邀 3%', team: '暂不发放；团队经营奖励全局关闭' },
+] as const
+
 function resolveAdminSectionFromHash(hash?: string): AdminSectionKey {
   const normalized = hash || '#admin-overview'
   if (normalized === '#admin-mentor-incentives') return 'mentorDirectory'
   if (normalized === '#admin-operating-dividends') return 'teams'
+  if (normalized === '#admin-user-grades') return 'userGradeList'
   const match = (Object.entries(ADMIN_SECTION_HASHES) as Array<[AdminSectionKey, string]>).find(([, value]) => value === normalized)
   if (match) return match[0]
   if (normalized === '#admin-invite-ops') return 'channel'
@@ -423,6 +434,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [adminAccountView, setAdminAccountView] = useState<'security' | 'staff' | 'audit'>('security')
   const [adminProduct, setAdminProduct] = useState<AdminProductKey>('ALL')
   const [activeAdminSection, setActiveAdminSection] = useState<AdminSectionKey>(() => resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined))
+  const [isUserGradeNavOpen, setIsUserGradeNavOpen] = useState(() => ['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [showAdvancedOps, setShowAdvancedOps] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -554,7 +566,6 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [tokenPointConversionSaveTarget, setTokenPointConversionSaveTarget] = useState<{ platformCode: string; tokenUnit: string; pointsPerToken: string } | null>(null)
   const [userPointDashboard, setUserPointDashboard] = useState<UserPointDashboardResponse | null>(null)
   const [userPointPlatform, setUserPointPlatform] = useState<'TIMO' | 'LINKY'>('TIMO')
-  const [userGradeForm, setUserGradeForm] = useState({ gradeCode: 'GOLD', platformCode: 'TIMO', countryCode: 'BR', guildId: '', requiredDirectInviteCount: '30', requiredDirectIncome: '0', effectiveFrom: '', effectiveTo: '' })
   const [userGradeEvaluationForm, setUserGradeEvaluationForm] = useState({ userId: '', platformCode: 'TIMO' })
   const [isOperatingDividendDialogOpen, setIsOperatingDividendDialogOpen] = useState(false)
   const [isOperatingDividendGuildPickerOpen, setIsOperatingDividendGuildPickerOpen] = useState(false)
@@ -709,7 +720,12 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   }, [])
 
   useEffect(() => {
-    if (!adminSession || adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])) return
+    if (['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection)) setIsUserGradeNavOpen(true)
+  }, [activeAdminSection])
+
+  useEffect(() => {
+    const isVisibleUserGradeChild = ['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.userGradeList)
+    if (!adminSession || isVisibleUserGradeChild || adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])) return
     window.location.hash = ADMIN_SECTION_HASHES.overview
   }, [activeAdminSection, adminSectionLinks, adminSession])
 
@@ -2177,29 +2193,6 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     } catch (err) { setError(err instanceof Error ? err.message : '保存代币积分换算失败') } finally { setLoading(false) }
   }
 
-  async function saveUserGradeRule() {
-    if (!adminSession || !canManageTeams) return
-    setLoading(true); setError(''); setSuccessMessage('')
-    try {
-      await createAdminUserGradeRule(adminSession.sessionToken, { gradeCode: userGradeForm.gradeCode, platformCode: userGradeForm.platformCode, countryCode: userGradeForm.countryCode, guildId: userGradeForm.guildId.trim() || null, requiredDirectInviteCount: Number(userGradeForm.requiredDirectInviteCount), requiredDirectIncome: Number(userGradeForm.requiredDirectIncome), effectiveFrom: userGradeForm.effectiveFrom, effectiveTo: userGradeForm.effectiveTo || null })
-      setSuccessMessage('已建立用户等级规则草稿；请审批启用后由系统按直邀关系自动评估。'); await loadUserGradeDashboard()
-    } catch (err) { setError(err instanceof Error ? err.message : '建立用户等级规则失败') } finally { setLoading(false) }
-  }
-
-  async function activateUserGradeRule(id: number, code: string) {
-    if (!adminSession || !canManageTeams) return
-    const approvalNote = window.prompt(`审批启用用户等级规则 ${code} 的说明：`, '业务规则已复核')
-    if (!approvalNote?.trim()) return
-    setLoading(true); setError('')
-    try { await activateAdminUserGradeRule(adminSession.sessionToken, id, approvalNote.trim()); setSuccessMessage(`已启用用户等级规则 ${code}。`); await loadUserGradeDashboard() } catch (err) { setError(err instanceof Error ? err.message : '启用用户等级规则失败') } finally { setLoading(false) }
-  }
-
-  async function retireUserGradeRule(id: number, code: string) {
-    if (!adminSession || !canManageTeams || !window.confirm(`停止用户等级规则 ${code}？既有合格团队长不会被系统自动降级。`)) return
-    setLoading(true); setError('')
-    try { await retireAdminUserGradeRule(adminSession.sessionToken, id); setSuccessMessage(`已停止用户等级规则 ${code}。`); await loadUserGradeDashboard() } catch (err) { setError(err instanceof Error ? err.message : '停止用户等级规则失败') } finally { setLoading(false) }
-  }
-
   async function evaluateUserGrade() {
     if (!adminSession || !canManageTeams || !Number(userGradeEvaluationForm.userId)) { setError('请输入需要复核的用户 ID。'); return }
     setLoading(true); setError('')
@@ -2799,7 +2792,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
       <header className="admin-topbar">
         <div className="admin-page-heading">
           <p className="eyebrow">运营后台</p>
-          <h1>{adminSectionLinks.find((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])?.label}</h1>
+          <h1>{['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) ? '用户等级' : adminSectionLinks.find((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])?.label}</h1>
         </div>
         <div className="hero-actions">
           <label className="hero-select-field">
@@ -2832,16 +2825,25 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
 
       <aside className="admin-sidebar">
         <div className="admin-nav-strip" id="admin-modules" aria-label="后台模块导航">
-          {adminSectionLinks.map((item) => (
+          {adminSectionLinks.map((item) => item.href === ADMIN_SECTION_HASHES.userGradeList ? (
+            <div className="admin-nav-group" key={item.label}>
+              <button type="button" className={`admin-nav-chip admin-nav-group-trigger ${['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) ? 'is-active' : ''}`} aria-expanded={isUserGradeNavOpen} onClick={() => setIsUserGradeNavOpen((open) => !open)}>
+                <AdminNavIcon label={item.label} />
+                <span>{item.label}</span><span className="admin-nav-group-caret">{isUserGradeNavOpen ? '⌄' : '›'}</span>
+              </button>
+              {isUserGradeNavOpen ? <div className="admin-nav-submenu" aria-label="用户等级子菜单">
+                <a className={`admin-nav-subitem ${activeAdminSection === 'userGradeList' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.userGradeList} onClick={() => { if (!userGradeDashboard) void loadUserGradeDashboard() }}>用户等级列表</a>
+                <a className={`admin-nav-subitem ${activeAdminSection === 'advancedGradeAcceptance' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.advancedGradeAcceptance} onClick={() => { if (!userGradeAdvancementReviews.length) void loadUserGradeAdvancementReviews() }}>高阶经营验收</a>
+                <a className={`admin-nav-subitem ${activeAdminSection === 'userGradeFacts' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.userGradeFacts} onClick={() => { if (!userGradeDashboard) void loadUserGradeDashboard(); if (!userPointDashboard) void loadUserPointDashboard(); if (canReadEffectiveUsers) void loadEffectiveUserQualifications() }}>资格事实与复核</a>
+              </div> : null}
+            </div>
+          ) : (
             <a key={item.label} className={`admin-nav-chip ${item.href === ADMIN_SECTION_HASHES[activeAdminSection] ? 'is-active' : ''}`} href={item.href} aria-current={item.href === ADMIN_SECTION_HASHES[activeAdminSection] ? 'page' : undefined} onClick={() => {
               if (item.href === ADMIN_SECTION_HASHES.users && !userPlatformProfiles) void loadUserPlatformProfiles()
               if (item.href === ADMIN_SECTION_HASHES.platformGuildDirectory && !platformGuildDirectory) void loadPlatformGuildDirectory()
               if (item.href === ADMIN_SECTION_HASHES.commissionPolicies && !commissionPolicies) void loadCommissionPolicies()
               if (item.href === ADMIN_SECTION_HASHES.mentorDirectory && !mentorIncentiveDashboard) void loadMentorIncentiveDashboard()
               if (item.href === ADMIN_SECTION_HASHES.teams && !teamManagementDashboard) void loadTeamManagementDashboard()
-              if (item.href === ADMIN_SECTION_HASHES.userGrades && canManageTeams && !userGradeDashboard) void loadUserGradeDashboard()
-              if (item.href === ADMIN_SECTION_HASHES.userGrades && canManageTeams && !userGradeAdvancementReviews.length) void loadUserGradeAdvancementReviews()
-              if (item.href === ADMIN_SECTION_HASHES.userGrades && canManageTeams && !userPointDashboard) void loadUserPointDashboard()
               if (item.href === ADMIN_SECTION_HASHES.tokenPointConversions && !tokenPointConversionDashboard) void loadTokenPointConversionDashboard()
             }}>
               <AdminNavIcon label={item.label} />
@@ -3177,14 +3179,24 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </PanelSection>
           ) : null}
 
-          {activeAdminSection === 'userGrades' && canManageTeams ? (
-            <PanelSection sectionId="admin-user-grades" eyebrow="User grade · direct effective users" title="用户等级" description="等级只统计本人直接邀请的有效用户。有效用户须在最近 7 个完整自然日内，至少于 3 个不同日期产生本人真实、可结算的聊天业务收入；当天不计入窗口。A 邀请 B、B 邀请 C 时，A 只计 B，不计 C。金牌达标会自动建立团队和团长权限，但不会开启团队经营分成。" action={<button className="ghost-btn" onClick={() => { void loadUserGradeDashboard(); void loadUserGradeAdvancementReviews(); if (canReadEffectiveUsers) void loadEffectiveUserQualifications() }} disabled={loading}>刷新数据</button>}>
+          {['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) && canManageTeams ? (
+            <PanelSection sectionId="admin-user-grades" eyebrow="User grade · direct effective users" title={activeAdminSection === 'userGradeList' ? '用户等级列表' : activeAdminSection === 'advancedGradeAcceptance' ? '高阶经营验收' : '等级资格事实与复核'} description={activeAdminSection === 'userGradeList' ? '此处展示已确认的七级用户等级制度与当前规则范围。等级定义由研发配置维护，运营后台仅供查阅，不提供编辑或新增入口。' : activeAdminSection === 'advancedGradeAcceptance' ? '铂金、钻石、黑金通过培养、经营与职责验收后才可进入负责人确认流程，不产生奖励或团队经营分成。' : '查看和复核有效用户、等级评估以及直属邀请积分事实。所有计算只基于本地已定稿收入事实。'} action={<button className="ghost-btn" onClick={() => { void loadUserGradeDashboard(); if (activeAdminSection === 'advancedGradeAcceptance') void loadUserGradeAdvancementReviews(); if (activeAdminSection === 'userGradeFacts') { void loadUserPointDashboard(); if (canReadEffectiveUsers) void loadEffectiveUserQualifications() } }} disabled={loading}>刷新数据</button>}>
               <div className="stack-gap">
-                <InfoCard title="等级规则概览" tone="neutral">
+                {activeAdminSection === 'userGradeList' ? <>
+                  <InfoCard title="既定用户等级" tone="neutral">
+                    <InlineHint text="个人邀请分成与等级解耦：各等级均固定为直邀 10%、间邀 3%。第一阶段不发放团队经营奖励；成为金牌或完成更高等级验收均不会改变该关闭状态。" />
+                    <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>等级</th><th>升级条件</th><th>升级后的权益与责任</th><th>个人推荐分成</th><th>第一阶段团队奖励</th></tr></thead><tbody>{USER_GRADE_CATALOG.map((item) => <tr key={item.grade}><td><strong>{item.grade}</strong></td><td>{item.condition}</td><td>{item.responsibility}</td><td>{item.referral}</td><td>{item.team}</td></tr>)}</tbody></table></div>
+                  </InfoCard>
+                  <InfoCard title="已保存的等级规则范围" tone="neutral">
+                    <InlineHint text="这里仅展示历史规则版本和当前适用范围，用于审计。新增、修改、审批启用或停用等级规则均不在运营后台操作；如需调整，请按研发变更流程更新配置并发布。" />
+                    {userGradeDashboard?.rules.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>规则版本</th><th>等级</th><th>适用范围</th><th>有效直邀门槛</th><th>状态</th></tr></thead><tbody>{userGradeDashboard.rules.map((rule) => <tr key={rule.id}><td>{rule.ruleCode} · V{rule.ruleVersion}</td><td>{rule.gradeCode}</td><td>{rule.platformCode} / {rule.countryCode}{rule.guildId ? ` / ${rule.guildId}` : ' / 全部公会'}</td><td>数量 ≥ {rule.requiredDirectInviteCount}</td><td>{rule.status === 'DRAFT' ? '待审（历史记录）' : rule.status === 'ACTIVE' ? '已启用' : '已停用'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未读取等级规则范围" description="点击“刷新数据”读取现有规则快照。" />}
+                  </InfoCard>
+                </> : null}
+                {activeAdminSection === 'userGradeFacts' ? <InfoCard title="等级规则概览" tone="neutral">
                   {userGradeDashboard ? <div className="relation-grid"><RelationItem label="已启用等级规则" value={userGradeDashboard.activeRuleCount} /><RelationItem label="已合格团队长" value={userGradeDashboard.qualifiedTeamLeaderCount} /></div> : <EmptyState title="尚未读取用户等级数据" description="点击“刷新数据”读取规则与最近评估结果。" />}
                   <InlineHint text="MCN 只提供收入事实；邀请关系、有效用户资格和等级由分销平台计算及审计。本页不创建奖励、余额、提现或付款。累计达标人数与当前活跃有效人数分开展示：当前活跃指最近 7 个完整自然日（不含当天）至少 3 个不同日期有本人真实、可结算聊天业务收入。" />
-                </InfoCard>
-                <InfoCard title="直接邀请积分事实" tone="neutral">
+                </InfoCard> : null}
+                {activeAdminSection === 'userGradeFacts' ? <InfoCard title="直接邀请积分事实" tone="neutral">
                   <div className="action-row">
                     <label>来源平台<select value={userPointPlatform} onChange={(event) => { const platform = event.target.value as 'TIMO' | 'LINKY'; setUserPointPlatform(platform); setUserPointDashboard(null); void loadUserPointDashboard(platform) }}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label>
                     <button className="ghost-btn" onClick={() => void loadUserPointDashboard()} disabled={loading}>读取积分事实</button>
@@ -3196,8 +3208,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                     {userPointDashboard.topBalances.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>邀请人用户</th><th>累计积分（跨平台）</th><th>有效积分事实</th><th>最近下级收入</th></tr></thead><tbody>{userPointDashboard.topBalances.map((balance) => <tr key={balance.userId}><td>{balance.userId}</td><td>{balance.totalPoints.toFixed(6)}</td><td>{balance.accruedFactCount}</td><td>{formatDateTime(balance.latestIncomeAt ?? undefined)}</td></tr>)}</tbody></table></div> : <EmptyState title="尚无可累计积分" description="需先为该平台保存代币积分换算，并存在已绑定、已定稿且具有直接邀请人的收入事实。" />}
                     {userPointDashboard.recentFacts.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>收入事实</th><th>下级 / 邀请人</th><th>原始收入</th><th>换算比例</th><th>积分</th><th>状态</th><th>依据</th></tr></thead><tbody>{userPointDashboard.recentFacts.map((fact) => <tr key={`${fact.platformCode}-${fact.sourceEventId}`}><td>{fact.sourceEventId}<small className="table-subtle">{formatDateTime(fact.occurredAt)}</small></td><td>{fact.sourceUserId ?? '—'} / {fact.beneficiaryUserId ?? '—'}</td><td>{fact.sourceAmount} {fact.tokenUnit}</td><td>{fact.pointsPerToken ?? '—'}</td><td>{fact.pointAmount ?? '—'}</td><td>{fact.factStatus}</td><td>{fact.decisionReason}</td></tr>)}</tbody></table></div> : null}
                   </> : <EmptyState title="尚未读取积分事实" description="选择平台后读取，或按本地已定稿收入刷新。该操作不会请求 MCN。" />}
-                </InfoCard>
-                <InfoCard title="铂金、钻石、黑金：培养与经营验收" tone="neutral">
+                </InfoCard> : null}
+                {activeAdminSection === 'advancedGradeAcceptance' ? <InfoCard title="铂金、钻石、黑金：培养与经营验收" tone="neutral">
                   <p>高级等级不由直邀人数规则自动晋级。铂金须先录入两名银牌成员各自的小组、连续 30 天观察和最后 7 天指标；钻石、黑金须录入两名不同培养对象、不同范围和连续完整自然月。经营质量 KPI 尚待业务确认，仍由运营复核。三项均确认后仅进入“待负责人确认”，不会自动创建团队、任命负责人或开启团队经营分成。</p>
                   <button className="primary-btn top-gap" onClick={openUserGradeAdvancementDialog} disabled={loading}>建立高级等级验收记录</button>
                   {userGradeAdvancementReviews.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>用户 / 目标等级</th><th>平台 / 公会</th><th>培养资格</th><th>经营验收</th><th>经营职责</th><th>状态</th><th>操作</th></tr></thead><tbody>{userGradeAdvancementReviews.map((review) => {
@@ -3207,26 +3219,10 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                     const scopeLabel = isPlatinum ? '小组' : review.targetGradeCode === 'DIAMOND' ? '团队' : '经营范围'
                     return <tr key={review.id}><td>用户 {review.userId} / {review.targetGradeCode}</td><td>{review.platformCode} / {review.guildId}</td><td><span>{review.trainingStatus === 'CONFIRMED' ? '已确认' : `待确认（证据 ${evidence.length}/2）`}<small className="table-subtle">{isPlatinum ? review.platinumEvidence.map((item) => `${traineeGrade}用户 ${item.traineeUserId} · ${item.groupReference} · ${item.evidenceStatus}`).join('\n') : review.advancedEvidence.map((item) => `${traineeGrade}用户 ${item.traineeUserId} · ${item.scopeReference} · ${item.evidenceStatus}`).join('\n') || `需两名${traineeGrade}成员及不同${scopeLabel}证据`}</small></span></td><td>{review.operatingValidationStatus === 'CONFIRMED' ? '已确认' : '待确认'}</td><td>{review.responsibilityStatus === 'CONFIRMED' ? '已确认' : '待确认'}</td><td>{review.reviewStatus === 'LEADER_CONFIRMED' ? '负责人已确认' : review.reviewStatus === 'READY_FOR_LEADER_CONFIRMATION' ? '待负责人确认' : '验收中'}</td><td><div className="action-row">{review.trainingStatus !== 'CONFIRMED' ? <button className="ghost-btn small-btn" onClick={() => isPlatinum ? openPlatinumEvidenceDialog(review) : openAdvancedEvidenceDialog(review)} disabled={loading}>录入培养证据</button> : null}{review.trainingStatus !== 'CONFIRMED' ? <button className="ghost-btn small-btn" onClick={() => void confirmUserGradeAdvancementReview(review, 'training-confirmation')} disabled={loading}>确认培养</button> : null}{review.operatingValidationStatus !== 'CONFIRMED' ? <button className="ghost-btn small-btn" onClick={() => void confirmUserGradeAdvancementReview(review, 'operating-confirmation')} disabled={loading}>确认经营</button> : null}{review.responsibilityStatus !== 'CONFIRMED' ? <button className="ghost-btn small-btn" onClick={() => void confirmUserGradeAdvancementReview(review, 'responsibility-confirmation')} disabled={loading}>确认职责</button> : null}{review.reviewStatus === 'READY_FOR_LEADER_CONFIRMATION' ? <button className="primary-btn small-btn" onClick={() => void confirmUserGradeAdvancementReview(review, 'leadership-appointment')} disabled={loading}>确认负责人</button> : null}{review.reviewStatus === 'LEADER_CONFIRMED' ? '—' : null}</div></td></tr>
                   })}</tbody></table></div> : <EmptyState title="尚无高级等级验收记录" description="培养与经营验收会自动校验已确认的等级、成员、范围和观察期；经营 KPI 结论仍由运营复核。" />}
-                </InfoCard>
-                <InfoCard title="新增用户等级规则" tone="neutral">
-                  <form className="grid-form compact-form exception-filter-grid" onSubmit={(event) => { event.preventDefault(); void saveUserGradeRule() }}>
-                    <label>等级<select value={userGradeForm.gradeCode} onChange={(event) => { const gradeCode = event.target.value; const thresholds: Record<string, string> = { NEW_STAR: '3', SILVER: '10', GOLD: '30' }; setUserGradeForm({ ...userGradeForm, gradeCode, requiredDirectInviteCount: thresholds[gradeCode] ?? '0', requiredDirectIncome: '0' }) }}><option value="NEW_STAR">新星</option><option value="SILVER">银牌</option><option value="GOLD">金牌（自动建队、授予团长权限）</option></select></label>
-                    <label>平台<select value={userGradeForm.platformCode} onChange={(event) => setUserGradeForm({ ...userGradeForm, platformCode: event.target.value })}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label>
-                    <label>归属国家<select value={userGradeForm.countryCode} onChange={(event) => setUserGradeForm({ ...userGradeForm, countryCode: event.target.value })}>{phoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names.zh}（{country.countryCode}）</option>)}</select></label>
-                    <label>限定公会（可选）<input value={userGradeForm.guildId} onChange={(event) => setUserGradeForm({ ...userGradeForm, guildId: event.target.value })} placeholder="留空为该国家全部公会" /><small>填写时必须为 MCN 权威目录中的对应公会 ID。</small></label>
-                    <label>有效直邀用户门槛<input required min="0" type="number" disabled value={userGradeForm.requiredDirectInviteCount} /><small>新星 / 银牌 / 金牌固定为 3 / 10 / 30；有效用户须在最近 7 个完整自然日内有 3 个不同日期的本人真实、可结算聊天业务收入。</small></label>
-                    <div className="form-static-note">等级不再使用直邀累计收入门槛。铂金、钻石、黑金必须通过下方的培养、经营验收与职责确认记录，不会由本规则自动晋级。</div>
-                    <label>生效时间<input required type="datetime-local" value={userGradeForm.effectiveFrom} onChange={(event) => setUserGradeForm({ ...userGradeForm, effectiveFrom: event.target.value })} /></label>
-                    <label>失效时间（可选）<input type="datetime-local" value={userGradeForm.effectiveTo} onChange={(event) => setUserGradeForm({ ...userGradeForm, effectiveTo: event.target.value })} /></label>
-                    <button className="primary-btn" type="submit" disabled={loading}>建立待审等级规则</button>
-                  </form>
-                </InfoCard>
-                <InfoCard title="已保存的等级规则" tone="neutral">
-                  {userGradeDashboard?.rules.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>规则版本</th><th>等级</th><th>适用范围</th><th>有效直邀门槛</th><th>状态</th><th>操作</th></tr></thead><tbody>{userGradeDashboard.rules.map((rule) => <tr key={rule.id}><td>{rule.ruleCode} · V{rule.ruleVersion}</td><td>{rule.gradeCode}</td><td>{rule.platformCode} / {rule.countryCode}{rule.guildId ? ` / ${rule.guildId}` : ' / 全部公会'}</td><td>数量 ≥ {rule.requiredDirectInviteCount}</td><td>{rule.status === 'DRAFT' ? '待审' : rule.status === 'ACTIVE' ? '已启用' : '已停用'}</td><td>{rule.status === 'DRAFT' ? <button className="primary-btn small-btn" onClick={() => void activateUserGradeRule(rule.id, rule.ruleCode)} disabled={loading}>审批并启用</button> : rule.status === 'ACTIVE' ? <button className="ghost-btn small-btn" onClick={() => void retireUserGradeRule(rule.id, rule.ruleCode)} disabled={loading}>停止使用</button> : '-'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未配置用户等级规则" description="先建立新星、银牌或金牌的待审规则。" />}
-                </InfoCard>
-                <InfoCard title="人工复核用户等级" tone="neutral"><div className="action-row"><input aria-label="用户 ID" type="number" min="1" value={userGradeEvaluationForm.userId} onChange={(event) => setUserGradeEvaluationForm({ ...userGradeEvaluationForm, userId: event.target.value })} placeholder="用户 ID" /><select value={userGradeEvaluationForm.platformCode} onChange={(event) => setUserGradeEvaluationForm({ ...userGradeEvaluationForm, platformCode: event.target.value })}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select><button className="ghost-btn" onClick={() => void evaluateUserGrade()} disabled={loading}>立即复核</button></div><InlineHint text="系统每小时也会自动重算已有直接邀请关系的已核验用户。人工复核仅刷新本地资格证据，不会请求 MCN。" /></InfoCard>
-                <InfoCard title="最近等级评估" tone="neutral">{userGradeDashboard?.recentEvaluations.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>用户</th><th>平台 / 公会</th><th>等级</th><th>累计达标有效直邀</th><th>当前活跃有效直邀</th><th>结果</th><th>评估时间</th></tr></thead><tbody>{userGradeDashboard.recentEvaluations.map((item, index) => <tr key={`${item.userId}-${item.platformCode}-${item.guildId}-${item.gradeCode}-${index}`}><td>{item.userId}</td><td>{item.platformCode} / {item.guildId}</td><td>{item.gradeCode}</td><td>{item.directInviteCount}</td><td>{item.currentActiveEffectiveInviteCount}</td><td>{item.status === 'QUALIFIED' ? '已合格' : item.status === 'REQUIRES_MANUAL_REVIEW' ? '待人工复核' : '进行中'}</td><td>{formatDateTime(item.evaluatedAt)}</td></tr>)}</tbody></table></div> : <EmptyState title="暂无等级评估记录" description="启用规则后，由定时任务或人工复核生成记录。" />}</InfoCard>
-                {canReadEffectiveUsers ? <InfoCard title="有效用户资格事实与纠偏" tone="neutral">
+                </InfoCard> : null}
+                {activeAdminSection === 'userGradeFacts' ? <InfoCard title="人工复核用户等级" tone="neutral"><div className="action-row"><input aria-label="用户 ID" type="number" min="1" value={userGradeEvaluationForm.userId} onChange={(event) => setUserGradeEvaluationForm({ ...userGradeEvaluationForm, userId: event.target.value })} placeholder="用户 ID" /><select value={userGradeEvaluationForm.platformCode} onChange={(event) => setUserGradeEvaluationForm({ ...userGradeEvaluationForm, platformCode: event.target.value })}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select><button className="ghost-btn" onClick={() => void evaluateUserGrade()} disabled={loading}>立即复核</button></div><InlineHint text="系统每小时也会自动重算已有直接邀请关系的已核验用户。人工复核仅刷新本地资格证据，不会请求 MCN。" /></InfoCard> : null}
+                {activeAdminSection === 'userGradeFacts' ? <InfoCard title="最近等级评估" tone="neutral">{userGradeDashboard?.recentEvaluations.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>用户</th><th>平台 / 公会</th><th>等级</th><th>累计达标有效直邀</th><th>当前活跃有效直邀</th><th>结果</th><th>评估时间</th></tr></thead><tbody>{userGradeDashboard.recentEvaluations.map((item, index) => <tr key={`${item.userId}-${item.platformCode}-${item.guildId}-${item.gradeCode}-${index}`}><td>{item.userId}</td><td>{item.platformCode} / {item.guildId}</td><td>{item.gradeCode}</td><td>{item.directInviteCount}</td><td>{item.currentActiveEffectiveInviteCount}</td><td>{item.status === 'QUALIFIED' ? '已合格' : item.status === 'REQUIRES_MANUAL_REVIEW' ? '待人工复核' : '进行中'}</td><td>{formatDateTime(item.evaluatedAt)}</td></tr>)}</tbody></table></div> : <EmptyState title="暂无等级评估记录" description="启用规则后，由定时任务或人工复核生成记录。" />}</InfoCard> : null}
+                {activeAdminSection === 'userGradeFacts' && canReadEffectiveUsers ? <InfoCard title="有效用户资格事实与纠偏" tone="neutral">
                   <div className="action-row"><select value={effectiveUserPlatform} onChange={(event) => { const platform = event.target.value as 'TIMO' | 'LINKY'; setEffectiveUserPlatform(platform); void loadEffectiveUserQualifications(platform) }}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select><button className="ghost-btn" onClick={() => void loadEffectiveUserQualifications()} disabled={loading}>读取资格事实</button>{canRunControlledIncome ? <button className="primary-btn" onClick={() => void refreshEffectiveUserQualifications()} disabled={loading}>按定稿收入刷新</button> : null}</div>
                   <InlineHint text="有效用户资格是“最近 7 个完整自然日内至少 3 个不同日期产生本人真实、可结算聊天业务收入”的本地事实；当天不计入窗口。刷新只重算本地事实；不请求 MCN，不产生奖励、余额、提现或付款。" />
                   {effectiveUserQualifications.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>用户</th><th>永久资格</th><th>当前活跃</th><th>达标收入日期</th><th>达标窗口</th><th>证据快照</th><th>人工纠偏</th></tr></thead><tbody>{effectiveUserQualifications.map((fact) => <tr key={`${fact.platformCode}-${fact.userId}`}><td>用户 {fact.userId}<small className="table-subtle">{fact.platformCode}</small></td><td>{fact.qualificationStatus === 'QUALIFIED' ? '已合格' : fact.qualificationStatus === 'MANUALLY_EXCLUDED' ? '人工排除' : fact.qualificationStatus === 'EVIDENCE_REVOKED' ? '证据已撤销' : '未合格'}{fact.manualCorrectionReason ? <small className="table-subtle">原因：{fact.manualCorrectionReason}</small> : null}</td><td>{fact.currentActivityStatus === 'ACTIVE' ? '近 7 个完整自然日活跃' : '当前不活跃'}<small className="table-subtle">{fact.currentActivityWindowStart ?? '—'} 至 {fact.currentActivityWindowEnd ?? '—'}</small></td><td>{fact.qualifyingIncomeDateCount} 天<small className="table-subtle">{fact.qualifyingIncomeDates || '—'}</small></td><td>{fact.qualificationWindowStart ?? '—'} 至 {fact.qualificationWindowEnd ?? '—'}</td><td><small>{fact.sourceEvidenceSnapshot || '—'}</small></td><td>{canCorrectEffectiveUsers && fact.qualificationStatus !== 'MANUALLY_EXCLUDED' ? <button className="ghost-btn small-btn" onClick={() => openEffectiveUserCorrectionDialog(fact)} disabled={loading}>证据纠偏</button> : fact.manualCorrectionNote || '—'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未读取资格事实" description="选择平台后点击“读取资格事实”。永久资格来自任一满足规则的完整自然日窗口；当前活跃单独按最近 7 个完整自然日展示。" />}
