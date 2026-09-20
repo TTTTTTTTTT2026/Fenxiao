@@ -199,7 +199,7 @@ export function buildAdminSectionLinks(role?: string): AdminSectionLink[] {
       href: '#admin-accounts',
     },
     {
-      label: '配置',
+      label: '系统配置',
       description: '接入、公会和产品配置。',
       href: '#admin-settings',
     },

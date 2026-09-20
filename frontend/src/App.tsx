@@ -253,7 +253,8 @@ type AdminAuthState = {
 }
 
 type AdminProductKey = 'ALL' | 'LINKY' | 'TIMO'
-type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'riskQueue' | 'users' | 'platformGuildDirectory' | 'rewards' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'teams' | 'operatingDividends' | 'userGrades' | 'userGradeList' | 'advancedGradeAcceptance' | 'userGradeFacts' | 'tokenPointConversions' | 'accounts' | 'settings'
+type AdminSettingsView = 'experiment' | 'guilds' | 'platforms' | 'incomeControlled' | 'incomeShadow' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification'
+type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'riskQueue' | 'users' | 'platformGuildDirectory' | 'rewards' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'teams' | 'operatingDividends' | 'userGrades' | 'userGradeList' | 'advancedGradeAcceptance' | 'userGradeFacts' | 'tokenPointConversions' | 'accounts' | 'settings' | 'systemExperiment' | 'systemGuilds' | 'systemPlatforms' | 'systemIncomeControlled' | 'systemIncomeShadow' | 'systemMockVerification' | 'systemAdvanced' | 'systemSeedInviter' | 'systemPhoneVerification'
 type RiskActionName = 'HANDLE' | 'IGNORE' | 'FREEZE_USER' | 'UNFREEZE_USER'
 type WithdrawActionName = 'approve' | 'reject' | 'paid' | 'failed' | 'reverse'
 type WithdrawQuery = { userId: string; status: string; page: string; size: string }
@@ -282,6 +283,15 @@ const ADMIN_SECTION_HASHES: Record<AdminSectionKey, string> = {
   tokenPointConversions: '#admin-token-point-conversions',
   accounts: '#admin-accounts',
   settings: '#admin-settings',
+  systemExperiment: '#admin-system-experiment',
+  systemGuilds: '#admin-system-guilds',
+  systemPlatforms: '#admin-system-platforms',
+  systemIncomeControlled: '#admin-system-income-controlled',
+  systemIncomeShadow: '#admin-system-income-shadow',
+  systemMockVerification: '#admin-system-mock-verification',
+  systemAdvanced: '#admin-system-advanced',
+  systemSeedInviter: '#admin-system-seed-inviter',
+  systemPhoneVerification: '#admin-system-phone-verification',
 }
 
 const USER_GRADE_CATALOG = [
@@ -293,6 +303,18 @@ const USER_GRADE_CATALOG = [
   { grade: '钻石', condition: '铂金基础上，实际培养 2 名金牌成员；相关团队连续 2 个完整自然月完成经营验收。', responsibility: '获得多团队经营视图并承担负责人培养支持，需经过运营复核。', referral: '直邀 10% / 间邀 3%', team: '暂不发放；团队经营奖励全局关闭' },
   { grade: '黑金', condition: '钻石基础上，实际培养 2 名钻石成员；负责业务连续 3 个完整自然月完成经营验收。', responsibility: '具备区域经营试点候选资格及更深度的公司协作责任，需经过运营复核。', referral: '直邀 10% / 间邀 3%', team: '暂不发放；团队经营奖励全局关闭' },
 ] as const
+
+const SYSTEM_CONFIG_SECTION_VIEWS: Partial<Record<AdminSectionKey, AdminSettingsView>> = {
+  systemExperiment: 'experiment',
+  systemGuilds: 'guilds',
+  systemPlatforms: 'platforms',
+  systemIncomeControlled: 'incomeControlled',
+  systemIncomeShadow: 'incomeShadow',
+  systemMockVerification: 'mockVerification',
+  systemAdvanced: 'advanced',
+  systemSeedInviter: 'seedInviter',
+  systemPhoneVerification: 'phoneVerification',
+}
 
 function resolveAdminSectionFromHash(hash?: string): AdminSectionKey {
   const normalized = hash || '#admin-overview'
@@ -435,6 +457,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [activeAdminSection, setActiveAdminSection] = useState<AdminSectionKey>(() => resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined))
   const [isUserGradeNavOpen, setIsUserGradeNavOpen] = useState(() => ['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [isUserManagementNavOpen, setIsUserManagementNavOpen] = useState(() => ['users', 'bindings', 'riskQueue'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
+  const [isSystemConfigNavOpen, setIsSystemConfigNavOpen] = useState(() => ['settings', 'systemExperiment', 'systemGuilds', 'systemPlatforms', 'systemIncomeControlled', 'systemIncomeShadow', 'systemMockVerification', 'systemAdvanced', 'systemSeedInviter', 'systemPhoneVerification'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [showAdvancedOps, setShowAdvancedOps] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -496,7 +519,6 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [withdrawViews, setWithdrawViews] = useState(() => loadJsonState<NamedFilterView<WithdrawQuery>[]>(ADMIN_WITHDRAW_VIEWS_KEY) || [])
   const [withdrawViewName, setWithdrawViewName] = useState('')
   const [selectedWithdrawViewId, setSelectedWithdrawViewId] = useState('')
-  const [adminSettingsView, setAdminSettingsView] = useState<'experiment' | 'guilds' | 'platforms' | 'incomeControlled' | 'incomeShadow' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification'>('experiment')
   const [platformIntegrations, setPlatformIntegrations] = useState<PlatformIntegrationResponse[] | null>(null)
   const [platformGuildShareDialogTarget, setPlatformGuildShareDialogTarget] = useState<{ platformCode: string; guildId: string; guildName: string } | null>(null)
   const [platformGuildShareRules, setPlatformGuildShareRules] = useState<PlatformGuildCompanyShareRuleResponse[]>([])
@@ -696,6 +718,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const activeAdminProductCode = adminProduct === 'ALL' ? undefined : adminProduct
   const adminSectionLinks = useMemo(() => buildAdminSectionLinks(adminSession?.role), [adminSession?.role])
   const canViewAdminSection = (section: AdminSectionKey) => adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES[section])
+  const currentSettingsView = SYSTEM_CONFIG_SECTION_VIEWS[activeAdminSection] ?? (activeAdminSection === 'settings' ? 'experiment' : null)
+  const isSystemConfigSection = activeAdminSection === 'settings' || currentSettingsView !== null
   const showingProductSpecificDiagnostics = adminProduct === 'LINKY'
   const channelEntryLinks = useMemo(
     () => buildChannelEntryLinks(channelEntryForm.origin, {
@@ -719,9 +743,10 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   useEffect(() => {
     const isVisibleUserGradeChild = ['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.userGradeList)
     const isVisibleUserManagementChild = ['users', 'bindings', 'riskQueue'].includes(activeAdminSection) && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.users)
-    if (!adminSession || isVisibleUserGradeChild || isVisibleUserManagementChild || adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])) return
+    const isVisibleSystemConfigChild = currentSettingsView !== null && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.settings)
+    if (!adminSession || isVisibleUserGradeChild || isVisibleUserManagementChild || isVisibleSystemConfigChild || adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])) return
     window.location.hash = ADMIN_SECTION_HASHES.overview
-  }, [activeAdminSection, adminSectionLinks, adminSession])
+  }, [activeAdminSection, adminSectionLinks, adminSession, currentSettingsView])
 
   useEffect(() => {
     if (!error && !successMessage) return undefined
@@ -2758,7 +2783,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
       <header className="admin-topbar">
         <div className="admin-page-heading">
           <p className="eyebrow">运营后台</p>
-          <h1>{['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) ? '用户等级' : ['users', 'bindings', 'riskQueue'].includes(activeAdminSection) ? '用户管理' : adminSectionLinks.find((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])?.label}</h1>
+          <h1>{['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) ? '用户等级' : ['users', 'bindings', 'riskQueue'].includes(activeAdminSection) ? '用户管理' : isSystemConfigSection ? '系统配置' : adminSectionLinks.find((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])?.label}</h1>
         </div>
         <div className="hero-actions">
           <label className="hero-select-field">
@@ -2813,6 +2838,23 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                 <a className={`admin-nav-subitem ${activeAdminSection === 'userGradeList' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.userGradeList} onClick={() => { if (!userGradeDashboard) void loadUserGradeDashboard() }}>用户等级列表</a>
                 <a className={`admin-nav-subitem ${activeAdminSection === 'advancedGradeAcceptance' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.advancedGradeAcceptance} onClick={() => { if (!userGradeAdvancementReviews.length) void loadUserGradeAdvancementReviews() }}>高阶经营验收</a>
                 <a className={`admin-nav-subitem ${activeAdminSection === 'userGradeFacts' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.userGradeFacts} onClick={() => { if (!userGradeDashboard) void loadUserGradeDashboard(); if (!userPointDashboard) void loadUserPointDashboard(); if (canReadEffectiveUsers) void loadEffectiveUserQualifications() }}>资格事实与复核</a>
+              </div> : null}
+            </div>
+          ) : item.href === ADMIN_SECTION_HASHES.settings ? (
+            <div className="admin-nav-group" key={item.label}>
+              <button type="button" className={`admin-nav-chip admin-nav-group-trigger ${isSystemConfigSection ? 'is-active' : ''}`} aria-expanded={isSystemConfigNavOpen} onClick={() => setIsSystemConfigNavOpen((open) => !open)}>
+                <AdminNavIcon label={item.label} />
+                <span>{item.label}</span><span className="admin-nav-group-caret">{isSystemConfigNavOpen ? '⌄' : '›'}</span>
+              </button>
+              {isSystemConfigNavOpen ? <div className="admin-nav-submenu" aria-label="系统配置子菜单">
+                <a className={`admin-nav-subitem ${activeAdminSection === 'systemExperiment' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemExperiment}>100 人实验</a>
+                <a className={`admin-nav-subitem ${activeAdminSection === 'systemGuilds' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemGuilds}>公会配置</a>
+                <a className={`admin-nav-subitem ${activeAdminSection === 'systemPlatforms' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemPlatforms} onClick={() => { if (!platformIntegrations) void loadPlatformIntegrations(); if (!platformVerificationRuntime) void loadPlatformVerificationRuntime() }}>平台接入</a>
+                {canRunControlledIncome ? <><a className={`admin-nav-subitem ${activeAdminSection === 'systemIncomeControlled' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemIncomeControlled}>收入受控联调</a><a className={`admin-nav-subitem ${activeAdminSection === 'systemIncomeShadow' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemIncomeShadow}>收入影子账本</a></> : null}
+                {canManagePlatformMocks ? <a className={`admin-nav-subitem ${activeAdminSection === 'systemMockVerification' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemMockVerification} onClick={() => void loadPlatformVerificationRuntime(true)}>本地 Mock 核验</a> : null}
+                <a className={`admin-nav-subitem ${activeAdminSection === 'systemAdvanced' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemAdvanced}>高级接入</a>
+                {canManageSeedInviters ? <a className={`admin-nav-subitem ${activeAdminSection === 'systemSeedInviter' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemSeedInviter} onClick={() => { if (!seedInviters) void loadSeedInviters() }}>种子邀请人</a> : null}
+                {canAuditPhoneVerification ? <a className={`admin-nav-subitem ${activeAdminSection === 'systemPhoneVerification' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemPhoneVerification}>验证码审查</a> : null}
               </div> : null}
             </div>
           ) : (
@@ -2889,21 +2931,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               </PanelSection>
             </div>
           ) : null}
-          {activeAdminSection === 'settings' ? (
-            <div className="admin-view-tabs" role="tablist" aria-label="配置分类">
-              <button className={adminSettingsView === 'experiment' ? 'is-active' : ''} onClick={() => setAdminSettingsView('experiment')} role="tab" aria-selected={adminSettingsView === 'experiment'}>100 人实验</button>
-              <button className={adminSettingsView === 'guilds' ? 'is-active' : ''} onClick={() => setAdminSettingsView('guilds')} role="tab" aria-selected={adminSettingsView === 'guilds'}>公会配置</button>
-              <button className={adminSettingsView === 'platforms' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('platforms'); if (!platformIntegrations) void loadPlatformIntegrations(); if (!platformVerificationRuntime) void loadPlatformVerificationRuntime() }} role="tab" aria-selected={adminSettingsView === 'platforms'}>平台接入</button>
-              {canRunControlledIncome ? <button className={adminSettingsView === 'incomeControlled' ? 'is-active' : ''} onClick={() => setAdminSettingsView('incomeControlled')} role="tab" aria-selected={adminSettingsView === 'incomeControlled'}>收入受控联调</button> : null}
-              {canRunControlledIncome ? <button className={adminSettingsView === 'incomeShadow' ? 'is-active' : ''} onClick={() => setAdminSettingsView('incomeShadow')} role="tab" aria-selected={adminSettingsView === 'incomeShadow'}>收入影子账本</button> : null}
-              {canManagePlatformMocks ? <button className={adminSettingsView === 'mockVerification' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('mockVerification'); void loadPlatformVerificationRuntime(true) }} role="tab" aria-selected={adminSettingsView === 'mockVerification'}>本地 Mock 核验</button> : null}
-              <button className={adminSettingsView === 'advanced' ? 'is-active' : ''} onClick={() => setAdminSettingsView('advanced')} role="tab" aria-selected={adminSettingsView === 'advanced'}>高级接入</button>
-              {canManageSeedInviters ? <button className={adminSettingsView === 'seedInviter' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('seedInviter'); if (!seedInviters) void loadSeedInviters() }} role="tab" aria-selected={adminSettingsView === 'seedInviter'}>种子邀请人</button> : null}
-              {canAuditPhoneVerification ? <button className={adminSettingsView === 'phoneVerification' ? 'is-active' : ''} onClick={() => setAdminSettingsView('phoneVerification')} role="tab" aria-selected={adminSettingsView === 'phoneVerification'}>验证码审查</button> : null}
-            </div>
-          ) : null}
-
-          {activeAdminSection === 'settings' && adminSettingsView === 'platforms' ? (
+          {isSystemConfigSection && currentSettingsView === 'platforms' ? (
             <PanelSection
               sectionId="admin-platform-integrations"
               eyebrow="Platform integration"
@@ -2946,7 +2974,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </PanelSection>
           ) : null}
 
-          {activeAdminSection === 'settings' && canRunControlledIncome && adminSettingsView === 'incomeControlled' ? (
+          {isSystemConfigSection && canRunControlledIncome && currentSettingsView === 'incomeControlled' ? (
             <PanelSection
               sectionId="admin-income-controlled-readonly"
               eyebrow="MCN production · controlled read-only"
@@ -3003,7 +3031,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </PanelSection>
           ) : null}
 
-          {activeAdminSection === 'settings' && canRunControlledIncome && adminSettingsView === 'incomeShadow' ? (
+          {isSystemConfigSection && canRunControlledIncome && currentSettingsView === 'incomeShadow' ? (
             <PanelSection sectionId="admin-income-shadow-ledger" eyebrow="MCN evidence · no financial effect" title="收入影子账本" description="把已保留的 MCN 原始收入事实按最新修订整理为可核对记录。这里只检查数据归属与定稿状态，绝不计算或发放奖励。">
               <div className="stack-gap">
                 <InfoCard title="核对范围" tone="neutral">
@@ -3216,7 +3244,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </PanelSection>
           ) : null}
 
-          {activeAdminSection === 'settings' && canManagePlatformMocks && adminSettingsView === 'mockVerification' ? (
+          {isSystemConfigSection && canManagePlatformMocks && currentSettingsView === 'mockVerification' ? (
             <PanelSection
               sectionId="admin-platform-verification-mock"
               eyebrow="Local acceptance only"
@@ -3258,8 +3286,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </PanelSection>
           ) : null}
 
-          {activeAdminSection === 'settings' ? (
-            <div hidden={adminSettingsView !== 'advanced'}>
+          {isSystemConfigSection && currentSettingsView === 'advanced' ? (
+            <div>
               <PanelSection
                 sectionId="admin-onboarding"
                 eyebrow="Onboarding"
@@ -3310,7 +3338,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </div>
           ) : null}
 
-          {activeAdminSection === 'settings' && canManageSeedInviters && adminSettingsView === 'seedInviter' ? (
+          {isSystemConfigSection && canManageSeedInviters && currentSettingsView === 'seedInviter' ? (
             <PanelSection
               sectionId="admin-seed-inviter"
               eyebrow="Controlled onboarding"
@@ -3464,7 +3492,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </PanelSection>
           ) : null}
 
-          {activeAdminSection === 'settings' && canAuditPhoneVerification && adminSettingsView === 'phoneVerification' ? (
+          {isSystemConfigSection && canAuditPhoneVerification && currentSettingsView === 'phoneVerification' ? (
             <PanelSection
               sectionId="admin-phone-verification"
               eyebrow="Restricted Access"
@@ -3714,12 +3742,12 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               </div>
           ) : null}
 
-          {activeAdminSection === 'bindings' || activeAdminSection === 'riskQueue' || activeAdminSection === 'settings' ? (
-              <div className="admin-workbench-container" hidden={activeAdminSection === 'settings' && adminSettingsView !== 'experiment' && adminSettingsView !== 'guilds'}>
+          {activeAdminSection === 'bindings' || activeAdminSection === 'riskQueue' || isSystemConfigSection ? (
+              <div className="admin-workbench-container" hidden={isSystemConfigSection && currentSettingsView !== 'experiment' && currentSettingsView !== 'guilds'}>
                 <PanelSection
                   sectionId="admin-bindings"
                   eyebrow="Bindings"
-                  title={activeAdminSection === 'settings' ? '配置' : activeAdminSection === 'riskQueue' ? '风险队列' : '绑定管理'}
+                  title={isSystemConfigSection ? '系统配置' : activeAdminSection === 'riskQueue' ? '风险队列' : '绑定管理'}
                   description=""
                   action={activeAdminSection === 'bindings' ? <button className="primary-btn" onClick={handleLoadRelation} disabled={loading || !canLoadAdmin || !relationQueryUserId}>查询用户关系</button> : undefined}
                 >
@@ -3798,9 +3826,9 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   </div>
                   ) : null}
 
-                  {activeAdminSection === 'settings' ? (
+                  {isSystemConfigSection ? (
                     <>
-                  <div hidden={adminSettingsView !== 'experiment'}>
+                  <div hidden={currentSettingsView !== 'experiment'}>
                   <InfoCard title="100 人验证实验" tone="neutral">
                     <div className="grid-form compact-form exception-filter-grid">
                       <label>实验代码<input value={experimentCode} onChange={(e) => setExperimentCode(e.target.value)} placeholder="BANDEIRA_V1_100" /></label>
@@ -3834,7 +3862,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                     <button className="primary-btn small-btn top-gap" onClick={() => void handleEnrollParticipant()} disabled={loading || experimentDashboard?.status !== 'ENROLLING' || !experimentParticipant.userId || !experimentParticipant.eligibilitySnapshot.trim()}>加入实验队列</button>
                   </InfoCard>
                   </div>
-                  <div hidden={adminSettingsView !== 'guilds'}>
+                  <div hidden={currentSettingsView !== 'guilds'}>
                   <InfoCard title="公会周报" tone="success">
                     <div className="grid-form compact-form exception-filter-grid">
                       <label>

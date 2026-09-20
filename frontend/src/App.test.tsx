@@ -421,7 +421,7 @@ describe('Earnings landing page', () => {
   })
 
   it('renders a guild weekly report workspace in admin mode', () => {
-    window.location.hash = '#admin-settings'
+    window.location.hash = '#admin-system-guilds'
     const markup = renderToStaticMarkup(<ConsoleApp initialViewMode="admin" initialAdminSession={adminTestSession} />)
 
     expect(markup).toContain('公会周报')
@@ -431,7 +431,7 @@ describe('Earnings landing page', () => {
   })
 
   it('renders a guild config management workspace in admin mode', () => {
-    window.location.hash = '#admin-settings'
+    window.location.hash = '#admin-system-guilds'
     const markup = renderToStaticMarkup(<ConsoleApp initialViewMode="admin" initialAdminSession={adminTestSession} />)
 
     expect(markup).toContain('公会配置管理')
@@ -496,7 +496,7 @@ describe('Earnings landing page', () => {
   })
 
   it('renders invite code as a required field for profile onboarding in admin mode', () => {
-    window.location.hash = '#admin-settings'
+    window.location.hash = '#admin-system-advanced'
     const markup = renderToStaticMarkup(<ConsoleApp initialViewMode="admin" initialAdminSession={adminTestSession} />)
 
     expect(markup).toContain('邀请码（必填，首批运营请填写初始邀请码）')
@@ -516,7 +516,7 @@ describe('Earnings landing page', () => {
 
   it('lists Timo as a shadow-only platform option in the operations console', () => {
     window.location.pathname = '/admin'
-    window.location.hash = '#admin-settings'
+    window.location.hash = '#admin-system-platforms'
 
     const markup = renderToStaticMarkup(<ConsoleApp initialViewMode="admin" initialAdminSession={superAdminTestSession} />)
 
