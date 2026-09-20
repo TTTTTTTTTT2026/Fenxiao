@@ -320,6 +320,14 @@ const SYSTEM_CONFIG_SECTION_VIEWS: Partial<Record<AdminSectionKey, AdminSettings
   systemPhoneVerification: 'phoneVerification',
 }
 
+function getVisibleFinanceSections(role?: string): AdminSectionKey[] {
+  const normalizedRole = role?.toLowerCase()
+  if (normalizedRole === 'super_admin' || normalizedRole === 'admin' || !normalizedRole) return ['rewards', 'commissionPolicies', 'tokenPointConversions']
+  if (normalizedRole === 'finance') return ['rewards', 'commissionPolicies']
+  if (normalizedRole === 'operations') return ['tokenPointConversions']
+  return []
+}
+
 const SYSTEM_MANAGEMENT_SECTION_VIEWS: Partial<Record<AdminSectionKey, AdminAccountView>> = {
   accountManagement: 'staff',
   mySecurity: 'security',
@@ -466,6 +474,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [activeAdminSection, setActiveAdminSection] = useState<AdminSectionKey>(() => resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined))
   const [isUserGradeNavOpen, setIsUserGradeNavOpen] = useState(() => ['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [isUserManagementNavOpen, setIsUserManagementNavOpen] = useState(() => ['users', 'bindings', 'riskQueue'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
+  const [isFinanceManagementNavOpen, setIsFinanceManagementNavOpen] = useState(() => ['rewards', 'commissionPolicies', 'tokenPointConversions'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [isSystemConfigNavOpen, setIsSystemConfigNavOpen] = useState(() => ['settings', 'systemExperiment', 'systemGuilds', 'systemPlatforms', 'systemIncomeControlled', 'systemIncomeShadow', 'systemMockVerification', 'systemAdvanced', 'systemSeedInviter', 'systemPhoneVerification'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [isSystemManagementNavOpen, setIsSystemManagementNavOpen] = useState(() => ['accounts', 'accountManagement', 'mySecurity', 'securityRecords'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [showAdvancedOps, setShowAdvancedOps] = useState(false)
@@ -727,11 +736,13 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const seedInviterCountry = phoneCountries.find((country) => country.countryCode === seedInviterForm.countryCode) ?? phoneCountries[0]
   const activeAdminProductCode = adminProduct === 'ALL' ? undefined : adminProduct
   const adminSectionLinks = useMemo(() => buildAdminSectionLinks(adminSession?.role), [adminSession?.role])
+  const visibleFinanceSections = useMemo(() => getVisibleFinanceSections(adminSession?.role), [adminSession?.role])
   const canViewAdminSection = (section: AdminSectionKey) => adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES[section])
   const currentSettingsView = SYSTEM_CONFIG_SECTION_VIEWS[activeAdminSection] ?? (activeAdminSection === 'settings' ? 'experiment' : null)
   const isSystemConfigSection = activeAdminSection === 'settings' || currentSettingsView !== null
   const currentAccountView = SYSTEM_MANAGEMENT_SECTION_VIEWS[activeAdminSection] ?? (activeAdminSection === 'accounts' ? 'security' : null)
   const isSystemManagementSection = activeAdminSection === 'accounts' || currentAccountView !== null
+  const isFinanceManagementSection = ['rewards', 'commissionPolicies', 'tokenPointConversions'].includes(activeAdminSection)
   const showingProductSpecificDiagnostics = adminProduct === 'LINKY'
   const channelEntryLinks = useMemo(
     () => buildChannelEntryLinks(channelEntryForm.origin, {
@@ -755,11 +766,12 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   useEffect(() => {
     const isVisibleUserGradeChild = ['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.userGradeList)
     const isVisibleUserManagementChild = ['users', 'bindings', 'riskQueue'].includes(activeAdminSection) && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.users)
+    const isVisibleFinanceManagementChild = visibleFinanceSections.includes(activeAdminSection)
     const isVisibleSystemConfigChild = currentSettingsView !== null && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.settings)
     const isVisibleSystemManagementChild = currentAccountView !== null && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.accounts)
-    if (!adminSession || isVisibleUserGradeChild || isVisibleUserManagementChild || isVisibleSystemConfigChild || isVisibleSystemManagementChild || adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])) return
+    if (!adminSession || isVisibleUserGradeChild || isVisibleUserManagementChild || isVisibleFinanceManagementChild || isVisibleSystemConfigChild || isVisibleSystemManagementChild || adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])) return
     window.location.hash = ADMIN_SECTION_HASHES.overview
-  }, [activeAdminSection, adminSectionLinks, adminSession, currentAccountView, currentSettingsView])
+  }, [activeAdminSection, adminSectionLinks, adminSession, currentAccountView, currentSettingsView, visibleFinanceSections])
 
   useEffect(() => {
     if (!error && !successMessage) return undefined
@@ -2796,7 +2808,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
       <header className="admin-topbar">
         <div className="admin-page-heading">
           <p className="eyebrow">运营后台</p>
-          <h1>{['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) ? '用户等级' : ['users', 'bindings', 'riskQueue'].includes(activeAdminSection) ? '用户管理' : isSystemConfigSection ? '配置中心' : isSystemManagementSection ? '系统管理' : adminSectionLinks.find((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])?.label}</h1>
+          <h1>{['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) ? '用户等级' : ['users', 'bindings', 'riskQueue'].includes(activeAdminSection) ? '用户管理' : isFinanceManagementSection ? '财务管理' : isSystemConfigSection ? '配置中心' : isSystemManagementSection ? '系统管理' : adminSectionLinks.find((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])?.label}</h1>
         </div>
         <div className="hero-actions">
           <label className="hero-select-field">
@@ -2851,6 +2863,18 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                 <a className={`admin-nav-subitem ${activeAdminSection === 'userGradeList' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.userGradeList} onClick={() => { if (!userGradeDashboard) void loadUserGradeDashboard() }}>用户等级列表</a>
                 <a className={`admin-nav-subitem ${activeAdminSection === 'advancedGradeAcceptance' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.advancedGradeAcceptance} onClick={() => { if (!userGradeAdvancementReviews.length) void loadUserGradeAdvancementReviews() }}>高阶经营验收</a>
                 <a className={`admin-nav-subitem ${activeAdminSection === 'userGradeFacts' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.userGradeFacts} onClick={() => { if (!userGradeDashboard) void loadUserGradeDashboard(); if (!userPointDashboard) void loadUserPointDashboard(); if (canReadEffectiveUsers) void loadEffectiveUserQualifications() }}>资格事实与复核</a>
+              </div> : null}
+            </div>
+          ) : item.href === ADMIN_SECTION_HASHES.rewards ? (
+            <div className="admin-nav-group" key={item.label}>
+              <button type="button" className={`admin-nav-chip admin-nav-group-trigger ${isFinanceManagementSection ? 'is-active' : ''}`} aria-expanded={isFinanceManagementNavOpen} onClick={() => setIsFinanceManagementNavOpen((open) => !open)}>
+                <AdminNavIcon label={item.label} />
+                <span>{item.label}</span><span className="admin-nav-group-caret">{isFinanceManagementNavOpen ? '⌄' : '›'}</span>
+              </button>
+              {isFinanceManagementNavOpen ? <div className="admin-nav-submenu" aria-label="财务管理子菜单">
+                {visibleFinanceSections.includes('rewards') ? <a className={`admin-nav-subitem ${activeAdminSection === 'rewards' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.rewards}>收益提现</a> : null}
+                {visibleFinanceSections.includes('commissionPolicies') ? <a className={`admin-nav-subitem ${activeAdminSection === 'commissionPolicies' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.commissionPolicies} onClick={() => { if (!commissionPolicies) void loadCommissionPolicies() }}>邀请裂变分成</a> : null}
+                {visibleFinanceSections.includes('tokenPointConversions') ? <a className={`admin-nav-subitem ${activeAdminSection === 'tokenPointConversions' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.tokenPointConversions} onClick={() => { if (!tokenPointConversionDashboard) void loadTokenPointConversionDashboard() }}>代币积分兑换</a> : null}
               </div> : null}
             </div>
           ) : item.href === ADMIN_SECTION_HASHES.accounts ? (
@@ -4481,8 +4505,7 @@ function AdminNavIcon({ label }: { label: string }) {
   if (label === '渠道入口') return <Megaphone {...props} />
   if (label === '绑定关系') return <LinkSimple {...props} />
   if (label === '用户管理') return <IdentificationCard {...props} />
-  if (label === '收益提现') return <Wallet {...props} />
-  if (label === '邀请裂变分成') return <Diamond {...props} />
+  if (label === '财务管理') return <Wallet {...props} />
   if (label === '系统管理') return <UsersThree {...props} />
   return <GearSix {...props} />
 }

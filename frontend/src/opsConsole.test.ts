@@ -176,14 +176,9 @@ describe('buildAdminSectionLinks', () => {
         href: '#admin-platform-guild-directory',
       },
       {
-        label: '收益提现',
-        description: '收益记录和提现审批。',
+        label: '财务管理',
+        description: '管理收益提现、邀请裂变分成与代币积分兑换。',
         href: '#admin-rewards',
-      },
-      {
-        label: '邀请裂变分成',
-        description: '配置邀请链收入的分成层级与比例。',
-        href: '#admin-commission-policies',
       },
       {
         label: '导师列表',
@@ -201,11 +196,6 @@ describe('buildAdminSectionLinks', () => {
         href: '#admin-user-grade-list',
       },
       {
-        label: '代币积分换算',
-        description: '配置平台代币到用户积分的换算比例。',
-        href: '#admin-token-point-conversions',
-      },
-      {
         label: '系统管理',
         description: '账号管理、我的安全与安全记录。',
         href: '#admin-accounts',
@@ -220,8 +210,12 @@ describe('buildAdminSectionLinks', () => {
 
   it('shows finance only the overview, payout workbench, and personal account center', () => {
     expect(buildAdminSectionLinks('finance').map((item) => item.href)).toEqual([
-      '#admin-overview', '#admin-rewards', '#admin-commission-policies', '#admin-mentors', '#admin-user-grade-list', '#admin-accounts',
+      '#admin-overview', '#admin-rewards', '#admin-mentors', '#admin-user-grade-list', '#admin-accounts',
     ])
+  })
+
+  it('keeps the finance parent available to operations roles for their token-to-points configuration', () => {
+    expect(buildAdminSectionLinks('operations').map((item) => item.href)).toContain('#admin-rewards')
   })
 
   it('keeps configuration and staff management out of customer support navigation while retaining user lookup', () => {

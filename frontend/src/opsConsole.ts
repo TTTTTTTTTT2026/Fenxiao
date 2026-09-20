@@ -164,14 +164,9 @@ export function buildAdminSectionLinks(role?: string): AdminSectionLink[] {
       href: '#admin-platform-guild-directory',
     },
     {
-      label: '收益提现',
-      description: '收益记录和提现审批。',
+      label: '财务管理',
+      description: '管理收益提现、邀请裂变分成与代币积分兑换。',
       href: '#admin-rewards',
-    },
-    {
-      label: '邀请裂变分成',
-      description: '配置邀请链收入的分成层级与比例。',
-      href: '#admin-commission-policies',
     },
     {
       label: '导师列表',
@@ -187,11 +182,6 @@ export function buildAdminSectionLinks(role?: string): AdminSectionLink[] {
       label: '用户等级',
       description: '查看等级制度、资格事实与高阶经营验收。',
       href: '#admin-user-grade-list',
-    },
-    {
-      label: '代币积分换算',
-      description: '配置平台代币到用户积分的换算比例。',
-      href: '#admin-token-point-conversions',
     },
     {
       label: '系统管理',
@@ -211,8 +201,8 @@ export function buildAdminSectionLinks(role?: string): AdminSectionLink[] {
   if (normalizedRole === 'admin') return links
 
   const roleSections: Record<string, string[]> = {
-    finance: ['#admin-overview', '#admin-rewards', '#admin-commission-policies', '#admin-mentors', '#admin-user-grade-list', '#admin-advanced-grade-acceptance', '#admin-user-grade-facts', '#admin-accounts'],
-    operations: ['#admin-overview', '#admin-channel-entries', '#admin-users', '#admin-platform-guild-directory', '#admin-mentors', '#admin-teams', '#admin-user-grade-list', '#admin-advanced-grade-acceptance', '#admin-user-grade-facts', '#admin-token-point-conversions', '#admin-accounts'],
+    finance: ['#admin-overview', '#admin-rewards', '#admin-mentors', '#admin-user-grade-list', '#admin-advanced-grade-acceptance', '#admin-user-grade-facts', '#admin-accounts'],
+    operations: ['#admin-overview', '#admin-channel-entries', '#admin-users', '#admin-platform-guild-directory', '#admin-rewards', '#admin-mentors', '#admin-teams', '#admin-user-grade-list', '#admin-advanced-grade-acceptance', '#admin-user-grade-facts', '#admin-accounts'],
     operator: ['#admin-overview', '#admin-channel-entries', '#admin-users', '#admin-platform-guild-directory', '#admin-accounts'],
     customer_support: ['#admin-overview', '#admin-users', '#admin-accounts'],
     mentor: ['#admin-overview', '#admin-users', '#admin-accounts'],

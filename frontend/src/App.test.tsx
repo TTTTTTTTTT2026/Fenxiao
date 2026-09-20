@@ -230,7 +230,7 @@ describe('ConsoleApp admin core distribution workspace', () => {
     expect(markup).toContain('分销概览')
     expect(markup).toContain('渠道入口')
     expect(markup).toContain('用户管理')
-    expect(markup).toContain('收益提现')
+    expect(markup).toContain('财务管理')
     expect(markup).toContain('配置')
     expect(markup).not.toContain('>用户工作台<')
     expect(markup).not.toContain('分销用户工作台')
@@ -281,6 +281,9 @@ describe('ConsoleApp admin core distribution workspace', () => {
     const markup = renderToStaticMarkup(<ConsoleApp initialViewMode="admin" initialAdminSession={{ ...adminTestSession, role: 'finance' }} />)
 
     expect(markup).toContain('邀请裂变分成规则台账')
+    expect(markup).toContain('aria-label="财务管理子菜单"')
+    expect(markup).toContain('收益提现')
+    expect(markup).toContain('邀请裂变分成')
     expect(markup).toContain('第 1 层 · 直接邀请')
     expect(markup).toContain('第 2 层 · 间接邀请')
     expect(markup).toContain('第 3 层及以上')
