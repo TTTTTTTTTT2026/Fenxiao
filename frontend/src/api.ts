@@ -502,6 +502,7 @@ export type UserPlatformProfileItem = {
   inviteCode: string
   countryCode: string
   phoneNumber: string | null
+  registeredAt: string
   directInviterUserId: number | null
   linky: UserPlatformProfileBinding | null
   timo: UserPlatformProfileBinding | null
