@@ -52,6 +52,7 @@ public class TeamManagementAdminService {
     }
 
     public TeamManagementItemResponse setOperatingProfitShareEnabled(long teamId, boolean enabled, AdminSessionService.AdminPrincipal actor) {
+        if (enabled) throw new IllegalStateException("team operating rewards are globally closed until an independent plan is approved");
         TeamManagementItemResponse before = team(teamId);
         if (before.leaderUserId() == null || !("AUTO_CONFIRMED".equals(before.leaderAppointmentStatus()) || "CONFIRMED".equals(before.leaderAppointmentStatus()))) throw new IllegalStateException("only a team with a confirmed leader appointment can receive operating-profit-share permission");
         jdbc.update("update operating_team set operating_profit_share_enabled=?,updated_at=? where id=?", enabled, LocalDateTime.now(clock), teamId);

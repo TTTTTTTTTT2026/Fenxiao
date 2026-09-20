@@ -111,8 +111,6 @@ import {
   getAdminMentorIncentiveDashboard,
   getAdminMentorAssignedStudents,
   createAdminMentorIncentiveRules,
-  activateAdminMentorIncentiveRule,
-  retireAdminMentorIncentiveRule,
   getAdminOperatingDividendDashboard,
   getAdminTeamManagementDashboard,
   getAdminTeamMembers,
@@ -290,6 +288,8 @@ const ADMIN_SECTION_HASHES: Record<AdminSectionKey, string> = {
 
 function resolveAdminSectionFromHash(hash?: string): AdminSectionKey {
   const normalized = hash || '#admin-overview'
+  if (normalized === '#admin-mentor-incentives') return 'mentorDirectory'
+  if (normalized === '#admin-operating-dividends') return 'teams'
   const match = (Object.entries(ADMIN_SECTION_HASHES) as Array<[AdminSectionKey, string]>).find(([, value]) => value === normalized)
   if (match) return match[0]
   if (normalized === '#admin-invite-ops') return 'channel'
@@ -1973,11 +1973,6 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     finally { setTeamMembersLoading(false) }
   }
 
-  function requestTeamOperatingProfitSharePermission(team: TeamManagementItemResponse, enabled: boolean) {
-    if (!team.leaderUserId) { setError('只有已由等级机制产生负责人的团队，才可以设置团队经营利润分成许可。'); return }
-    setError(''); setTeamOperatingProfitSharePermissionTarget({ team, enabled })
-  }
-
   async function confirmTeamOperatingProfitSharePermission() {
     if (!adminSession || !canManageTeams || !teamOperatingProfitSharePermissionTarget) return
     const { team, enabled } = teamOperatingProfitSharePermissionTarget
@@ -2319,24 +2314,6 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
       })
       setIsMentorRuleDialogOpen(false); setIsMentorRuleGuildPickerOpen(false); setSuccessMessage(`已建立 ${created.length} 条待审导师分成规则；仅可用于影子账本核验，不会创建奖励、余额或付款。`); await loadMentorIncentiveDashboard()
     } catch (err) { setError(err instanceof Error ? err.message : '建立导师分成规则失败') }
-    finally { setLoading(false) }
-  }
-
-  async function handleActivateMentorRule(id: number, code: string) {
-    if (!adminSession || !canManageMentorRules) return
-    const approvalNote = window.prompt(`确认启用 ${code}？仅影响后续导师影子账本，请填写审批说明：`, '业务与财务复核通过')
-    if (!approvalNote?.trim()) return
-    setLoading(true); setError(''); setSuccessMessage('')
-    try { await activateAdminMentorIncentiveRule(adminSession.sessionToken, id, approvalNote.trim()); setSuccessMessage(`已启用导师影子规则 ${code}；不会发奖。`); await loadMentorIncentiveDashboard() }
-    catch (err) { setError(err instanceof Error ? err.message : '启用导师分成规则失败') }
-    finally { setLoading(false) }
-  }
-
-  async function handleRetireMentorRule(id: number, code: string) {
-    if (!adminSession || !canManageMentorRules || !window.confirm(`停止 ${code}？不会改动任何历史影子账本。`)) return
-    setLoading(true); setError(''); setSuccessMessage('')
-    try { await retireAdminMentorIncentiveRule(adminSession.sessionToken, id); setSuccessMessage(`已停止导师影子规则 ${code}。`); await loadMentorIncentiveDashboard() }
-    catch (err) { setError(err instanceof Error ? err.message : '停止导师分成规则失败') }
     finally { setLoading(false) }
   }
 
@@ -2860,9 +2837,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               if (item.href === ADMIN_SECTION_HASHES.users && !userPlatformProfiles) void loadUserPlatformProfiles()
               if (item.href === ADMIN_SECTION_HASHES.platformGuildDirectory && !platformGuildDirectory) void loadPlatformGuildDirectory()
               if (item.href === ADMIN_SECTION_HASHES.commissionPolicies && !commissionPolicies) void loadCommissionPolicies()
-              if ((item.href === ADMIN_SECTION_HASHES.mentorDirectory || item.href === ADMIN_SECTION_HASHES.mentorIncentives) && !mentorIncentiveDashboard) void loadMentorIncentiveDashboard()
+              if (item.href === ADMIN_SECTION_HASHES.mentorDirectory && !mentorIncentiveDashboard) void loadMentorIncentiveDashboard()
               if (item.href === ADMIN_SECTION_HASHES.teams && !teamManagementDashboard) void loadTeamManagementDashboard()
-              if (item.href === ADMIN_SECTION_HASHES.operatingDividends && !operatingDividendDashboard) void loadOperatingDividendDashboard()
               if (item.href === ADMIN_SECTION_HASHES.userGrades && canManageTeams && !userGradeDashboard) void loadUserGradeDashboard()
               if (item.href === ADMIN_SECTION_HASHES.userGrades && canManageTeams && !userGradeAdvancementReviews.length) void loadUserGradeAdvancementReviews()
               if (item.href === ADMIN_SECTION_HASHES.userGrades && canManageTeams && !userPointDashboard) void loadUserPointDashboard()
@@ -3122,15 +3098,13 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           ) : null}
 
           {activeAdminSection === 'mentorIncentives' ? (
-            <PanelSection sectionId="admin-mentor-incentives" eyebrow="Mentor milestones · shadow only" title="导师分成" description="导师分成按学员生命周期里程碑计算固定额度，与邀请裂变收入分成完全独立。此处只创建影子账本证据，不会产生奖励、余额、提现或付款。" action={<button className="ghost-btn" onClick={() => void loadMentorIncentiveDashboard()} disabled={loading}>刷新数据</button>}>
+            <PanelSection sectionId="admin-mentor-incentives" eyebrow="Mentor cash incentive · business decision pending" title="导师现金激励（暂未开放）" description="导师资格和学员归属继续在“导师列表”维护。导师现金激励的资格、教学结果、公式和预算尚未独立确认，因此不允许新建或启用规则。" action={<button className="ghost-btn" onClick={() => void loadMentorIncentiveDashboard()} disabled={loading}>刷新历史</button>}>
               <div className="stack-gap">
                 <InfoCard title="当前影子核验概览" tone="neutral">
-                  {mentorIncentiveDashboard ? <div className="relation-grid"><RelationItem label="已启用导师规则" value={mentorIncentiveDashboard.rules.filter((rule) => rule.status === 'ACTIVE').length} /><RelationItem label="导师影子记录" value={mentorIncentiveDashboard.shadowEntryCount} /></div> : <EmptyState title="尚未读取导师分成数据" description="点击“刷新数据”读取规则和导师影子账本。" />}
-                  <InlineHint text="导师规则按固定额度和里程碑触发；不是对学员收入按比例抽成。创建或启用规则不会进行真实发奖。" />
+                  {mentorIncentiveDashboard ? <div className="relation-grid"><RelationItem label="已关闭导师现金规则" value={mentorIncentiveDashboard.rules.length} /><RelationItem label="历史影子记录" value={mentorIncentiveDashboard.shadowEntryCount} /></div> : <EmptyState title="尚未读取导师历史" description="点击“刷新历史”读取已留存的规则和影子账本。" />}
+                  <InlineHint text="历史记录仅供审计。当前不创建候选、奖励、余额、提现或付款；后续必须先独立确认导师资格、教学结果、公式和预算。" />
                 </InfoCard>
-                {canManageMentorRules ? <InfoCard title="导师里程碑规则" tone="neutral"><p>先建立草稿，再填写审批说明后启用。限定公会只能从 MCN 权威目录中按平台和国家多选；每个公会会建立一条独立规则，避免规则范围混杂。</p><button className="primary-btn top-gap" onClick={() => { setIsMentorRuleGuildPickerOpen(false); setIsMentorRuleDialogOpen(true); void loadMentorRuleGuildDirectory() }} disabled={loading}>新增导师分成规则</button></InfoCard> : null}
-                <InfoCard title="已保存的导师规则" tone="neutral">{mentorIncentiveDashboard?.rules.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>规则版本</th><th>里程碑</th><th>适用范围</th><th>固定额度 / 冻结</th><th>生效期</th><th>状态</th><th>操作</th></tr></thead><tbody>{mentorIncentiveDashboard.rules.map((rule) => <tr key={rule.id}><td>{rule.ruleCode} · V{rule.ruleVersion}</td><td>{mentorMilestoneLabel(rule.milestoneCode)}</td><td>{rule.platformCode} / {rule.countryCode}{rule.guildId ? ` / ${rule.guildId}` : ' / 全部公会'}</td><td>{rule.amountMinor} {rule.currencyCode} / {rule.freezeDays} 天</td><td>{formatDateTime(rule.effectiveFrom)} {rule.effectiveTo ? `至 ${formatDateTime(rule.effectiveTo)}` : '起长期有效'}</td><td>{rule.status === 'DRAFT' ? '待审' : rule.status === 'ACTIVE' ? '已启用' : '已停用'}</td><td>{canManageMentorRules && rule.status === 'DRAFT' ? <button className="primary-btn small-btn" onClick={() => void handleActivateMentorRule(rule.id, rule.ruleCode)} disabled={loading}>审批并启用</button> : canManageMentorRules && rule.status === 'ACTIVE' ? <button className="ghost-btn small-btn" onClick={() => void handleRetireMentorRule(rule.id, rule.ruleCode)} disabled={loading}>停止使用</button> : '-'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未配置导师规则" description="规则必须先以草稿建立，审批启用后才会参与后续影子账本核验。" />}</InfoCard>
-                <InfoCard title="最近导师影子账本" tone="neutral">{mentorIncentiveDashboard?.recentShadowEntries.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>触发时间</th><th>导师 / 学员</th><th>平台</th><th>里程碑</th><th>规则</th><th>影子额度</th><th>状态</th></tr></thead><tbody>{mentorIncentiveDashboard.recentShadowEntries.map((entry) => <tr key={entry.id}><td>{formatDateTime(entry.triggeredAt)}</td><td>{entry.recipientUserId} / {entry.sourceUserId}</td><td>{entry.platformCode}</td><td>{mentorMilestoneLabel(entry.milestoneCode)}</td><td>{entry.ruleCode} · V{entry.ruleVersion}</td><td>{entry.amountMinor} {entry.currencyCode}</td><td>{entry.ledgerStatus}</td></tr>)}</tbody></table></div> : <EmptyState title="尚无导师影子记录" description="导师、学员、里程碑和已启用规则同时满足后，才会写入不可支付的影子账本。" />}</InfoCard>
+                <InfoCard title="历史导师规则" tone="neutral">{mentorIncentiveDashboard?.rules.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>规则版本</th><th>里程碑</th><th>适用范围</th><th>固定额度 / 冻结</th><th>状态</th></tr></thead><tbody>{mentorIncentiveDashboard.rules.map((rule) => <tr key={rule.id}><td>{rule.ruleCode} · V{rule.ruleVersion}</td><td>{mentorMilestoneLabel(rule.milestoneCode)}</td><td>{rule.platformCode} / {rule.countryCode}{rule.guildId ? ` / ${rule.guildId}` : ' / 全部公会'}</td><td>{rule.amountMinor} {rule.currencyCode} / {rule.freezeDays} 天</td><td>已关闭（{rule.status}）</td></tr>)}</tbody></table></div> : <EmptyState title="尚无导师现金规则" description="导师现金激励尚未定义，当前不应建立规则。" />}</InfoCard>
               </div>
             </PanelSection>
           ) : null}
@@ -3140,10 +3114,10 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               <div className="stack-gap">
                 <InfoCard title="团队治理概览" tone="neutral">
                   {teamManagementDashboard ? <div className="relation-grid"><RelationItem label="已确认负责人团队" value={teamManagementDashboard.leaderTeamCount} /><RelationItem label="有效团队" value={teamManagementDashboard.activeTeamCount} /><RelationItem label="已许可经营分成" value={teamManagementDashboard.operatingProfitShareEnabledTeamCount} /><RelationItem label="当前成员归属" value={teamManagementDashboard.activeMemberRelationCount} /></div> : <EmptyState title="尚未读取团队数据" description="点击“刷新数据”读取当前团队及成员归属。" />}
-                  <InlineHint text="成员归属采用可叠加的历史关系：用户成为新团队负责人后，可保留在上级团队的成员记录。负责人资格、建队和任命状态独立留存；团队经营利润分成全局关闭，许可仅为未来准备，不会产生奖励、余额、提现或付款。" />
+                  <InlineHint text="成员归属采用可叠加的历史关系：用户成为新团队负责人后，可保留在上级团队的成员记录。负责人资格、建队和任命状态独立留存；团队经营利润分成全局关闭，当前不能逐团队开启，不会产生奖励、余额、提现或付款。" />
                 </InfoCard>
                 <InfoCard title="团队经营与成员" tone="neutral">
-                  {teamManagementDashboard?.teams.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>团队</th><th>负责人</th><th>负责人状态</th><th>经营利润分成许可</th><th>上级团队</th><th>当前成员</th><th>最近经营事实</th><th>建立时间</th><th>操作</th></tr></thead><tbody>{teamManagementDashboard.teams.map((team) => <tr key={team.teamId}><td>{team.teamName}<small className="table-subtle">{team.teamCode} / {team.countryCode}</small></td><td>{team.leaderUserId ? `用户 ${team.leaderUserId}${team.leaderPhoneNumber ? ` · ${team.leaderPhoneNumber}` : ''}` : '待自动产生'}</td><td>{team.leaderAppointmentStatus === 'CONFIRMED' ? '已正式任命' : team.leaderAppointmentStatus === 'AUTO_CONFIRMED' ? '金牌自动确认' : team.leaderAppointmentStatus === 'LEGACY_UNVERIFIED' ? '历史待核验' : '不适用'}<small className="table-subtle">资格：{team.leaderQualificationStatus} / 建队：{team.teamEstablishmentStatus}</small></td><td><label className="checkbox-label"><input type="checkbox" checked={team.operatingProfitShareEnabled} disabled={!team.leaderUserId || !['CONFIRMED', 'AUTO_CONFIRMED'].includes(team.leaderAppointmentStatus) || loading} onChange={(event) => requestTeamOperatingProfitSharePermission(team, event.target.checked)} />{team.leaderUserId ? (team.operatingProfitShareEnabled ? '已许可' : '未许可') : '负责人未产生'}</label></td><td>{team.parentTeamCode || '—'}</td><td>{team.activeMemberCount}</td><td>{team.latestOperatingProfitMinor === null ? '尚无经营事实' : `${team.latestPlatformCode} · ${team.latestOperatingProfitMinor} ${team.latestCurrencyCode}（截至 ${team.latestPeriodEnd}）`}</td><td>{formatDateTime(team.createdAt)}</td><td><button className="ghost-btn small-btn" onClick={() => void openTeamMembers(team)} disabled={loading}>查看成员</button></td></tr>)}</tbody></table></div> : <EmptyState title="尚无团队记录" description="用户达到金牌等级后，系统会自动建立团队并保留负责人资格记录；不会模拟创建团队。" />}
+                  {teamManagementDashboard?.teams.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>团队</th><th>负责人</th><th>负责人状态</th><th>团队经营奖励</th><th>上级团队</th><th>当前成员</th><th>最近经营事实</th><th>建立时间</th><th>操作</th></tr></thead><tbody>{teamManagementDashboard.teams.map((team) => <tr key={team.teamId}><td>{team.teamName}<small className="table-subtle">{team.teamCode} / {team.countryCode}</small></td><td>{team.leaderUserId ? `用户 ${team.leaderUserId}${team.leaderPhoneNumber ? ` · ${team.leaderPhoneNumber}` : ''}` : '待自动产生'}</td><td>{team.leaderAppointmentStatus === 'CONFIRMED' ? '已正式任命' : team.leaderAppointmentStatus === 'AUTO_CONFIRMED' ? '金牌自动确认' : team.leaderAppointmentStatus === 'LEGACY_UNVERIFIED' ? '历史待核验' : '不适用'}<small className="table-subtle">资格：{team.leaderQualificationStatus} / 建队：{team.teamEstablishmentStatus}</small></td><td>全局关闭<small className="table-subtle">独立方案确认前不可启用</small></td><td>{team.parentTeamCode || '—'}</td><td>{team.activeMemberCount}</td><td>{team.latestOperatingProfitMinor === null ? '尚无经营事实' : `${team.latestPlatformCode} · ${team.latestOperatingProfitMinor} ${team.latestCurrencyCode}（截至 ${team.latestPeriodEnd}）`}</td><td>{formatDateTime(team.createdAt)}</td><td><button className="ghost-btn small-btn" onClick={() => void openTeamMembers(team)} disabled={loading}>查看成员</button></td></tr>)}</tbody></table></div> : <EmptyState title="尚无团队记录" description="用户达到金牌等级后，系统会自动建立团队并保留负责人资格记录；不会模拟创建团队。" />}
                 </InfoCard>
               </div>
             </PanelSection>
@@ -3224,7 +3198,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   </> : <EmptyState title="尚未读取积分事实" description="选择平台后读取，或按本地已定稿收入刷新。该操作不会请求 MCN。" />}
                 </InfoCard>
                 <InfoCard title="铂金、钻石、黑金：培养与经营验收" tone="neutral">
-                  <p>高级等级不由直邀人数规则自动晋级。铂金须先录入两名银牌成员各自的小组、连续 30 天观察和最后 7 天指标；钻石、黑金的细化经营指标尚未确认，仍只能保留人工验收记录。三项均确认后仅进入“待负责人确认”，不会自动创建团队、任命负责人或开启团队经营分成。</p>
+                  <p>高级等级不由直邀人数规则自动晋级。铂金须先录入两名银牌成员各自的小组、连续 30 天观察和最后 7 天指标；钻石、黑金须录入两名不同培养对象、不同范围和连续完整自然月。经营质量 KPI 尚待业务确认，仍由运营复核。三项均确认后仅进入“待负责人确认”，不会自动创建团队、任命负责人或开启团队经营分成。</p>
                   <button className="primary-btn top-gap" onClick={openUserGradeAdvancementDialog} disabled={loading}>建立高级等级验收记录</button>
                   {userGradeAdvancementReviews.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>用户 / 目标等级</th><th>平台 / 公会</th><th>培养资格</th><th>经营验收</th><th>经营职责</th><th>状态</th><th>操作</th></tr></thead><tbody>{userGradeAdvancementReviews.map((review) => {
                     const isPlatinum = review.targetGradeCode === 'PLATINUM'
