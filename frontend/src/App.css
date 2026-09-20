@@ -3244,6 +3244,14 @@ code {
   flex: 1;
 }
 
+.consumer-account-overview .consumer-account-details {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 5px;
+}
+
 .consumer-account-overview-icon,
 .consumer-platform-icon {
   display: grid;
