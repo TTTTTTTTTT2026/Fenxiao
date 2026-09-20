@@ -229,7 +229,7 @@ describe('ConsoleApp admin core distribution workspace', () => {
     expect(markup).not.toContain('后台登录口令')
     expect(markup).toContain('分销概览')
     expect(markup).toContain('渠道入口')
-    expect(markup).toContain('绑定关系')
+    expect(markup).toContain('用户管理')
     expect(markup).toContain('收益提现')
     expect(markup).toContain('配置')
     expect(markup).not.toContain('>用户工作台<')

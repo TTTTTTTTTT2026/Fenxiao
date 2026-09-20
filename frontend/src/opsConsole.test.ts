@@ -88,7 +88,7 @@ describe('buildAdminSectionLinks', () => {
   it('exposes a dedicated user directory to operational read roles', () => {
     expect(buildAdminSectionLinks('operations')).toContainEqual({
       label: '用户管理',
-      description: '查询用户资料与平台归属。',
+      description: '查看用户、邀请关系与风险队列。',
       href: '#admin-users',
     })
   })
@@ -166,13 +166,8 @@ describe('buildAdminSectionLinks', () => {
         href: '#admin-channel-entries',
       },
       {
-        label: '绑定关系',
-        description: '查询和修正绑定。',
-        href: '#admin-bindings',
-      },
-      {
         label: '用户管理',
-        description: '查询用户资料与平台归属。',
+        description: '查看用户、邀请关系与风险队列。',
         href: '#admin-users',
       },
       {
@@ -231,7 +226,7 @@ describe('buildAdminSectionLinks', () => {
 
   it('keeps configuration and staff management out of customer support navigation while retaining user lookup', () => {
     expect(buildAdminSectionLinks('customer_support').map((item) => item.href)).toEqual([
-      '#admin-overview', '#admin-bindings', '#admin-users', '#admin-accounts',
+      '#admin-overview', '#admin-users', '#admin-accounts',
     ])
   })
 })
