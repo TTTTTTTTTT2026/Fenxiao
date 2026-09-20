@@ -356,6 +356,7 @@ export type DistributionHomeResponse = {
   secondLevelEffectiveUsers: number
   thirdLevelEffectiveUsers: number
   totalEffectiveUsers: number
+  userGradeCode: string
 }
 
 export type TeamMemberItem = {

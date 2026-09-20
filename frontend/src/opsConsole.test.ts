@@ -202,8 +202,8 @@ describe('buildAdminSectionLinks', () => {
       },
       {
         label: '用户等级',
-        description: '管理用户等级与团队负责人资格。',
-        href: '#admin-user-grades',
+        description: '查看等级制度、资格事实与高阶经营验收。',
+        href: '#admin-user-grade-list',
       },
       {
         label: '代币积分换算',
@@ -225,7 +225,7 @@ describe('buildAdminSectionLinks', () => {
 
   it('shows finance only the overview, payout workbench, and personal account center', () => {
     expect(buildAdminSectionLinks('finance').map((item) => item.href)).toEqual([
-      '#admin-overview', '#admin-rewards', '#admin-commission-policies', '#admin-mentors', '#admin-user-grades', '#admin-accounts',
+      '#admin-overview', '#admin-rewards', '#admin-commission-policies', '#admin-mentors', '#admin-user-grade-list', '#admin-accounts',
     ])
   })
 

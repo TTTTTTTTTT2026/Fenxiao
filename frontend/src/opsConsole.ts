@@ -190,8 +190,8 @@ export function buildAdminSectionLinks(role?: string): AdminSectionLink[] {
     },
     {
       label: '用户等级',
-      description: '管理用户等级与团队负责人资格。',
-      href: '#admin-user-grades',
+      description: '查看等级制度、资格事实与高阶经营验收。',
+      href: '#admin-user-grade-list',
     },
     {
       label: '代币积分换算',
@@ -216,8 +216,8 @@ export function buildAdminSectionLinks(role?: string): AdminSectionLink[] {
   if (normalizedRole === 'admin') return links
 
   const roleSections: Record<string, string[]> = {
-    finance: ['#admin-overview', '#admin-rewards', '#admin-commission-policies', '#admin-mentors', '#admin-user-grades', '#admin-accounts'],
-    operations: ['#admin-overview', '#admin-channel-entries', '#admin-bindings', '#admin-users', '#admin-platform-guild-directory', '#admin-mentors', '#admin-teams', '#admin-user-grades', '#admin-token-point-conversions', '#admin-accounts'],
+    finance: ['#admin-overview', '#admin-rewards', '#admin-commission-policies', '#admin-mentors', '#admin-user-grade-list', '#admin-advanced-grade-acceptance', '#admin-user-grade-facts', '#admin-accounts'],
+    operations: ['#admin-overview', '#admin-channel-entries', '#admin-bindings', '#admin-users', '#admin-platform-guild-directory', '#admin-mentors', '#admin-teams', '#admin-user-grade-list', '#admin-advanced-grade-acceptance', '#admin-user-grade-facts', '#admin-token-point-conversions', '#admin-accounts'],
     operator: ['#admin-overview', '#admin-channel-entries', '#admin-bindings', '#admin-users', '#admin-platform-guild-directory', '#admin-accounts'],
     customer_support: ['#admin-overview', '#admin-bindings', '#admin-users', '#admin-accounts'],
     mentor: ['#admin-overview', '#admin-bindings', '#admin-users', '#admin-accounts'],
