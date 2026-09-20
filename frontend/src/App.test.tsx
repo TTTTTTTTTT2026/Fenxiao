@@ -263,6 +263,32 @@ describe('ConsoleApp admin core distribution workspace', () => {
     expect(markup).not.toContain('当前主链顺序')
   })
 
+  it('keeps invitation commission as a fixed read-only policy ledger', () => {
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: {
+        location: {
+          pathname: '/',
+          search: '',
+          hash: '#admin-commission-policies',
+          origin: 'http://127.0.0.1:4173',
+        },
+        localStorage: createStorage(),
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      },
+    })
+    const markup = renderToStaticMarkup(<ConsoleApp initialViewMode="admin" initialAdminSession={{ ...adminTestSession, role: 'finance' }} />)
+
+    expect(markup).toContain('邀请裂变分成规则台账')
+    expect(markup).toContain('第 1 层 · 直接邀请')
+    expect(markup).toContain('第 2 层 · 间接邀请')
+    expect(markup).toContain('第 3 层及以上')
+    expect(markup).toContain('来源公会公司业务收入')
+    expect(markup).not.toContain('新增邀请裂变规则')
+    expect(markup).not.toContain('审批并启用')
+  })
+
   it('keeps seed inviter creation and verification-code review restricted to super administrators', () => {
     Object.defineProperty(globalThis, 'window', {
       configurable: true,
