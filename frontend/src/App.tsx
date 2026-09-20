@@ -254,7 +254,8 @@ type AdminAuthState = {
 
 type AdminProductKey = 'ALL' | 'LINKY' | 'TIMO'
 type AdminSettingsView = 'experiment' | 'guilds' | 'platforms' | 'incomeControlled' | 'incomeShadow' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification'
-type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'riskQueue' | 'users' | 'platformGuildDirectory' | 'rewards' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'teams' | 'operatingDividends' | 'userGrades' | 'userGradeList' | 'advancedGradeAcceptance' | 'userGradeFacts' | 'tokenPointConversions' | 'accounts' | 'settings' | 'systemExperiment' | 'systemGuilds' | 'systemPlatforms' | 'systemIncomeControlled' | 'systemIncomeShadow' | 'systemMockVerification' | 'systemAdvanced' | 'systemSeedInviter' | 'systemPhoneVerification'
+type AdminAccountView = 'security' | 'staff' | 'audit'
+type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'riskQueue' | 'users' | 'platformGuildDirectory' | 'rewards' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'teams' | 'operatingDividends' | 'userGrades' | 'userGradeList' | 'advancedGradeAcceptance' | 'userGradeFacts' | 'tokenPointConversions' | 'accounts' | 'accountManagement' | 'mySecurity' | 'securityRecords' | 'settings' | 'systemExperiment' | 'systemGuilds' | 'systemPlatforms' | 'systemIncomeControlled' | 'systemIncomeShadow' | 'systemMockVerification' | 'systemAdvanced' | 'systemSeedInviter' | 'systemPhoneVerification'
 type RiskActionName = 'HANDLE' | 'IGNORE' | 'FREEZE_USER' | 'UNFREEZE_USER'
 type WithdrawActionName = 'approve' | 'reject' | 'paid' | 'failed' | 'reverse'
 type WithdrawQuery = { userId: string; status: string; page: string; size: string }
@@ -282,6 +283,9 @@ const ADMIN_SECTION_HASHES: Record<AdminSectionKey, string> = {
   userGradeFacts: '#admin-user-grade-facts',
   tokenPointConversions: '#admin-token-point-conversions',
   accounts: '#admin-accounts',
+  accountManagement: '#admin-account-management',
+  mySecurity: '#admin-my-security',
+  securityRecords: '#admin-security-records',
   settings: '#admin-settings',
   systemExperiment: '#admin-system-experiment',
   systemGuilds: '#admin-system-guilds',
@@ -314,6 +318,12 @@ const SYSTEM_CONFIG_SECTION_VIEWS: Partial<Record<AdminSectionKey, AdminSettings
   systemAdvanced: 'advanced',
   systemSeedInviter: 'seedInviter',
   systemPhoneVerification: 'phoneVerification',
+}
+
+const SYSTEM_MANAGEMENT_SECTION_VIEWS: Partial<Record<AdminSectionKey, AdminAccountView>> = {
+  accountManagement: 'staff',
+  mySecurity: 'security',
+  securityRecords: 'audit',
 }
 
 function resolveAdminSectionFromHash(hash?: string): AdminSectionKey {
@@ -452,12 +462,12 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [pendingAdminAccountAction, setPendingAdminAccountAction] = useState<PendingAdminAccountAction | null>(null)
   const [adminAccountForm, setAdminAccountForm] = useState({ username: '', displayName: '', role: 'operator', platformScope: '*', guildScope: '*', regionScope: '*' })
   const [adminPasswordForm, setAdminPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
-  const [adminAccountView, setAdminAccountView] = useState<'security' | 'staff' | 'audit'>('security')
   const [adminProduct, setAdminProduct] = useState<AdminProductKey>('ALL')
   const [activeAdminSection, setActiveAdminSection] = useState<AdminSectionKey>(() => resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined))
   const [isUserGradeNavOpen, setIsUserGradeNavOpen] = useState(() => ['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [isUserManagementNavOpen, setIsUserManagementNavOpen] = useState(() => ['users', 'bindings', 'riskQueue'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [isSystemConfigNavOpen, setIsSystemConfigNavOpen] = useState(() => ['settings', 'systemExperiment', 'systemGuilds', 'systemPlatforms', 'systemIncomeControlled', 'systemIncomeShadow', 'systemMockVerification', 'systemAdvanced', 'systemSeedInviter', 'systemPhoneVerification'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
+  const [isSystemManagementNavOpen, setIsSystemManagementNavOpen] = useState(() => ['accounts', 'accountManagement', 'mySecurity', 'securityRecords'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [showAdvancedOps, setShowAdvancedOps] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -720,6 +730,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const canViewAdminSection = (section: AdminSectionKey) => adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES[section])
   const currentSettingsView = SYSTEM_CONFIG_SECTION_VIEWS[activeAdminSection] ?? (activeAdminSection === 'settings' ? 'experiment' : null)
   const isSystemConfigSection = activeAdminSection === 'settings' || currentSettingsView !== null
+  const currentAccountView = SYSTEM_MANAGEMENT_SECTION_VIEWS[activeAdminSection] ?? (activeAdminSection === 'accounts' ? 'security' : null)
+  const isSystemManagementSection = activeAdminSection === 'accounts' || currentAccountView !== null
   const showingProductSpecificDiagnostics = adminProduct === 'LINKY'
   const channelEntryLinks = useMemo(
     () => buildChannelEntryLinks(channelEntryForm.origin, {
@@ -744,9 +756,10 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     const isVisibleUserGradeChild = ['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.userGradeList)
     const isVisibleUserManagementChild = ['users', 'bindings', 'riskQueue'].includes(activeAdminSection) && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.users)
     const isVisibleSystemConfigChild = currentSettingsView !== null && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.settings)
-    if (!adminSession || isVisibleUserGradeChild || isVisibleUserManagementChild || isVisibleSystemConfigChild || adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])) return
+    const isVisibleSystemManagementChild = currentAccountView !== null && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.accounts)
+    if (!adminSession || isVisibleUserGradeChild || isVisibleUserManagementChild || isVisibleSystemConfigChild || isVisibleSystemManagementChild || adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])) return
     window.location.hash = ADMIN_SECTION_HASHES.overview
-  }, [activeAdminSection, adminSectionLinks, adminSession, currentSettingsView])
+  }, [activeAdminSection, adminSectionLinks, adminSession, currentAccountView, currentSettingsView])
 
   useEffect(() => {
     if (!error && !successMessage) return undefined
@@ -1490,7 +1503,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
       const [devices, events] = await Promise.all([getAdminDeviceSessions(), getMyAdminSecurityEvents()])
       setAdminDevices(devices); setAdminSecurityEvents(events)
       if (adminSession?.role.toLowerCase() === 'super_admin') setAdminAccounts(await getAdminAccounts())
-    } catch (err) { setError(err instanceof Error ? err.message : '加载账号中心失败') }
+    } catch (err) { setError(err instanceof Error ? err.message : '加载系统管理数据失败') }
     finally { setLoading(false) }
   }
 
@@ -2783,7 +2796,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
       <header className="admin-topbar">
         <div className="admin-page-heading">
           <p className="eyebrow">运营后台</p>
-          <h1>{['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) ? '用户等级' : ['users', 'bindings', 'riskQueue'].includes(activeAdminSection) ? '用户管理' : isSystemConfigSection ? '系统配置' : adminSectionLinks.find((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])?.label}</h1>
+          <h1>{['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) ? '用户等级' : ['users', 'bindings', 'riskQueue'].includes(activeAdminSection) ? '用户管理' : isSystemConfigSection ? '配置中心' : isSystemManagementSection ? '系统管理' : adminSectionLinks.find((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])?.label}</h1>
         </div>
         <div className="hero-actions">
           <label className="hero-select-field">
@@ -2840,13 +2853,25 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                 <a className={`admin-nav-subitem ${activeAdminSection === 'userGradeFacts' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.userGradeFacts} onClick={() => { if (!userGradeDashboard) void loadUserGradeDashboard(); if (!userPointDashboard) void loadUserPointDashboard(); if (canReadEffectiveUsers) void loadEffectiveUserQualifications() }}>资格事实与复核</a>
               </div> : null}
             </div>
+          ) : item.href === ADMIN_SECTION_HASHES.accounts ? (
+            <div className="admin-nav-group" key={item.label}>
+              <button type="button" className={`admin-nav-chip admin-nav-group-trigger ${isSystemManagementSection ? 'is-active' : ''}`} aria-expanded={isSystemManagementNavOpen} onClick={() => setIsSystemManagementNavOpen((open) => !open)}>
+                <AdminNavIcon label={item.label} />
+                <span>{item.label}</span><span className="admin-nav-group-caret">{isSystemManagementNavOpen ? '⌄' : '›'}</span>
+              </button>
+              {isSystemManagementNavOpen ? <div className="admin-nav-submenu" aria-label="系统管理子菜单">
+                {adminSession.role.toLowerCase() === 'super_admin' ? <a className={`admin-nav-subitem ${activeAdminSection === 'accountManagement' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.accountManagement} onClick={() => void handleLoadAdminIdentityCenter()}>账号管理</a> : null}
+                <a className={`admin-nav-subitem ${activeAdminSection === 'mySecurity' || activeAdminSection === 'accounts' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.mySecurity} onClick={() => void handleLoadAdminIdentityCenter()}>我的安全</a>
+                <a className={`admin-nav-subitem ${activeAdminSection === 'securityRecords' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.securityRecords} onClick={() => void handleLoadAdminIdentityCenter()}>安全记录</a>
+              </div> : null}
+            </div>
           ) : item.href === ADMIN_SECTION_HASHES.settings ? (
             <div className="admin-nav-group" key={item.label}>
               <button type="button" className={`admin-nav-chip admin-nav-group-trigger ${isSystemConfigSection ? 'is-active' : ''}`} aria-expanded={isSystemConfigNavOpen} onClick={() => setIsSystemConfigNavOpen((open) => !open)}>
                 <AdminNavIcon label={item.label} />
                 <span>{item.label}</span><span className="admin-nav-group-caret">{isSystemConfigNavOpen ? '⌄' : '›'}</span>
               </button>
-              {isSystemConfigNavOpen ? <div className="admin-nav-submenu" aria-label="系统配置子菜单">
+              {isSystemConfigNavOpen ? <div className="admin-nav-submenu" aria-label="配置中心子菜单">
                 <a className={`admin-nav-subitem ${activeAdminSection === 'systemExperiment' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemExperiment}>100 人实验</a>
                 <a className={`admin-nav-subitem ${activeAdminSection === 'systemGuilds' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemGuilds}>公会配置</a>
                 <a className={`admin-nav-subitem ${activeAdminSection === 'systemPlatforms' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemPlatforms} onClick={() => { if (!platformIntegrations) void loadPlatformIntegrations(); if (!platformVerificationRuntime) void loadPlatformVerificationRuntime() }}>平台接入</a>
@@ -2875,15 +2900,10 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
 
       <div className="console-layout admin-layout admin-workspace-shell">
         <main className="console-main">
-          {activeAdminSection === 'accounts' ? (
+          {isSystemManagementSection ? (
             <div className="stack-gap" id="admin-accounts">
-              <PanelSection eyebrow="Identity" title="账号与安全中心" description="" action={<button className="primary-btn" onClick={() => void handleLoadAdminIdentityCenter()} disabled={loading}>刷新账号中心</button>}>
-                <div className="admin-view-tabs" role="tablist" aria-label="账号中心分类">
-                  <button className={adminAccountView === 'security' ? 'is-active' : ''} onClick={() => setAdminAccountView('security')} role="tab" aria-selected={adminAccountView === 'security'}>我的安全</button>
-                  {adminSession.role.toLowerCase() === 'super_admin' ? <button className={adminAccountView === 'staff' ? 'is-active' : ''} onClick={() => setAdminAccountView('staff')} role="tab" aria-selected={adminAccountView === 'staff'}>员工与权限</button> : null}
-                  <button className={adminAccountView === 'audit' ? 'is-active' : ''} onClick={() => setAdminAccountView('audit')} role="tab" aria-selected={adminAccountView === 'audit'}>安全记录</button>
-                </div>
-                <div className="admin-account-section" hidden={adminAccountView !== 'security'}>
+              <PanelSection eyebrow="System management" title={currentAccountView === 'staff' ? '账号管理' : currentAccountView === 'audit' ? '安全记录' : '我的安全'} description={currentAccountView === 'staff' ? '管理运营后台账号、角色与数据范围。' : currentAccountView === 'audit' ? '查看当前账号的安全事件记录。' : '管理当前账号的密码和登录设备。'} action={<button className="primary-btn" onClick={() => void handleLoadAdminIdentityCenter()} disabled={loading}>刷新页面数据</button>}>
+                {currentAccountView === 'security' ? <div className="admin-account-section">
                 <div className="content-grid two-columns entity-grid">
                   <InfoCard title="修改我的密码" tone="neutral">
                     <InfoRow label="密码到期时间" value={adminSession.passwordExpiresAt ? formatDateTime(adminSession.passwordExpiresAt) : '未设置'} />
@@ -2900,9 +2920,9 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   <div className="table-toolbar"><button className="ghost-btn small-btn" onClick={() => void handleLogoutAllAdminDevices()}>退出全部设备</button></div>
                   <DataTable headers={['设备', '最近使用', '到期时间', '网络地址', '状态', '操作']} rows={adminDevices.map((item) => [item.userAgent || '未知设备', formatDateTime(item.lastSeenAt), formatDateTime(item.expiresAt), item.ipAddress || '-', item.current ? '本机' : item.rememberMe ? '保持登录' : '普通会话', <button className="ghost-btn small-btn" onClick={() => void handleRevokeAdminDevice(item.id)}>退出</button>])} emptyText="刷新后查看当前登录设备" />
                 </InfoCard>
-                </div>
-                {adminSession.role.toLowerCase() === 'super_admin' ? (
-                  <div className="admin-account-section" hidden={adminAccountView !== 'staff'}>
+                </div> : null}
+                {currentAccountView === 'staff' && adminSession.role.toLowerCase() === 'super_admin' ? (
+                  <div className="admin-account-section">
                     <InfoCard title="新增员工账号" tone="success">
                       <form className="grid-form compact-form exception-filter-grid" onSubmit={handleCreateAdminAccount}>
                         <label>登录账号<input required value={adminAccountForm.username} onChange={(e) => setAdminAccountForm({ ...adminAccountForm, username: e.target.value })} /></label>
@@ -2923,11 +2943,11 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                         <span>{account.enabled ? '已启用' : '已停用'} · {account.lockedUntil ? `锁定至 ${formatDateTime(account.lockedUntil)}` : '未锁定'} · {account.activeSessions} 台设备</span>,
                         formatDateTime(account.lastLoginAt || undefined),
                         <div className="action-row"><button className="ghost-btn small-btn" onClick={() => setPendingAdminAccountAction({ account, action: 'save' })}>保存</button><button className="ghost-btn small-btn" onClick={() => setPendingAdminAccountAction({ account, action: 'toggle' })}>{account.enabled ? '停用' : '恢复'}</button>{account.lockedUntil ? <button className="ghost-btn small-btn" onClick={() => setPendingAdminAccountAction({ account, action: 'unlock' })}>解锁</button> : null}<button className="ghost-btn small-btn" onClick={() => setPendingAdminAccountAction({ account, action: 'reset' })}>重置密码</button></div>,
-                      ])} emptyText="点击刷新账号中心加载员工账号" />
+                      ])} emptyText="点击“刷新页面数据”加载员工账号" />
                     </InfoCard>
                   </div>
                 ) : null}
-                <div className="admin-account-section" hidden={adminAccountView !== 'audit'}><InfoCard title="最近安全事件" tone="neutral"><DataTable headers={['时间', '事件', '结果', '网络地址', '说明']} rows={adminSecurityEvents.map((item) => [formatDateTime(item.occurredAt), item.eventType, item.success ? '成功' : '失败', item.ipAddress || '-', item.detail || '-'])} emptyText="刷新后查看最近安全事件" /></InfoCard></div>
+                {currentAccountView === 'audit' ? <div className="admin-account-section"><InfoCard title="最近安全事件" tone="neutral"><DataTable headers={['时间', '事件', '结果', '网络地址', '说明']} rows={adminSecurityEvents.map((item) => [formatDateTime(item.occurredAt), item.eventType, item.success ? '成功' : '失败', item.ipAddress || '-', item.detail || '-'])} emptyText="刷新后查看最近安全事件" /></InfoCard></div> : null}
               </PanelSection>
             </div>
           ) : null}
@@ -3555,7 +3575,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                       {canViewAdminSection('rewards') ? <a href="#admin-rewards"><span>待审核提现<small>进入财务队列</small></span><strong>{adminWithdrawRequests?.total ?? '—'}</strong><CaretRight size={16} /></a> : null}
                       {canViewAdminSection('users') ? <a href="#admin-risk-queue" onClick={() => { if (!riskEvents) void handleLoadRiskEvents() }}><span>待处理异常<small>核验绑定与风险</small></span><strong>{riskEvents?.total ?? adminOverview?.riskEventCount ?? '—'}</strong><CaretRight size={16} /></a> : null}
                       {canViewAdminSection('channel') ? <a href="#admin-channel-entries"><span>渠道入口<small>创建可追踪链接</small></span><strong>生成</strong><CaretRight size={16} /></a> : null}
-                      <a href="#admin-accounts"><span>工作台状态<small>{currentAdminProductLabel}</small></span><strong>{adminOverview ? '已更新' : '待刷新'}</strong><CaretRight size={16} /></a>
+                      <a href="#admin-my-security"><span>工作台状态<small>{currentAdminProductLabel}</small></span><strong>{adminOverview ? '已更新' : '待刷新'}</strong><CaretRight size={16} /></a>
                     </div>
                   </section>
                   <section className="admin-overview-pulse" aria-labelledby="admin-pulse-title">
@@ -3747,7 +3767,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                 <PanelSection
                   sectionId="admin-bindings"
                   eyebrow="Bindings"
-                  title={isSystemConfigSection ? '系统配置' : activeAdminSection === 'riskQueue' ? '风险队列' : '绑定管理'}
+                  title={isSystemConfigSection ? '配置中心' : activeAdminSection === 'riskQueue' ? '风险队列' : '绑定管理'}
                   description=""
                   action={activeAdminSection === 'bindings' ? <button className="primary-btn" onClick={handleLoadRelation} disabled={loading || !canLoadAdmin || !relationQueryUserId}>查询用户关系</button> : undefined}
                 >
@@ -4463,7 +4483,7 @@ function AdminNavIcon({ label }: { label: string }) {
   if (label === '用户管理') return <IdentificationCard {...props} />
   if (label === '收益提现') return <Wallet {...props} />
   if (label === '邀请裂变分成') return <Diamond {...props} />
-  if (label === '账号中心') return <UsersThree {...props} />
+  if (label === '系统管理') return <UsersThree {...props} />
   return <GearSix {...props} />
 }
 

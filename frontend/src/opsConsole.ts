@@ -194,12 +194,12 @@ export function buildAdminSectionLinks(role?: string): AdminSectionLink[] {
       href: '#admin-token-point-conversions',
     },
     {
-      label: '账号中心',
-      description: '员工、密码和设备安全。',
+      label: '系统管理',
+      description: '账号管理、我的安全与安全记录。',
       href: '#admin-accounts',
     },
     {
-      label: '系统配置',
+      label: '配置中心',
       description: '接入、公会和产品配置。',
       href: '#admin-settings',
     },

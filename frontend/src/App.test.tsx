@@ -289,6 +289,30 @@ describe('ConsoleApp admin core distribution workspace', () => {
     expect(markup).not.toContain('审批并启用')
   })
 
+  it('splits system management into independent account and security pages', () => {
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: {
+        location: {
+          pathname: '/',
+          search: '',
+          hash: '#admin-account-management',
+          origin: 'http://127.0.0.1:4173',
+        },
+        localStorage: createStorage(),
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      },
+    })
+    const markup = renderToStaticMarkup(<ConsoleApp initialViewMode="admin" initialAdminSession={superAdminTestSession} />)
+
+    expect(markup).toContain('系统管理')
+    expect(markup).toContain('账号管理')
+    expect(markup).toContain('新增员工账号')
+    expect(markup).not.toContain('修改我的密码')
+    expect(markup).not.toContain('最近安全事件')
+  })
+
   it('keeps seed inviter creation and verification-code review restricted to super administrators', () => {
     Object.defineProperty(globalThis, 'window', {
       configurable: true,
