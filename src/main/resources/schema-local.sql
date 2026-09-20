@@ -1,6 +1,31 @@
 -- Local-only schema supplement for JDBC-backed income shadow projections.
 -- Production creates these structures through Flyway migrations V34-V36.
 
+-- Production creates this table through Flyway V49. Local acceptance disables
+-- Flyway, so keep the long-lived token-to-points configuration available after
+-- upgrading an existing local H2 database.
+CREATE TABLE IF NOT EXISTS token_point_conversion_version (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    conversion_code VARCHAR(64) NOT NULL,
+    conversion_version INT NOT NULL,
+    platform_code VARCHAR(32) NOT NULL,
+    token_unit VARCHAR(32) NOT NULL,
+    points_per_token DECIMAL(18,6) NOT NULL,
+    effective_from TIMESTAMP NOT NULL,
+    effective_to TIMESTAMP NULL,
+    rule_status VARCHAR(16) NOT NULL DEFAULT 'DRAFT',
+    created_by BIGINT NULL,
+    approved_by BIGINT NULL,
+    approved_at TIMESTAMP NULL,
+    approval_note VARCHAR(255) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_token_point_conversion_version UNIQUE (conversion_code, conversion_version)
+);
+
+CREATE INDEX IF NOT EXISTS idx_token_point_conversion_active
+    ON token_point_conversion_version(platform_code, rule_status, effective_from);
+
 CREATE TABLE IF NOT EXISTS mcn_income_shadow_ledger_projection (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     source_system VARCHAR(32) NOT NULL,
