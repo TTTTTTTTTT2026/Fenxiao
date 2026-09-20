@@ -10,4 +10,5 @@ public record UserGradeAdvancementReviewResponse(
         String operatingValidationStatus, String operatingValidationNote, Long operatingVerifiedBy, LocalDateTime operatingVerifiedAt,
         String responsibilityStatus, String responsibilityNote, Long responsibilityConfirmedBy, LocalDateTime responsibilityConfirmedAt,
         String reviewStatus, Long createdBy, LocalDateTime createdAt, LocalDateTime updatedAt,
-        List<UserGradePlatinumEvidenceResponse> platinumEvidence) { }
+        List<UserGradePlatinumEvidenceResponse> platinumEvidence,
+        List<UserGradeAdvancedEvidenceResponse> advancedEvidence) { }
