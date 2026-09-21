@@ -54,6 +54,7 @@ import com.fenxiao.distribution.service.LinkyRegistrationEligibilityService;
 import com.fenxiao.distribution.service.LinkyVerificationModeService;
 import com.fenxiao.distribution.service.WithdrawRequestService;
 import com.fenxiao.platform.service.PlatformGuildDirectoryService;
+import com.fenxiao.platform.service.PlatformGuildCompanyShareService;
 import com.fenxiao.reward.api.dto.RewardListResponse;
 import com.fenxiao.reward.domain.RewardStatus;
 import com.fenxiao.reward.service.RewardCalculationService;
@@ -105,6 +106,7 @@ public class DistributionAdminController {
     private final LinkyInvitationGuildAttributionService linkyInvitationGuildAttributionService;
     private final LinkyVerificationModeService linkyVerificationModeService;
     private final PlatformGuildDirectoryService platformGuildDirectoryService;
+    private final PlatformGuildCompanyShareService platformGuildCompanyShareService;
 
     public DistributionAdminController(RewardCalculationService rewardCalculationService,
                                        DistributionQueryService distributionQueryService,
@@ -126,7 +128,8 @@ public class DistributionAdminController {
                                        UserPlatformProfileAdminService userPlatformProfileAdminService,
                                        LinkyInvitationGuildAttributionService linkyInvitationGuildAttributionService,
                                        LinkyVerificationModeService linkyVerificationModeService,
-                                       PlatformGuildDirectoryService platformGuildDirectoryService) {
+                                       PlatformGuildDirectoryService platformGuildDirectoryService,
+                                       PlatformGuildCompanyShareService platformGuildCompanyShareService) {
         this.rewardCalculationService = rewardCalculationService;
         this.distributionQueryService = distributionQueryService;
         this.distributionReportService = distributionReportService;
@@ -148,6 +151,7 @@ public class DistributionAdminController {
         this.linkyInvitationGuildAttributionService = linkyInvitationGuildAttributionService;
         this.linkyVerificationModeService = linkyVerificationModeService;
         this.platformGuildDirectoryService = platformGuildDirectoryService;
+        this.platformGuildCompanyShareService = platformGuildCompanyShareService;
     }
 
     @GetMapping("/phone-verification-codes")
@@ -473,7 +477,11 @@ public class DistributionAdminController {
             @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
             @RequestParam(name = "platform", defaultValue = "LINKY") String platform) {
         distributionAccessGuard.assertAdminScopedAccess(adminToken, adminSessionToken, platform, null, null);
-        return platformGuildDirectoryService.list(platform).stream().map(PlatformGuildDirectoryResponse::from).toList();
+        LocalDateTime effectiveAt = LocalDateTime.now();
+        return platformGuildDirectoryService.list(platform).stream()
+                .map(guild -> PlatformGuildDirectoryResponse.from(guild,
+                        platformGuildCompanyShareService.findEffective(guild.getPlatformCode(), guild.getExternalGuildId(), effectiveAt).orElse(null)))
+                .toList();
     }
 
     @GetMapping("/platform-guild-directory/sync-runs")

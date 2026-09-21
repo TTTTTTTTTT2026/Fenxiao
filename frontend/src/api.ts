@@ -290,6 +290,7 @@ export type PlatformGuildDirectoryItem = {
   sourceVersion: string | null
   joinInstruction: string | null
   missingSince: string | null
+  operatingShareRate: number | null
 }
 
 export type PlatformGuildDirectorySyncRun = {
