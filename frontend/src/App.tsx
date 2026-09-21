@@ -255,7 +255,7 @@ type AdminAuthState = {
 type AdminProductKey = 'ALL' | 'LINKY' | 'TIMO'
 type AdminSettingsView = 'experiment' | 'guilds' | 'platforms' | 'incomeControlled' | 'incomeShadow' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification'
 type AdminAccountView = 'security' | 'staff' | 'audit'
-type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'riskQueue' | 'users' | 'platformGuildDirectory' | 'rewards' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'teams' | 'operatingDividends' | 'userGrades' | 'userGradeList' | 'advancedGradeAcceptance' | 'userGradeFacts' | 'tokenPointConversions' | 'accounts' | 'accountManagement' | 'mySecurity' | 'securityRecords' | 'settings' | 'systemExperiment' | 'systemGuilds' | 'systemPlatforms' | 'systemIncomeControlled' | 'systemIncomeShadow' | 'systemMockVerification' | 'systemAdvanced' | 'systemSeedInviter' | 'systemPhoneVerification'
+type AdminSectionKey = 'overview' | 'channel' | 'invitationRelations' | 'platformEligibility' | 'riskQueue' | 'users' | 'platformGuildDirectory' | 'rewards' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'teams' | 'operatingDividends' | 'userGrades' | 'userGradeList' | 'advancedGradeAcceptance' | 'userGradeFacts' | 'tokenPointConversions' | 'accounts' | 'accountManagement' | 'mySecurity' | 'securityRecords' | 'settings' | 'systemExperiment' | 'systemGuilds' | 'systemPlatforms' | 'systemIncomeControlled' | 'systemIncomeShadow' | 'systemMockVerification' | 'systemAdvanced' | 'systemSeedInviter' | 'systemPhoneVerification'
 type RiskActionName = 'HANDLE' | 'IGNORE' | 'FREEZE_USER' | 'UNFREEZE_USER'
 type WithdrawActionName = 'approve' | 'reject' | 'paid' | 'failed' | 'reverse'
 type WithdrawQuery = { userId: string; status: string; page: string; size: string }
@@ -267,7 +267,8 @@ type PendingBatchAction =
 const ADMIN_SECTION_HASHES: Record<AdminSectionKey, string> = {
   overview: '#admin-overview',
   channel: '#admin-channel-entries',
-  bindings: '#admin-bindings',
+  invitationRelations: '#admin-invitation-relations',
+  platformEligibility: '#admin-platform-eligibility',
   riskQueue: '#admin-risk-queue',
   users: '#admin-users',
   platformGuildDirectory: '#admin-platform-guild-directory',
@@ -337,6 +338,7 @@ const SYSTEM_MANAGEMENT_SECTION_VIEWS: Partial<Record<AdminSectionKey, AdminAcco
 function resolveAdminSectionFromHash(hash?: string): AdminSectionKey {
   const normalized = hash || '#admin-overview'
   if (normalized === '#admin-mentor-incentives') return 'mentorDirectory'
+  if (normalized === '#admin-bindings') return 'invitationRelations'
   if (normalized === '#admin-operating-dividends') return 'teams'
   if (normalized === '#admin-user-grades') return 'userGradeList'
   const match = (Object.entries(ADMIN_SECTION_HASHES) as Array<[AdminSectionKey, string]>).find(([, value]) => value === normalized)
@@ -473,7 +475,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [adminProduct, setAdminProduct] = useState<AdminProductKey>('ALL')
   const [activeAdminSection, setActiveAdminSection] = useState<AdminSectionKey>(() => resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined))
   const [isUserGradeNavOpen, setIsUserGradeNavOpen] = useState(() => ['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
-  const [isUserManagementNavOpen, setIsUserManagementNavOpen] = useState(() => ['users', 'bindings', 'riskQueue'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
+  const [isUserManagementNavOpen, setIsUserManagementNavOpen] = useState(() => ['users', 'invitationRelations', 'platformEligibility', 'riskQueue'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [isFinanceManagementNavOpen, setIsFinanceManagementNavOpen] = useState(() => ['rewards', 'commissionPolicies', 'tokenPointConversions'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [isSystemConfigNavOpen, setIsSystemConfigNavOpen] = useState(() => ['settings', 'systemExperiment', 'systemGuilds', 'systemPlatforms', 'systemIncomeControlled', 'systemIncomeShadow', 'systemMockVerification', 'systemAdvanced', 'systemSeedInviter', 'systemPhoneVerification'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [isSystemManagementNavOpen, setIsSystemManagementNavOpen] = useState(() => ['accounts', 'accountManagement', 'mySecurity', 'securityRecords'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
@@ -765,7 +767,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
 
   useEffect(() => {
     const isVisibleUserGradeChild = ['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.userGradeList)
-    const isVisibleUserManagementChild = ['users', 'bindings', 'riskQueue'].includes(activeAdminSection) && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.users)
+    const isVisibleUserManagementChild = ['users', 'invitationRelations', 'platformEligibility', 'riskQueue'].includes(activeAdminSection) && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.users)
     const isVisibleFinanceManagementChild = visibleFinanceSections.includes(activeAdminSection)
     const isVisibleSystemConfigChild = currentSettingsView !== null && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.settings)
     const isVisibleSystemManagementChild = currentAccountView !== null && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.accounts)
@@ -1599,7 +1601,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
         canViewAdminSection('rewards')
           ? getAdminWithdrawRequests(adminSession.sessionToken, { status: 'PENDING_REVIEW', page: 0, size: 1 })
           : Promise.resolve(null),
-        canViewAdminSection('bindings')
+        canViewAdminSection('users')
           ? getAdminRiskEvents(adminSession.sessionToken, { riskStatus: 'PENDING', product: activeAdminProductCode, page: 0, size: 1 })
           : Promise.resolve(null),
       ])
@@ -2808,7 +2810,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
       <header className="admin-topbar">
         <div className="admin-page-heading">
           <p className="eyebrow">运营后台</p>
-          <h1>{['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) ? '用户等级' : ['users', 'bindings', 'riskQueue'].includes(activeAdminSection) ? '用户管理' : isFinanceManagementSection ? '财务管理' : isSystemConfigSection ? '配置中心' : isSystemManagementSection ? '系统管理' : adminSectionLinks.find((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])?.label}</h1>
+          <h1>{['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) ? '用户等级' : ['users', 'invitationRelations', 'platformEligibility', 'riskQueue'].includes(activeAdminSection) ? '用户管理' : isFinanceManagementSection ? '财务管理' : isSystemConfigSection ? '配置中心' : isSystemManagementSection ? '系统管理' : adminSectionLinks.find((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])?.label}</h1>
         </div>
         <div className="hero-actions">
           <label className="hero-select-field">
@@ -2843,13 +2845,14 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
         <div className="admin-nav-strip" id="admin-modules" aria-label="后台模块导航">
           {adminSectionLinks.map((item) => item.href === ADMIN_SECTION_HASHES.users ? (
             <div className="admin-nav-group" key={item.label}>
-              <button type="button" className={`admin-nav-chip admin-nav-group-trigger ${['users', 'bindings', 'riskQueue'].includes(activeAdminSection) ? 'is-active' : ''}`} aria-expanded={isUserManagementNavOpen} onClick={() => setIsUserManagementNavOpen((open) => !open)}>
+              <button type="button" className={`admin-nav-chip admin-nav-group-trigger ${['users', 'invitationRelations', 'platformEligibility', 'riskQueue'].includes(activeAdminSection) ? 'is-active' : ''}`} aria-expanded={isUserManagementNavOpen} onClick={() => setIsUserManagementNavOpen((open) => !open)}>
                 <AdminNavIcon label={item.label} />
                 <span>{item.label}</span><span className="admin-nav-group-caret">{isUserManagementNavOpen ? '⌄' : '›'}</span>
               </button>
               {isUserManagementNavOpen ? <div className="admin-nav-submenu" aria-label="用户管理子菜单">
                 <a className={`admin-nav-subitem ${activeAdminSection === 'users' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.users} onClick={() => void loadUserPlatformProfiles()}>用户列表</a>
-                <a className={`admin-nav-subitem ${activeAdminSection === 'bindings' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.bindings}>绑定管理</a>
+                <a className={`admin-nav-subitem ${activeAdminSection === 'invitationRelations' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.invitationRelations}>邀请关系管理</a>
+                <a className={`admin-nav-subitem ${activeAdminSection === 'platformEligibility' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.platformEligibility}>Linky 资格核验</a>
                 <a className={`admin-nav-subitem ${activeAdminSection === 'riskQueue' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.riskQueue} onClick={() => { if (!riskEvents) void handleLoadRiskEvents() }}>风险队列{riskEvents?.total ? ` · ${riskEvents.total}` : ''}</a>
               </div> : null}
             </div>
@@ -3788,16 +3791,16 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               </div>
           ) : null}
 
-          {activeAdminSection === 'bindings' || activeAdminSection === 'riskQueue' || isSystemConfigSection ? (
+          {activeAdminSection === 'invitationRelations' || activeAdminSection === 'platformEligibility' || activeAdminSection === 'riskQueue' || isSystemConfigSection ? (
               <div className="admin-workbench-container" hidden={isSystemConfigSection && currentSettingsView !== 'experiment' && currentSettingsView !== 'guilds'}>
                 <PanelSection
-                  sectionId="admin-bindings"
-                  eyebrow="Bindings"
-                  title={isSystemConfigSection ? '配置中心' : activeAdminSection === 'riskQueue' ? '风险队列' : '绑定管理'}
+                  sectionId={activeAdminSection === 'platformEligibility' ? 'admin-platform-eligibility' : 'admin-bindings'}
+                  eyebrow={activeAdminSection === 'platformEligibility' ? 'Platform eligibility' : 'Bindings'}
+                  title={isSystemConfigSection ? '配置中心' : activeAdminSection === 'riskQueue' ? '风险队列' : activeAdminSection === 'platformEligibility' ? 'Linky 资格核验' : '邀请关系管理'}
                   description=""
-                  action={activeAdminSection === 'bindings' ? <button className="primary-btn" onClick={handleLoadRelation} disabled={loading || !canLoadAdmin || !relationQueryUserId}>查询用户关系</button> : undefined}
+                  action={activeAdminSection === 'invitationRelations' ? <button className="primary-btn" onClick={handleLoadRelation} disabled={loading || !canLoadAdmin || !relationQueryUserId}>查询用户关系</button> : undefined}
                 >
-                  {activeAdminSection === 'bindings' ? (
+                  {activeAdminSection === 'invitationRelations' ? (
                   <div className="admin-binding-user-workbench">
                   <InfoCard title="查询入口" tone="neutral">
                     <div className="grid-form compact-form single-line">
@@ -3808,6 +3811,10 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                     </div>
                     <InlineHint text="查询当前关系。" />
                   </InfoCard>
+                  </div>
+                  ) : null}
+                  {activeAdminSection === 'platformEligibility' ? (
+                  <div className="admin-binding-user-workbench">
                   <InfoCard title="Linky 资格核验" tone="neutral">
                     <div className="grid-form compact-form single-line">
                       <label>
@@ -4002,7 +4009,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                     </>
                   ) : null}
 
-                  {activeAdminSection === 'bindings' ? (
+                  {activeAdminSection === 'invitationRelations' ? (
                   adminRelation ? (
                     <div className="stack-gap relation-workbench">
                       <div className="relation-grid">

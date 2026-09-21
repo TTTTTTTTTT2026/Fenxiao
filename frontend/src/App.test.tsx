@@ -434,7 +434,7 @@ describe('Earnings landing page', () => {
   })
 
   it('renders a clear linky eligibility verification workspace in admin mode', () => {
-    window.location.hash = '#admin-bindings'
+    window.location.hash = '#admin-platform-eligibility'
     const markup = renderToStaticMarkup(<ConsoleApp initialViewMode="admin" initialAdminSession={adminTestSession} />)
 
     expect(markup).toContain('Linky 资格核验')
@@ -445,6 +445,15 @@ describe('Earnings landing page', () => {
     expect(markup).toContain('成功数量')
     expect(markup).toContain('失败数量')
     expect(markup).toContain('校验公会归属。')
+  })
+
+  it('keeps invitation relation management separate from Linky eligibility verification', () => {
+    window.location.hash = '#admin-invitation-relations'
+    const markup = renderToStaticMarkup(<ConsoleApp initialViewMode="admin" initialAdminSession={adminTestSession} />)
+
+    expect(markup).toContain('邀请关系管理')
+    expect(markup).toContain('查询当前关系。')
+    expect(markup).not.toContain('批量刷新全部 Linky 资格')
   })
 
   it('renders a guild weekly report workspace in admin mode', () => {
