@@ -3506,17 +3506,19 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                 </InfoCard>
                 <InfoCard title="MCN 同步公会" tone="neutral">
                   <DataTable
-                    headers={['公会 ID / 名称', '国家', '平台状态', '目录状态', 'MCN 更新时间', '最后同步']}
+                    headers={['公会 ID / 名称', '国家', '平台状态', '当前公司分成比例', '目录状态', 'MCN 更新时间', '最后同步']}
                     rows={(platformGuildDirectory ?? []).map((item) => [
                       <div className="stack-gap small"><strong>{item.guildName}</strong><span>{item.guildId}</span></div>,
                       item.country || '-',
                       renderStatusBadge(item.guildStatus),
+                      item.operatingShareRate == null ? '未配置' : `${(item.operatingShareRate * 100).toFixed(2)}%`,
                       renderStatusBadge(item.directoryStatus),
                       formatDateTime(item.mcnRecordUpdatedAt || item.officialUpdatedAt || undefined),
                       formatDateTime(item.lastSeenAt),
                     ])}
                     emptyText={platformGuildDirectoryLoading ? '正在读取 MCN 同步目录…' : '当前平台还没有同步的公会。请检查最近同步批次。'}
                   />
+                  <InlineHint text="当前公司分成比例只读展示当前已审批且在生效期内的版本；未配置的公会显示“未配置”，不会在此页提供编辑。" />
                 </InfoCard>
                 <InfoCard title="最近同步批次" tone="neutral">
                   <DataTable
