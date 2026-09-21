@@ -154,13 +154,8 @@ export function buildAdminSectionLinks(role?: string): AdminSectionLink[] {
       href: '#admin-channel-entries',
     },
     {
-      label: '绑定关系',
-      description: '查询和修正绑定。',
-      href: '#admin-bindings',
-    },
-    {
       label: '用户管理',
-      description: '查询用户资料与平台归属。',
+      description: '查看用户、邀请关系与风险队列。',
       href: '#admin-users',
     },
     {
@@ -169,14 +164,9 @@ export function buildAdminSectionLinks(role?: string): AdminSectionLink[] {
       href: '#admin-platform-guild-directory',
     },
     {
-      label: '收益提现',
-      description: '收益记录和提现审批。',
+      label: '财务管理',
+      description: '管理收益提现、邀请裂变分成与代币积分兑换。',
       href: '#admin-rewards',
-    },
-    {
-      label: '邀请裂变分成',
-      description: '配置邀请链收入的分成层级与比例。',
-      href: '#admin-commission-policies',
     },
     {
       label: '导师列表',
@@ -194,17 +184,12 @@ export function buildAdminSectionLinks(role?: string): AdminSectionLink[] {
       href: '#admin-user-grade-list',
     },
     {
-      label: '代币积分换算',
-      description: '配置平台代币到用户积分的换算比例。',
-      href: '#admin-token-point-conversions',
-    },
-    {
-      label: '账号中心',
-      description: '员工、密码和设备安全。',
+      label: '系统管理',
+      description: '账号管理、我的安全与安全记录。',
       href: '#admin-accounts',
     },
     {
-      label: '配置',
+      label: '配置中心',
       description: '接入、公会和产品配置。',
       href: '#admin-settings',
     },
@@ -216,12 +201,12 @@ export function buildAdminSectionLinks(role?: string): AdminSectionLink[] {
   if (normalizedRole === 'admin') return links
 
   const roleSections: Record<string, string[]> = {
-    finance: ['#admin-overview', '#admin-rewards', '#admin-commission-policies', '#admin-mentors', '#admin-user-grade-list', '#admin-advanced-grade-acceptance', '#admin-user-grade-facts', '#admin-accounts'],
-    operations: ['#admin-overview', '#admin-channel-entries', '#admin-bindings', '#admin-users', '#admin-platform-guild-directory', '#admin-mentors', '#admin-teams', '#admin-user-grade-list', '#admin-advanced-grade-acceptance', '#admin-user-grade-facts', '#admin-token-point-conversions', '#admin-accounts'],
-    operator: ['#admin-overview', '#admin-channel-entries', '#admin-bindings', '#admin-users', '#admin-platform-guild-directory', '#admin-accounts'],
-    customer_support: ['#admin-overview', '#admin-bindings', '#admin-users', '#admin-accounts'],
-    mentor: ['#admin-overview', '#admin-bindings', '#admin-users', '#admin-accounts'],
-    team_leader: ['#admin-overview', '#admin-bindings', '#admin-users', '#admin-accounts'],
+    finance: ['#admin-overview', '#admin-rewards', '#admin-mentors', '#admin-user-grade-list', '#admin-advanced-grade-acceptance', '#admin-user-grade-facts', '#admin-accounts'],
+    operations: ['#admin-overview', '#admin-channel-entries', '#admin-users', '#admin-platform-guild-directory', '#admin-rewards', '#admin-mentors', '#admin-teams', '#admin-user-grade-list', '#admin-advanced-grade-acceptance', '#admin-user-grade-facts', '#admin-accounts'],
+    operator: ['#admin-overview', '#admin-channel-entries', '#admin-users', '#admin-platform-guild-directory', '#admin-accounts'],
+    customer_support: ['#admin-overview', '#admin-users', '#admin-accounts'],
+    mentor: ['#admin-overview', '#admin-users', '#admin-accounts'],
+    team_leader: ['#admin-overview', '#admin-users', '#admin-accounts'],
   }
   const visibleSections = roleSections[normalizedRole] ?? ['#admin-overview', '#admin-accounts']
   return links.filter((item) => visibleSections.includes(item.href))

@@ -229,8 +229,8 @@ describe('ConsoleApp admin core distribution workspace', () => {
     expect(markup).not.toContain('后台登录口令')
     expect(markup).toContain('分销概览')
     expect(markup).toContain('渠道入口')
-    expect(markup).toContain('绑定关系')
-    expect(markup).toContain('收益提现')
+    expect(markup).toContain('用户管理')
+    expect(markup).toContain('财务管理')
     expect(markup).toContain('配置')
     expect(markup).not.toContain('>用户工作台<')
     expect(markup).not.toContain('分销用户工作台')
@@ -261,6 +261,59 @@ describe('ConsoleApp admin core distribution workspace', () => {
     expect(markup).not.toContain('公会配置管理')
     expect(markup).not.toContain('先做这 4 件事')
     expect(markup).not.toContain('当前主链顺序')
+  })
+
+  it('keeps invitation commission as a fixed read-only policy ledger', () => {
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: {
+        location: {
+          pathname: '/',
+          search: '',
+          hash: '#admin-commission-policies',
+          origin: 'http://127.0.0.1:4173',
+        },
+        localStorage: createStorage(),
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      },
+    })
+    const markup = renderToStaticMarkup(<ConsoleApp initialViewMode="admin" initialAdminSession={{ ...adminTestSession, role: 'finance' }} />)
+
+    expect(markup).toContain('邀请裂变分成规则台账')
+    expect(markup).toContain('aria-label="财务管理子菜单"')
+    expect(markup).toContain('收益提现')
+    expect(markup).toContain('邀请裂变分成')
+    expect(markup).toContain('第 1 层 · 直接邀请')
+    expect(markup).toContain('第 2 层 · 间接邀请')
+    expect(markup).toContain('第 3 层及以上')
+    expect(markup).toContain('来源公会公司业务收入')
+    expect(markup).not.toContain('新增邀请裂变规则')
+    expect(markup).not.toContain('审批并启用')
+  })
+
+  it('splits system management into independent account and security pages', () => {
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: {
+        location: {
+          pathname: '/',
+          search: '',
+          hash: '#admin-account-management',
+          origin: 'http://127.0.0.1:4173',
+        },
+        localStorage: createStorage(),
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      },
+    })
+    const markup = renderToStaticMarkup(<ConsoleApp initialViewMode="admin" initialAdminSession={superAdminTestSession} />)
+
+    expect(markup).toContain('系统管理')
+    expect(markup).toContain('账号管理')
+    expect(markup).toContain('新增员工账号')
+    expect(markup).not.toContain('修改我的密码')
+    expect(markup).not.toContain('最近安全事件')
   })
 
   it('keeps seed inviter creation and verification-code review restricted to super administrators', () => {
@@ -395,7 +448,7 @@ describe('Earnings landing page', () => {
   })
 
   it('renders a guild weekly report workspace in admin mode', () => {
-    window.location.hash = '#admin-settings'
+    window.location.hash = '#admin-system-guilds'
     const markup = renderToStaticMarkup(<ConsoleApp initialViewMode="admin" initialAdminSession={adminTestSession} />)
 
     expect(markup).toContain('公会周报')
@@ -405,7 +458,7 @@ describe('Earnings landing page', () => {
   })
 
   it('renders a guild config management workspace in admin mode', () => {
-    window.location.hash = '#admin-settings'
+    window.location.hash = '#admin-system-guilds'
     const markup = renderToStaticMarkup(<ConsoleApp initialViewMode="admin" initialAdminSession={adminTestSession} />)
 
     expect(markup).toContain('公会配置管理')
@@ -470,7 +523,7 @@ describe('Earnings landing page', () => {
   })
 
   it('renders invite code as a required field for profile onboarding in admin mode', () => {
-    window.location.hash = '#admin-settings'
+    window.location.hash = '#admin-system-advanced'
     const markup = renderToStaticMarkup(<ConsoleApp initialViewMode="admin" initialAdminSession={adminTestSession} />)
 
     expect(markup).toContain('邀请码（必填，首批运营请填写初始邀请码）')
@@ -490,7 +543,7 @@ describe('Earnings landing page', () => {
 
   it('lists Timo as a shadow-only platform option in the operations console', () => {
     window.location.pathname = '/admin'
-    window.location.hash = '#admin-settings'
+    window.location.hash = '#admin-system-platforms'
 
     const markup = renderToStaticMarkup(<ConsoleApp initialViewMode="admin" initialAdminSession={superAdminTestSession} />)
 

@@ -1,6 +1,86 @@
 -- Local-only schema supplement for JDBC-backed income shadow projections.
 -- Production creates these structures through Flyway migrations V34-V36.
 
+-- Production creates this table through Flyway V49. Local acceptance disables
+-- Flyway, so keep the long-lived token-to-points configuration available after
+-- upgrading an existing local H2 database.
+CREATE TABLE IF NOT EXISTS token_point_conversion_version (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    conversion_code VARCHAR(64) NOT NULL,
+    conversion_version INT NOT NULL,
+    platform_code VARCHAR(32) NOT NULL,
+    token_unit VARCHAR(32) NOT NULL,
+    points_per_token DECIMAL(18,6) NOT NULL,
+    effective_from TIMESTAMP NOT NULL,
+    effective_to TIMESTAMP NULL,
+    rule_status VARCHAR(16) NOT NULL DEFAULT 'DRAFT',
+    created_by BIGINT NULL,
+    approved_by BIGINT NULL,
+    approved_at TIMESTAMP NULL,
+    approval_note VARCHAR(255) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_token_point_conversion_version UNIQUE (conversion_code, conversion_version)
+);
+
+CREATE INDEX IF NOT EXISTS idx_token_point_conversion_active
+    ON token_point_conversion_version(platform_code, rule_status, effective_from);
+
+-- Mentor list and historical shadow records are backed by JDBC tables. These
+-- are created by Flyway V18 and V43 in production; local acceptance keeps
+-- Flyway disabled and therefore must create the same read-model structures.
+CREATE TABLE IF NOT EXISTS incentive_rule_version (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    rule_code VARCHAR(64) NOT NULL,
+    rule_version INT NOT NULL,
+    reward_type VARCHAR(32) NOT NULL,
+    milestone_code VARCHAR(64) NOT NULL,
+    platform_code VARCHAR(32) NOT NULL,
+    country_code VARCHAR(10) NOT NULL,
+    guild_id VARCHAR(64),
+    amount_minor BIGINT NOT NULL,
+    currency_code VARCHAR(16) NOT NULL,
+    freeze_days INT NOT NULL DEFAULT 0,
+    effective_from TIMESTAMP NOT NULL,
+    effective_to TIMESTAMP,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    rule_status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE',
+    created_by BIGINT NULL,
+    approved_by BIGINT NULL,
+    approved_at TIMESTAMP NULL,
+    approval_note VARCHAR(255) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_incentive_rule_version UNIQUE (rule_code, rule_version)
+);
+
+CREATE INDEX IF NOT EXISTS idx_incentive_rule_admin_list
+    ON incentive_rule_version(reward_type, rule_status, effective_from);
+
+CREATE TABLE IF NOT EXISTS incentive_shadow_ledger (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    idempotency_key VARCHAR(160) NOT NULL,
+    recipient_user_id BIGINT NOT NULL,
+    source_user_id BIGINT NOT NULL,
+    platform_code VARCHAR(32) NOT NULL,
+    platform_user_id VARCHAR(64) NOT NULL,
+    reward_type VARCHAR(32) NOT NULL,
+    milestone_code VARCHAR(64) NOT NULL,
+    rule_id BIGINT NOT NULL,
+    rule_version INT NOT NULL,
+    amount_minor BIGINT NOT NULL,
+    currency_code VARCHAR(16) NOT NULL,
+    ledger_status VARCHAR(32) NOT NULL,
+    source_snapshot_id BIGINT,
+    triggered_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_incentive_shadow_idempotency UNIQUE (idempotency_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_incentive_shadow_recipient
+    ON incentive_shadow_ledger(recipient_user_id, reward_type, ledger_status);
+
 CREATE TABLE IF NOT EXISTS mcn_income_shadow_ledger_projection (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     source_system VARCHAR(32) NOT NULL,

@@ -88,7 +88,7 @@ describe('buildAdminSectionLinks', () => {
   it('exposes a dedicated user directory to operational read roles', () => {
     expect(buildAdminSectionLinks('operations')).toContainEqual({
       label: '用户管理',
-      description: '查询用户资料与平台归属。',
+      description: '查看用户、邀请关系与风险队列。',
       href: '#admin-users',
     })
   })
@@ -166,13 +166,8 @@ describe('buildAdminSectionLinks', () => {
         href: '#admin-channel-entries',
       },
       {
-        label: '绑定关系',
-        description: '查询和修正绑定。',
-        href: '#admin-bindings',
-      },
-      {
         label: '用户管理',
-        description: '查询用户资料与平台归属。',
+        description: '查看用户、邀请关系与风险队列。',
         href: '#admin-users',
       },
       {
@@ -181,14 +176,9 @@ describe('buildAdminSectionLinks', () => {
         href: '#admin-platform-guild-directory',
       },
       {
-        label: '收益提现',
-        description: '收益记录和提现审批。',
+        label: '财务管理',
+        description: '管理收益提现、邀请裂变分成与代币积分兑换。',
         href: '#admin-rewards',
-      },
-      {
-        label: '邀请裂变分成',
-        description: '配置邀请链收入的分成层级与比例。',
-        href: '#admin-commission-policies',
       },
       {
         label: '导师列表',
@@ -206,17 +196,12 @@ describe('buildAdminSectionLinks', () => {
         href: '#admin-user-grade-list',
       },
       {
-        label: '代币积分换算',
-        description: '配置平台代币到用户积分的换算比例。',
-        href: '#admin-token-point-conversions',
-      },
-      {
-        label: '账号中心',
-        description: '员工、密码和设备安全。',
+        label: '系统管理',
+        description: '账号管理、我的安全与安全记录。',
         href: '#admin-accounts',
       },
       {
-        label: '配置',
+        label: '配置中心',
         description: '接入、公会和产品配置。',
         href: '#admin-settings',
       },
@@ -225,13 +210,17 @@ describe('buildAdminSectionLinks', () => {
 
   it('shows finance only the overview, payout workbench, and personal account center', () => {
     expect(buildAdminSectionLinks('finance').map((item) => item.href)).toEqual([
-      '#admin-overview', '#admin-rewards', '#admin-commission-policies', '#admin-mentors', '#admin-user-grade-list', '#admin-accounts',
+      '#admin-overview', '#admin-rewards', '#admin-mentors', '#admin-user-grade-list', '#admin-accounts',
     ])
+  })
+
+  it('keeps the finance parent available to operations roles for their token-to-points configuration', () => {
+    expect(buildAdminSectionLinks('operations').map((item) => item.href)).toContain('#admin-rewards')
   })
 
   it('keeps configuration and staff management out of customer support navigation while retaining user lookup', () => {
     expect(buildAdminSectionLinks('customer_support').map((item) => item.href)).toEqual([
-      '#admin-overview', '#admin-bindings', '#admin-users', '#admin-accounts',
+      '#admin-overview', '#admin-users', '#admin-accounts',
     ])
   })
 })

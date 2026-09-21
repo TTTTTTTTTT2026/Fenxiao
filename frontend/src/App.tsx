@@ -105,9 +105,6 @@ import {
   getAdminIncomeRewardCandidateSample,
   getAdminIncomeRewardCandidateSummary,
   getAdminCommissionPolicies,
-  createAdminCommissionPolicy,
-  activateAdminCommissionPolicy,
-  retireAdminCommissionPolicy,
   getAdminMentorIncentiveDashboard,
   getAdminMentorAssignedStudents,
   createAdminMentorIncentiveRules,
@@ -256,7 +253,9 @@ type AdminAuthState = {
 }
 
 type AdminProductKey = 'ALL' | 'LINKY' | 'TIMO'
-type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'users' | 'platformGuildDirectory' | 'rewards' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'teams' | 'operatingDividends' | 'userGrades' | 'userGradeList' | 'advancedGradeAcceptance' | 'userGradeFacts' | 'tokenPointConversions' | 'accounts' | 'settings'
+type AdminSettingsView = 'experiment' | 'guilds' | 'platforms' | 'incomeControlled' | 'incomeShadow' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification'
+type AdminAccountView = 'security' | 'staff' | 'audit'
+type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'riskQueue' | 'users' | 'platformGuildDirectory' | 'rewards' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'teams' | 'operatingDividends' | 'userGrades' | 'userGradeList' | 'advancedGradeAcceptance' | 'userGradeFacts' | 'tokenPointConversions' | 'accounts' | 'accountManagement' | 'mySecurity' | 'securityRecords' | 'settings' | 'systemExperiment' | 'systemGuilds' | 'systemPlatforms' | 'systemIncomeControlled' | 'systemIncomeShadow' | 'systemMockVerification' | 'systemAdvanced' | 'systemSeedInviter' | 'systemPhoneVerification'
 type RiskActionName = 'HANDLE' | 'IGNORE' | 'FREEZE_USER' | 'UNFREEZE_USER'
 type WithdrawActionName = 'approve' | 'reject' | 'paid' | 'failed' | 'reverse'
 type WithdrawQuery = { userId: string; status: string; page: string; size: string }
@@ -269,6 +268,7 @@ const ADMIN_SECTION_HASHES: Record<AdminSectionKey, string> = {
   overview: '#admin-overview',
   channel: '#admin-channel-entries',
   bindings: '#admin-bindings',
+  riskQueue: '#admin-risk-queue',
   users: '#admin-users',
   platformGuildDirectory: '#admin-platform-guild-directory',
   rewards: '#admin-rewards',
@@ -283,7 +283,19 @@ const ADMIN_SECTION_HASHES: Record<AdminSectionKey, string> = {
   userGradeFacts: '#admin-user-grade-facts',
   tokenPointConversions: '#admin-token-point-conversions',
   accounts: '#admin-accounts',
+  accountManagement: '#admin-account-management',
+  mySecurity: '#admin-my-security',
+  securityRecords: '#admin-security-records',
   settings: '#admin-settings',
+  systemExperiment: '#admin-system-experiment',
+  systemGuilds: '#admin-system-guilds',
+  systemPlatforms: '#admin-system-platforms',
+  systemIncomeControlled: '#admin-system-income-controlled',
+  systemIncomeShadow: '#admin-system-income-shadow',
+  systemMockVerification: '#admin-system-mock-verification',
+  systemAdvanced: '#admin-system-advanced',
+  systemSeedInviter: '#admin-system-seed-inviter',
+  systemPhoneVerification: '#admin-system-phone-verification',
 }
 
 const USER_GRADE_CATALOG = [
@@ -296,6 +308,32 @@ const USER_GRADE_CATALOG = [
   { grade: '黑金', condition: '钻石基础上，实际培养 2 名钻石成员；负责业务连续 3 个完整自然月完成经营验收。', responsibility: '具备区域经营试点候选资格及更深度的公司协作责任，需经过运营复核。', referral: '直邀 10% / 间邀 3%', team: '暂不发放；团队经营奖励全局关闭' },
 ] as const
 
+const SYSTEM_CONFIG_SECTION_VIEWS: Partial<Record<AdminSectionKey, AdminSettingsView>> = {
+  systemExperiment: 'experiment',
+  systemGuilds: 'guilds',
+  systemPlatforms: 'platforms',
+  systemIncomeControlled: 'incomeControlled',
+  systemIncomeShadow: 'incomeShadow',
+  systemMockVerification: 'mockVerification',
+  systemAdvanced: 'advanced',
+  systemSeedInviter: 'seedInviter',
+  systemPhoneVerification: 'phoneVerification',
+}
+
+function getVisibleFinanceSections(role?: string): AdminSectionKey[] {
+  const normalizedRole = role?.toLowerCase()
+  if (normalizedRole === 'super_admin' || normalizedRole === 'admin' || !normalizedRole) return ['rewards', 'commissionPolicies', 'tokenPointConversions']
+  if (normalizedRole === 'finance') return ['rewards', 'commissionPolicies']
+  if (normalizedRole === 'operations') return ['tokenPointConversions']
+  return []
+}
+
+const SYSTEM_MANAGEMENT_SECTION_VIEWS: Partial<Record<AdminSectionKey, AdminAccountView>> = {
+  accountManagement: 'staff',
+  mySecurity: 'security',
+  securityRecords: 'audit',
+}
+
 function resolveAdminSectionFromHash(hash?: string): AdminSectionKey {
   const normalized = hash || '#admin-overview'
   if (normalized === '#admin-mentor-incentives') return 'mentorDirectory'
@@ -306,6 +344,7 @@ function resolveAdminSectionFromHash(hash?: string): AdminSectionKey {
   if (normalized === '#admin-invite-ops') return 'channel'
   if (normalized === '#admin-withdraw-requests') return 'rewards'
   if (normalized === '#admin-user-facts' || normalized === '#admin-user-platform-profiles') return 'users'
+  if (normalized === '#admin-risks') return 'riskQueue'
   if (normalized === '#admin-onboarding') return 'settings'
   return 'overview'
 }
@@ -431,10 +470,13 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [pendingAdminAccountAction, setPendingAdminAccountAction] = useState<PendingAdminAccountAction | null>(null)
   const [adminAccountForm, setAdminAccountForm] = useState({ username: '', displayName: '', role: 'operator', platformScope: '*', guildScope: '*', regionScope: '*' })
   const [adminPasswordForm, setAdminPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
-  const [adminAccountView, setAdminAccountView] = useState<'security' | 'staff' | 'audit'>('security')
   const [adminProduct, setAdminProduct] = useState<AdminProductKey>('ALL')
   const [activeAdminSection, setActiveAdminSection] = useState<AdminSectionKey>(() => resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined))
   const [isUserGradeNavOpen, setIsUserGradeNavOpen] = useState(() => ['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
+  const [isUserManagementNavOpen, setIsUserManagementNavOpen] = useState(() => ['users', 'bindings', 'riskQueue'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
+  const [isFinanceManagementNavOpen, setIsFinanceManagementNavOpen] = useState(() => ['rewards', 'commissionPolicies', 'tokenPointConversions'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
+  const [isSystemConfigNavOpen, setIsSystemConfigNavOpen] = useState(() => ['settings', 'systemExperiment', 'systemGuilds', 'systemPlatforms', 'systemIncomeControlled', 'systemIncomeShadow', 'systemMockVerification', 'systemAdvanced', 'systemSeedInviter', 'systemPhoneVerification'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
+  const [isSystemManagementNavOpen, setIsSystemManagementNavOpen] = useState(() => ['accounts', 'accountManagement', 'mySecurity', 'securityRecords'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [showAdvancedOps, setShowAdvancedOps] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -496,8 +538,6 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [withdrawViews, setWithdrawViews] = useState(() => loadJsonState<NamedFilterView<WithdrawQuery>[]>(ADMIN_WITHDRAW_VIEWS_KEY) || [])
   const [withdrawViewName, setWithdrawViewName] = useState('')
   const [selectedWithdrawViewId, setSelectedWithdrawViewId] = useState('')
-  const [adminBindingView, setAdminBindingView] = useState<'users' | 'risks'>('users')
-  const [adminSettingsView, setAdminSettingsView] = useState<'experiment' | 'guilds' | 'platforms' | 'incomeControlled' | 'incomeShadow' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification'>('experiment')
   const [platformIntegrations, setPlatformIntegrations] = useState<PlatformIntegrationResponse[] | null>(null)
   const [platformGuildShareDialogTarget, setPlatformGuildShareDialogTarget] = useState<{ platformCode: string; guildId: string; guildName: string } | null>(null)
   const [platformGuildShareRules, setPlatformGuildShareRules] = useState<PlatformGuildCompanyShareRuleResponse[]>([])
@@ -523,8 +563,6 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [incomeRewardCandidateItems, setIncomeRewardCandidateItems] = useState<McnIncomeRewardCandidateItemResponse[]>([])
   const [incomeRewardCandidateSample, setIncomeRewardCandidateSample] = useState<McnIncomeRewardCandidateSampleResponse | null>(null)
   const [commissionPolicies, setCommissionPolicies] = useState<CommissionPolicyResponse[] | null>(null)
-  const [isCommissionPolicyDialogOpen, setIsCommissionPolicyDialogOpen] = useState(false)
-  const [commissionPolicyForm, setCommissionPolicyForm] = useState({ platformCode: 'TIMO', countryCode: 'BR', effectiveFrom: '', effectiveTo: '', level1FreezeDays: '7', level2FreezeDays: '7' })
   const [mentorIncentiveDashboard, setMentorIncentiveDashboard] = useState<MentorIncentiveDashboardResponse | null>(null)
   const [isMentorRuleDialogOpen, setIsMentorRuleDialogOpen] = useState(false)
   const [isMentorRuleGuildPickerOpen, setIsMentorRuleGuildPickerOpen] = useState(false)
@@ -698,7 +736,13 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const seedInviterCountry = phoneCountries.find((country) => country.countryCode === seedInviterForm.countryCode) ?? phoneCountries[0]
   const activeAdminProductCode = adminProduct === 'ALL' ? undefined : adminProduct
   const adminSectionLinks = useMemo(() => buildAdminSectionLinks(adminSession?.role), [adminSession?.role])
+  const visibleFinanceSections = useMemo(() => getVisibleFinanceSections(adminSession?.role), [adminSession?.role])
   const canViewAdminSection = (section: AdminSectionKey) => adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES[section])
+  const currentSettingsView = SYSTEM_CONFIG_SECTION_VIEWS[activeAdminSection] ?? (activeAdminSection === 'settings' ? 'experiment' : null)
+  const isSystemConfigSection = activeAdminSection === 'settings' || currentSettingsView !== null
+  const currentAccountView = SYSTEM_MANAGEMENT_SECTION_VIEWS[activeAdminSection] ?? (activeAdminSection === 'accounts' ? 'security' : null)
+  const isSystemManagementSection = activeAdminSection === 'accounts' || currentAccountView !== null
+  const isFinanceManagementSection = ['rewards', 'commissionPolicies', 'tokenPointConversions'].includes(activeAdminSection)
   const showingProductSpecificDiagnostics = adminProduct === 'LINKY'
   const channelEntryLinks = useMemo(
     () => buildChannelEntryLinks(channelEntryForm.origin, {
@@ -721,9 +765,13 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
 
   useEffect(() => {
     const isVisibleUserGradeChild = ['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.userGradeList)
-    if (!adminSession || isVisibleUserGradeChild || adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])) return
+    const isVisibleUserManagementChild = ['users', 'bindings', 'riskQueue'].includes(activeAdminSection) && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.users)
+    const isVisibleFinanceManagementChild = visibleFinanceSections.includes(activeAdminSection)
+    const isVisibleSystemConfigChild = currentSettingsView !== null && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.settings)
+    const isVisibleSystemManagementChild = currentAccountView !== null && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.accounts)
+    if (!adminSession || isVisibleUserGradeChild || isVisibleUserManagementChild || isVisibleFinanceManagementChild || isVisibleSystemConfigChild || isVisibleSystemManagementChild || adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])) return
     window.location.hash = ADMIN_SECTION_HASHES.overview
-  }, [activeAdminSection, adminSectionLinks, adminSession])
+  }, [activeAdminSection, adminSectionLinks, adminSession, currentAccountView, currentSettingsView, visibleFinanceSections])
 
   useEffect(() => {
     if (!error && !successMessage) return undefined
@@ -1467,7 +1515,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
       const [devices, events] = await Promise.all([getAdminDeviceSessions(), getMyAdminSecurityEvents()])
       setAdminDevices(devices); setAdminSecurityEvents(events)
       if (adminSession?.role.toLowerCase() === 'super_admin') setAdminAccounts(await getAdminAccounts())
-    } catch (err) { setError(err instanceof Error ? err.message : '加载账号中心失败') }
+    } catch (err) { setError(err instanceof Error ? err.message : '加载系统管理数据失败') }
     finally { setLoading(false) }
   }
 
@@ -2338,49 +2386,6 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     finally { setLoading(false) }
   }
 
-  async function saveCommissionPolicy() {
-    if (!adminSession || !canRunControlledIncome) return
-    if (!commissionPolicyForm.effectiveFrom) { setError('请填写生效时间。'); return }
-    const level = (rewardLevel: 1 | 2 | 3, enabled: boolean, rate: number | null, freeze: string | null) => ({ rewardLevel, enabled, rewardRate: rate, freezeDays: freeze === null ? null : Number(freeze) })
-    setLoading(true); setError(''); setSuccessMessage('')
-    try {
-      const saved = await createAdminCommissionPolicy(adminSession.sessionToken, {
-        platformCode: commissionPolicyForm.platformCode, countryCode: commissionPolicyForm.countryCode.trim().toUpperCase(), maxRewardLevel: 2,
-        effectiveFrom: new Date(commissionPolicyForm.effectiveFrom).toISOString().slice(0, 19), effectiveTo: commissionPolicyForm.effectiveTo ? new Date(commissionPolicyForm.effectiveTo).toISOString().slice(0, 19) : null,
-        levels: [level(1, true, 0.10, commissionPolicyForm.level1FreezeDays), level(2, true, 0.03, commissionPolicyForm.level2FreezeDays), level(3, false, null, null)],
-      })
-      setCommissionPolicies((current) => [saved, ...(current ?? [])]); setIsCommissionPolicyDialogOpen(false); setSuccessMessage(`已建立待审邀请裂变策略 ${saved.policyCode}；尚未启用，也未触发发奖。`)
-    } catch (err) { setError(err instanceof Error ? err.message : '建立邀请裂变策略失败') }
-    finally { setLoading(false) }
-  }
-
-  function handleCreateCommissionPolicy(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    void saveCommissionPolicy()
-  }
-
-  async function handleActivateCommissionPolicy(policy: CommissionPolicyResponse) {
-    if (!adminSession || !canRunControlledIncome) return
-    const approvalNote = window.prompt(`确认启用 ${policy.policyCode}？此动作仅影响后续候选演算，不会发奖。请填写审批说明：`, '财务复核通过')
-    if (!approvalNote?.trim()) return
-    setLoading(true); setError(''); setSuccessMessage('')
-    try {
-      const saved = await activateAdminCommissionPolicy(adminSession.sessionToken, policy.id, approvalNote.trim())
-      setCommissionPolicies((current) => (current ?? []).map((item) => item.id === saved.id ? saved : item)); setSuccessMessage(`已启用 ${saved.policyCode}；仅供邀请裂变收入影子账本候选演算使用。`)
-    } catch (err) { setError(err instanceof Error ? err.message : '启用邀请裂变策略失败') }
-    finally { setLoading(false) }
-  }
-
-  async function handleRetireCommissionPolicy(policy: CommissionPolicyResponse) {
-    if (!adminSession || !canRunControlledIncome || !window.confirm(`停止使用 ${policy.policyCode}？不会改动历史候选结果。`)) return
-    setLoading(true); setError(''); setSuccessMessage('')
-    try {
-      const saved = await retireAdminCommissionPolicy(adminSession.sessionToken, policy.id)
-      setCommissionPolicies((current) => (current ?? []).map((item) => item.id === saved.id ? saved : item)); setSuccessMessage(`已停止使用 ${saved.policyCode}。`)
-    } catch (err) { setError(err instanceof Error ? err.message : '停止邀请裂变策略失败') }
-    finally { setLoading(false) }
-  }
-
   async function handleSavePlatformVerificationMock(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!adminSession || !canManagePlatformMocks || !platformVerificationRuntime?.mockManagementEnabled) return
@@ -2803,7 +2808,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
       <header className="admin-topbar">
         <div className="admin-page-heading">
           <p className="eyebrow">运营后台</p>
-          <h1>{['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) ? '用户等级' : adminSectionLinks.find((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])?.label}</h1>
+          <h1>{['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) ? '用户等级' : ['users', 'bindings', 'riskQueue'].includes(activeAdminSection) ? '用户管理' : isFinanceManagementSection ? '财务管理' : isSystemConfigSection ? '配置中心' : isSystemManagementSection ? '系统管理' : adminSectionLinks.find((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])?.label}</h1>
         </div>
         <div className="hero-actions">
           <label className="hero-select-field">
@@ -2836,7 +2841,19 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
 
       <aside className="admin-sidebar">
         <div className="admin-nav-strip" id="admin-modules" aria-label="后台模块导航">
-          {adminSectionLinks.map((item) => item.href === ADMIN_SECTION_HASHES.userGradeList ? (
+          {adminSectionLinks.map((item) => item.href === ADMIN_SECTION_HASHES.users ? (
+            <div className="admin-nav-group" key={item.label}>
+              <button type="button" className={`admin-nav-chip admin-nav-group-trigger ${['users', 'bindings', 'riskQueue'].includes(activeAdminSection) ? 'is-active' : ''}`} aria-expanded={isUserManagementNavOpen} onClick={() => setIsUserManagementNavOpen((open) => !open)}>
+                <AdminNavIcon label={item.label} />
+                <span>{item.label}</span><span className="admin-nav-group-caret">{isUserManagementNavOpen ? '⌄' : '›'}</span>
+              </button>
+              {isUserManagementNavOpen ? <div className="admin-nav-submenu" aria-label="用户管理子菜单">
+                <a className={`admin-nav-subitem ${activeAdminSection === 'users' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.users} onClick={() => void loadUserPlatformProfiles()}>用户列表</a>
+                <a className={`admin-nav-subitem ${activeAdminSection === 'bindings' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.bindings}>绑定管理</a>
+                <a className={`admin-nav-subitem ${activeAdminSection === 'riskQueue' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.riskQueue} onClick={() => { if (!riskEvents) void handleLoadRiskEvents() }}>风险队列{riskEvents?.total ? ` · ${riskEvents.total}` : ''}</a>
+              </div> : null}
+            </div>
+          ) : item.href === ADMIN_SECTION_HASHES.userGradeList ? (
             <div className="admin-nav-group" key={item.label}>
               <button type="button" className={`admin-nav-chip admin-nav-group-trigger ${['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) ? 'is-active' : ''}`} aria-expanded={isUserGradeNavOpen} onClick={() => setIsUserGradeNavOpen((open) => !open)}>
                 <AdminNavIcon label={item.label} />
@@ -2848,9 +2865,49 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                 <a className={`admin-nav-subitem ${activeAdminSection === 'userGradeFacts' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.userGradeFacts} onClick={() => { if (!userGradeDashboard) void loadUserGradeDashboard(); if (!userPointDashboard) void loadUserPointDashboard(); if (canReadEffectiveUsers) void loadEffectiveUserQualifications() }}>资格事实与复核</a>
               </div> : null}
             </div>
+          ) : item.href === ADMIN_SECTION_HASHES.rewards ? (
+            <div className="admin-nav-group" key={item.label}>
+              <button type="button" className={`admin-nav-chip admin-nav-group-trigger ${isFinanceManagementSection ? 'is-active' : ''}`} aria-expanded={isFinanceManagementNavOpen} onClick={() => setIsFinanceManagementNavOpen((open) => !open)}>
+                <AdminNavIcon label={item.label} />
+                <span>{item.label}</span><span className="admin-nav-group-caret">{isFinanceManagementNavOpen ? '⌄' : '›'}</span>
+              </button>
+              {isFinanceManagementNavOpen ? <div className="admin-nav-submenu" aria-label="财务管理子菜单">
+                {visibleFinanceSections.includes('rewards') ? <a className={`admin-nav-subitem ${activeAdminSection === 'rewards' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.rewards}>收益提现</a> : null}
+                {visibleFinanceSections.includes('commissionPolicies') ? <a className={`admin-nav-subitem ${activeAdminSection === 'commissionPolicies' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.commissionPolicies} onClick={() => { if (!commissionPolicies) void loadCommissionPolicies() }}>邀请裂变分成</a> : null}
+                {visibleFinanceSections.includes('tokenPointConversions') ? <a className={`admin-nav-subitem ${activeAdminSection === 'tokenPointConversions' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.tokenPointConversions} onClick={() => { if (!tokenPointConversionDashboard) void loadTokenPointConversionDashboard() }}>代币积分兑换</a> : null}
+              </div> : null}
+            </div>
+          ) : item.href === ADMIN_SECTION_HASHES.accounts ? (
+            <div className="admin-nav-group" key={item.label}>
+              <button type="button" className={`admin-nav-chip admin-nav-group-trigger ${isSystemManagementSection ? 'is-active' : ''}`} aria-expanded={isSystemManagementNavOpen} onClick={() => setIsSystemManagementNavOpen((open) => !open)}>
+                <AdminNavIcon label={item.label} />
+                <span>{item.label}</span><span className="admin-nav-group-caret">{isSystemManagementNavOpen ? '⌄' : '›'}</span>
+              </button>
+              {isSystemManagementNavOpen ? <div className="admin-nav-submenu" aria-label="系统管理子菜单">
+                {adminSession.role.toLowerCase() === 'super_admin' ? <a className={`admin-nav-subitem ${activeAdminSection === 'accountManagement' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.accountManagement} onClick={() => void handleLoadAdminIdentityCenter()}>账号管理</a> : null}
+                <a className={`admin-nav-subitem ${activeAdminSection === 'mySecurity' || activeAdminSection === 'accounts' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.mySecurity} onClick={() => void handleLoadAdminIdentityCenter()}>我的安全</a>
+                <a className={`admin-nav-subitem ${activeAdminSection === 'securityRecords' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.securityRecords} onClick={() => void handleLoadAdminIdentityCenter()}>安全记录</a>
+              </div> : null}
+            </div>
+          ) : item.href === ADMIN_SECTION_HASHES.settings ? (
+            <div className="admin-nav-group" key={item.label}>
+              <button type="button" className={`admin-nav-chip admin-nav-group-trigger ${isSystemConfigSection ? 'is-active' : ''}`} aria-expanded={isSystemConfigNavOpen} onClick={() => setIsSystemConfigNavOpen((open) => !open)}>
+                <AdminNavIcon label={item.label} />
+                <span>{item.label}</span><span className="admin-nav-group-caret">{isSystemConfigNavOpen ? '⌄' : '›'}</span>
+              </button>
+              {isSystemConfigNavOpen ? <div className="admin-nav-submenu" aria-label="配置中心子菜单">
+                <a className={`admin-nav-subitem ${activeAdminSection === 'systemExperiment' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemExperiment}>100 人实验</a>
+                <a className={`admin-nav-subitem ${activeAdminSection === 'systemGuilds' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemGuilds}>公会配置</a>
+                <a className={`admin-nav-subitem ${activeAdminSection === 'systemPlatforms' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemPlatforms} onClick={() => { if (!platformIntegrations) void loadPlatformIntegrations(); if (!platformVerificationRuntime) void loadPlatformVerificationRuntime() }}>平台接入</a>
+                {canRunControlledIncome ? <><a className={`admin-nav-subitem ${activeAdminSection === 'systemIncomeControlled' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemIncomeControlled}>收入受控联调</a><a className={`admin-nav-subitem ${activeAdminSection === 'systemIncomeShadow' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemIncomeShadow}>收入影子账本</a></> : null}
+                {canManagePlatformMocks ? <a className={`admin-nav-subitem ${activeAdminSection === 'systemMockVerification' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemMockVerification} onClick={() => void loadPlatformVerificationRuntime(true)}>本地 Mock 核验</a> : null}
+                <a className={`admin-nav-subitem ${activeAdminSection === 'systemAdvanced' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemAdvanced}>高级接入</a>
+                {canManageSeedInviters ? <a className={`admin-nav-subitem ${activeAdminSection === 'systemSeedInviter' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemSeedInviter} onClick={() => { if (!seedInviters) void loadSeedInviters() }}>种子邀请人</a> : null}
+                {canAuditPhoneVerification ? <a className={`admin-nav-subitem ${activeAdminSection === 'systemPhoneVerification' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemPhoneVerification}>验证码审查</a> : null}
+              </div> : null}
+            </div>
           ) : (
             <a key={item.label} className={`admin-nav-chip ${item.href === ADMIN_SECTION_HASHES[activeAdminSection] ? 'is-active' : ''}`} href={item.href} aria-current={item.href === ADMIN_SECTION_HASHES[activeAdminSection] ? 'page' : undefined} onClick={() => {
-              if (item.href === ADMIN_SECTION_HASHES.users) void loadUserPlatformProfiles()
               if (item.href === ADMIN_SECTION_HASHES.platformGuildDirectory && !platformGuildDirectory) void loadPlatformGuildDirectory()
               if (item.href === ADMIN_SECTION_HASHES.commissionPolicies && !commissionPolicies) void loadCommissionPolicies()
               if (item.href === ADMIN_SECTION_HASHES.mentorDirectory && !mentorIncentiveDashboard) void loadMentorIncentiveDashboard()
@@ -2867,15 +2924,10 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
 
       <div className="console-layout admin-layout admin-workspace-shell">
         <main className="console-main">
-          {activeAdminSection === 'accounts' ? (
+          {isSystemManagementSection ? (
             <div className="stack-gap" id="admin-accounts">
-              <PanelSection eyebrow="Identity" title="账号与安全中心" description="" action={<button className="primary-btn" onClick={() => void handleLoadAdminIdentityCenter()} disabled={loading}>刷新账号中心</button>}>
-                <div className="admin-view-tabs" role="tablist" aria-label="账号中心分类">
-                  <button className={adminAccountView === 'security' ? 'is-active' : ''} onClick={() => setAdminAccountView('security')} role="tab" aria-selected={adminAccountView === 'security'}>我的安全</button>
-                  {adminSession.role.toLowerCase() === 'super_admin' ? <button className={adminAccountView === 'staff' ? 'is-active' : ''} onClick={() => setAdminAccountView('staff')} role="tab" aria-selected={adminAccountView === 'staff'}>员工与权限</button> : null}
-                  <button className={adminAccountView === 'audit' ? 'is-active' : ''} onClick={() => setAdminAccountView('audit')} role="tab" aria-selected={adminAccountView === 'audit'}>安全记录</button>
-                </div>
-                <div className="admin-account-section" hidden={adminAccountView !== 'security'}>
+              <PanelSection eyebrow="System management" title={currentAccountView === 'staff' ? '账号管理' : currentAccountView === 'audit' ? '安全记录' : '我的安全'} description={currentAccountView === 'staff' ? '管理运营后台账号、角色与数据范围。' : currentAccountView === 'audit' ? '查看当前账号的安全事件记录。' : '管理当前账号的密码和登录设备。'} action={<button className="primary-btn" onClick={() => void handleLoadAdminIdentityCenter()} disabled={loading}>刷新页面数据</button>}>
+                {currentAccountView === 'security' ? <div className="admin-account-section">
                 <div className="content-grid two-columns entity-grid">
                   <InfoCard title="修改我的密码" tone="neutral">
                     <InfoRow label="密码到期时间" value={adminSession.passwordExpiresAt ? formatDateTime(adminSession.passwordExpiresAt) : '未设置'} />
@@ -2892,9 +2944,9 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   <div className="table-toolbar"><button className="ghost-btn small-btn" onClick={() => void handleLogoutAllAdminDevices()}>退出全部设备</button></div>
                   <DataTable headers={['设备', '最近使用', '到期时间', '网络地址', '状态', '操作']} rows={adminDevices.map((item) => [item.userAgent || '未知设备', formatDateTime(item.lastSeenAt), formatDateTime(item.expiresAt), item.ipAddress || '-', item.current ? '本机' : item.rememberMe ? '保持登录' : '普通会话', <button className="ghost-btn small-btn" onClick={() => void handleRevokeAdminDevice(item.id)}>退出</button>])} emptyText="刷新后查看当前登录设备" />
                 </InfoCard>
-                </div>
-                {adminSession.role.toLowerCase() === 'super_admin' ? (
-                  <div className="admin-account-section" hidden={adminAccountView !== 'staff'}>
+                </div> : null}
+                {currentAccountView === 'staff' && adminSession.role.toLowerCase() === 'super_admin' ? (
+                  <div className="admin-account-section">
                     <InfoCard title="新增员工账号" tone="success">
                       <form className="grid-form compact-form exception-filter-grid" onSubmit={handleCreateAdminAccount}>
                         <label>登录账号<input required value={adminAccountForm.username} onChange={(e) => setAdminAccountForm({ ...adminAccountForm, username: e.target.value })} /></label>
@@ -2915,29 +2967,15 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                         <span>{account.enabled ? '已启用' : '已停用'} · {account.lockedUntil ? `锁定至 ${formatDateTime(account.lockedUntil)}` : '未锁定'} · {account.activeSessions} 台设备</span>,
                         formatDateTime(account.lastLoginAt || undefined),
                         <div className="action-row"><button className="ghost-btn small-btn" onClick={() => setPendingAdminAccountAction({ account, action: 'save' })}>保存</button><button className="ghost-btn small-btn" onClick={() => setPendingAdminAccountAction({ account, action: 'toggle' })}>{account.enabled ? '停用' : '恢复'}</button>{account.lockedUntil ? <button className="ghost-btn small-btn" onClick={() => setPendingAdminAccountAction({ account, action: 'unlock' })}>解锁</button> : null}<button className="ghost-btn small-btn" onClick={() => setPendingAdminAccountAction({ account, action: 'reset' })}>重置密码</button></div>,
-                      ])} emptyText="点击刷新账号中心加载员工账号" />
+                      ])} emptyText="点击“刷新页面数据”加载员工账号" />
                     </InfoCard>
                   </div>
                 ) : null}
-                <div className="admin-account-section" hidden={adminAccountView !== 'audit'}><InfoCard title="最近安全事件" tone="neutral"><DataTable headers={['时间', '事件', '结果', '网络地址', '说明']} rows={adminSecurityEvents.map((item) => [formatDateTime(item.occurredAt), item.eventType, item.success ? '成功' : '失败', item.ipAddress || '-', item.detail || '-'])} emptyText="刷新后查看最近安全事件" /></InfoCard></div>
+                {currentAccountView === 'audit' ? <div className="admin-account-section"><InfoCard title="最近安全事件" tone="neutral"><DataTable headers={['时间', '事件', '结果', '网络地址', '说明']} rows={adminSecurityEvents.map((item) => [formatDateTime(item.occurredAt), item.eventType, item.success ? '成功' : '失败', item.ipAddress || '-', item.detail || '-'])} emptyText="刷新后查看最近安全事件" /></InfoCard></div> : null}
               </PanelSection>
             </div>
           ) : null}
-          {activeAdminSection === 'settings' ? (
-            <div className="admin-view-tabs" role="tablist" aria-label="配置分类">
-              <button className={adminSettingsView === 'experiment' ? 'is-active' : ''} onClick={() => setAdminSettingsView('experiment')} role="tab" aria-selected={adminSettingsView === 'experiment'}>100 人实验</button>
-              <button className={adminSettingsView === 'guilds' ? 'is-active' : ''} onClick={() => setAdminSettingsView('guilds')} role="tab" aria-selected={adminSettingsView === 'guilds'}>公会配置</button>
-              <button className={adminSettingsView === 'platforms' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('platforms'); if (!platformIntegrations) void loadPlatformIntegrations(); if (!platformVerificationRuntime) void loadPlatformVerificationRuntime() }} role="tab" aria-selected={adminSettingsView === 'platforms'}>平台接入</button>
-              {canRunControlledIncome ? <button className={adminSettingsView === 'incomeControlled' ? 'is-active' : ''} onClick={() => setAdminSettingsView('incomeControlled')} role="tab" aria-selected={adminSettingsView === 'incomeControlled'}>收入受控联调</button> : null}
-              {canRunControlledIncome ? <button className={adminSettingsView === 'incomeShadow' ? 'is-active' : ''} onClick={() => setAdminSettingsView('incomeShadow')} role="tab" aria-selected={adminSettingsView === 'incomeShadow'}>收入影子账本</button> : null}
-              {canManagePlatformMocks ? <button className={adminSettingsView === 'mockVerification' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('mockVerification'); void loadPlatformVerificationRuntime(true) }} role="tab" aria-selected={adminSettingsView === 'mockVerification'}>本地 Mock 核验</button> : null}
-              <button className={adminSettingsView === 'advanced' ? 'is-active' : ''} onClick={() => setAdminSettingsView('advanced')} role="tab" aria-selected={adminSettingsView === 'advanced'}>高级接入</button>
-              {canManageSeedInviters ? <button className={adminSettingsView === 'seedInviter' ? 'is-active' : ''} onClick={() => { setAdminSettingsView('seedInviter'); if (!seedInviters) void loadSeedInviters() }} role="tab" aria-selected={adminSettingsView === 'seedInviter'}>种子邀请人</button> : null}
-              {canAuditPhoneVerification ? <button className={adminSettingsView === 'phoneVerification' ? 'is-active' : ''} onClick={() => setAdminSettingsView('phoneVerification')} role="tab" aria-selected={adminSettingsView === 'phoneVerification'}>验证码审查</button> : null}
-            </div>
-          ) : null}
-
-          {activeAdminSection === 'settings' && adminSettingsView === 'platforms' ? (
+          {isSystemConfigSection && currentSettingsView === 'platforms' ? (
             <PanelSection
               sectionId="admin-platform-integrations"
               eyebrow="Platform integration"
@@ -2980,7 +3018,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </PanelSection>
           ) : null}
 
-          {activeAdminSection === 'settings' && canRunControlledIncome && adminSettingsView === 'incomeControlled' ? (
+          {isSystemConfigSection && canRunControlledIncome && currentSettingsView === 'incomeControlled' ? (
             <PanelSection
               sectionId="admin-income-controlled-readonly"
               eyebrow="MCN production · controlled read-only"
@@ -3037,7 +3075,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </PanelSection>
           ) : null}
 
-          {activeAdminSection === 'settings' && canRunControlledIncome && adminSettingsView === 'incomeShadow' ? (
+          {isSystemConfigSection && canRunControlledIncome && currentSettingsView === 'incomeShadow' ? (
             <PanelSection sectionId="admin-income-shadow-ledger" eyebrow="MCN evidence · no financial effect" title="收入影子账本" description="把已保留的 MCN 原始收入事实按最新修订整理为可核对记录。这里只检查数据归属与定稿状态，绝不计算或发放奖励。">
               <div className="stack-gap">
                 <InfoCard title="核对范围" tone="neutral">
@@ -3082,15 +3120,21 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           ) : null}
 
           {activeAdminSection === 'commissionPolicies' && canRunControlledIncome ? (
-            <PanelSection sectionId="admin-commission-policies" eyebrow="Invitation commission · no payout effect" title="邀请裂变分成规则" description="仅配置邀请链收入的分成层级、比例和冻结期。它不包含导师分成或运营分红；两者将由独立业务规则与账本处理。此页不会创建奖励、余额或付款。" action={<button className="ghost-btn" onClick={() => void loadCommissionPolicies()} disabled={loading}>刷新规则</button>}>
+            <PanelSection sectionId="admin-commission-policies" eyebrow="Invitation commission · fixed policy ledger" title="邀请裂变分成规则台账" description="此处展示固定的邀请裂变口径及其历史快照，不提供运营人员新增、修改比例或调整层级。它不包含导师分成或运营分红，也不会创建奖励、余额或付款。" action={<button className="ghost-btn" onClick={() => void loadCommissionPolicies()} disabled={loading}>刷新台账</button>}>
               <div className="stack-gap">
-                <InfoCard title="新增待审邀请裂变规则" tone="neutral">
-                  <p>建立规则时将在弹窗内选择适用国家，并逐层开启邀请分成、填写比例与生效时间；保存后仍需单独审批启用。</p>
-                  <button className="primary-btn top-gap" onClick={() => setIsCommissionPolicyDialogOpen(true)} disabled={loading}>新增邀请裂变规则</button>
+                <InfoCard title="当前固定口径" tone="neutral">
+                  <div className="relation-grid">
+                    <RelationItem label="第 1 层 · 直接邀请" value="10%" />
+                    <RelationItem label="第 2 层 · 间接邀请" value="3%" />
+                    <RelationItem label="第 3 层及以上" value="关闭" />
+                    <RelationItem label="核算基数" value="来源公会公司业务收入" />
+                  </div>
+                  <InlineHint text="来源用户的原始可结算收入，先按其收入发生时所属公会的公司分成比例换算为公司业务收入，再按固定两层演算个人推荐候选。用户等级当前均展示直邀 10% / 间邀 3%；未来如按等级差异化，须通过研发变更同时更新等级权益展示、计算规则和审计快照。" />
+                  <InlineHint text="公会公司分成比例在“平台公会目录”维护；该比例属于公司业务收入的换算前提，不是邀请裂变比例。" />
                 </InfoCard>
-                <InfoCard title="已保存的邀请裂变规则版本" tone="neutral">
-                  {(commissionPolicies ?? []).length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>规则版本</th><th>适用范围</th><th>最高邀请层级</th><th>各层比例 / 冻结</th><th>生效期</th><th>状态</th><th>操作</th></tr></thead><tbody>{(commissionPolicies ?? []).map((policy) => <tr key={policy.id}><td>{policy.policyCode}</td><td>{policy.platformCode} / {policy.countryCode}</td><td>{policy.maxRewardLevel}</td><td>{policy.levels.filter((level) => level.enabled).map((level) => `L${level.rewardLevel} ${level.rewardRate} / ${level.freezeDays}天`).join('；') || '-'}</td><td>{formatDateTime(policy.effectiveFrom)} {policy.effectiveTo ? `至 ${formatDateTime(policy.effectiveTo)}` : '起长期有效'}</td><td>{policy.status === 'DRAFT' ? '待审' : policy.status === 'ACTIVE' ? '已启用' : '已停用'}</td><td>{policy.status === 'DRAFT' ? <button className="primary-btn small-btn" onClick={() => void handleActivateCommissionPolicy(policy)} disabled={loading}>审批并启用</button> : policy.status === 'ACTIVE' ? <button className="ghost-btn small-btn" onClick={() => void handleRetireCommissionPolicy(policy)} disabled={loading}>停止使用</button> : '-'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未配置邀请裂变规则" description="先建立一条待审规则。建议当前只启用第 1 层，以实现 A-B 直接分成。" />}
-                  <InlineHint text="每位符合基础资格的用户都适用本规则；仅按邀请链收入发生时间读取，不按用户身份切分。导师分成与运营分红不在本页配置。以后改变规则不会重写已保存的候选演算，审批和停用均写入运营审计记录。" />
+                <InfoCard title="历史规则与候选快照" tone="neutral">
+                  {(commissionPolicies ?? []).length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>规则版本</th><th>适用范围</th><th>固定层级</th><th>比例 / 冻结记录</th><th>生效期</th><th>历史状态</th></tr></thead><tbody>{(commissionPolicies ?? []).map((policy) => <tr key={policy.id}><td>{policy.policyCode}</td><td>{policy.platformCode} / {policy.countryCode}</td><td>两层（第 3 层关闭）</td><td>{policy.levels.filter((level) => level.enabled).map((level) => `L${level.rewardLevel} ${level.rewardRate} / ${level.freezeDays}天`).join('；') || '-'}</td><td>{formatDateTime(policy.effectiveFrom)} {policy.effectiveTo ? `至 ${formatDateTime(policy.effectiveTo)}` : '起长期有效'}</td><td>{policy.status === 'DRAFT' ? '历史待审记录' : policy.status === 'ACTIVE' ? '历史已启用记录' : '历史已停用记录'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未记录历史规则快照" description="当前固定口径由系统底层执行；后续如通过研发变更调整，将在此保留新的历史快照。" />}
+                  <InlineHint text="此页只读，用于核对收入发生时采用的固定邀请口径与历史版本。规则新增、比例调整或层级变动须经业务确认后走研发变更流程；不会在运营后台直接操作。" />
                 </InfoCard>
               </div>
             </PanelSection>
@@ -3196,7 +3240,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               <div className="stack-gap">
                 {activeAdminSection === 'userGradeList' ? <>
                   <InfoCard title="既定用户等级" tone="neutral">
-                    <InlineHint text="个人邀请分成与等级解耦：各等级均固定为直邀 10%、间邀 3%。第一阶段不发放团队经营奖励；成为金牌或完成更高等级验收均不会改变该关闭状态。" />
+                    <InlineHint text="当前各等级的个人推荐分成统一为直邀 10%、间邀 3%；等级列表是运营查看该权益的入口。第一阶段不发放团队经营奖励；成为金牌或完成更高等级验收均不会改变该关闭状态。未来如按等级差异化调整，将通过研发变更同步更新等级权益展示与计算规则。" />
                     <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>等级</th><th>升级条件</th><th>升级后的权益与责任</th><th>个人推荐分成</th><th>第一阶段团队奖励</th></tr></thead><tbody>{USER_GRADE_CATALOG.map((item) => <tr key={item.grade}><td><strong>{item.grade}</strong></td><td>{item.condition}</td><td>{item.responsibility}</td><td>{item.referral}</td><td>{item.team}</td></tr>)}</tbody></table></div>
                   </InfoCard>
                   <InfoCard title="已保存的等级规则范围" tone="neutral">
@@ -3244,7 +3288,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </PanelSection>
           ) : null}
 
-          {activeAdminSection === 'settings' && canManagePlatformMocks && adminSettingsView === 'mockVerification' ? (
+          {isSystemConfigSection && canManagePlatformMocks && currentSettingsView === 'mockVerification' ? (
             <PanelSection
               sectionId="admin-platform-verification-mock"
               eyebrow="Local acceptance only"
@@ -3286,8 +3330,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </PanelSection>
           ) : null}
 
-          {activeAdminSection === 'settings' ? (
-            <div hidden={adminSettingsView !== 'advanced'}>
+          {isSystemConfigSection && currentSettingsView === 'advanced' ? (
+            <div>
               <PanelSection
                 sectionId="admin-onboarding"
                 eyebrow="Onboarding"
@@ -3338,7 +3382,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </div>
           ) : null}
 
-          {activeAdminSection === 'settings' && canManageSeedInviters && adminSettingsView === 'seedInviter' ? (
+          {isSystemConfigSection && canManageSeedInviters && currentSettingsView === 'seedInviter' ? (
             <PanelSection
               sectionId="admin-seed-inviter"
               eyebrow="Controlled onboarding"
@@ -3421,10 +3465,11 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                 </InfoCard>
                 <InfoCard title="用户与平台核验信息" tone="neutral">
                   <DataTable
-                    headers={['用户 / 邀请码', '手机号', '直接邀请人', 'Linky 实际绑定', 'Timo 实际绑定', 'Linky 邀请链归属', '操作']}
+                    headers={['用户 / 邀请码', '手机号', '注册时间', '直接邀请人', 'Linky 实际绑定', 'Timo 实际绑定', 'Linky 邀请链归属', '操作']}
                     rows={(userPlatformProfiles?.items ?? []).map((item) => [
                       <div className="stack-gap small"><strong>#{item.userId}</strong><span>{item.inviteCode} · {item.countryCode}</span></div>,
                       item.phoneNumber || '-',
+                      formatDateTime(item.registeredAt),
                       item.directInviterUserId == null ? '根节点' : `#${item.directInviterUserId}`,
                       item.linky ? <div className="stack-gap small"><strong>{item.linky.accountId}</strong><span>{item.linky.status} · {item.linky.guildName || item.linky.guildId || '未返回公会'}{item.linky.expectedGuildSource ? ` · 目标来源 ${item.linky.expectedGuildSource}` : ''}</span></div> : '-',
                       item.timo ? <div className="stack-gap small"><strong>{item.timo.accountId}</strong><span>{item.timo.status} · {item.timo.guildId || '未返回公会'}</span></div> : '-',
@@ -3492,7 +3537,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </PanelSection>
           ) : null}
 
-          {activeAdminSection === 'settings' && canAuditPhoneVerification && adminSettingsView === 'phoneVerification' ? (
+          {isSystemConfigSection && canAuditPhoneVerification && currentSettingsView === 'phoneVerification' ? (
             <PanelSection
               sectionId="admin-phone-verification"
               eyebrow="Restricted Access"
@@ -3553,9 +3598,9 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                     <div className="admin-subsection-head"><div><h3 id="admin-priority-title">需要你处理</h3><p>按业务阻塞程度排序</p></div><span>今日</span></div>
                     <div className="admin-task-board" aria-label="运营待办">
                       {canViewAdminSection('rewards') ? <a href="#admin-rewards"><span>待审核提现<small>进入财务队列</small></span><strong>{adminWithdrawRequests?.total ?? '—'}</strong><CaretRight size={16} /></a> : null}
-                      {canViewAdminSection('bindings') ? <a href="#admin-bindings" onClick={() => { setAdminBindingView('risks'); if (!riskEvents) void handleLoadRiskEvents() }}><span>待处理异常<small>核验绑定与风险</small></span><strong>{riskEvents?.total ?? adminOverview?.riskEventCount ?? '—'}</strong><CaretRight size={16} /></a> : null}
+                      {canViewAdminSection('users') ? <a href="#admin-risk-queue" onClick={() => { if (!riskEvents) void handleLoadRiskEvents() }}><span>待处理异常<small>核验绑定与风险</small></span><strong>{riskEvents?.total ?? adminOverview?.riskEventCount ?? '—'}</strong><CaretRight size={16} /></a> : null}
                       {canViewAdminSection('channel') ? <a href="#admin-channel-entries"><span>渠道入口<small>创建可追踪链接</small></span><strong>生成</strong><CaretRight size={16} /></a> : null}
-                      <a href="#admin-accounts"><span>工作台状态<small>{currentAdminProductLabel}</small></span><strong>{adminOverview ? '已更新' : '待刷新'}</strong><CaretRight size={16} /></a>
+                      <a href="#admin-my-security"><span>工作台状态<small>{currentAdminProductLabel}</small></span><strong>{adminOverview ? '已更新' : '待刷新'}</strong><CaretRight size={16} /></a>
                     </div>
                   </section>
                   <section className="admin-overview-pulse" aria-labelledby="admin-pulse-title">
@@ -3742,22 +3787,17 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               </div>
           ) : null}
 
-          {activeAdminSection === 'bindings' || activeAdminSection === 'settings' ? (
-              <div className="admin-workbench-container" hidden={activeAdminSection === 'settings' && adminSettingsView !== 'experiment' && adminSettingsView !== 'guilds'}>
+          {activeAdminSection === 'bindings' || activeAdminSection === 'riskQueue' || isSystemConfigSection ? (
+              <div className="admin-workbench-container" hidden={isSystemConfigSection && currentSettingsView !== 'experiment' && currentSettingsView !== 'guilds'}>
                 <PanelSection
                   sectionId="admin-bindings"
                   eyebrow="Bindings"
-                  title={activeAdminSection === 'settings' ? '配置' : '绑定关系管理'}
+                  title={isSystemConfigSection ? '配置中心' : activeAdminSection === 'riskQueue' ? '风险队列' : '绑定管理'}
                   description=""
-                  action={activeAdminSection === 'bindings' && adminBindingView === 'users' ? <button className="primary-btn" onClick={handleLoadRelation} disabled={loading || !canLoadAdmin || !relationQueryUserId}>查询用户关系</button> : undefined}
+                  action={activeAdminSection === 'bindings' ? <button className="primary-btn" onClick={handleLoadRelation} disabled={loading || !canLoadAdmin || !relationQueryUserId}>查询用户关系</button> : undefined}
                 >
                   {activeAdminSection === 'bindings' ? (
-                    <>
-                  <div className="admin-view-tabs" role="tablist" aria-label="绑定与风险分类">
-                    <button className={adminBindingView === 'users' ? 'is-active' : ''} onClick={() => setAdminBindingView('users')} role="tab" aria-selected={adminBindingView === 'users'}>用户与绑定</button>
-                    <button className={adminBindingView === 'risks' ? 'is-active' : ''} onClick={() => { setAdminBindingView('risks'); if (!riskEvents) void handleLoadRiskEvents() }} role="tab" aria-selected={adminBindingView === 'risks'}>风险队列{riskEvents?.total ? ` · ${riskEvents.total}` : ''}</button>
-                  </div>
-                  <div className="admin-binding-user-workbench" hidden={adminBindingView !== 'users'}>
+                  <div className="admin-binding-user-workbench">
                   <InfoCard title="查询入口" tone="neutral">
                     <div className="grid-form compact-form single-line">
                       <label>
@@ -3810,7 +3850,9 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                     )}
                   </InfoCard>
                   </div>
-                  <div className="admin-risk-workbench" hidden={adminBindingView !== 'risks'}>
+                  ) : null}
+                  {activeAdminSection === 'riskQueue' ? (
+                  <div className="admin-risk-workbench">
                     <form className="admin-filter-bar" onSubmit={(event) => { event.preventDefault(); void handleLoadRiskEvents() }} aria-label="风险队列筛选">
                       <label>用户 ID<input value={riskQuery.userId} onChange={(e) => setRiskQuery({ ...riskQuery, userId: e.target.value, page: '0' })} placeholder="输入用户 ID…" inputMode="numeric" /></label>
                       <label>状态<select value={riskQuery.riskStatus} onChange={(e) => setRiskQuery({ ...riskQuery, riskStatus: e.target.value, page: '0' })}><option value="PENDING">待处理</option><option value="HANDLED">已处理</option><option value="IGNORED">已忽略</option><option value="">全部</option></select></label>
@@ -3827,12 +3869,11 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                     <InlineHint text="忽略或冻结用户属于高影响操作，必须先填写处理备注并二次确认。" />
                     <div className="table-toolbar"><button className="ghost-btn small-btn" onClick={() => handleRiskPageChange(Number(riskQuery.page) - 1)} disabled={!hasRiskPrevPage}>上一页</button><span className="admin-page-note">{riskPageLabel}</span><button className="ghost-btn small-btn" onClick={() => handleRiskPageChange(Number(riskQuery.page) + 1)} disabled={!hasRiskNextPage}>下一页</button></div>
                   </div>
-                    </>
                   ) : null}
 
-                  {activeAdminSection === 'settings' ? (
+                  {isSystemConfigSection ? (
                     <>
-                  <div hidden={adminSettingsView !== 'experiment'}>
+                  <div hidden={currentSettingsView !== 'experiment'}>
                   <InfoCard title="100 人验证实验" tone="neutral">
                     <div className="grid-form compact-form exception-filter-grid">
                       <label>实验代码<input value={experimentCode} onChange={(e) => setExperimentCode(e.target.value)} placeholder="BANDEIRA_V1_100" /></label>
@@ -3866,7 +3907,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                     <button className="primary-btn small-btn top-gap" onClick={() => void handleEnrollParticipant()} disabled={loading || experimentDashboard?.status !== 'ENROLLING' || !experimentParticipant.userId || !experimentParticipant.eligibilitySnapshot.trim()}>加入实验队列</button>
                   </InfoCard>
                   </div>
-                  <div hidden={adminSettingsView !== 'guilds'}>
+                  <div hidden={currentSettingsView !== 'guilds'}>
                   <InfoCard title="公会周报" tone="success">
                     <div className="grid-form compact-form exception-filter-grid">
                       <label>
@@ -3960,7 +4001,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                     </>
                   ) : null}
 
-                  {activeAdminSection === 'bindings' && adminBindingView === 'users' ? (
+                  {activeAdminSection === 'bindings' ? (
                   adminRelation ? (
                     <div className="stack-gap relation-workbench">
                       <div className="relation-grid">
@@ -4037,30 +4078,6 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             />
           ) : null}
         </DrawerDialog>
-      ) : null}
-
-      {isCommissionPolicyDialogOpen ? (
-        <ConfirmDialog
-          title="新增待审邀请裂变规则"
-          tone="primary"
-          confirmText="建立待审邀请裂变规则"
-          loading={loading}
-          confirmDisabled={!commissionPolicyForm.countryCode.trim() || !commissionPolicyForm.effectiveFrom}
-          onCancel={() => setIsCommissionPolicyDialogOpen(false)}
-          onConfirm={() => void saveCommissionPolicy()}
-        >
-          <form className="grid-form compact-form exception-filter-grid" onSubmit={handleCreateCommissionPolicy}>
-            <label>平台<select value={commissionPolicyForm.platformCode} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, platformCode: event.target.value })}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label>
-            <label>归属国家<select value={commissionPolicyForm.countryCode} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, countryCode: event.target.value })}>{phoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names.zh}（{country.countryCode}）</option>)}</select></label>
-            <label>生效时间<input required type="datetime-local" value={commissionPolicyForm.effectiveFrom} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, effectiveFrom: event.target.value })} /></label>
-            <label>失效时间（可选）<input type="datetime-local" value={commissionPolicyForm.effectiveTo} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, effectiveTo: event.target.value })} /></label>
-            <div className="commission-level-list">
-              <section className="commission-level-card is-enabled"><div className="commission-level-heading"><div><strong>第 1 层</strong><span>直接邀请（A 邀请 B）</span></div><span className="commission-level-fixed">固定 10%</span></div><div className="commission-level-fields"><label>冻结天数<input required inputMode="numeric" value={commissionPolicyForm.level1FreezeDays} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, level1FreezeDays: event.target.value.replace(/\D/g, '') })} /></label></div></section>
-              <section className="commission-level-card is-enabled"><div className="commission-level-heading"><div><strong>第 2 层</strong><span>间接邀请（A-B-C）</span></div><span className="commission-level-fixed">固定 3%</span></div><div className="commission-level-fields"><label>冻结天数<input required inputMode="numeric" value={commissionPolicyForm.level2FreezeDays} onChange={(event) => setCommissionPolicyForm({ ...commissionPolicyForm, level2FreezeDays: event.target.value.replace(/\D/g, '') })} /></label></div><small>个人邀请奖励最多两层；等级不会延长层级或改变比例。</small></section>
-            </div>
-          </form>
-          <InlineHint text="本规则固定为“邀请裂变分成”：按来源用户所属公会的公司业务收入基数，第一层 10%、第二层 3%。建立后仍为待审状态；审批启用前不会影响候选演算，更不会触发发奖。" />
-        </ConfirmDialog>
       ) : null}
 
       {isMentorQualificationDialogOpen ? (
@@ -4489,9 +4506,8 @@ function AdminNavIcon({ label }: { label: string }) {
   if (label === '渠道入口') return <Megaphone {...props} />
   if (label === '绑定关系') return <LinkSimple {...props} />
   if (label === '用户管理') return <IdentificationCard {...props} />
-  if (label === '收益提现') return <Wallet {...props} />
-  if (label === '邀请裂变分成') return <Diamond {...props} />
-  if (label === '账号中心') return <UsersThree {...props} />
+  if (label === '财务管理') return <Wallet {...props} />
+  if (label === '系统管理') return <UsersThree {...props} />
   return <GearSix {...props} />
 }
 
