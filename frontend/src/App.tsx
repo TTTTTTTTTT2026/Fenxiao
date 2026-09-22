@@ -337,6 +337,7 @@ function resolveAdminSectionFromHash(hash?: string): AdminSectionKey {
   const normalized = hash || '#admin-overview'
   if (normalized === '#admin-mentor-incentives') return 'mentorDirectory'
   if (normalized === '#admin-operating-dividends') return 'teams'
+  if (normalized === '#admin-system-mock-verification') return 'systemPlatforms'
   if (normalized === '#admin-user-grades') return 'userGradeList'
   const match = (Object.entries(ADMIN_SECTION_HASHES) as Array<[AdminSectionKey, string]>).find(([, value]) => value === normalized)
   if (match) return match[0]
@@ -400,7 +401,7 @@ const LINKY_REPLAY_QUERY_KEY = 'fenxiao-linky-replay-query'
 const ADMIN_PRODUCT_OPTIONS: Array<{ value: AdminProductKey; label: string }> = [
   { value: 'ALL', label: '全部产品' },
   { value: 'LINKY', label: 'Linky' },
-  { value: 'TIMO', label: 'Timo（影子接入）' },
+  { value: 'TIMO', label: 'Timo（数据接入）' },
 ]
 const ADMIN_ROLE_OPTIONS = [
   { value: 'super_admin', label: '最高管理员' }, { value: 'admin', label: '管理员' },
@@ -1851,9 +1852,9 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     try {
       const result = await refreshAdminIncomeShadowLedger(adminSession.sessionToken, incomeShadowForm)
       setIncomeShadowResult(result); setIncomeDataQuality(null); setIncomeDataQualityExceptions([]); setIncomeRewardCandidateResult(null); setIncomeRewardCandidateItems([])
-      setSuccessMessage('影子账本已按最新修订刷新；未产生任何奖励、钱包或提现结果。')
+      setSuccessMessage('收入测算记录已按最新修订刷新；未产生任何奖励、钱包或提现结果。')
     } catch (err) {
-      setError(err instanceof Error ? err.message : '刷新影子账本失败')
+      setError(err instanceof Error ? err.message : '刷新收入测算记录失败')
     } finally { setLoading(false) }
   }
 
@@ -1861,7 +1862,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     if (!adminSession || !canRunControlledIncome) return
     setLoading(true); setError('')
     try { setIncomeShadowResult(await getAdminIncomeShadowLedgerSummary(adminSession.sessionToken, incomeShadowForm.platformCode, incomeShadowForm.businessDate)) }
-    catch (err) { setError(err instanceof Error ? err.message : '读取影子账本摘要失败') }
+    catch (err) { setError(err instanceof Error ? err.message : '读取收入测算摘要失败') }
     finally { setLoading(false) }
   }
 
@@ -1923,8 +1924,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
       ])
       setIncomeShadowResult(result); setIncomeDataQuality(quality); setIncomeDataQualityExceptions(exceptions)
       setIncomeRewardCandidateResult(null); setIncomeRewardCandidateItems([]); setIsIncomeShadowReplayDialogOpen(false); setIncomeShadowReplayReason('')
-      setSuccessMessage('已按已保留的最新 MCN 证据重新投影，并记录人工重放原因；未调用 MCN、未发奖。')
-    } catch (err) { setError(err instanceof Error ? err.message : '重新投影收入影子账本失败') }
+      setSuccessMessage('已按已保留的最新 MCN 证据重新整理测算记录，并记录人工复核原因；未调用 MCN、未发奖。')
+    } catch (err) { setError(err instanceof Error ? err.message : '重新整理收入测算记录失败') }
     finally { setLoading(false) }
   }
 
@@ -1981,7 +1982,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     if (!adminSession) return
     setLoading(true); setError('')
     try { setMentorIncentiveDashboard(await getAdminMentorIncentiveDashboard(adminSession.sessionToken)) }
-    catch (err) { setError(err instanceof Error ? err.message : '读取导师分成影子账本失败') }
+    catch (err) { setError(err instanceof Error ? err.message : '读取导师关系与历史记录失败') }
     finally { setLoading(false) }
   }
 
@@ -2026,7 +2027,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     if (!adminSession || !canManageOperatingDividends) return
     setLoading(true); setError('')
     try { setOperatingDividendDashboard(await getAdminOperatingDividendDashboard(adminSession.sessionToken)) }
-    catch (err) { setError(err instanceof Error ? err.message : '读取运营分红影子台失败') }
+    catch (err) { setError(err instanceof Error ? err.message : '读取团队经营历史记录失败') }
     finally { setLoading(false) }
   }
 
@@ -2879,8 +2880,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                 <a className={`admin-nav-subitem ${activeAdminSection === 'systemExperiment' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemExperiment}>100 人实验</a>
                 <a className={`admin-nav-subitem ${activeAdminSection === 'systemGuilds' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemGuilds}>公会配置</a>
                 <a className={`admin-nav-subitem ${activeAdminSection === 'systemPlatforms' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemPlatforms} onClick={() => { if (!platformIntegrations) void loadPlatformIntegrations(); if (!platformVerificationRuntime) void loadPlatformVerificationRuntime() }}>平台接入</a>
-                {canRunControlledIncome ? <><a className={`admin-nav-subitem ${activeAdminSection === 'systemIncomeControlled' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemIncomeControlled}>收入受控联调</a><a className={`admin-nav-subitem ${activeAdminSection === 'systemIncomeShadow' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemIncomeShadow}>收入影子账本</a></> : null}
-                {canManagePlatformMocks ? <a className={`admin-nav-subitem ${activeAdminSection === 'systemMockVerification' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemMockVerification} onClick={() => void loadPlatformVerificationRuntime(true)}>本地 Mock 核验</a> : null}
+                {canRunControlledIncome ? <><a className={`admin-nav-subitem ${activeAdminSection === 'systemIncomeControlled' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemIncomeControlled}>收入受控联调</a><a className={`admin-nav-subitem ${activeAdminSection === 'systemIncomeShadow' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemIncomeShadow}>收入测算与核对</a></> : null}
                 <a className={`admin-nav-subitem ${activeAdminSection === 'systemAdvanced' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemAdvanced}>高级接入</a>
                 {canManageSeedInviters ? <a className={`admin-nav-subitem ${activeAdminSection === 'systemSeedInviter' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemSeedInviter} onClick={() => { if (!seedInviters) void loadSeedInviters() }}>种子邀请人</a> : null}
                 {canAuditPhoneVerification ? <a className={`admin-nav-subitem ${activeAdminSection === 'systemPhoneVerification' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemPhoneVerification}>验证码审查</a> : null}
@@ -2960,7 +2960,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               sectionId="admin-platform-integrations"
               eyebrow="Platform integration"
               title="平台接入配置"
-              description="平台账号主标识、公会范围和收益处理模式。Timo 当前仅允许保存事实与影子计算，不会触发真实发奖。"
+              description="平台账号主标识、公会范围和收益处理模式。Timo 当前仅允许保存收入事实并进行测算核对，不会触发真实发奖。"
               action={<button className="primary-btn" onClick={() => void loadPlatformIntegrations()} disabled={loading}>{loading ? '刷新中…' : '刷新配置'}</button>}
             >
               <div className="stack-gap">
@@ -3013,7 +3013,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   <InlineHint text="持续同步关闭时，系统不会自动请求 MCN；此处只展示已保存的断点、最近一次拉取和失败重试信息，不会显示游标、平台账号、收入事实或密钥。" />
                   <div className="action-row top-gap"><button className="ghost-btn small-btn" onClick={() => void handleLoadIncomeSyncStatus()} disabled={loading}>读取同步状态</button></div>
                   {incomeSyncStatus ? <div className="stack-gap top-gap">
-                    <InlineHint text={incomeSyncStatus.continuousPullEnabled ? `持续同步已开启：每平台每轮最多读取 ${incomeSyncStatus.maxPagesPerRun} 页；奖励、钱包和付款仍不受此状态影响。` : '持续同步当前关闭：受控只读、影子账本和候选演算仍须按各自门禁执行。'} />
+                  <InlineHint text={incomeSyncStatus.continuousPullEnabled ? `持续同步已开启：每平台每轮最多读取 ${incomeSyncStatus.maxPagesPerRun} 页；奖励、钱包和付款仍不受此状态影响。` : '持续同步当前关闭：受控只读、收入测算与候选演算仍须按各自门禁执行。'} />
                     <div className="relation-grid">{incomeSyncStatus.platforms.map((item) => <RelationItem key={item.platformCode} label={`${item.platformCode === 'TIMO' ? 'Timo' : 'Linky'} 最近状态`} value={`${item.checkpointStatus}${item.latestRunStatus ? ` / ${item.latestRunStatus}` : ''}`} />)}</div>
                     <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>平台</th><th>最近成功</th><th>最近快照 / 水位</th><th>接收 / 新增 / 去重</th><th>未匹配</th><th>下次尝试</th><th>失败 / 重试</th></tr></thead><tbody>{incomeSyncStatus.platforms.map((item) => <tr key={item.platformCode}><td>{item.platformCode === 'TIMO' ? 'Timo' : 'Linky'}</td><td>{item.lastSuccessAt ? formatDateTime(item.lastSuccessAt) : '-'}</td><td>{item.lastSnapshotAt ? `${formatDateTime(item.lastSnapshotAt)} / ${item.lastWatermarkCompleteness || '-'}` : item.lastWatermarkCompleteness || '-'}</td><td>{item.latestRunStatus ? `${item.latestReceivedCount} / ${item.latestNewCount} / ${item.latestDuplicateCount}` : '-'}</td><td>{item.latestRunStatus ? item.latestUnmatchedCount : '-'}</td><td>{item.nextAttemptAt ? formatDateTime(item.nextAttemptAt) : '-'}</td><td>{item.lastErrorCode || (item.retryAfterSeconds ? `${item.retryAfterSeconds} 秒后重试` : '-')}</td></tr>)}</tbody></table></div>
                   </div> : null}
@@ -3056,32 +3056,33 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           ) : null}
 
           {isSystemConfigSection && canRunControlledIncome && currentSettingsView === 'incomeShadow' ? (
-            <PanelSection sectionId="admin-income-shadow-ledger" eyebrow="MCN evidence · no financial effect" title="收入影子账本" description="把已保留的 MCN 原始收入事实按最新修订整理为可核对记录。这里只检查数据归属与定稿状态，绝不计算或发放奖励。">
+            <PanelSection sectionId="admin-income-shadow-ledger" eyebrow="MCN evidence · no financial effect" title="收入测算与核对" description="把已保留的 MCN 原始收入事实按最新修订整理为可核对记录。这里只检查数据归属与定稿状态，绝不计算或发放奖励。">
               <div className="stack-gap">
                 <InfoCard title="核对范围" tone="neutral">
                   <div className="grid-form compact-form exception-filter-grid">
                     <label>平台<select value={incomeShadowForm.platformCode} onChange={(event) => { setIncomeShadowForm({ ...incomeShadowForm, platformCode: event.target.value }); setIncomeShadowResult(null); setIncomeDataQuality(null); setIncomeDataQualityExceptions([]); setIncomeRewardCandidateResult(null); setIncomeRewardCandidateItems([]) }}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label>
                     <label>业务日期<input type="date" value={incomeShadowForm.businessDate} onChange={(event) => { setIncomeShadowForm({ ...incomeShadowForm, businessDate: event.target.value }); setIncomeShadowResult(null); setIncomeDataQuality(null); setIncomeDataQualityExceptions([]); setIncomeRewardCandidateResult(null); setIncomeRewardCandidateItems([]) }} /></label>
                   </div>
-                  <div className="action-row top-gap"><button className="primary-btn small-btn" onClick={() => void handleRefreshIncomeShadowLedger()} disabled={loading}>按最新修订刷新</button><button className="ghost-btn small-btn" onClick={() => setIsIncomeShadowReplayDialogOpen(true)} disabled={loading || !incomeShadowResult}>人工重新投影</button><button className="ghost-btn small-btn" onClick={() => void handleLoadIncomeShadowLedger()} disabled={loading}>读取已有结果</button><button className="ghost-btn small-btn" onClick={() => void handleLoadIncomeDataQuality()} disabled={loading}>查看数据质量</button></div>
+                  <div className="action-row top-gap"><button className="primary-btn small-btn" onClick={() => void handleRefreshIncomeShadowLedger()} disabled={loading}>按最新修订刷新</button><button className="ghost-btn small-btn" onClick={() => setIsIncomeShadowReplayDialogOpen(true)} disabled={loading || !incomeShadowResult}>人工重新整理</button><button className="ghost-btn small-btn" onClick={() => void handleLoadIncomeShadowLedger()} disabled={loading}>读取已有结果</button><button className="ghost-btn small-btn" onClick={() => void handleLoadIncomeDataQuality()} disabled={loading}>查看数据质量</button></div>
                 </InfoCard>
-                {incomeShadowResult ? <InfoCard title="影子账本核对结果" tone="success"><div className="relation-grid">
+                {incomeShadowResult ? <InfoCard title="收入事实核对结果" tone="success"><div className="relation-grid">
                   <RelationItem label="来源事实 / 最新事实" value={`${incomeShadowResult.sourceFactCount} / ${incomeShadowResult.latestFactCount}`} />
                   <RelationItem label="已绑定且已定稿" value={incomeShadowResult.boundFinalCount} />
                   <RelationItem label="未匹配平台账号" value={incomeShadowResult.unmatchedCount} />
                   <RelationItem label="等待定稿" value={incomeShadowResult.awaitingFinalityCount} />
                   <RelationItem label="已撤销或作废" value={incomeShadowResult.voidedCount} />
-                </div><InlineHint text="“已绑定且已定稿”仅表示可进入后续规则核对，不代表已经产生任何奖励或可提现余额。" /></InfoCard> : <EmptyState title="尚未生成影子账本" description="选择已完成受控对账的业务日后刷新。" />}
+                </div><InlineHint text="“已绑定且已定稿”仅表示可进入后续规则核对，不代表已经产生任何奖励或可提现余额。" /></InfoCard> : <EmptyState title="尚未生成收入测算记录" description="选择已完成受控对账的业务日后刷新。" />}
                 {incomeDataQuality ? <InfoCard title="数据质量与待处理项" tone={incomeDataQuality.projectionStatus === 'COMPLETE' ? 'success' : 'neutral'}><div className="relation-grid">
                   <RelationItem label="投影完整性" value={`${incomeDataQuality.projectionStatus} · ${incomeDataQuality.projectedFactCount} / ${incomeDataQuality.latestFactCount}`} />
                   <RelationItem label="已归属覆盖率" value={`${incomeDataQuality.boundFinalCount} / ${incomeDataQuality.latestFactCount}（${incomeDataQuality.latestFactCount === 0 ? '0' : ((incomeDataQuality.boundFinalCount / incomeDataQuality.latestFactCount) * 100).toFixed(2)}%）`} />
                   <RelationItem label="未归属 / 等待定稿" value={`${incomeDataQuality.unmatchedCount} / ${incomeDataQuality.awaitingFinalityCount}`} />
                   <RelationItem label="作废事实" value={incomeDataQuality.voidedCount} />
-                </div><InlineHint text="COMPLETE 表示最新 MCN 事实均已写入本地影子投影；未归属和等待定稿必须在进入任何后续账本规则前处理或确认。" />
+                </div><InlineHint text="COMPLETE 表示最新 MCN 事实均已写入本地测算记录；未归属和等待定稿必须在进入任何后续规则前处理或确认。" />
                   {incomeDataQualityExceptions.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>事实参考号</th><th>状态</th><th>公会</th><th>结算状态</th><th>复核状态</th><th>最新修订</th><th>操作</th></tr></thead><tbody>{incomeDataQualityExceptions.map((item) => <tr key={`${item.sourceEventReference}:${item.sourceRevision}`}><td>{item.sourceEventReference}</td><td>{item.status === 'UNMATCHED' ? '未归属' : '等待定稿'}</td><td>{item.guildId || '-'}</td><td>{item.settlementStatus}</td><td>{item.reviewStatus === 'ACKNOWLEDGED' ? '已知悉' : item.reviewStatus === 'IGNORED' ? '已忽略' : '待复核'}{item.reviewNote ? <small className="table-subtext">{item.reviewNote}</small> : null}</td><td>{item.sourceRevision}</td><td><button className="ghost-btn small-btn" onClick={() => openIncomeExceptionReview(item)} disabled={loading}>复核</button></td></tr>)}</tbody></table></div> : <InlineHint text="当前没有未归属或等待定稿的收入事实。" />}
                 </InfoCard> : null}
-                <InfoCard title="奖励候选影子演算" tone="neutral">
+                <InfoCard title="邀请奖励候选测算" tone="neutral">
                   <InlineHint text="仅对已定稿、已归属且在收入发生时已完成绑定核验的事实，按收入发生时有效的来源公会公司分成比例，将原始收入换算为公司业务收入后演算固定两层邀请候选（直邀 10%、间邀 3%）。不会生成奖励或余额。" />
+                  <InlineHint text="团队奖励 2%预留当前未启用：本阶段不计算、不记录，也不进入团队利润；待团队奖励方案单独确认后再启用。" />
                   <div className="action-row top-gap"><button className="primary-btn small-btn" onClick={() => void handleRefreshIncomeRewardCandidates()} disabled={loading || !incomeShadowResult}>按当前证据演算候选</button><button className="ghost-btn small-btn" onClick={() => void handleLoadIncomeRewardCandidates()} disabled={loading}>读取已有候选</button></div>
                 </InfoCard>
                 {incomeRewardCandidateResult ? <InfoCard title="奖励候选演算结果" tone="neutral"><div className="relation-grid">
@@ -3089,7 +3090,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   <RelationItem label="候选奖励条数" value={incomeRewardCandidateResult.candidateCount} />
                   <RelationItem label="规则阻断条数" value={incomeRewardCandidateResult.blockedCount} />
                   <RelationItem label="候选金额" value={`${incomeRewardCandidateResult.candidateAmount} ${incomeRewardCandidateResult.amountUnit || ''}`.trim()} />
-                </div><InlineHint text="候选金额只用于业务与财务核对；它不是奖励、余额、可提现金额或付款指令。导师奖励属于独立的生命周期里程碑影子账本，不在此处合算。" />
+                </div><InlineHint text="候选金额只用于业务与财务核对；它不是奖励、余额、可提现金额或付款指令。导师奖励当前关闭，不在此处计算。" />
                   <div className="action-row top-gap"><button className="ghost-btn small-btn" onClick={() => void handleLoadIncomeRewardCandidateSample()} disabled={loading || !incomeRewardCandidateResult.latestRunId}>抽取 10 条核验样本</button></div>
                   {incomeRewardCandidateItems.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>事实参考号</th><th>邀请层级</th><th>来源用户 / 公会</th><th>候选受益人</th><th>原始收入</th><th>公司比例</th><th>公司业务收入</th><th>候选金额</th><th>规则快照</th><th>依据</th></tr></thead><tbody>{incomeRewardCandidateItems.map((item) => <tr key={`${item.sourceEventReference}:${item.rewardLevel}`}><td>{item.sourceEventReference}</td><td>{item.rewardLevel === 1 ? '直邀 · 10%' : item.rewardLevel === 2 ? '间邀 · 3%' : '-'}</td><td>{item.sourceUserId || '-'}<small className="table-subtext">{item.sourceGuildId || '未取得公会'}</small></td><td>{item.recipientUserId || '-'}</td><td>{`${item.baseAmount} ${item.amountUnit}`}</td><td>{item.companyShareRate === null ? '-' : `${(item.companyShareRate * 100).toFixed(2)}%`}</td><td>{item.companyIncomeBaseAmount === null ? '-' : `${item.companyIncomeBaseAmount} ${item.amountUnit}`}</td><td>{item.candidateAmount === null ? '-' : `${item.candidateAmount} ${item.amountUnit}`}</td><td>{item.policyCode ? `${item.policyCode}${item.ruleRate === null ? '' : ` · ${(item.ruleRate * 100).toFixed(2)}%`}${item.invitationVersion === null ? '' : ` · 邀请版本 ${item.invitationVersion}`}` : item.calculationVersion}</td><td>{item.reason}</td></tr>)}</tbody></table></div> : <InlineHint text="尚无可展示的分佣候选；可能尚未演算、收入未归属，或来源用户在收入发生时未完成平台绑定。" />}
                   {incomeRewardCandidateSample ? <div className="top-gap"><InlineHint text={`本次快照 ${incomeRewardCandidateSample.runId}：可核验 ${incomeRewardCandidateSample.availableCount} 条，其中候选 ${incomeRewardCandidateSample.candidateAvailableCount} 条、阻断 ${incomeRewardCandidateSample.blockedAvailableCount} 条。样本按固定哈希抽取，重复读取结果一致。`} />
@@ -4277,21 +4278,21 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             <label>生效时间<input required type="datetime-local" value={operatingDividendForm.effectiveFrom} onChange={(event) => setOperatingDividendForm({ ...operatingDividendForm, effectiveFrom: event.target.value })} /></label>
             <label>失效时间（可选）<input type="datetime-local" value={operatingDividendForm.effectiveTo} onChange={(event) => setOperatingDividendForm({ ...operatingDividendForm, effectiveTo: event.target.value })} /></label>
           </form>
-          <InlineHint text="运营分红计算基数固定为独立的团队经营利润事实。保存后仅为待审影子规则；不读取或改写收入事实，更不会产生奖励、余额、提现或付款。" />
+          <InlineHint text="运营分红当前关闭；不读取或改写收入事实，更不会产生奖励、余额、提现或付款。" />
         </ConfirmDialog>
       ) : null}
 
       {isIncomeShadowReplayDialogOpen ? (
         <ConfirmDialog
-          title="人工重新投影收入影子账本"
+          title="人工重新整理收入测算记录"
           tone="warning"
-          confirmText="记录原因并重新投影"
+          confirmText="记录原因并重新整理"
           loading={loading}
           confirmDisabled={!incomeShadowReplayReason.trim()}
           onCancel={() => { setIsIncomeShadowReplayDialogOpen(false); setIncomeShadowReplayReason('') }}
           onConfirm={() => void handleReplayIncomeShadowLedger()}
         >
-          <p>仅使用本系统已保留的最新 MCN 原始收入事实，重新构建所选平台与业务日的影子投影。不会请求 MCN，不会修改原始事实，也不会创建奖励、余额或付款。</p>
+          <p>仅使用本系统已保留的最新 MCN 原始收入事实，重新整理所选平台与业务日的测算记录。不会请求 MCN，不会修改原始事实，也不会创建奖励、余额或付款。</p>
           <label className="top-gap">重放原因<textarea value={incomeShadowReplayReason} maxLength={255} onChange={(event) => setIncomeShadowReplayReason(event.target.value)} placeholder="例如：已完成平台账号绑定补录，重新核对当日归属" /></label>
         </ConfirmDialog>
       ) : null}
@@ -4310,7 +4311,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           <p>当前问题：{incomeExceptionReviewTarget.status === 'UNMATCHED' ? '未归属平台账号' : '等待 MCN 结算定稿'}。该结论仅适用于当前修订版本；MCN 有新修订时必须重新复核。</p>
           <label>处理结论<select value={incomeExceptionReviewForm.reviewStatus} onChange={(event) => setIncomeExceptionReviewForm({ ...incomeExceptionReviewForm, reviewStatus: event.target.value as 'ACKNOWLEDGED' | 'IGNORED' })}><option value="ACKNOWLEDGED">已知悉，待后续处理</option><option value="IGNORED">确认不纳入本次处理</option></select></label>
           <label className="top-gap">复核备注<textarea value={incomeExceptionReviewForm.reviewNote} maxLength={255} onChange={(event) => setIncomeExceptionReviewForm({ ...incomeExceptionReviewForm, reviewNote: event.target.value })} placeholder="说明已核对的依据、后续负责人或不纳入原因" /></label>
-          <InlineHint text="保存复核结论不会改变 MCN 原始事实、绑定状态、影子候选或任何财务数据。" />
+          <InlineHint text="保存复核结论不会改变 MCN 原始事实、绑定状态、候选测算或任何财务数据。" />
         </ConfirmDialog>
       ) : null}
 
