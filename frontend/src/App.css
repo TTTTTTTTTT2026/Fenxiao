@@ -932,6 +932,21 @@ select:focus {
   gap: 8px;
 }
 
+.invite-code-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.invite-code-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 5px;
+}
+
 .top-gap {
   margin-top: 12px;
 }

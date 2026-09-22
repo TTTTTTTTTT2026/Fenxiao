@@ -3468,7 +3468,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                     headers={['用户', '邀请码', '归属国家', '用户等级', '手机号', '注册时间', '直接邀请人', 'Linky 实际绑定', 'Timo 实际绑定', 'Linky 邀请链归属', '操作']}
                     rows={(userPlatformProfiles?.items ?? []).map((item) => [
                       <strong>#{item.userId}</strong>,
-                      item.inviteCode || '-',
+                      item.inviteCode ? <div className="invite-code-cell"><span>{item.inviteCode}</span><button className="ghost-btn small-btn invite-code-copy-btn" type="button" onClick={() => void handleCopyInviteCode(item.inviteCode)} aria-label={`复制邀请码 ${item.inviteCode}`} title="复制邀请码"><Copy size={15} weight="bold" aria-hidden="true" /></button></div> : '-',
                       formatCountryNameZh(item.countryCode),
                       formatConsumerUserGrade(item.userGradeCode, 'zh'),
                       item.phoneNumber || '-',
