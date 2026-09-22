@@ -773,6 +773,13 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   }, [activeAdminSection, adminSectionLinks, adminSession, currentAccountView, currentSettingsView, visibleFinanceSections])
 
   useEffect(() => {
+    if (currentSettingsView !== 'phoneVerification' || !adminSession || !canAuditPhoneVerification) return
+    void loadPhoneVerificationCodes()
+    // The list is deliberately refreshed whenever this sensitive review tab is entered.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSettingsView, adminSession?.sessionToken, canAuditPhoneVerification])
+
+  useEffect(() => {
     if (!error && !successMessage) return undefined
     const timeout = window.setTimeout(() => {
       setError('')
@@ -1196,6 +1203,13 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     } finally {
       setLoading(false)
     }
+  }
+
+  async function handlePhoneVerificationPageChange(nextPage: number) {
+    if (nextPage < 0) return
+    const nextQuery = { ...phoneVerificationQuery, page: String(nextPage) }
+    setPhoneVerificationQuery(nextQuery)
+    await loadPhoneVerificationCodes(nextQuery)
   }
 
   async function handleRevealPhoneVerificationCode(id: number) {
@@ -2641,6 +2655,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const hasLinkyWebhookNextPage = linkyWebhookLogs ? (linkyWebhookLogs.page + 1) * linkyWebhookLogs.size < linkyWebhookLogs.total : false
   const hasLinkyReplayPrevPage = Number(linkyReplayQuery.page) > 0
   const hasLinkyReplayNextPage = linkyReplayRecords ? (linkyReplayRecords.page + 1) * linkyReplayRecords.size < linkyReplayRecords.total : false
+  const hasPhoneVerificationPrevPage = (phoneVerificationCodes?.page ?? Number(phoneVerificationQuery.page)) > 0
+  const hasPhoneVerificationNextPage = phoneVerificationCodes ? (phoneVerificationCodes.page + 1) * phoneVerificationCodes.size < phoneVerificationCodes.total : false
   const selectedWithdrawRequest = adminWithdrawRequests?.items.find((item) => item.requestNo === selectedWithdrawRequestNo) ?? null
   const selectedWithdrawIsReview = selectedWithdrawRequest?.requestStatus === 'PENDING_REVIEW'
   const selectedWithdrawIsPayment = selectedWithdrawRequest?.requestStatus === 'PAYMENT_PENDING' || selectedWithdrawRequest?.requestStatus === 'PAYMENT_FAILED'
@@ -3525,8 +3541,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               sectionId="admin-phone-verification"
               eyebrow="Restricted Access"
               title="验证码发送记录"
-              description="仅最高管理员可查询与显示验证码。每次查询和显示都会进入后台审计记录。"
-              action={<button className="primary-btn" onClick={() => void loadPhoneVerificationCodes()} disabled={loading}>查询记录</button>}
+              description="进入页面会自动加载最近记录。仅最高管理员可查询与显示验证码；每次查询和显示都会进入后台审计记录。"
+              action={<button className="primary-btn" onClick={() => void loadPhoneVerificationCodes()} disabled={loading}>{loading ? '刷新中…' : '刷新记录'}</button>}
             >
               <div className="stack-gap">
                 <div className="grid-form compact-form">
@@ -3556,9 +3572,17 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                     formatDateTime(item.expiresAt),
                     <button className="ghost-btn small-btn" onClick={() => void handleRevealPhoneVerificationCode(item.id)} disabled={loading}>{revealedPhoneVerificationCodes[item.id] ? '已显示' : '显示验证码'}</button>,
                   ])}
-                  emptyText="点击查询记录，查看已发出的验证码及其使用状态。"
+                  emptyText={loading ? '正在加载验证码记录…' : '当前筛选条件下没有验证码记录。'}
                 />
-                {phoneVerificationCodes ? <InlineHint text={`共 ${phoneVerificationCodes.total} 条记录；当前第 ${phoneVerificationCodes.page + 1} 页。`} /> : null}
+                {phoneVerificationCodes ? (
+                  <div className="admin-pagination">
+                    <span className="admin-page-note" role="status">共 {phoneVerificationCodes.total} 条记录 · 当前第 {phoneVerificationCodes.page + 1} 页 · 每页 {phoneVerificationCodes.size} 条</span>
+                    <div>
+                      <button className="ghost-btn small-btn" type="button" onClick={() => void handlePhoneVerificationPageChange(phoneVerificationCodes.page - 1)} disabled={loading || !hasPhoneVerificationPrevPage}>上一页</button>
+                      <button className="ghost-btn small-btn" type="button" onClick={() => void handlePhoneVerificationPageChange(phoneVerificationCodes.page + 1)} disabled={loading || !hasPhoneVerificationNextPage}>下一页</button>
+                    </div>
+                  </div>
+                ) : null}
                 {phoneVerificationAuditLogs ? (
                   <InfoCard title="最近验证码查看审计" tone="neutral">
                     <DataTable headers={['时间', '操作', '角色', '操作人', '网络地址']} rows={phoneVerificationAuditLogs.items.map((item) => [formatDateTime(item.operatedAt), item.actionName, item.operatorRole, item.operatorId, item.requestIp || '-'])} emptyText="显示验证码后，这里会显示对应的审计记录。" />
