@@ -126,7 +126,9 @@ public class McnIncomePullService {
                         errorCode, exception.getMessage(), retryAfterSeconds, now));
             }
             checkpointRepository.save(checkpoint);
-            return new McnIncomePullResult(platform, exception.getStatusCode() == 429 ? "THROTTLED" : "FAILED",
+            String resultStatus = exception.getStatusCode() == 410 ? "CURSOR_EXPIRED"
+                    : exception.getStatusCode() == 429 ? "THROTTLED" : "FAILED";
+            return new McnIncomePullResult(platform, resultStatus,
                     null, 0, 0, 0, 0, false, retryAfterSeconds);
         } catch (RuntimeException exception) {
             checkpoint.fail("PROCESSING_ERROR", exception.getMessage());
