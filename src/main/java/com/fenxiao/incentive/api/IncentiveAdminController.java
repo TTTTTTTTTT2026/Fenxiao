@@ -271,46 +271,18 @@ public class IncentiveAdminController {
         return advancementReviews.open(request, guard.assertTeamManageAccess(token, session));
     }
 
-    @PostMapping("/admin/incentives/user-grade-advancement-reviews/{id}/platinum-evidence")
-    public UserGradeAdvancementReviewResponse recordPlatinumEvidence(@RequestHeader(value="X-Admin-Token",required=false) String token,
-                                                                       @RequestHeader(value="X-Admin-Session",required=false) String session,
-                                                                       @PathVariable long id, @Valid @RequestBody UserGradePlatinumEvidenceRequest request) {
-        return advancementReviews.recordPlatinumEvidence(id, request, guard.assertTeamManageAccess(token, session));
+    @PostMapping("/admin/incentives/user-grade-advancement-reviews/{id}/confirm-upgrade")
+    public UserGradeAdvancementReviewResponse confirmGradeUpgrade(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                    @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                                    @PathVariable long id, @Valid @RequestBody UserGradeAdvancementReviewDecisionRequest request) {
+        return advancementReviews.confirmCanUpgrade(id, request.note(), guard.assertTeamManageAccess(token, session));
     }
 
-    @PostMapping("/admin/incentives/user-grade-advancement-reviews/{id}/advanced-evidence")
-    public UserGradeAdvancementReviewResponse recordAdvancedEvidence(@RequestHeader(value="X-Admin-Token",required=false) String token,
-                                                                      @RequestHeader(value="X-Admin-Session",required=false) String session,
-                                                                      @PathVariable long id, @Valid @RequestBody com.fenxiao.incentive.dto.UserGradeAdvancedEvidenceRequest request) {
-        return advancementReviews.recordAdvancedEvidence(id, request, guard.assertTeamManageAccess(token, session));
-    }
-
-    @PostMapping("/admin/incentives/user-grade-advancement-reviews/{id}/training-confirmation")
-    public UserGradeAdvancementReviewResponse confirmGradeTraining(@RequestHeader(value="X-Admin-Token",required=false) String token,
-                                                                     @RequestHeader(value="X-Admin-Session",required=false) String session,
-                                                                     @PathVariable long id, @Valid @RequestBody UserGradeAdvancementReviewDecisionRequest request) {
-        return advancementReviews.confirmTraining(id, request.note(), guard.assertTeamManageAccess(token, session));
-    }
-
-    @PostMapping("/admin/incentives/user-grade-advancement-reviews/{id}/operating-confirmation")
-    public UserGradeAdvancementReviewResponse confirmGradeOperation(@RequestHeader(value="X-Admin-Token",required=false) String token,
-                                                                      @RequestHeader(value="X-Admin-Session",required=false) String session,
-                                                                      @PathVariable long id, @Valid @RequestBody UserGradeAdvancementReviewDecisionRequest request) {
-        return advancementReviews.confirmOperatingValidation(id, request.note(), guard.assertTeamManageAccess(token, session));
-    }
-
-    @PostMapping("/admin/incentives/user-grade-advancement-reviews/{id}/responsibility-confirmation")
-    public UserGradeAdvancementReviewResponse confirmGradeResponsibility(@RequestHeader(value="X-Admin-Token",required=false) String token,
-                                                                           @RequestHeader(value="X-Admin-Session",required=false) String session,
-                                                                           @PathVariable long id, @Valid @RequestBody UserGradeAdvancementReviewDecisionRequest request) {
-        return advancementReviews.confirmResponsibility(id, request.note(), guard.assertTeamManageAccess(token, session));
-    }
-
-    @PostMapping("/admin/incentives/user-grade-advancement-reviews/{id}/leadership-appointment")
-    public UserGradeAdvancementReviewResponse confirmGradeLeadershipAppointment(@RequestHeader(value="X-Admin-Token",required=false) String token,
-                                                                                  @RequestHeader(value="X-Admin-Session",required=false) String session,
-                                                                                  @PathVariable long id, @Valid @RequestBody UserGradeAdvancementReviewDecisionRequest request) {
-        return advancementReviews.confirmLeadershipAppointment(id, request.note(), guard.assertTeamManageAccess(token, session));
+    @PostMapping("/admin/incentives/user-grade-advancement-reviews/{id}/fail")
+    public UserGradeAdvancementReviewResponse failGradeUpgrade(@RequestHeader(value="X-Admin-Token",required=false) String token,
+                                                                 @RequestHeader(value="X-Admin-Session",required=false) String session,
+                                                                 @PathVariable long id, @Valid @RequestBody UserGradeAdvancementReviewDecisionRequest request) {
+        return advancementReviews.fail(id, request.note(), guard.assertTeamManageAccess(token, session));
     }
 
     @PostMapping("/admin/incentives/leadership-policies")

@@ -1,14 +1,14 @@
 package com.fenxiao.incentive.dto;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
-/** Audit record for advanced-grade training, operating validation, and leadership responsibility. */
+/** Read model for the automated 30-day Platinum observation. */
 public record UserGradeAdvancementReviewResponse(
         long id, long userId, String platformCode, String guildId, String targetGradeCode,
-        String trainingStatus, String trainingNote, Long trainingVerifiedBy, LocalDateTime trainingVerifiedAt,
-        String operatingValidationStatus, String operatingValidationNote, Long operatingVerifiedBy, LocalDateTime operatingVerifiedAt,
-        String responsibilityStatus, String responsibilityNote, Long responsibilityConfirmedBy, LocalDateTime responsibilityConfirmedAt,
-        String reviewStatus, Long createdBy, LocalDateTime createdAt, LocalDateTime updatedAt,
-        List<UserGradePlatinumEvidenceResponse> platinumEvidence,
-        List<UserGradeAdvancedEvidenceResponse> advancedEvidence) { }
+        LocalDate observationStart, LocalDate observationEnd,
+        int eligibleSilverMemberCount, int passedSilverMemberCount, int requiredSilverMemberCount,
+        String reviewStatus, Long promotionConfirmedBy, LocalDateTime promotionConfirmedAt,
+        String promotionNote, String failureNote, Long createdBy, LocalDateTime createdAt, LocalDateTime updatedAt,
+        List<UserGradePlatinumObservationProgressResponse> progress) { }

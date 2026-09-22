@@ -229,22 +229,12 @@ export type UserGradeLevelResponse = {
 export type UserGradeLevelDashboardResponse = { activeLevelCount: number; activeTeamLeaderLevel: UserGradeLevelResponse | null; levels: UserGradeLevelResponse[] }
 export type UserGradeAdvancementReviewResponse = {
   id: number; userId: number; platformCode: string; guildId: string; targetGradeCode: 'PLATINUM' | 'DIAMOND' | 'BLACK_GOLD' | string
-  trainingStatus: string; trainingNote: string | null; trainingVerifiedBy: number | null; trainingVerifiedAt: string | null
-  operatingValidationStatus: string; operatingValidationNote: string | null; operatingVerifiedBy: number | null; operatingVerifiedAt: string | null
-  responsibilityStatus: string; responsibilityNote: string | null; responsibilityConfirmedBy: number | null; responsibilityConfirmedAt: string | null
-  reviewStatus: string; createdBy: number | null; createdAt: string; updatedAt: string
-  platinumEvidence: UserGradePlatinumEvidenceResponse[]
-  advancedEvidence: UserGradeAdvancedEvidenceResponse[]
+  observationStart: string; observationEnd: string; eligibleSilverMemberCount: number; passedSilverMemberCount: number; requiredSilverMemberCount: number
+  reviewStatus: 'IN_PROGRESS' | 'EXPIRED' | 'PASSED' | 'FAILED' | string; promotionConfirmedBy: number | null; promotionConfirmedAt: string | null
+  promotionNote: string | null; failureNote: string | null; createdBy: number | null; createdAt: string; updatedAt: string
+  progress: UserGradePlatinumObservationProgressResponse[]
 }
-export type UserGradePlatinumEvidenceResponse = {
-  id: number; traineeUserId: number; groupReference: string; observationStart: string; observationEnd: string
-  finalWeekEffectiveUserCount: number; finalWeekMinIncomeDateCount: number; evidenceNote: string; evidenceStatus: string
-  recordedBy: number | null; recordedAt: string; confirmedBy: number | null; confirmedAt: string | null
-}
-export type UserGradeAdvancedEvidenceResponse = {
-  id: number; traineeUserId: number; scopeReference: string; observationStart: string; observationEnd: string
-  evidenceNote: string; evidenceStatus: string; recordedBy: number | null; recordedAt: string; confirmedBy: number | null; confirmedAt: string | null
-}
+export type UserGradePlatinumObservationProgressResponse = { silverUserId: number; windowStart: string; windowEnd: string; effectiveDirectInviteeCount: number; passed: boolean }
 export type TokenPointConversionResponse = {
   id: number | null; platformCode: 'TIMO' | 'LINKY' | string; tokenUnit: string; pointsPerToken: number | null
   configured: boolean; updatedAt: string | null
@@ -1003,9 +993,8 @@ export function refreshAdminEffectiveUserQualifications(adminSessionToken: strin
 export function excludeAdminEffectiveUserQualification(adminSessionToken: string, payload: { userId: number; platformCode: string; correctionReason: 'FRAUD' | 'FAKE_INCOME' | 'FABRICATED_PERFORMANCE'; correctionNote: string }) { return request<EffectiveUserQualificationResponse>('/admin/incentives/effective-users/manual-exclusions', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) }) }
 export function getAdminUserGradeAdvancementReviews(adminSessionToken: string) { return request<UserGradeAdvancementReviewResponse[]>('/admin/incentives/user-grade-advancement-reviews', { headers: { 'X-Admin-Session': adminSessionToken } }) }
 export function createAdminUserGradeAdvancementReview(adminSessionToken: string, payload: { userId: number; platformCode: string; guildId: string; targetGradeCode: string }) { return request<UserGradeAdvancementReviewResponse>('/admin/incentives/user-grade-advancement-reviews', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) }) }
-export function recordAdminUserGradePlatinumEvidence(adminSessionToken: string, reviewId: number, payload: { traineeUserId: number; groupReference: string; observationStart: string; observationEnd: string; finalWeekEffectiveUserCount: number; finalWeekMinIncomeDateCount: number; evidenceNote: string }) { return request<UserGradeAdvancementReviewResponse>(`/admin/incentives/user-grade-advancement-reviews/${reviewId}/platinum-evidence`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) }) }
-export function recordAdminUserGradeAdvancedEvidence(adminSessionToken: string, reviewId: number, payload: { traineeUserId: number; scopeReference: string; observationStart: string; observationEnd: string; evidenceNote: string }) { return request<UserGradeAdvancementReviewResponse>(`/admin/incentives/user-grade-advancement-reviews/${reviewId}/advanced-evidence`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) }) }
-export function confirmAdminUserGradeAdvancementReview(adminSessionToken: string, id: number, step: 'training-confirmation' | 'operating-confirmation' | 'responsibility-confirmation' | 'leadership-appointment', note: string) { return request<UserGradeAdvancementReviewResponse>(`/admin/incentives/user-grade-advancement-reviews/${id}/${step}`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ note }) }) }
+export function confirmAdminUserGradeAdvancementUpgrade(adminSessionToken: string, id: number, note: string) { return request<UserGradeAdvancementReviewResponse>(`/admin/incentives/user-grade-advancement-reviews/${id}/confirm-upgrade`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ note }) }) }
+export function failAdminUserGradeAdvancementReview(adminSessionToken: string, id: number, note: string) { return request<UserGradeAdvancementReviewResponse>(`/admin/incentives/user-grade-advancement-reviews/${id}/fail`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ note }) }) }
 export function getAdminAccounts() { return request<AdminAccountResponse[]>('/admin/accounts') }
 export function createAdminAccount(payload: { username: string; displayName: string; role: string; platformScope?: string; guildScope?: string; regionScope?: string }) { return request<AdminAccountCreatedResponse>('/admin/accounts', { method: 'POST', body: JSON.stringify(payload) }) }
 export function updateAdminAccount(id: number, payload: { displayName: string; role: string; enabled: boolean; platformScope?: string; guildScope?: string; regionScope?: string }) { return request<AdminAccountResponse>(`/admin/accounts/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }) }
