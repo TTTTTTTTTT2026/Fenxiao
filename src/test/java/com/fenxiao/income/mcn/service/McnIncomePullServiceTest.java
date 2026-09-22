@@ -13,6 +13,7 @@ import com.fenxiao.income.mcn.repository.McnIncomeSyncCheckpointRepository;
 import com.fenxiao.income.mcn.repository.McnIncomeSyncRunRepository;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -38,6 +39,7 @@ class McnIncomePullServiceTest {
         McnIncomeRawLedgerService rawLedger = mock(McnIncomeRawLedgerService.class);
         McnIncomeSyncCheckpointRepository checkpoints = mock(McnIncomeSyncCheckpointRepository.class);
         McnIncomeSyncRunRepository runs = mock(McnIncomeSyncRunRepository.class);
+        ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
         AtomicReference<McnIncomeSyncCheckpoint> savedCheckpoint = new AtomicReference<>();
         when(checkpoints.findById("TIMO")).thenAnswer(invocation -> Optional.ofNullable(savedCheckpoint.get()));
         doAnswer(invocation -> {
@@ -51,7 +53,7 @@ class McnIncomePullServiceTest {
                 new McnIncomeDeliveryResponse("delivery-1", "ACCEPTED", 3, 2, 1, 1),
                 new McnIncomeDeliveryResponse("delivery-2", "ACCEPTED", 4, 4, 0, 2));
 
-        McnIncomePullBatchResult result = service(client, rawLedger, checkpoints, runs).pullAvailablePages("timo");
+        McnIncomePullBatchResult result = service(client, rawLedger, checkpoints, runs, events).pullAvailablePages("timo");
 
         assertThat(result.status()).isEqualTo("SUCCESS");
         assertThat(result.pageCount()).isEqualTo(2);
@@ -63,6 +65,7 @@ class McnIncomePullServiceTest {
         ArgumentCaptor<McnIncomeFactsQuery> queries = ArgumentCaptor.forClass(McnIncomeFactsQuery.class);
         verify(client, times(2)).query(queries.capture());
         assertThat(queries.getAllValues()).extracting(McnIncomeFactsQuery::cursor).containsExactly(null, "cursor-2");
+        verify(events, times(2)).publishEvent(any(McnIncomeFactsAcceptedEvent.class));
     }
 
     @Test
@@ -144,13 +147,19 @@ class McnIncomePullServiceTest {
 
     private McnIncomePullService service(McnIncomeFactsClient client, McnIncomeRawLedgerService rawLedger,
                                          McnIncomeSyncCheckpointRepository checkpoints, McnIncomeSyncRunRepository runs) {
+        return service(client, rawLedger, checkpoints, runs, mock(ApplicationEventPublisher.class));
+    }
+
+    private McnIncomePullService service(McnIncomeFactsClient client, McnIncomeRawLedgerService rawLedger,
+                                         McnIncomeSyncCheckpointRepository checkpoints, McnIncomeSyncRunRepository runs,
+                                         ApplicationEventPublisher events) {
         McnIncomeFactsProperties properties = new McnIncomeFactsProperties();
         properties.setEnabled(true);
         properties.setBaseUrl("https://mcn.example.test");
         properties.setCredentialId("test-credential");
         properties.setHmacSecret("test-secret");
         properties.setMaxPagesPerRun(10);
-        return new McnIncomePullService(client, properties, rawLedger, checkpoints, runs, new ObjectMapper(),
+        return new McnIncomePullService(client, properties, rawLedger, checkpoints, runs, events, new ObjectMapper(),
                 Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
