@@ -3465,9 +3465,10 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                 </InfoCard>
                 <InfoCard title="用户与平台核验信息" tone="neutral">
                   <DataTable
-                    headers={['用户 / 邀请码', '手机号', '注册时间', '直接邀请人', 'Linky 实际绑定', 'Timo 实际绑定', 'Linky 邀请链归属', '操作']}
+                    headers={['用户 / 邀请码', '用户等级', '手机号', '注册时间', '直接邀请人', 'Linky 实际绑定', 'Timo 实际绑定', 'Linky 邀请链归属', '操作']}
                     rows={(userPlatformProfiles?.items ?? []).map((item) => [
                       <div className="stack-gap small"><strong>#{item.userId}</strong><span>{item.inviteCode} · {item.countryCode}</span></div>,
+                      formatConsumerUserGrade(item.userGradeCode, 'zh'),
                       item.phoneNumber || '-',
                       formatDateTime(item.registeredAt),
                       item.directInviterUserId == null ? '根节点' : `#${item.directInviterUserId}`,
