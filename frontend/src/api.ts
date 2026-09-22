@@ -121,6 +121,16 @@ export type McnIncomeSyncStatusResponse = {
     retryAfterSeconds: number | null
   }>
 }
+export type LinkyCursorRecoveryResponse = {
+  status: string
+  businessDate: string | null
+  pageCount: number
+  receivedFactCount: number
+  newFactCount: number
+  duplicateFactCount: number
+  unmatchedFactCount: number
+  readyForContinuousRebuild: boolean
+}
 export type McnIncomeShadowLedgerSummaryResponse = {
   platformCode: string; businessDate: string; sourceFactCount: number; latestFactCount: number
   boundFinalCount: number; unmatchedCount: number; awaitingFinalityCount: number; voidedCount: number; latestRunId: string | null
@@ -884,6 +894,16 @@ export function runAdminIncomeControlledReconciliation(adminSessionToken: string
 export function getAdminIncomeSyncStatus(adminSessionToken: string) {
   return request<McnIncomeSyncStatusResponse>('/admin/income-facts/sync-status', {
     headers: { 'X-Admin-Session': adminSessionToken },
+  })
+}
+export function probeAdminLinkyCursorRecovery(adminSessionToken: string, businessDate: string) {
+  return request<LinkyCursorRecoveryResponse>('/admin/income-facts/linky-cursor-recovery/probe', {
+    method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ businessDate }),
+  })
+}
+export function resumeAdminLinkyCursorRecovery(adminSessionToken: string) {
+  return request<LinkyCursorRecoveryResponse>('/admin/income-facts/linky-cursor-recovery/resume', {
+    method: 'POST', headers: { 'X-Admin-Session': adminSessionToken },
   })
 }
 export function refreshAdminIncomeShadowLedger(adminSessionToken: string, payload: { platformCode: string; businessDate: string }) {
