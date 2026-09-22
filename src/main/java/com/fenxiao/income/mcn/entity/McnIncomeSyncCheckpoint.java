@@ -84,6 +84,34 @@ public class McnIncomeSyncCheckpoint extends BaseEntity {
         this.nextAttemptAt = null;
     }
 
+    /** A 410 cursor expiry is a configuration recovery state, not a transient transport failure. */
+    public void cursorExpired(String message) {
+        this.lastSyncStatus = "CURSOR_EXPIRED";
+        this.lastErrorCode = "HTTP_410_CURSOR_EXPIRED";
+        this.lastErrorMessage = truncate(message, 512);
+        this.nextAttemptAt = null;
+    }
+
+    /** Keeps the expired cursor for audit while an authorised date-bounded probe is performed. */
+    public void recoveryProbePassed() {
+        this.lastSyncStatus = "RECOVERY_PROBE_PASSED";
+        this.lastErrorCode = null;
+        this.lastErrorMessage = null;
+        this.nextAttemptAt = null;
+    }
+
+    /** Starts a fresh, unbounded revision stream only after a successful bounded FINAL probe. */
+    public void resumeFromBeginning() {
+        if (!"RECOVERY_PROBE_PASSED".equals(lastSyncStatus)) {
+            throw new IllegalStateException("a successful date-bounded FINAL probe is required before cursor recovery");
+        }
+        this.nextCursor = null;
+        this.lastSyncStatus = "RECOVERY_RESUMED";
+        this.lastErrorCode = null;
+        this.lastErrorMessage = null;
+        this.nextAttemptAt = null;
+    }
+
     public String getPlatformCode() { return platformCode; }
     public String getNextCursor() { return nextCursor; }
     public Instant getLastSnapshotAt() { return lastSnapshotAt; }
@@ -92,6 +120,7 @@ public class McnIncomeSyncCheckpoint extends BaseEntity {
     public String getLastErrorCode() { return lastErrorCode; }
     public String getLastSourceWatermark() { return lastSourceWatermark; }
     public Instant getNextAttemptAt() { return nextAttemptAt; }
-    public boolean canAttemptAt(Instant at) { return nextAttemptAt == null || !nextAttemptAt.isAfter(at); }
+    public boolean isCursorRecoveryPaused() { return "CURSOR_EXPIRED".equals(lastSyncStatus) || "RECOVERY_PROBE_PASSED".equals(lastSyncStatus); }
+    public boolean canAttemptAt(Instant at) { return !isCursorRecoveryPaused() && (nextAttemptAt == null || !nextAttemptAt.isAfter(at)); }
     private static String truncate(String value, int length) { return value == null ? null : value.substring(0, Math.min(value.length(), length)); }
 }

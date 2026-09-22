@@ -107,6 +107,25 @@ class McnIncomePullServiceTest {
     }
 
     @Test
+    void pausesThePlatformWhenMcnReportsAnExpiredCursor() {
+        McnIncomeFactsClient client = mock(McnIncomeFactsClient.class);
+        McnIncomeRawLedgerService rawLedger = mock(McnIncomeRawLedgerService.class);
+        McnIncomeSyncCheckpointRepository checkpoints = mock(McnIncomeSyncCheckpointRepository.class);
+        McnIncomeSyncRunRepository runs = mock(McnIncomeSyncRunRepository.class);
+        McnIncomeSyncCheckpoint checkpoint = McnIncomeSyncCheckpoint.initial("LINKY");
+        checkpoint.advance("expired-cursor", NOW, "{}", NOW);
+        when(checkpoints.findById("LINKY")).thenReturn(Optional.of(checkpoint));
+        when(client.query(any(McnIncomeFactsQuery.class))).thenThrow(new McnIncomeFactsTransportException("cursor invalid or expired", 410, null, null));
+
+        McnIncomePullResult result = service(client, rawLedger, checkpoints, runs).pullNextPage("LINKY");
+
+        assertThat(result.status()).isEqualTo("CURSOR_EXPIRED");
+        assertThat(checkpoint.getLastSyncStatus()).isEqualTo("CURSOR_EXPIRED");
+        assertThat(checkpoint.getNextCursor()).isEqualTo("expired-cursor");
+        verify(rawLedger, times(0)).accept(any());
+    }
+
+    @Test
     void doesNotAcceptOrAdvanceAReadyPageUntilTheDailyWatermarkIsFinal() {
         McnIncomeFactsClient client = mock(McnIncomeFactsClient.class);
         McnIncomeRawLedgerService rawLedger = mock(McnIncomeRawLedgerService.class);

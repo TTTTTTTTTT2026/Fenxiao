@@ -64,6 +64,9 @@ public class McnIncomePullService {
         String requestedCursor = checkpoint.getNextCursor();
         String runId = UUID.randomUUID().toString();
         Instant now = clock.instant();
+        if (checkpoint.isCursorRecoveryPaused()) {
+            return new McnIncomePullResult(platform, checkpoint.getLastSyncStatus(), null, 0, 0, 0, 0, false, null);
+        }
         if (!checkpoint.canAttemptAt(now)) {
             return new McnIncomePullResult(platform, "DEFERRED", null, 0, 0, 0, 0, false,
                     secondsUntil(checkpoint.getNextAttemptAt(), now));
@@ -109,7 +112,11 @@ public class McnIncomePullService {
         } catch (McnIncomeFactsTransportException exception) {
             Integer retryAfterSeconds = retryAfterSeconds(exception);
             String errorCode = "HTTP_" + exception.getStatusCode();
-            if (exception.getStatusCode() == 429) {
+            if (exception.getStatusCode() == 410) {
+                checkpoint.cursorExpired(exception.getMessage());
+                runRepository.save(McnIncomeSyncRun.failed(runId, platform, requestedCursor,
+                        "HTTP_410_CURSOR_EXPIRED", exception.getMessage(), null, now));
+            } else if (exception.getStatusCode() == 429) {
                 checkpoint.throttle(errorCode, exception.getMessage(), now.plusSeconds(retryAfterSeconds));
                 runRepository.save(McnIncomeSyncRun.throttled(runId, platform, requestedCursor,
                         errorCode, exception.getMessage(), retryAfterSeconds, now));
@@ -119,7 +126,9 @@ public class McnIncomePullService {
                         errorCode, exception.getMessage(), retryAfterSeconds, now));
             }
             checkpointRepository.save(checkpoint);
-            return new McnIncomePullResult(platform, exception.getStatusCode() == 429 ? "THROTTLED" : "FAILED",
+            String resultStatus = exception.getStatusCode() == 410 ? "CURSOR_EXPIRED"
+                    : exception.getStatusCode() == 429 ? "THROTTLED" : "FAILED";
+            return new McnIncomePullResult(platform, resultStatus,
                     null, 0, 0, 0, 0, false, retryAfterSeconds);
         } catch (RuntimeException exception) {
             checkpoint.fail("PROCESSING_ERROR", exception.getMessage());
