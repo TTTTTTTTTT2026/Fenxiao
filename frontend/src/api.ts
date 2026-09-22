@@ -129,6 +129,8 @@ export type LinkyCursorRecoveryResponse = {
   newFactCount: number
   duplicateFactCount: number
   unmatchedFactCount: number
+  reconciliationStatus: string
+  mismatchGroupCount: number
   readyForContinuousRebuild: boolean
 }
 export type McnIncomeShadowLedgerSummaryResponse = {
