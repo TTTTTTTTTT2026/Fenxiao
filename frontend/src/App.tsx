@@ -3465,9 +3465,11 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                 </InfoCard>
                 <InfoCard title="用户与平台核验信息" tone="neutral">
                   <DataTable
-                    headers={['用户 / 邀请码', '用户等级', '手机号', '注册时间', '直接邀请人', 'Linky 实际绑定', 'Timo 实际绑定', 'Linky 邀请链归属', '操作']}
+                    headers={['用户', '邀请码', '归属国家', '用户等级', '手机号', '注册时间', '直接邀请人', 'Linky 实际绑定', 'Timo 实际绑定', 'Linky 邀请链归属', '操作']}
                     rows={(userPlatformProfiles?.items ?? []).map((item) => [
-                      <div className="stack-gap small"><strong>#{item.userId}</strong><span>{item.inviteCode} · {item.countryCode}</span></div>,
+                      <strong>#{item.userId}</strong>,
+                      item.inviteCode || '-',
+                      formatCountryNameZh(item.countryCode),
                       formatConsumerUserGrade(item.userGradeCode, 'zh'),
                       item.phoneNumber || '-',
                       formatDateTime(item.registeredAt),
@@ -5913,6 +5915,10 @@ const phoneCountries = [
   { countryCode: 'VN', callingCode: '+84', names: { zh: '越南', en: 'Vietnam', es: 'Vietnam', id: 'Vietnam', pt: 'Vietnã' } },
   { countryCode: 'MY', callingCode: '+60', names: { zh: '马来西亚', en: 'Malaysia', es: 'Malasia', id: 'Malaysia', pt: 'Malásia' } },
 ] as const
+
+function formatCountryNameZh(countryCode: string | null | undefined) {
+  return phoneCountries.find((country) => country.countryCode === countryCode?.trim().toUpperCase())?.names.zh ?? '未识别国家'
+}
 
 const mentorQualificationLanguages: Record<string, { code: string; label: string }> = {
   BR: { code: 'pt-br', label: '葡萄牙语' },
