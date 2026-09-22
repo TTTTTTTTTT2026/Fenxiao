@@ -495,6 +495,7 @@ export type UserPlatformProfileItem = {
   phoneNumber: string | null
   registeredAt: string
   directInviterUserId: number | null
+  userGradeCode: string
   linky: UserPlatformProfileBinding | null
   timo: UserPlatformProfileBinding | null
   invitationGuild: UserPlatformProfileInvitationGuild | null

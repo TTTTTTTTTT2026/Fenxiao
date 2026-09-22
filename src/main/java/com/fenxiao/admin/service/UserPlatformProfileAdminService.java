@@ -14,8 +14,10 @@ import com.fenxiao.platform.entity.PlatformAccountBinding;
 import com.fenxiao.platform.repository.PlatformAccountBindingRepository;
 import com.fenxiao.user.entity.UserDistributionProfile;
 import com.fenxiao.user.repository.UserDistributionProfileRepository;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +38,7 @@ public class UserPlatformProfileAdminService {
     private final LinkyInvitationGuildAttributionRepository invitationGuilds;
     private final GuildAccountConfigRepository legacyGuildConfigs;
     private final LinkyVerificationAttemptRepository linkyVerificationAttempts;
+    private final JdbcTemplate jdbc;
 
     public UserPlatformProfileAdminService(UserDistributionProfileRepository users,
                                            DistributionRelationRepository relations,
@@ -43,7 +46,8 @@ public class UserPlatformProfileAdminService {
                                            PlatformAccountBindingRepository platformBindings,
                                            LinkyInvitationGuildAttributionRepository invitationGuilds,
                                            GuildAccountConfigRepository legacyGuildConfigs,
-                                           LinkyVerificationAttemptRepository linkyVerificationAttempts) {
+                                           LinkyVerificationAttemptRepository linkyVerificationAttempts,
+                                           JdbcTemplate jdbc) {
         this.users = users;
         this.relations = relations;
         this.linkyBindings = linkyBindings;
@@ -51,6 +55,7 @@ public class UserPlatformProfileAdminService {
         this.invitationGuilds = invitationGuilds;
         this.legacyGuildConfigs = legacyGuildConfigs;
         this.linkyVerificationAttempts = linkyVerificationAttempts;
+        this.jdbc = jdbc;
     }
 
     public UserPlatformProfileListResponse list(Long userId, int page, int size) {
@@ -65,14 +70,52 @@ public class UserPlatformProfileAdminService {
         Map<Long, LinkyInvitationGuildAttribution> guildByUser = index(invitationGuilds.findByUserIdIn(ids), LinkyInvitationGuildAttribution::getUserId);
         Map<Long, GuildAccountConfig> legacyGuildByUser = index(
                 legacyGuildConfigs.findByProductCodeAndInviterUserIdInAndEnabledTrue("LINKY", ids), GuildAccountConfig::getInviterUserId);
+        Map<Long, String> gradesByUser = gradesByUser(ids);
         List<UserPlatformProfileListResponse.Item> items = result.getContent().stream().map(profile -> {
             var relation = relations.findByUserId(profile.getUserId()).orElse(null);
             return new UserPlatformProfileListResponse.Item(profile.getUserId(), profile.getInviteCode(), profile.getCountryCode(), profile.getPhoneNumber(), profile.getRegisteredAt(),
                     relation == null ? null : relation.getLevel1InviterId(),
+                    gradesByUser.getOrDefault(profile.getUserId(), "NORMAL_MEMBER"),
                     linky(linkyByUser.get(profile.getUserId())), timo(timoByUser.get(profile.getUserId())),
                     invitationGuild(guildByUser.get(profile.getUserId()), legacyGuildByUser.get(profile.getUserId())));
         }).toList();
         return new UserPlatformProfileListResponse(items, result.getTotalElements(), safePage, safeSize);
+    }
+
+    private Map<Long, String> gradesByUser(List<Long> userIds) {
+        if (userIds.isEmpty()) return Map.of();
+        String placeholders = userIds.stream().map(value -> "?").collect(Collectors.joining(","));
+        List<Object> parameters = new java.util.ArrayList<>(userIds.size() * 2);
+        parameters.addAll(userIds);
+        parameters.addAll(userIds);
+        try {
+            Map<Long, String> result = new HashMap<>();
+            jdbc.query("""
+                    select user_id,grade_code from user_grade_evaluation
+                    where qualification_status='QUALIFIED' and user_id in (%s)
+                    union all
+                    select user_id,target_grade_code from user_grade_advancement_review
+                    where review_status='LEADER_CONFIRMED' and user_id in (%s)
+                    """.formatted(placeholders, placeholders), (rs, row) -> new Object[]{rs.getLong(1), rs.getString(2)}, parameters.toArray())
+                    .forEach(row -> result.merge((Long) row[0], (String) row[1],
+                            (left, right) -> gradeRank(left) >= gradeRank(right) ? left : right));
+            return result;
+        } catch (DataAccessException ignored) {
+            // A partially rolled-out grade schema must not make the user directory unavailable.
+            return Map.of();
+        }
+    }
+
+    private int gradeRank(String gradeCode) {
+        return switch (gradeCode) {
+            case "BLACK_GOLD" -> 6;
+            case "DIAMOND" -> 5;
+            case "PLATINUM" -> 4;
+            case "GOLD" -> 3;
+            case "SILVER" -> 2;
+            case "NEW_STAR" -> 1;
+            default -> 0;
+        };
     }
 
     private UserPlatformProfileListResponse.PlatformBinding linky(LinkyAccountBinding value) {
