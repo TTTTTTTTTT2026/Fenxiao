@@ -105,7 +105,7 @@ public class DistributionFrontendService {
                     where user_id=? and qualification_status='QUALIFIED'
                     union all
                     select target_grade_code from user_grade_advancement_review
-                    where user_id=? and review_status='LEADER_CONFIRMED'
+                    where user_id=? and promotion_confirmed_at is not null
                     """, (rs, rowNum) -> rs.getString(1), userId, userId);
             return grades.stream()
                     .max(java.util.Comparator.comparingInt(this::gradeRank))
