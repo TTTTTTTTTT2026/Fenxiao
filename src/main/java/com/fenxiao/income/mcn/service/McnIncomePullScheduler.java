@@ -4,7 +4,7 @@ import com.fenxiao.income.mcn.external.McnIncomeFactsProperties;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-/** Scheduler is inert until the dedicated MCN credential and feature flag are both configured. */
+/** Scheduler remains inert until MCN reads can be constrained to registered platform accounts. */
 @Component
 public class McnIncomePullScheduler {
     private final McnIncomeFactsProperties properties;
@@ -15,9 +15,10 @@ public class McnIncomePullScheduler {
         this.pullService = pullService;
     }
 
-    @Scheduled(fixedDelayString = "${app.mcn-income-facts.sync-interval:300000}")
+    @Scheduled(cron = "${app.mcn-income-facts.sync-cron:0 15 17 * * *}",
+            zone = "${app.mcn-income-facts.sync-zone:Asia/Shanghai}")
     public void pullIncrementalFacts() {
-        if (!properties.isContinuousPullEnabled()) return;
+        if (!properties.isRegisteredUserScopedPullEnabled()) return;
         pullService.pullAvailablePages("TIMO");
         pullService.pullAvailablePages("LINKY");
     }

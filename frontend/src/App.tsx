@@ -93,8 +93,6 @@ import {
   runAdminIncomeControlledChanges,
   runAdminIncomeControlledReconciliation,
   getAdminIncomeSyncStatus,
-  probeAdminLinkyCursorRecovery,
-  resumeAdminLinkyCursorRecovery,
   refreshAdminIncomeShadowLedger,
   replayAdminIncomeShadowLedger,
   refreshAdminIncomeRewardCandidates,
@@ -163,7 +161,6 @@ import {
   type LinkyWebhookLogListResponse,
   type McnIncomeControlledChangesResponse,
   type McnIncomeControlledReconciliationResponse,
-  type LinkyCursorRecoveryResponse,
   type McnIncomeSyncStatusResponse,
   type McnIncomeShadowLedgerSummaryResponse,
   type McnIncomeDataQualityResponse,
@@ -553,9 +550,6 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [controlledIncomeCursor, setControlledIncomeCursor] = useState<string | null>(null)
   const [controlledIncomeLastRequest, setControlledIncomeLastRequest] = useState<{ cursor: string | null; requestId: string } | null>(null)
   const [controlledIncomeLoading, setControlledIncomeLoading] = useState(false)
-  const [linkyCursorRecoveryDate, setLinkyCursorRecoveryDate] = useState('2026-09-21')
-  const [linkyCursorRecoveryResult, setLinkyCursorRecoveryResult] = useState<LinkyCursorRecoveryResponse | null>(null)
-  const [isLinkyCursorResumeDialogOpen, setIsLinkyCursorResumeDialogOpen] = useState(false)
   const [incomeShadowForm, setIncomeShadowForm] = useState({ platformCode: 'TIMO', businessDate: '2026-09-11' })
   const [incomeShadowResult, setIncomeShadowResult] = useState<McnIncomeShadowLedgerSummaryResponse | null>(null)
   const [incomeDataQuality, setIncomeDataQuality] = useState<McnIncomeDataQualityResponse | null>(null)
@@ -1865,28 +1859,6 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     }
   }
 
-  async function handleProbeLinkyCursorRecovery() {
-    if (!adminSession || !canRunControlledIncome || !linkyCursorRecoveryDate) return
-    setControlledIncomeLoading(true); setError(''); setSuccessMessage('')
-    try {
-      const result = await probeAdminLinkyCursorRecovery(adminSession.sessionToken, linkyCursorRecoveryDate)
-      setLinkyCursorRecoveryResult(result)
-      await handleLoadIncomeSyncStatus()
-      setSuccessMessage(`Linky FINAL 日期探针完成：共 ${result.pageCount} 页，新增 ${result.newFactCount} 条事实。`)
-    } catch (err) { setError(err instanceof Error ? err.message : 'Linky 游标恢复探针失败') } finally { setControlledIncomeLoading(false) }
-  }
-
-  async function handleResumeLinkyCursorRecovery() {
-    if (!adminSession || !canRunControlledIncome) return
-    setControlledIncomeLoading(true); setError(''); setSuccessMessage('')
-    try {
-      await resumeAdminLinkyCursorRecovery(adminSession.sessionToken)
-      setIsLinkyCursorResumeDialogOpen(false)
-      await handleLoadIncomeSyncStatus()
-      setSuccessMessage('Linky 已从空游标重建持续同步；后续事实会按幂等规则自动读取。')
-    } catch (err) { setError(err instanceof Error ? err.message : 'Linky 持续同步恢复失败') } finally { setControlledIncomeLoading(false) }
-  }
-
   async function handleRefreshIncomeShadowLedger() {
     if (!adminSession || !canRunControlledIncome) return
     setLoading(true); setError(''); setSuccessMessage('')
@@ -3042,22 +3014,19 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             >
               <div className="stack-gap">
                 <InfoCard title="执行门禁" tone="neutral">
-                  <InlineHint text="仅在 MCN 已确认的窗口内操作。完成 Linky 分页、重读和对账后，请关闭服务器上的受控只读开关；正式收入消费开关必须保持关闭。" />
+                  <InlineHint text="仅在 MCN 已确认的窗口内操作。完成已核验账号的分页、重读和对账后，请关闭服务器上的受控只读开关；正式收入同步应独立确认后开启。" />
                 </InfoCard>
                 <InfoCard title="持续同步与恢复状态" tone={incomeSyncStatus?.continuousPullEnabled ? 'success' : 'neutral'}>
-                  <InlineHint text="持续同步关闭时，系统不会自动请求 MCN；此处只展示已保存的断点、最近一次拉取和失败重试信息，不会显示游标、平台账号、收入事实或密钥。" />
+                  <InlineHint text="持续同步关闭时，系统不会自动请求 MCN；此处展示平台最近一次收入同步摘要，不显示平台账号、收入明细或密钥。V2 按每个已核验账号独立保存同步进度。" />
                   <div className="action-row top-gap"><button className="ghost-btn small-btn" onClick={() => void handleLoadIncomeSyncStatus()} disabled={loading}>读取同步状态</button></div>
                   {incomeSyncStatus ? <div className="stack-gap top-gap">
-                  <InlineHint text={incomeSyncStatus.continuousPullEnabled ? `持续同步已开启：每平台每轮最多读取 ${incomeSyncStatus.maxPagesPerRun} 页；奖励、钱包和付款仍不受此状态影响。` : '持续同步当前关闭：受控只读、收入测算与候选演算仍须按各自门禁执行。'} />
+                  <InlineHint text={incomeSyncStatus.continuousPullEnabled ? `收入同步已开启：北京时间每日 17:15 从已核验账号读取，每平台每轮最多 ${incomeSyncStatus.maxPagesPerRun} 页；奖励、钱包和付款仍保持关闭。` : '收入同步当前关闭；受控读取需单独开启。'} />
                     <div className="relation-grid">{incomeSyncStatus.platforms.map((item) => <RelationItem key={item.platformCode} label={`${item.platformCode === 'TIMO' ? 'Timo' : 'Linky'} 最近状态`} value={`${item.checkpointStatus}${item.latestRunStatus ? ` / ${item.latestRunStatus}` : ''}`} />)}</div>
-                    <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>平台</th><th>最近成功</th><th>最近快照 / 水位</th><th>接收 / 新增 / 去重</th><th>未匹配</th><th>下次尝试</th><th>失败 / 重试</th></tr></thead><tbody>{incomeSyncStatus.platforms.map((item) => <tr key={item.platformCode}><td>{item.platformCode === 'TIMO' ? 'Timo' : 'Linky'}</td><td>{item.lastSuccessAt ? formatDateTime(item.lastSuccessAt) : '-'}</td><td>{item.lastSnapshotAt ? `${formatDateTime(item.lastSnapshotAt)} / ${item.lastWatermarkCompleteness || '-'}` : item.lastWatermarkCompleteness || '-'}</td><td>{item.latestRunStatus ? `${item.latestReceivedCount} / ${item.latestNewCount} / ${item.latestDuplicateCount}` : '-'}</td><td>{item.latestRunStatus ? item.latestUnmatchedCount : '-'}</td><td>{item.nextAttemptAt ? formatDateTime(item.nextAttemptAt) : '-'}</td><td>{item.lastErrorCode || (item.retryAfterSeconds ? `${item.retryAfterSeconds} 秒后重试` : '-')}</td></tr>)}</tbody></table></div>
+                    <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>平台</th><th>已核验 / 已读取账号</th><th>补取中 / 失败账号</th><th>最近成功</th><th>最近快照 / 水位</th><th>接收 / 新增 / 去重</th><th>未匹配</th><th>下次尝试</th><th>失败 / 重试</th></tr></thead><tbody>{incomeSyncStatus.platforms.map((item) => <tr key={item.platformCode}><td>{item.platformCode === 'TIMO' ? 'Timo' : 'Linky'}</td><td>{item.verifiedAccountCount} / {item.readAccountCount}</td><td>{item.recoveringAccountCount} / {item.failedAccountCount}</td><td>{item.lastSuccessAt ? formatDateTime(item.lastSuccessAt) : '-'}</td><td>{item.lastSnapshotAt ? `${formatDateTime(item.lastSnapshotAt)} / ${item.lastWatermarkCompleteness || '-'}` : item.lastWatermarkCompleteness || '-'}</td><td>{item.latestRunStatus ? `${item.latestReceivedCount} / ${item.latestNewCount} / ${item.latestDuplicateCount}` : '-'}</td><td>{item.latestRunStatus ? item.latestUnmatchedCount : '-'}</td><td>{item.nextAttemptAt ? formatDateTime(item.nextAttemptAt) : '-'}</td><td>{item.lastErrorCode || (item.retryAfterSeconds ? `${item.retryAfterSeconds} 秒后重试` : '-')}</td></tr>)}</tbody></table></div>
                   </div> : null}
                 </InfoCard>
-                <InfoCard title="Linky 游标过期恢复" tone="neutral">
-                  <InlineHint text="仅当 Linky 状态为“游标已过期”时使用。系统会完整读取一个 MCN 已确认的 FINAL 日期并自动对账；只有对账一致后，才可确认从空游标重建持续同步。系统不会显示、复制或猜测游标，也不会产生奖励、余额、提现或付款。" />
-                  <div className="grid-form compact-form top-gap"><label>FINAL 业务日期<input type="date" value={linkyCursorRecoveryDate} onChange={(event) => { setLinkyCursorRecoveryDate(event.target.value); setLinkyCursorRecoveryResult(null) }} /></label></div>
-                  <div className="action-row top-gap"><button className="primary-btn small-btn" onClick={() => void handleProbeLinkyCursorRecovery()} disabled={controlledIncomeLoading || incomeSyncStatus?.platforms.find((item) => item.platformCode === 'LINKY')?.checkpointStatus !== 'CURSOR_EXPIRED'}>执行 FINAL 日期探针</button><button className="ghost-btn small-btn" onClick={() => setIsLinkyCursorResumeDialogOpen(true)} disabled={controlledIncomeLoading || !linkyCursorRecoveryResult?.readyForContinuousRebuild}>确认重建持续同步</button></div>
-                  {linkyCursorRecoveryResult ? <div className="relation-grid top-gap"><RelationItem label="探针状态" value={linkyCursorRecoveryResult.status} /><RelationItem label="对账状态" value={`${linkyCursorRecoveryResult.reconciliationStatus} / 差异组 ${linkyCursorRecoveryResult.mismatchGroupCount}`} /><RelationItem label="读取页数" value={linkyCursorRecoveryResult.pageCount} /><RelationItem label="接收 / 新增 / 去重" value={`${linkyCursorRecoveryResult.receivedFactCount} / ${linkyCursorRecoveryResult.newFactCount} / ${linkyCursorRecoveryResult.duplicateFactCount}`} /><RelationItem label="未匹配" value={linkyCursorRecoveryResult.unmatchedFactCount} /></div> : null}
+                <InfoCard title="账号收入补取与恢复" tone="neutral">
+                  <InlineHint text="V2 按已核验账号独立记录收入同步进度。读取位置过期时，系统会按 MCN 可提供的历史日期分段补取并逐段对账；对账未通过不会恢复该账号的日常同步，也不会产生奖励、余额、提现或付款。" />
                 </InfoCard>
                 <InfoCard title="本次读取范围" tone="neutral">
                   <div className="grid-form compact-form exception-filter-grid">
@@ -4345,12 +4314,6 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
         >
           <p>仅使用本系统已保留的最新 MCN 原始收入事实，重新整理所选平台与业务日的测算记录。不会请求 MCN，不会修改原始事实，也不会创建奖励、余额或付款。</p>
           <label className="top-gap">重放原因<textarea value={incomeShadowReplayReason} maxLength={255} onChange={(event) => setIncomeShadowReplayReason(event.target.value)} placeholder="例如：已完成平台账号绑定补录，重新核对当日归属" /></label>
-        </ConfirmDialog>
-      ) : null}
-
-      {isLinkyCursorResumeDialogOpen ? (
-        <ConfirmDialog title="确认重建 Linky 持续同步" tone="warning" confirmText="从空游标重建" loading={controlledIncomeLoading} onCancel={() => setIsLinkyCursorResumeDialogOpen(false)} onConfirm={() => void handleResumeLinkyCursorRecovery()}>
-          <p>已完成 FINAL 日期探针。确认后仅清除本地持续流断点并由系统重新读取 MCN 修订流；历史事实依照 sourceEventId 与 sourceRevision 幂等去重，不删除数据，不创建奖励、余额、提现或付款。</p>
         </ConfirmDialog>
       ) : null}
 

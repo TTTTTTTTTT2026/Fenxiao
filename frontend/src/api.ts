@@ -119,6 +119,10 @@ export type McnIncomeSyncStatusResponse = {
     latestDuplicateCount: number
     latestUnmatchedCount: number
     retryAfterSeconds: number | null
+    verifiedAccountCount: number
+    readAccountCount: number
+    recoveringAccountCount: number
+    failedAccountCount: number
   }>
 }
 export type LinkyCursorRecoveryResponse = {

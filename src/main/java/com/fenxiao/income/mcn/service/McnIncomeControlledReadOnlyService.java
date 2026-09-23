@@ -23,6 +23,9 @@ import com.fenxiao.income.mcn.external.McnIncomeFactsRequestContext;
 import com.fenxiao.income.mcn.external.McnIncomeFactsTransportException;
 import com.fenxiao.income.mcn.repository.McnIncomeControlledReadRunRepository;
 import com.fenxiao.income.mcn.repository.McnIncomeRawLedgerEventRepository;
+import com.fenxiao.platform.domain.PlatformBindingStatus;
+import com.fenxiao.platform.entity.PlatformAccountBinding;
+import com.fenxiao.platform.repository.PlatformAccountBindingRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
@@ -50,6 +53,7 @@ public class McnIncomeControlledReadOnlyService {
     private final McnIncomeFactsProperties properties;
     private final McnIncomeRawLedgerService rawLedgerService;
     private final McnIncomeRawLedgerEventRepository eventRepository;
+    private final PlatformAccountBindingRepository bindingRepository;
     private final McnIncomeControlledReadRunRepository runRepository;
     private final ObjectMapper json;
     private final Clock clock;
@@ -57,20 +61,23 @@ public class McnIncomeControlledReadOnlyService {
     public McnIncomeControlledReadOnlyService(McnIncomeFactsClient client, McnIncomeFactsProperties properties,
                                               McnIncomeRawLedgerService rawLedgerService,
                                               McnIncomeRawLedgerEventRepository eventRepository,
+                                              PlatformAccountBindingRepository bindingRepository,
                                               McnIncomeControlledReadRunRepository runRepository,
                                               ObjectMapper json, Clock clock) {
         this.client = client; this.properties = properties; this.rawLedgerService = rawLedgerService;
-        this.eventRepository = eventRepository; this.runRepository = runRepository; this.json = json; this.clock = clock;
+        this.eventRepository = eventRepository; this.bindingRepository = bindingRepository;
+        this.runRepository = runRepository; this.json = json; this.clock = clock;
     }
 
     public McnIncomeControlledChangesResponse readChanges(McnIncomeControlledChangesRequest request) {
         requireControlledMode();
         String platform = platform(request.platformCode());
         validateDateRange(request.businessDateFrom(), request.businessDateTo());
+        List<String> accountIds = registeredPlatformUserIds(platform);
         int pageSize = request.pageSize() == null ? properties.getPageSize() : request.pageSize();
         String requestId = request.requestId() == null || request.requestId().isBlank()
                 ? UUID.randomUUID().toString() : request.requestId().trim();
-        McnIncomeFactsQuery query = new McnIncomeFactsQuery(platform, blankToNull(request.cursor()), pageSize,
+        McnIncomeFactsQuery query = new McnIncomeFactsQuery(platform, accountIds, blankToNull(request.cursor()), pageSize,
                 request.businessDateFrom(), request.businessDateTo());
         long startedNanos = System.nanoTime();
         McnIncomeFactsQueryResult result;
@@ -89,7 +96,7 @@ public class McnIncomeControlledReadOnlyService {
         }
         McnIncomeFactsPage page = result.page();
         int facts = 0, added = 0, duplicates = 0, unmatched = 0;
-        if (page.isReady()) {
+        if (page.isReady() && isFinal(page.sourceWatermark())) {
             McnIncomeDeliveryResponse receipt = rawLedgerService.accept(new McnIncomeDeliveryRequest(page.deliveryId(), "MCN",
                     platform, page.snapshotAt(), page.sourceWatermark(), page.facts()));
             facts = receipt.receivedFactCount(); added = receipt.newFactCount();
@@ -112,11 +119,15 @@ public class McnIncomeControlledReadOnlyService {
         requireControlledMode();
         String platform = platform(request.platformCode());
         validateDateRange(request.businessDateFrom(), request.businessDateTo());
+        List<String> accountIds = registeredPlatformUserIds(platform);
         List<String> guildIds = request.guildIds() == null ? List.of() : request.guildIds().stream().map(this::requiredText).toList();
         McnIncomeFactsReconciliationResult result = client.reconcile(new McnIncomeFactsReconciliationQuery(platform,
-                request.businessDateFrom(), request.businessDateTo(), guildIds));
+                accountIds, request.businessDateFrom(), request.businessDateTo(), guildIds));
         McnIncomeFactsReconciliationPage page = result.page();
-        Comparison comparison = page.isReady() ? compare(page, platform, guildIds) : new Comparison("STALE", 0, 0, 0);
+        if (!accountIds.equals(page.scopedPlatformUserIds())) throw new IllegalStateException("MCN reconciliation scope does not match verified accounts");
+        Comparison comparison = page.isReady() && isFinal(page.sourceWatermark())
+                ? compare(page, platform, guildIds, accountIds, eventRepository)
+                : new Comparison("WAITING_FINALITY", 0, 0, 0);
         String runId = UUID.randomUUID().toString();
         runRepository.save(McnIncomeControlledReadRun.reconciliation(runId, platform, result.audit().requestId(),
                 result.audit().bodySha256(), page.sourceStatus(), result.audit().httpStatus(), result.audit().latencyMillis(), comparison.status(),
@@ -125,34 +136,54 @@ public class McnIncomeControlledReadOnlyService {
                 comparison.mcnGroupCount(), comparison.banDeiraGroupCount(), comparison.mismatchGroupCount(), page.retryAfterSeconds());
     }
 
-    private Comparison compare(McnIncomeFactsReconciliationPage page, String platform, List<String> guildIds) {
-        Map<String, Aggregate> expected = page.groups().stream().collect(Collectors.toMap(
-                this::key, group -> new Aggregate(group.factCount(), group.absoluteAmountTotal()), (left, right) -> right));
-        Map<String, Aggregate> actual = new HashMap<>();
+    static Comparison compare(McnIncomeFactsReconciliationPage page, String platform, List<String> guildIds,
+                              List<String> accountIds, McnIncomeRawLedgerEventRepository eventRepository) {
+        Map<String, McnIncomeFactsReconciliationGroup> expected = page.groups().stream().collect(Collectors.toMap(
+                McnIncomeControlledReadOnlyService::key, group -> group));
+        Map<String, List<McnIncomeRawLedgerEvent>> grouped = new HashMap<>();
         for (McnIncomeRawLedgerEvent event : eventRepository.findLatestBySourceSystemAndPlatformCodeAndBusinessDateBetween(
                 "MCN", platform, page.businessDateFrom(), page.businessDateTo())) {
+            if (!accountIds.contains(event.getPlatformUserId())) continue;
             if (!guildIds.isEmpty() && !guildIds.contains(event.getGuildId())) continue;
             String key = key(event.getBusinessDate(), event.getGuildId(), event.getSettlementStatus().name(),
                     event.getAmountUnit(), event.getCurrencyCode());
-            actual.merge(key, new Aggregate(1, event.getAmount()), Aggregate::add);
+            grouped.computeIfAbsent(key, ignored -> new java.util.ArrayList<>()).add(event);
         }
+        Map<String, Aggregate> actual = new HashMap<>();
+        grouped.forEach((key, events) -> actual.put(key, new Aggregate(events.size(),
+                events.stream().map(event -> event.getAmount().abs()).reduce(BigDecimal.ZERO, BigDecimal::add),
+                McnIncomeReconciliationChecksum.ofEvents(events))));
         int mismatches = 0;
         for (String key : union(expected, actual)) {
-            Aggregate expectedValue = expected.get(key), actualValue = actual.get(key);
-            if (expectedValue == null || actualValue == null || expectedValue.factCount != actualValue.factCount
-                    || expectedValue.amount.compareTo(actualValue.amount) != 0) mismatches++;
+            McnIncomeFactsReconciliationGroup expectedValue = expected.get(key);
+            Aggregate actualValue = actual.get(key);
+            if (expectedValue == null || actualValue == null || expectedValue.factCount() != actualValue.factCount()
+                    || expectedValue.absoluteAmountTotal().compareTo(actualValue.amount()) != 0
+                    || !expectedValue.projectionChecksum().equals(actualValue.checksum())) mismatches++;
         }
-        return new Comparison(mismatches == 0 ? "MATCHED" : "MISMATCH", expected.size(), actual.size(), mismatches);
+        return new Comparison(mismatches == 0 ? "MATCHED" : "MISMATCH",
+                expected.size(), actual.size(), mismatches);
     }
 
 
-    private List<String> union(Map<String, Aggregate> left, Map<String, Aggregate> right) {
+    private static List<String> union(Map<String, ?> left, Map<String, ?> right) {
         return java.util.stream.Stream.concat(left.keySet().stream(), right.keySet().stream()).distinct().toList();
     }
 
-    private String key(McnIncomeFactsReconciliationGroup group) { return key(group.businessDate(), group.guildId(), group.settlementStatus(), group.amountUnit(), group.currencyCode()); }
-    private String key(LocalDate date, String guildId, String settlementStatus, String amountUnit, String currencyCode) { return date + "|" + guildId + "|" + settlementStatus + "|" + amountUnit + "|" + currencyCode; }
-    private void requireControlledMode() { if (!properties.isControlledReadOnlyConfigured() || !client.enabled()) throw new IllegalStateException("MCN controlled read-only mode is disabled or not configured"); }
+    private static String key(McnIncomeFactsReconciliationGroup group) { return key(group.businessDate(), group.guildId(), group.settlementStatus(), group.amountUnit(), group.currencyCode()); }
+    private static String key(LocalDate date, String guildId, String settlementStatus, String amountUnit, String currencyCode) { return date + "|" + guildId + "|" + settlementStatus + "|" + amountUnit + "|" + currencyCode; }
+    private void requireControlledMode() {
+        if (!properties.isRegisteredUserScopedControlledReadOnlyConfigured() || !client.enabled()) {
+            throw new IllegalStateException("MCN account-scoped V2 read is disabled or not configured");
+        }
+    }
+    private List<String> registeredPlatformUserIds(String platform) {
+        List<String> ids = bindingRepository.findByBindingStatusAndPlatformCode(PlatformBindingStatus.VERIFIED, platform).stream()
+                .map(PlatformAccountBinding::getPlatformUserId).filter(value -> value != null && !value.isBlank())
+                .distinct().sorted().toList();
+        if (ids.size() > 100) throw new IllegalStateException("受控读取最多支持 100 个已核验账号，请缩小本次范围后重试。");
+        return ids;
+    }
     private String platform(String value) { String platform = requiredText(value).toUpperCase(Locale.ROOT); if (!"TIMO".equals(platform) && !"LINKY".equals(platform)) throw new IllegalArgumentException("income platform must be TIMO or LINKY"); return platform; }
     private void validateDateRange(LocalDate from, LocalDate to) { if (from == null || to == null || to.isBefore(from) || from.plusDays(30).isBefore(to)) throw new IllegalArgumentException("controlled income read must cover 1 to 31 inclusive business days"); }
     private String requiredText(String value) { if (value == null || value.isBlank()) throw new IllegalArgumentException("value is required"); return value.trim(); }
@@ -160,11 +191,14 @@ public class McnIncomeControlledReadOnlyService {
     private String json(Object value) { try { return json.writeValueAsString(value); } catch (JsonProcessingException exception) { throw new IllegalStateException("MCN controlled read audit serialization failed", exception); } }
     private String sha256(String value) { try { return java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8))); } catch (Exception exception) { throw new IllegalStateException("MCN controlled read hash failed", exception); } }
     private String shortHash(String value) { return sha256(value).substring(0, 12); }
+    private boolean isFinal(com.fasterxml.jackson.databind.JsonNode watermark) {
+        return watermark != null && "FINAL".equalsIgnoreCase(watermark.path("completeness").asText());
+    }
     private Integer retryAfterSeconds(McnIncomeFactsTransportException exception) {
         if (exception.getRetryAfterSeconds() != null && exception.getRetryAfterSeconds() > 0) return exception.getRetryAfterSeconds();
         return exception.getStatusCode() == 429 ? 60 : null;
     }
 
-    private record Aggregate(int factCount, BigDecimal amount) { Aggregate add(Aggregate other) { return new Aggregate(factCount + other.factCount, amount.add(other.amount)); } }
-    private record Comparison(String status, int mcnGroupCount, int banDeiraGroupCount, int mismatchGroupCount) { }
+    private record Aggregate(int factCount, BigDecimal amount, String checksum) { }
+    record Comparison(String status, int mcnGroupCount, int banDeiraGroupCount, int mismatchGroupCount) { }
 }

@@ -14,6 +14,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Clock;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -24,6 +25,7 @@ class UserGradeAdvancementReviewServiceTest {
     @Autowired UserGradeAdvancementReviewService reviews;
     @Autowired JdbcTemplate jdbc;
     @Autowired UserDistributionProfileRepository users;
+    @Autowired Clock clock;
 
     @BeforeEach
     void table() {
@@ -47,7 +49,7 @@ class UserGradeAdvancementReviewServiceTest {
         assertThat(opened.reviewStatus()).isEqualTo("IN_PROGRESS");
         assertThat(opened.observationEnd()).isEqualTo(opened.observationStart().plusDays(29));
 
-        LocalDate end = LocalDate.now().minusDays(1);
+        LocalDate end = LocalDate.now(clock).minusDays(1);
         jdbc.update("update user_grade_advancement_review set observation_start=?,observation_end=? where id=?", end.minusDays(29), end, opened.id());
         seedSilverOutcome(201, 2010, end);
         seedSilverOutcome(202, 2020, end);

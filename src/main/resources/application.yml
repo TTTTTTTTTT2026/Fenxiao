@@ -41,18 +41,21 @@ fenxiao:
 
 app:
   mcn-income-facts:
+    # The V2 reader runs once after MCN's daily income update and is disabled by default.
+    sync-cron: ${MCN_INCOME_FACTS_SYNC_CRON:0 15 17 * * *}
+    sync-zone: ${MCN_INCOME_FACTS_SYNC_ZONE:Asia/Shanghai}
     # This is the continuous consumer switch. It remains false until joint read-only reconciliation and business approval.
     enabled: ${MCN_INCOME_FACTS_ENABLED:false}
     # Allows only a super-admin / finance controlled smoke endpoint; it never starts the scheduler.
     controlled-read-only-enabled: ${MCN_INCOME_FACTS_CONTROLLED_READ_ONLY_ENABLED:false}
     base-url: ${MCN_INCOME_FACTS_BASE_URL:}
-    credential-id: ${MCN_INCOME_FACTS_CREDENTIAL_ID:}
-    hmac-secret: ${MCN_INCOME_FACTS_HMAC_SECRET:}
+    credential-id: ${MCN_INCOME_FACTS_V2_CREDENTIAL_ID:}
+    hmac-secret: ${MCN_INCOME_FACTS_V2_HMAC_SECRET:}
     connect-timeout: ${MCN_INCOME_FACTS_CONNECT_TIMEOUT:5s}
     request-timeout: ${MCN_INCOME_FACTS_REQUEST_TIMEOUT:20s}
     page-size: ${MCN_INCOME_FACTS_PAGE_SIZE:200}
-    max-pages-per-run: ${MCN_INCOME_FACTS_MAX_PAGES_PER_RUN:10}
-    sync-interval: ${MCN_INCOME_FACTS_SYNC_INTERVAL:300000}
+    max-pages-per-run: ${MCN_INCOME_FACTS_MAX_PAGES_PER_RUN:100}
+    requests-per-minute: ${MCN_INCOME_FACTS_REQUESTS_PER_MINUTE:30}
   linky-verification:
     # Production only reads Linky membership facts from the MCN authority. Local acceptance overrides this to MOCK.
     source: ${LINKY_VERIFICATION_SOURCE:MCN}

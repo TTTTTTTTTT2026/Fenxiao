@@ -25,15 +25,16 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
-/** Dedicated client for the MCN Income Facts V1 changes and reconciliation contracts. */
+/** Dedicated client for MCN Income Facts V2 account-scoped changes and reconciliation contracts. */
 @Component
 @EnableConfigurationProperties(McnIncomeFactsProperties.class)
 public class McnIncomeFactsHttpClient implements McnIncomeFactsClient {
-    static final String CHANGES_PATH = "/api/external/income-facts/v1/changes/query";
-    static final String CHANGES_SCOPE = "income_facts.read";
-    static final String RECONCILIATION_PATH = "/api/external/income-facts/v1/reconciliation/query";
-    static final String RECONCILIATION_SCOPE = "income_facts.reconciliation.read";
+    static final String CHANGES_PATH = "/api/external/income-facts/v2/changes/query";
+    static final String CHANGES_SCOPE = "income_facts.account.read";
+    static final String RECONCILIATION_PATH = "/api/external/income-facts/v2/reconciliation/query";
+    static final String RECONCILIATION_SCOPE = "income_facts.account.reconciliation.read";
 
     private final McnIncomeFactsProperties properties;
     private final ObjectMapper json;
@@ -41,6 +42,7 @@ public class McnIncomeFactsHttpClient implements McnIncomeFactsClient {
     private final HttpClient http;
     private final McnIncomeFactsRequestSigner signer = new McnIncomeFactsRequestSigner();
     private final SecureRandom random = new SecureRandom();
+    private long nextRequestAtNanos;
 
     @Autowired
     public McnIncomeFactsHttpClient(McnIncomeFactsProperties properties, ObjectMapper json, Clock clock) {
@@ -60,6 +62,9 @@ public class McnIncomeFactsHttpClient implements McnIncomeFactsClient {
     }
 
     @Override
+    public boolean accountScopedV2() { return true; }
+
+    @Override
     public McnIncomeFactsPage query(McnIncomeFactsQuery query) {
         return query(query, McnIncomeFactsRequestContext.newRequest()).page();
     }
@@ -68,15 +73,19 @@ public class McnIncomeFactsHttpClient implements McnIncomeFactsClient {
     public McnIncomeFactsQueryResult query(McnIncomeFactsQuery query, McnIncomeFactsRequestContext context) {
         requireConfigured();
         String platform = normalizePlatform(query.platformCode());
+        if ((query.businessDateFrom() == null) != (query.businessDateTo() == null))
+            throw new IllegalArgumentException("income date range must have both endpoints");
+        if (query.businessDateFrom() != null) validateDateRange(query.businessDateFrom(), query.businessDateTo());
         try {
             ObjectNode body = json.createObjectNode();
             body.put("platformCode", platform);
+            putPlatformUserIds(body, platform, query.platformUserIds());
             if (query.cursor() == null || query.cursor().isBlank()) body.putNull("cursor"); else body.put("cursor", query.cursor());
             body.put("pageSize", Math.min(500, Math.max(1, query.pageSize())));
             if (query.businessDateFrom() != null) body.put("businessDateFrom", query.businessDateFrom().toString());
             if (query.businessDateTo() != null) body.put("businessDateTo", query.businessDateTo().toString());
             McnResponse response = post(CHANGES_PATH, CHANGES_SCOPE, json.writeValueAsString(body), context);
-            return new McnIncomeFactsQueryResult(parseChanges(response.body(), platform, context.requestId()), response.audit());
+            return new McnIncomeFactsQueryResult(parseChanges(response.body(), platform, query, context.requestId()), response.audit());
         } catch (McnIncomeFactsTransportException exception) {
             throw exception;
         } catch (Exception exception) {
@@ -94,16 +103,21 @@ public class McnIncomeFactsHttpClient implements McnIncomeFactsClient {
         try {
             ObjectNode body = json.createObjectNode();
             body.put("platformCode", platform);
+            putPlatformUserIds(body, platform, query.platformUserIds());
             body.put("businessDateFrom", query.businessDateFrom().toString());
             body.put("businessDateTo", query.businessDateTo().toString());
             if (!guildIds.isEmpty()) {
                 ArrayNode values = body.putArray("guildIds");
-                for (String guildId : guildIds) values.add(requireText(guildId, "guild id"));
+                for (String guildId : guildIds) {
+                    String value = requireText(guildId, "guild id");
+                    if (!value.matches("\\d{8}")) throw new IllegalArgumentException("guild id format is invalid");
+                    values.add(value);
+                }
             }
             McnIncomeFactsRequestContext context = McnIncomeFactsRequestContext.newRequest();
             McnResponse response = post(RECONCILIATION_PATH, RECONCILIATION_SCOPE, json.writeValueAsString(body), context);
             return new McnIncomeFactsReconciliationResult(
-                    parseReconciliation(response.body(), platform, context.requestId()), response.audit());
+                    parseReconciliation(response.body(), platform, query.platformUserIds(), context.requestId()), response.audit());
         } catch (McnIncomeFactsTransportException exception) {
             throw exception;
         } catch (Exception exception) {
@@ -111,7 +125,8 @@ public class McnIncomeFactsHttpClient implements McnIncomeFactsClient {
         }
     }
 
-    private McnResponse post(String path, String scope, String rawBody, McnIncomeFactsRequestContext context) throws Exception {
+    private synchronized McnResponse post(String path, String scope, String rawBody, McnIncomeFactsRequestContext context) throws Exception {
+        awaitRequestSlot();
         String nonce = nonce();
         Instant requestedAt = clock.instant();
         long startedNanos = System.nanoTime();
@@ -138,14 +153,19 @@ public class McnIncomeFactsHttpClient implements McnIncomeFactsClient {
                 requestedAt, response.statusCode(), latencyMillis));
     }
 
-    private McnIncomeFactsPage parseChanges(String body, String platform, String fallbackRequestId) throws Exception {
+    private McnIncomeFactsPage parseChanges(String body, String platform, McnIncomeFactsQuery query, String fallbackRequestId) throws Exception {
         JsonNode root = validRoot(body, platform);
+        JsonNode queryScope = validateQueryScope(root, platform, query.platformUserIds());
         String sourceStatus = sourceStatus(root);
         JsonNode watermark = watermark(root);
         List<McnIncomeFactRequest> facts = new ArrayList<>();
         for (JsonNode item : root.path("facts")) facts.add(parseFact(item));
+        List<String> requestedIds = normalizedPlatformUserIds(platform, query.platformUserIds());
+        if (facts.stream().anyMatch(fact -> !requestedIds.contains(fact.platformUserId()))) {
+            throw new IllegalStateException("MCN returned an income fact outside the requested account scope");
+        }
         String deliveryId = text(root, "deliveryId");
-        Instant snapshotAt = instant(root, "snapshotAt", false);
+        Instant snapshotAt = instant(root, "snapshotAt", true);
         String nextCursor = text(root, "nextCursor");
         boolean hasMore = root.path("hasMore").asBoolean(false);
         Integer retryAfter = retryAfter(root);
@@ -153,11 +173,19 @@ public class McnIncomeFactsHttpClient implements McnIncomeFactsClient {
             throw new IllegalStateException("MCN ready income page is missing delivery, snapshot or next cursor");
         }
         return new McnIncomeFactsPage(platform, deliveryId, snapshotAt, sourceStatus, watermark, List.copyOf(facts),
-                nextCursor, hasMore, retryAfter, requestId(root, fallbackRequestId));
+                nextCursor, hasMore, retryAfter, requestId(root, fallbackRequestId), required(queryScope, "scopeHash"), requestedIds);
     }
 
-    private McnIncomeFactsReconciliationPage parseReconciliation(String body, String platform, String fallbackRequestId) throws Exception {
+    private void awaitRequestSlot() throws InterruptedException {
+        long intervalNanos = TimeUnit.SECONDS.toNanos(60) / Math.max(1, properties.getRequestsPerMinute());
+        long remainingNanos = nextRequestAtNanos - System.nanoTime();
+        if (remainingNanos > 0) TimeUnit.NANOSECONDS.sleep(remainingNanos);
+        nextRequestAtNanos = System.nanoTime() + intervalNanos;
+    }
+
+    private McnIncomeFactsReconciliationPage parseReconciliation(String body, String platform, List<String> requestedIds, String fallbackRequestId) throws Exception {
         JsonNode root = validRoot(body, platform);
+        JsonNode queryScope = validateQueryScope(root, platform, requestedIds);
         String sourceStatus = sourceStatus(root);
         List<McnIncomeFactsReconciliationGroup> groups = new ArrayList<>();
         for (JsonNode group : root.path("groups")) {
@@ -166,14 +194,57 @@ public class McnIncomeFactsHttpClient implements McnIncomeFactsClient {
                     required(group, "amountUnit").toUpperCase(Locale.ROOT), required(group, "currencyCode").toUpperCase(Locale.ROOT),
                     group.path("factCount").asInt(), decimal(group, "absoluteAmountTotal"), required(group, "projectionChecksum")));
         }
-        return new McnIncomeFactsReconciliationPage(platform, text(root, "snapshotId"), instant(root, "snapshotAt", false),
+        String snapshotId = text(root, "snapshotId");
+        Instant snapshotAt = instant(root, "snapshotAt", true);
+        if ("READY".equals(sourceStatus) && (snapshotId == null || snapshotAt == null))
+            throw new IllegalStateException("MCN ready reconciliation is missing snapshot identity");
+        return new McnIncomeFactsReconciliationPage(platform, snapshotId, snapshotAt,
                 sourceStatus, watermark(root), LocalDate.parse(required(root, "businessDateFrom")),
-                LocalDate.parse(required(root, "businessDateTo")), List.copyOf(groups), retryAfter(root), requestId(root, fallbackRequestId));
+                LocalDate.parse(required(root, "businessDateTo")), List.copyOf(groups), retryAfter(root), requestId(root, fallbackRequestId),
+                required(queryScope, "scopeHash"), normalizedPlatformUserIds(platform, requestedIds));
+    }
+
+    private JsonNode validateQueryScope(JsonNode root, String platform, List<String> requestedIds) {
+        JsonNode scope = root.path("queryScope");
+        if (!"PLATFORM_USER_IDS".equals(required(scope, "scopeType"))) {
+            throw new IllegalStateException("MCN income facts response scope type is invalid");
+        }
+        List<String> expected = normalizedPlatformUserIds(platform, requestedIds);
+        List<String> actual = stringList(scope.path("platformUserIds"));
+        if (!expected.equals(actual) || scope.path("platformUserIdCount").asInt(-1) != expected.size()) {
+            throw new IllegalStateException("MCN income facts response scope does not match request");
+        }
+        String scopeHash = required(scope, "scopeHash");
+        if (!scopeHash.matches("[0-9a-fA-F]{64}")) throw new IllegalStateException("MCN income facts scope hash is invalid");
+        return scope;
+    }
+
+    private void putPlatformUserIds(ObjectNode body, String platform, List<String> requestedIds) {
+        ArrayNode ids = body.putArray("platformUserIds");
+        normalizedPlatformUserIds(platform, requestedIds).forEach(ids::add);
+    }
+
+    private List<String> normalizedPlatformUserIds(String platform, List<String> requestedIds) {
+        if (requestedIds == null) throw new IllegalArgumentException("platformUserIds is required; empty scope is allowed");
+        if (requestedIds.size() > 100) throw new IllegalArgumentException("MCN income facts accepts at most 100 platform accounts");
+        int expectedLength = "TIMO".equals(platform) ? 12 : 8;
+        return requestedIds.stream().map(value -> {
+            String id = requireText(value, "platform user id");
+            if (!id.matches("\\d{" + expectedLength + "}")) throw new IllegalArgumentException("platform user id format is invalid");
+            return id;
+        }).distinct().sorted().toList();
+    }
+
+    private List<String> stringList(JsonNode array) {
+        if (!array.isArray()) throw new IllegalStateException("MCN income facts scope account list is missing");
+        List<String> values = new ArrayList<>();
+        array.forEach(value -> values.add(value.asText()));
+        return List.copyOf(values);
     }
 
     private JsonNode validRoot(String body, String platform) throws Exception {
         JsonNode root = json.readTree(body);
-        if (!root.path("ok").asBoolean() || !"1".equals(required(root, "apiVersion"))
+        if (!root.path("ok").asBoolean() || !"2".equals(required(root, "apiVersion"))
                 || !platform.equals(required(root, "platformCode").toUpperCase(Locale.ROOT))) {
             throw new IllegalStateException("MCN income facts response is invalid");
         }

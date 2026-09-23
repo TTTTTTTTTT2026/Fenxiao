@@ -16,7 +16,7 @@ public class McnIncomeBusinessFactPipelineListener {
         this.pipeline = pipeline;
     }
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void afterMcnFactsAccepted(McnIncomeFactsAcceptedEvent event) {
         try {
             pipeline.refresh(event.platformCode(), event.businessDates());
