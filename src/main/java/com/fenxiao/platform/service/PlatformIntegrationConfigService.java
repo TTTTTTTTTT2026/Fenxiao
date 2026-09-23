@@ -45,10 +45,13 @@ public class PlatformIntegrationConfigService {
 
     /** The MCN directory is the display authority. Target-guild rows only retain BANDEIRA business configuration. */
     private List<PlatformIntegrationResponse.TargetGuild> guilds(String platform) {
-        Map<String, com.fenxiao.platform.dto.PlatformGuildCompanyShareRuleResponse> pendingShares = companyShares.latestDraftsByGuild(platform);
+        List<PlatformGuildDirectory> directoryEntries = authoritativeGuilds.findByPlatformCodeOrderByExternalGuildIdAsc(platform);
+        Map<String, com.fenxiao.platform.dto.PlatformGuildCompanyShareRuleResponse> pendingShares = directoryEntries.isEmpty()
+                ? Map.of()
+                : companyShares.latestDraftsByGuild(platform);
         Map<String, PlatformTargetGuild> configured = targetGuilds.findByPlatformCodeOrderByCountryCodeAscOfficialGuildIdAsc(platform).stream()
                 .collect(Collectors.toMap(PlatformTargetGuild::getOfficialGuildId, Function.identity(), (first, ignored) -> first));
-        List<PlatformIntegrationResponse.TargetGuild> result = new java.util.ArrayList<>(authoritativeGuilds.findByPlatformCodeOrderByExternalGuildIdAsc(platform).stream()
+        List<PlatformIntegrationResponse.TargetGuild> result = new java.util.ArrayList<>(directoryEntries.stream()
                 .map(directory -> toResponse(directory, configured.remove(directory.getExternalGuildId()), pendingShares.get(directory.getExternalGuildId())))
                 .toList());
         // Keep old configured targets visible until their first authoritative directory snapshot arrives.
