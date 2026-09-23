@@ -45,15 +45,16 @@ public class PlatformIntegrationConfigService {
 
     /** The MCN directory is the display authority. Target-guild rows only retain BANDEIRA business configuration. */
     private List<PlatformIntegrationResponse.TargetGuild> guilds(String platform) {
+        Map<String, com.fenxiao.platform.dto.PlatformGuildCompanyShareRuleResponse> pendingShares = companyShares.latestDraftsByGuild(platform);
         Map<String, PlatformTargetGuild> configured = targetGuilds.findByPlatformCodeOrderByCountryCodeAscOfficialGuildIdAsc(platform).stream()
                 .collect(Collectors.toMap(PlatformTargetGuild::getOfficialGuildId, Function.identity(), (first, ignored) -> first));
         List<PlatformIntegrationResponse.TargetGuild> result = new java.util.ArrayList<>(authoritativeGuilds.findByPlatformCodeOrderByExternalGuildIdAsc(platform).stream()
-                .map(directory -> toResponse(directory, configured.remove(directory.getExternalGuildId())))
+                .map(directory -> toResponse(directory, configured.remove(directory.getExternalGuildId()), pendingShares.get(directory.getExternalGuildId())))
                 .toList());
         // Keep old configured targets visible until their first authoritative directory snapshot arrives.
         configured.values().forEach(target -> result.add(new PlatformIntegrationResponse.TargetGuild(target.getCountryCode(),
                 target.getOfficialGuildId(), target.getOfficialGuildSid(), target.getGuildName(), target.isEnabled(),
-                false, "AWAITING_MCN_DIRECTORY", target.isEnabled() ? "ENABLED" : "DISABLED", target.getOperatingShareRate())));
+                false, "AWAITING_MCN_DIRECTORY", target.isEnabled() ? "ENABLED" : "DISABLED", target.getOperatingShareRate(), null, null)));
         result.sort(java.util.Comparator.comparing(PlatformIntegrationResponse.TargetGuild::countryCode).thenComparing(PlatformIntegrationResponse.TargetGuild::officialGuildId));
         return List.copyOf(result);
     }
@@ -79,11 +80,13 @@ public class PlatformIntegrationConfigService {
         return companyShares.history(platform(platformCode), required(guildId, "guildId"));
     }
 
-    private PlatformIntegrationResponse.TargetGuild toResponse(PlatformGuildDirectory directory, PlatformTargetGuild configured) {
+    private PlatformIntegrationResponse.TargetGuild toResponse(PlatformGuildDirectory directory, PlatformTargetGuild configured,
+                                                               com.fenxiao.platform.dto.PlatformGuildCompanyShareRuleResponse pendingShare) {
         return new PlatformIntegrationResponse.TargetGuild(countryCode(directory.getCountry()), directory.getExternalGuildId(),
                 configured == null ? null : configured.getOfficialGuildSid(), directory.getGuildName(),
                 configured == null || configured.isEnabled(), true, directory.getDirectoryStatus(), directory.getGuildStatus(),
-                companyShares.findEffective(directory.getPlatformCode(), directory.getExternalGuildId(), LocalDateTime.now()).orElse(configured == null ? null : configured.getOperatingShareRate()));
+                companyShares.findEffective(directory.getPlatformCode(), directory.getExternalGuildId(), LocalDateTime.now()).orElse(configured == null ? null : configured.getOperatingShareRate()),
+                pendingShare == null ? null : pendingShare.shareRate(), pendingShare == null ? null : pendingShare.shareVersion());
     }
 
     private String countryCode(String country) {
