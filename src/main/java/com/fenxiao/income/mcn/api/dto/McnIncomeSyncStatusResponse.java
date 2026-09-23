@@ -10,5 +10,7 @@ public record McnIncomeSyncStatusResponse(boolean continuousPullEnabled, int max
                                  Instant lastSnapshotAt, String lastWatermarkCompleteness, Instant nextAttemptAt,
                                  String lastErrorCode, String latestRunStatus,
                                  Instant latestRunAt, int latestReceivedCount, int latestNewCount,
-                                 int latestDuplicateCount, int latestUnmatchedCount, Integer retryAfterSeconds) { }
+                                 int latestDuplicateCount, int latestUnmatchedCount, Integer retryAfterSeconds,
+                                 int verifiedAccountCount, int readAccountCount,
+                                 int recoveringAccountCount, int failedAccountCount) { }
 }

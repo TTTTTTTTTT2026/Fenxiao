@@ -54,6 +54,11 @@ public class McnIncomeSyncCheckpoint extends BaseEntity {
         this.nextAttemptAt = null;
     }
 
+    /** V2 keeps continuation positions per account; this legacy row is only a platform summary. */
+    public void recordAccountScopedSuccess(Instant snapshotAt, String sourceWatermark, Instant at) {
+        advance(null, snapshotAt, sourceWatermark, at);
+    }
+
     public void markStale(String sourceWatermark, Instant nextAttemptAt) {
         this.lastSyncStatus = "STALE";
         this.lastSourceWatermark = sourceWatermark;

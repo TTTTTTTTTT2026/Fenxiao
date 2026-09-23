@@ -61,6 +61,7 @@ public class LinkyCursorRecoveryService {
     }
 
     public LinkyCursorRecoveryResponse probe(LinkyCursorRecoveryProbeRequest request, AdminSessionService.AdminPrincipal actor) {
+        requireLegacyProtocol();
         if (!properties.isContinuousPullEnabled() || !client.enabled()) throw new IllegalStateException("MCN income facts are not configured");
         LocalDate date = request.businessDate();
         McnIncomeSyncCheckpoint checkpoint = requiredExpiredCheckpoint();
@@ -94,6 +95,7 @@ public class LinkyCursorRecoveryService {
     }
 
     public LinkyCursorRecoveryResponse resumeContinuousSync(AdminSessionService.AdminPrincipal actor) {
+        requireLegacyProtocol();
         McnIncomeSyncCheckpoint checkpoint = checkpoints.findById(PLATFORM)
                 .orElseThrow(() -> new IllegalStateException("Linky sync checkpoint not found"));
         String before = snapshot(checkpoint);
@@ -109,6 +111,11 @@ public class LinkyCursorRecoveryService {
                 .orElseThrow(() -> new IllegalStateException("Linky sync checkpoint not found"));
         if (!"CURSOR_EXPIRED".equals(checkpoint.getLastSyncStatus())) throw new IllegalStateException("Linky cursor recovery requires a recorded HTTP 410 cursor expiry");
         return checkpoint;
+    }
+    private void requireLegacyProtocol() {
+        if (client.accountScopedV2()) {
+            throw new IllegalStateException("旧版 Linky 平台级恢复操作不适用于 V2；请使用账号范围自动补取与对账。");
+        }
     }
     private boolean isFinal(com.fasterxml.jackson.databind.JsonNode watermark) { return watermark != null && "FINAL".equalsIgnoreCase(watermark.path("completeness").asText()); }
     private Comparison compare(McnIncomeFactsReconciliationPage page) {
