@@ -3,7 +3,6 @@ package com.fenxiao.platform.api;
 import com.fenxiao.common.security.DistributionAccessGuard;
 import com.fenxiao.platform.dto.PlatformIntegrationResponse;
 import com.fenxiao.platform.dto.PlatformGuildOperatingShareRateRequest;
-import com.fenxiao.platform.dto.PlatformGuildCompanyShareRuleApprovalRequest;
 import com.fenxiao.platform.dto.PlatformGuildCompanyShareRuleResponse;
 import com.fenxiao.platform.service.PlatformIntegrationConfigService;
 import jakarta.validation.Valid;
@@ -33,14 +32,14 @@ public class PlatformIntegrationAdminController {
     }
 
     @PostMapping("/{platformCode}/guilds/{guildId}/operating-share-rate")
-    public PlatformGuildCompanyShareRuleResponse createOperatingShareRateDraft(
+    public PlatformGuildCompanyShareRuleResponse setOperatingShareRate(
             @RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
             @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
             @PathVariable String platformCode, @PathVariable String guildId,
             @Valid @RequestBody PlatformGuildOperatingShareRateRequest request) {
         var actor = accessGuard.assertFinanceAccess(adminToken, adminSessionToken);
         actor.requireScope(platformCode, guildId, null);
-        return service.createOperatingShareDraft(platformCode, guildId, request.operatingShareRate(), request.effectiveFrom(), actor.accountId());
+        return service.setOperatingShareRate(platformCode, guildId, request.operatingShareRate(), actor.accountId());
     }
 
     @GetMapping("/{platformCode}/guilds/{guildId}/operating-share-rules")
@@ -53,11 +52,4 @@ public class PlatformIntegrationAdminController {
         return service.companyShareHistory(platformCode, guildId);
     }
 
-    @PostMapping("/operating-share-rules/{id}/activate")
-    public PlatformGuildCompanyShareRuleResponse activateOperatingShareRateDraft(
-            @RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
-            @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
-            @PathVariable long id, @Valid @RequestBody PlatformGuildCompanyShareRuleApprovalRequest request) {
-        return service.activateOperatingShareDraft(id, request.approvalNote(), accessGuard.assertFinanceAccess(adminToken, adminSessionToken).accountId());
-    }
 }

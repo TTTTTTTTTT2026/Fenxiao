@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { applyAdminRiskEventBatchAction, applyAdminWithdrawBatchAction, approveAdminWithdrawRequest, approveWithdrawForPayment, correctAdminOwnership, createAdminSession, createExperiment, createWithdrawRequest, getAdminGuildConfigs, getAdminGuildWeeklyReport, getAdminMentorAssignedStudents, getAdminOwnership, getAdminPlatformGuildDirectory, getAdminPlatformGuildDirectorySyncRuns, getAdminPlatformIntegrations, getAdminSeedInviters, getAdminWithdrawRequests, getDistributionRewardSummary, getDistributionTeamWeeklyIncome, getExperimentDashboard, getWithdrawHistory, issuePhoneCode, logoutUserSession, phoneLogin, recordWithdrawPayment, refreshAdminLinkyEligibility, refreshAdminLinkyEligibilityBatch, rejectAdminWithdrawRequest, reverseWithdrawPayment, saveAdminGuildConfig } from './api'
+import { applyAdminRiskEventBatchAction, applyAdminWithdrawBatchAction, approveAdminWithdrawRequest, approveWithdrawForPayment, correctAdminOwnership, createAdminPlatformGuildOperatingShareRate, createAdminSession, createExperiment, createWithdrawRequest, getAdminGuildConfigs, getAdminGuildWeeklyReport, getAdminMentorAssignedStudents, getAdminOwnership, getAdminPlatformGuildDirectory, getAdminPlatformGuildDirectorySyncRuns, getAdminPlatformIntegrations, getAdminSeedInviters, getAdminWithdrawRequests, getDistributionRewardSummary, getDistributionTeamWeeklyIncome, getExperimentDashboard, getWithdrawHistory, issuePhoneCode, logoutUserSession, phoneLogin, recordWithdrawPayment, refreshAdminLinkyEligibility, refreshAdminLinkyEligibilityBatch, rejectAdminWithdrawRequest, reverseWithdrawPayment, saveAdminGuildConfig } from './api'
 
 describe('ownership admin api', () => {
   afterEach(() => {
@@ -449,6 +449,19 @@ describe('platform integration admin api', () => {
 
     expect(fetchMock).toHaveBeenCalledWith('/admin/platform-integrations', expect.objectContaining({
       headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
+    }))
+  })
+
+  it('saves a guild company-share rate immediately without an approval or effective-time payload', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await createAdminPlatformGuildOperatingShareRate('session-token', 'TIMO', '2200448', 0.25)
+
+    expect(fetchMock).toHaveBeenCalledWith('/admin/platform-integrations/TIMO/guilds/2200448/operating-share-rate', expect.objectContaining({
+      method: 'POST',
+      headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
+      body: JSON.stringify({ operatingShareRate: 0.25 }),
     }))
   })
 

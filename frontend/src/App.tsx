@@ -58,7 +58,6 @@ import {
   getAdminPlatformIntegrations,
   createAdminPlatformGuildOperatingShareRate,
   getAdminPlatformGuildCompanyShareRules,
-  activateAdminPlatformGuildCompanyShareRule,
   getAdminPlatformGuildDirectory,
   getAdminPlatformGuildDirectorySyncRuns,
   getAdminPlatformVerificationMocks,
@@ -544,7 +543,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [platformIntegrations, setPlatformIntegrations] = useState<PlatformIntegrationResponse[] | null>(null)
   const [platformGuildShareDialogTarget, setPlatformGuildShareDialogTarget] = useState<{ platformCode: string; guildId: string; guildName: string } | null>(null)
   const [platformGuildShareRules, setPlatformGuildShareRules] = useState<PlatformGuildCompanyShareRuleResponse[]>([])
-  const [platformGuildShareForm, setPlatformGuildShareForm] = useState({ rate: '', effectiveFrom: '' })
+  const [platformGuildShareForm, setPlatformGuildShareForm] = useState({ rate: '' })
   const [platformVerificationRuntime, setPlatformVerificationRuntime] = useState<PlatformVerificationRuntimeResponse | null>(null)
   const [platformVerificationMocks, setPlatformVerificationMocks] = useState<PlatformVerificationMockResponse[] | null>(null)
   const [controlledIncomeForm, setControlledIncomeForm] = useState({ platformCode: 'LINKY', businessDate: '2026-09-11', pageSize: '200' })
@@ -2033,7 +2032,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     setLoading(true); setError(''); setSuccessMessage('')
     try {
       setPlatformGuildShareRules(await getAdminPlatformGuildCompanyShareRules(adminSession.sessionToken, platformCode, guildId))
-      setPlatformGuildShareForm({ rate: '', effectiveFrom: '' })
+      setPlatformGuildShareForm({ rate: '' })
       setPlatformGuildShareDialogTarget({ platformCode, guildId, guildName })
     } catch (err) { setError(err instanceof Error ? err.message : '读取公会公司分成比例历史失败') } finally { setLoading(false) }
   }
@@ -2042,28 +2041,14 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     if (!adminSession || !canRunControlledIncome || !platformGuildShareDialogTarget) return
     const ratePercent = Number(platformGuildShareForm.rate)
     if (!platformGuildShareForm.rate || !Number.isFinite(ratePercent) || ratePercent < 0 || ratePercent > 100) { setError('公司分成比例请填写 0 到 100 之间的百分数，例如 25 表示 25%。'); return }
-    if (!platformGuildShareForm.effectiveFrom) { setError('请填写生效时间。'); return }
     setLoading(true); setError(''); setSuccessMessage('')
     try {
-      await createAdminPlatformGuildOperatingShareRate(adminSession.sessionToken, platformGuildShareDialogTarget.platformCode, platformGuildShareDialogTarget.guildId, ratePercent / 100, new Date(platformGuildShareForm.effectiveFrom).toISOString().slice(0, 19))
+      await createAdminPlatformGuildOperatingShareRate(adminSession.sessionToken, platformGuildShareDialogTarget.platformCode, platformGuildShareDialogTarget.guildId, ratePercent / 100)
       setPlatformGuildShareRules(await getAdminPlatformGuildCompanyShareRules(adminSession.sessionToken, platformGuildShareDialogTarget.platformCode, platformGuildShareDialogTarget.guildId))
       setPlatformIntegrations(await getAdminPlatformIntegrations(adminSession.sessionToken))
-      setPlatformGuildShareForm({ rate: '', effectiveFrom: '' })
-      setSuccessMessage('已建立公司分成比例草稿；审批启用前不会改变任何候选计算基数。')
+      setPlatformGuildShareForm({ rate: '' })
+      setSuccessMessage('公司分成比例已保存并立即生效；历史收入事实快照不变。')
     } catch (err) { setError(err instanceof Error ? err.message : '建立公会公司分成比例草稿失败') } finally { setLoading(false) }
-  }
-
-  async function activatePlatformGuildOperatingShareRate(rule: PlatformGuildCompanyShareRuleResponse) {
-    if (!adminSession || !platformGuildShareDialogTarget) return
-    const approvalNote = window.prompt(`审批启用公司分成比例 V${rule.shareVersion} 的说明：`, '业务规则已复核')
-    if (!approvalNote?.trim()) return
-    setLoading(true); setError(''); setSuccessMessage('')
-    try {
-      await activateAdminPlatformGuildCompanyShareRule(adminSession.sessionToken, rule.id, approvalNote.trim())
-      setPlatformGuildShareRules(await getAdminPlatformGuildCompanyShareRules(adminSession.sessionToken, platformGuildShareDialogTarget.platformCode, platformGuildShareDialogTarget.guildId))
-      await loadPlatformIntegrations()
-      setSuccessMessage(`已审批启用公司分成比例 V${rule.shareVersion}；候选演算仅会读取收入发生时有效的已启用版本。`)
-    } catch (err) { setError(err instanceof Error ? err.message : '审批公司分成比例失败') } finally { setLoading(false) }
   }
 
   async function loadOperatingDividendDashboard() {
@@ -4201,19 +4186,18 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
         <ConfirmDialog
           title={`编辑公司分成 · ${platformGuildShareDialogTarget.guildName}`}
           tone="primary"
-          confirmText="建立待审版本"
+          confirmText="保存并立即生效"
           loading={loading}
-          confirmDisabled={!platformGuildShareForm.rate || !platformGuildShareForm.effectiveFrom}
+          confirmDisabled={!platformGuildShareForm.rate}
           onCancel={() => { setPlatformGuildShareDialogTarget(null); setPlatformGuildShareRules([]) }}
           onConfirm={() => void savePlatformGuildOperatingShareRate()}
         >
-          <p>平台：{platformGuildShareDialogTarget.platformCode}；权威公会：{platformGuildShareDialogTarget.guildId}。新数值先保存为待审版本，审批前不参与任何公司业务收入或邀请候选计算。</p>
+          <p>平台：{platformGuildShareDialogTarget.platformCode}；权威公会：{platformGuildShareDialogTarget.guildId}。保存后立即用于后续收入事实和邀请分成计算，并记录操作人及前后版本。</p>
           <form className="grid-form compact-form" onSubmit={(event) => { event.preventDefault(); void savePlatformGuildOperatingShareRate() }}>
             <label>公司分成比例（%）<input required type="number" min="0" max="100" step="0.01" inputMode="decimal" value={platformGuildShareForm.rate} onChange={(event) => setPlatformGuildShareForm({ ...platformGuildShareForm, rate: event.target.value })} placeholder="例如 25 表示 25%" /></label>
-            <label>生效时间<input required type="datetime-local" value={platformGuildShareForm.effectiveFrom} onChange={(event) => setPlatformGuildShareForm({ ...platformGuildShareForm, effectiveFrom: event.target.value })} /></label>
           </form>
-          <div className="stack-gap small"><strong>版本历史</strong>{platformGuildShareRules.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>版本</th><th>比例</th><th>生效区间</th><th>状态</th><th>审批</th></tr></thead><tbody>{platformGuildShareRules.map((rule) => <tr key={rule.id}><td>V{rule.shareVersion}</td><td>{(rule.shareRate * 100).toFixed(2)}%</td><td>{formatUtcDateTime(rule.effectiveFrom)} {rule.effectiveTo ? `至 ${formatUtcDateTime(rule.effectiveTo)}` : '起长期有效'}</td><td>{rule.status === 'DRAFT' ? '待审' : rule.status === 'ACTIVE' ? '已启用' : rule.status}</td><td>{rule.status === 'DRAFT' ? <button type="button" className="primary-btn small-btn" disabled={loading} onClick={() => void activatePlatformGuildOperatingShareRate(rule)}>审批并启用</button> : rule.approvedAt ? `${formatUtcDateTime(rule.approvedAt)}${rule.approvalNote ? ` · ${rule.approvalNote}` : ''}` : '—'}</td></tr>)}</tbody></table></div> : <p>尚无历史版本。</p>}</div>
-          <InlineHint text="审批后，系统会封存本版本及其生效区间；已产生的 MCN 收入事实仍按发生时的比例快照计算，不会被后续修改重写。" />
+          <div className="stack-gap small"><strong>版本历史</strong>{platformGuildShareRules.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>版本</th><th>比例</th><th>生效区间</th><th>状态</th><th>操作记录</th></tr></thead><tbody>{platformGuildShareRules.map((rule) => <tr key={rule.id}><td>V{rule.shareVersion}</td><td>{(rule.shareRate * 100).toFixed(2)}%</td><td>{formatUtcDateTime(rule.effectiveFrom)} {rule.effectiveTo ? `至 ${formatUtcDateTime(rule.effectiveTo)}` : '起长期有效'}</td><td>{rule.status === 'ACTIVE' ? '已生效' : rule.status === 'CANCELLED' ? '已取消' : '旧待审版本（不生效）'}</td><td>{rule.approvedAt ? `${formatUtcDateTime(rule.approvedAt)}${rule.approvalNote ? ` · ${rule.approvalNote}` : ''}` : rule.status === 'ACTIVE' ? '保存即生效' : '—'}</td></tr>)}</tbody></table></div> : <p>尚无历史版本。</p>}</div>
+          <InlineHint text="每次保存都会立即启用新版本，并留下操作日志；此前产生的收入事实仍按发生时的比例快照计算，不会被后续修改重写。未生效的旧计划会保留记录并取消。" />
         </ConfirmDialog>
       ) : null}
 

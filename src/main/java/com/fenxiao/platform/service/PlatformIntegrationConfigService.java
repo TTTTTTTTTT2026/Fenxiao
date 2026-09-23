@@ -63,19 +63,14 @@ public class PlatformIntegrationConfigService {
     }
 
     @Transactional
-    public com.fenxiao.platform.dto.PlatformGuildCompanyShareRuleResponse createOperatingShareDraft(String platformCode, String guildId, java.math.BigDecimal rate, LocalDateTime effectiveFrom, Long actorId) {
+    public com.fenxiao.platform.dto.PlatformGuildCompanyShareRuleResponse setOperatingShareRate(String platformCode, String guildId, java.math.BigDecimal rate, Long actorId) {
         String platform = platform(platformCode);
         PlatformGuildDirectory directory = authoritativeGuilds.findByPlatformCodeAndExternalGuildId(platform, required(guildId, "guildId"))
                 .orElseThrow(() -> new IllegalArgumentException("guild is not present in the authoritative MCN directory"));
         if (!"NORMAL".equalsIgnoreCase(directory.getDirectoryStatus()) || !("ACTIVE".equalsIgnoreCase(directory.getGuildStatus()) || "ENABLED".equalsIgnoreCase(directory.getGuildStatus()))) {
             throw new IllegalArgumentException("only an active authoritative guild can have an operating share rate");
         }
-        return companyShares.createDraft(platform, directory.getExternalGuildId(), rate, effectiveFrom, actorId);
-    }
-
-    @Transactional
-    public com.fenxiao.platform.dto.PlatformGuildCompanyShareRuleResponse activateOperatingShareDraft(long id, String approvalNote, Long actorId) {
-        return companyShares.activate(id, approvalNote, actorId);
+        return companyShares.setImmediate(platform, directory.getExternalGuildId(), rate, actorId);
     }
 
     @Transactional(readOnly = true)

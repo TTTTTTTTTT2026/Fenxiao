@@ -1,6 +1,8 @@
 package com.fenxiao.platform.service;
 
 import com.fenxiao.platform.dto.PlatformGuildCompanyShareRuleResponse;
+import com.fenxiao.audit.entity.OperationAuditLog;
+import com.fenxiao.audit.repository.OperationAuditLogRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
@@ -24,45 +26,43 @@ import java.util.Optional;
 public class PlatformGuildCompanyShareService {
     private final JdbcTemplate jdbc;
     private final Clock clock;
+    private final OperationAuditLogRepository auditLogs;
 
-    public PlatformGuildCompanyShareService(JdbcTemplate jdbc, Clock clock) {
+    public PlatformGuildCompanyShareService(JdbcTemplate jdbc, Clock clock, OperationAuditLogRepository auditLogs) {
         this.jdbc = jdbc;
         this.clock = clock;
+        this.auditLogs = auditLogs;
     }
 
-    /** Creates a non-effective draft. It cannot change historic or current calculation evidence. */
-    public PlatformGuildCompanyShareRuleResponse createDraft(String platformCode, String guildId, BigDecimal rate,
-                                                             LocalDateTime effectiveFrom, Long actorId) {
+    /** Saves a new company-share version and makes it effective immediately, retaining the full change audit. */
+    public PlatformGuildCompanyShareRuleResponse setImmediate(String platformCode, String guildId, BigDecimal rate, Long actorId) {
         String platform = platform(platformCode);
         String guild = required(guildId, "guildId");
         validateRate(rate);
-        LocalDateTime start = effectiveFrom == null ? LocalDateTime.now(clock) : effectiveFrom;
-        if (start.isBefore(LocalDateTime.now(clock))) throw new IllegalArgumentException("effectiveFrom must not be in the past");
+        LocalDateTime now = LocalDateTime.now(clock);
+        List<String> previousVersions = jdbc.query("select id,share_version,share_rate,effective_from,effective_to,rule_status from platform_guild_company_share_version where platform_code=? and guild_id=? and (rule_status='DRAFT' or rule_status='ACTIVE') order by share_version",
+                (rs, row) -> "id=" + rs.getLong("id") + ",v=" + rs.getInt("share_version") + ",rate=" + rs.getBigDecimal("share_rate")
+                        + ",from=" + rs.getTimestamp("effective_from") + ",to=" + rs.getTimestamp("effective_to")
+                        + ",status=" + rs.getString("rule_status"), platform, guild);
         Integer nextVersion = jdbc.queryForObject("select coalesce(max(share_version),0)+1 from platform_guild_company_share_version where platform_code=? and guild_id=?", Integer.class, platform, guild);
         KeyHolder keys = new GeneratedKeyHolder();
+        // Supersede any pending draft or future schedule, but keep their approved/audit history.
+        jdbc.update("update platform_guild_company_share_version set rule_status='CANCELLED' where platform_code=? and guild_id=? and (rule_status='DRAFT' or (rule_status='ACTIVE' and effective_from>?))",
+                platform, guild, now);
+        // End the prior currently-effective interval at this save time; facts already recorded retain their snapshots.
+        jdbc.update("update platform_guild_company_share_version set effective_to=? where platform_code=? and guild_id=? and rule_status='ACTIVE' and effective_from<=? and (effective_to is null or effective_to>?)",
+                now, platform, guild, now, now);
         jdbc.update(connection -> {
-            PreparedStatement statement = connection.prepareStatement("insert into platform_guild_company_share_version(platform_code,guild_id,share_version,share_rate,effective_from,rule_status,configured_by) values(?,?,?,?,?,'DRAFT',?)", new String[]{"id"});
+            PreparedStatement statement = connection.prepareStatement("insert into platform_guild_company_share_version(platform_code,guild_id,share_version,share_rate,effective_from,rule_status,configured_by) values(?,?,?,?,?,'ACTIVE',?)", new String[]{"id"});
             statement.setString(1, platform); statement.setString(2, guild); statement.setInt(3, Objects.requireNonNull(nextVersion));
-            statement.setBigDecimal(4, rate); statement.setObject(5, start); statement.setLong(6, actorId);
+            statement.setBigDecimal(4, rate); statement.setObject(5, now); statement.setLong(6, actorId);
             return statement;
         }, keys);
-        return requiredRule(Objects.requireNonNull(keys.getKey()).longValue());
-    }
-
-    /** A single finance approver activates a future-safe version and closes the preceding active interval. */
-    public PlatformGuildCompanyShareRuleResponse activate(long id, String approvalNote, Long actorId) {
-        PlatformGuildCompanyShareRuleResponse draft = requiredRule(id);
-        if (!"DRAFT".equals(draft.status())) throw new IllegalStateException("only draft company-share rules can be activated");
-        String note = required(approvalNote, "approvalNote");
-        LocalDateTime now = LocalDateTime.now(clock);
-        LocalDateTime effectiveAt = draft.effectiveFrom().isBefore(now) ? now : draft.effectiveFrom();
-        if (!effectiveAt.equals(draft.effectiveFrom())) jdbc.update("update platform_guild_company_share_version set effective_from=? where id=?", effectiveAt, id);
-        Integer futureConflict = jdbc.queryForObject("select count(*) from platform_guild_company_share_version where platform_code=? and guild_id=? and rule_status='ACTIVE' and effective_from>=?", Integer.class, draft.platformCode(), draft.guildId(), effectiveAt);
-        if (futureConflict != null && futureConflict > 0) throw new IllegalStateException("an active company-share version already starts at or after this effective time");
-        jdbc.update("update platform_guild_company_share_version set effective_to=? where platform_code=? and guild_id=? and rule_status='ACTIVE' and effective_from<? and (effective_to is null or effective_to>?)",
-                effectiveAt, draft.platformCode(), draft.guildId(), effectiveAt, effectiveAt);
-        jdbc.update("update platform_guild_company_share_version set rule_status='ACTIVE',approved_by=?,approved_at=?,approval_note=? where id=?",
-                actorId, now, note, id);
+        long id = Objects.requireNonNull(keys.getKey()).longValue();
+        auditLogs.save(OperationAuditLog.create(actorId, "FINANCE", "PLATFORM_GUILD_COMPANY_SHARE", "COMPANY_SHARE_RULE", id,
+                "SET_IMMEDIATE", previousVersions.isEmpty() ? "no existing company-share version" : String.join(";", previousVersions),
+                "status=ACTIVE;version=" + nextVersion + ";shareRate=" + rate + ";effectiveFrom=" + now, null,
+                "Company share saved and effective immediately; prior schedules/drafts retained as cancelled history.", now));
         return requiredRule(id);
     }
 
