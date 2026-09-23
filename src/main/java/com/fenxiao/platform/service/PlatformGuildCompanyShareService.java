@@ -40,8 +40,10 @@ public class PlatformGuildCompanyShareService {
         String guild = required(guildId, "guildId");
         validateRate(rate);
         LocalDateTime now = LocalDateTime.now(clock);
-        List<String> previousVersions = jdbc.query("select concat('id=',id,',v=',share_version,',rate=',share_rate,',from=',effective_from,',to=',coalesce(effective_to,'null'),',status=',rule_status) from platform_guild_company_share_version where platform_code=? and guild_id=? and (rule_status='DRAFT' or rule_status='ACTIVE') order by share_version",
-                (rs, row) -> rs.getString(1), platform, guild);
+        List<String> previousVersions = jdbc.query("select id,share_version,share_rate,effective_from,effective_to,rule_status from platform_guild_company_share_version where platform_code=? and guild_id=? and (rule_status='DRAFT' or rule_status='ACTIVE') order by share_version",
+                (rs, row) -> "id=" + rs.getLong("id") + ",v=" + rs.getInt("share_version") + ",rate=" + rs.getBigDecimal("share_rate")
+                        + ",from=" + rs.getTimestamp("effective_from") + ",to=" + rs.getTimestamp("effective_to")
+                        + ",status=" + rs.getString("rule_status"), platform, guild);
         Integer nextVersion = jdbc.queryForObject("select coalesce(max(share_version),0)+1 from platform_guild_company_share_version where platform_code=? and guild_id=?", Integer.class, platform, guild);
         KeyHolder keys = new GeneratedKeyHolder();
         // Supersede any pending draft or future schedule, but keep their approved/audit history.
