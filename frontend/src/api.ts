@@ -271,7 +271,7 @@ export type PlatformIntegrationResponse = {
   revenueIngestionMode: string
   rewardMode: string
   enabled: boolean
-  targetGuilds: Array<{ countryCode: string; officialGuildId: string; officialGuildSid: string | null; guildName: string; enabled: boolean; authoritative: boolean; directoryStatus: string; guildStatus: string; operatingShareRate: number | null }>
+  targetGuilds: Array<{ countryCode: string; officialGuildId: string; officialGuildSid: string | null; guildName: string; enabled: boolean; authoritative: boolean; directoryStatus: string; guildStatus: string; operatingShareRate: number | null; pendingOperatingShareRate: number | null; pendingShareVersion: number | null }>
 }
 export type PlatformGuildCompanyShareRuleResponse = {
   id: number; platformCode: string; guildId: string; shareVersion: number; shareRate: number

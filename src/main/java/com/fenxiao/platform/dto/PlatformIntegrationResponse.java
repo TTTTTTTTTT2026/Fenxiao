@@ -14,5 +14,6 @@ public record PlatformIntegrationResponse(
         List<TargetGuild> targetGuilds) {
     public record TargetGuild(String countryCode, String officialGuildId, String officialGuildSid,
                               String guildName, boolean enabled, boolean authoritative, String directoryStatus,
-                              String guildStatus, java.math.BigDecimal operatingShareRate) {}
+                              String guildStatus, java.math.BigDecimal operatingShareRate,
+                              java.math.BigDecimal pendingOperatingShareRate, Integer pendingShareVersion) {}
 }

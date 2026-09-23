@@ -2040,13 +2040,14 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
 
   async function savePlatformGuildOperatingShareRate() {
     if (!adminSession || !canRunControlledIncome || !platformGuildShareDialogTarget) return
-    const rate = Number(platformGuildShareForm.rate)
-    if (!platformGuildShareForm.rate || !Number.isFinite(rate) || rate < 0 || rate > 1) { setError('公司分成比例请填写 0 到 1 之间的小数，例如 0.20 表示 20%。'); return }
+    const ratePercent = Number(platformGuildShareForm.rate)
+    if (!platformGuildShareForm.rate || !Number.isFinite(ratePercent) || ratePercent < 0 || ratePercent > 100) { setError('公司分成比例请填写 0 到 100 之间的百分数，例如 25 表示 25%。'); return }
     if (!platformGuildShareForm.effectiveFrom) { setError('请填写生效时间。'); return }
     setLoading(true); setError(''); setSuccessMessage('')
     try {
-      await createAdminPlatformGuildOperatingShareRate(adminSession.sessionToken, platformGuildShareDialogTarget.platformCode, platformGuildShareDialogTarget.guildId, rate, platformGuildShareForm.effectiveFrom)
+      await createAdminPlatformGuildOperatingShareRate(adminSession.sessionToken, platformGuildShareDialogTarget.platformCode, platformGuildShareDialogTarget.guildId, ratePercent / 100, new Date(platformGuildShareForm.effectiveFrom).toISOString().slice(0, 19))
       setPlatformGuildShareRules(await getAdminPlatformGuildCompanyShareRules(adminSession.sessionToken, platformGuildShareDialogTarget.platformCode, platformGuildShareDialogTarget.guildId))
+      setPlatformIntegrations(await getAdminPlatformIntegrations(adminSession.sessionToken))
       setPlatformGuildShareForm({ rate: '', effectiveFrom: '' })
       setSuccessMessage('已建立公司分成比例草稿；审批启用前不会改变任何候选计算基数。')
     } catch (err) { setError(err instanceof Error ? err.message : '建立公会公司分成比例草稿失败') } finally { setLoading(false) }
@@ -3029,7 +3030,12 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                       headers={['国家', '官方公会 ID', '公会名称', 'MCN 目录状态', '当前公司比例', '操作']}
                       rows={platform.targetGuilds.map((guild) => {
                         const editable = guild.authoritative && guild.directoryStatus === 'NORMAL' && ['ACTIVE', 'ENABLED'].includes(guild.guildStatus.toUpperCase())
-                        return [guild.countryCode, guild.officialGuildId, guild.guildName, `${guild.directoryStatus} / ${guild.guildStatus}`, guild.operatingShareRate == null ? '未配置' : `${(guild.operatingShareRate * 100).toFixed(2)}%`, editable ? <button key={`${platform.platformCode}:${guild.officialGuildId}-edit`} className="ghost-btn small-btn" disabled={loading || !canRunControlledIncome} onClick={() => void openPlatformGuildShareDialog(platform.platformCode, guild.officialGuildId, guild.guildName)}>编辑分成</button> : '仅可配置 MCN 正常且启用的公会']
+                        const activeShare = guild.operatingShareRate == null ? null : `${(guild.operatingShareRate * 100).toFixed(2)}%`
+                        const pendingShare = guild.pendingOperatingShareRate == null ? null : `${(guild.pendingOperatingShareRate * 100).toFixed(2)}%`
+                        const shareLabel = pendingShare
+                          ? `${activeShare ? `当前 ${activeShare} · ` : ''}待审批 V${guild.pendingShareVersion}：${pendingShare}`
+                          : activeShare ?? '未配置'
+                        return [guild.countryCode, guild.officialGuildId, guild.guildName, `${guild.directoryStatus} / ${guild.guildStatus}`, shareLabel, editable ? <button key={`${platform.platformCode}:${guild.officialGuildId}-edit`} className="ghost-btn small-btn" disabled={loading || !canRunControlledIncome} onClick={() => void openPlatformGuildShareDialog(platform.platformCode, guild.officialGuildId, guild.guildName)}>编辑分成</button> : '仅可配置 MCN 正常且启用的公会']
                       })}
                       emptyText="MCN 权威公会目录暂无数据；请检查公会目录同步状态。"
                     />
@@ -4203,10 +4209,10 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
         >
           <p>平台：{platformGuildShareDialogTarget.platformCode}；权威公会：{platformGuildShareDialogTarget.guildId}。新数值先保存为待审版本，审批前不参与任何公司业务收入或邀请候选计算。</p>
           <form className="grid-form compact-form" onSubmit={(event) => { event.preventDefault(); void savePlatformGuildOperatingShareRate() }}>
-            <label>公司分成比例<input required type="number" min="0" max="1" step="0.000001" inputMode="decimal" value={platformGuildShareForm.rate} onChange={(event) => setPlatformGuildShareForm({ ...platformGuildShareForm, rate: event.target.value })} placeholder="例如 0.25 表示 25%" /></label>
+            <label>公司分成比例（%）<input required type="number" min="0" max="100" step="0.01" inputMode="decimal" value={platformGuildShareForm.rate} onChange={(event) => setPlatformGuildShareForm({ ...platformGuildShareForm, rate: event.target.value })} placeholder="例如 25 表示 25%" /></label>
             <label>生效时间<input required type="datetime-local" value={platformGuildShareForm.effectiveFrom} onChange={(event) => setPlatformGuildShareForm({ ...platformGuildShareForm, effectiveFrom: event.target.value })} /></label>
           </form>
-          <div className="stack-gap small"><strong>版本历史</strong>{platformGuildShareRules.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>版本</th><th>比例</th><th>生效区间</th><th>状态</th><th>审批</th></tr></thead><tbody>{platformGuildShareRules.map((rule) => <tr key={rule.id}><td>V{rule.shareVersion}</td><td>{(rule.shareRate * 100).toFixed(2)}%</td><td>{formatDateTime(rule.effectiveFrom)} {rule.effectiveTo ? `至 ${formatDateTime(rule.effectiveTo)}` : '起长期有效'}</td><td>{rule.status === 'DRAFT' ? '待审' : rule.status === 'ACTIVE' ? '已启用' : rule.status}</td><td>{rule.status === 'DRAFT' ? <button type="button" className="primary-btn small-btn" disabled={loading} onClick={() => void activatePlatformGuildOperatingShareRate(rule)}>审批并启用</button> : rule.approvedAt ? `${formatDateTime(rule.approvedAt)}${rule.approvalNote ? ` · ${rule.approvalNote}` : ''}` : '—'}</td></tr>)}</tbody></table></div> : <p>尚无历史版本。</p>}</div>
+          <div className="stack-gap small"><strong>版本历史</strong>{platformGuildShareRules.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>版本</th><th>比例</th><th>生效区间</th><th>状态</th><th>审批</th></tr></thead><tbody>{platformGuildShareRules.map((rule) => <tr key={rule.id}><td>V{rule.shareVersion}</td><td>{(rule.shareRate * 100).toFixed(2)}%</td><td>{formatUtcDateTime(rule.effectiveFrom)} {rule.effectiveTo ? `至 ${formatUtcDateTime(rule.effectiveTo)}` : '起长期有效'}</td><td>{rule.status === 'DRAFT' ? '待审' : rule.status === 'ACTIVE' ? '已启用' : rule.status}</td><td>{rule.status === 'DRAFT' ? <button type="button" className="primary-btn small-btn" disabled={loading} onClick={() => void activatePlatformGuildOperatingShareRate(rule)}>审批并启用</button> : rule.approvedAt ? `${formatUtcDateTime(rule.approvedAt)}${rule.approvalNote ? ` · ${rule.approvalNote}` : ''}` : '—'}</td></tr>)}</tbody></table></div> : <p>尚无历史版本。</p>}</div>
           <InlineHint text="审批后，系统会封存本版本及其生效区间；已产生的 MCN 收入事实仍按发生时的比例快照计算，不会被后续修改重写。" />
         </ConfirmDialog>
       ) : null}
@@ -4945,6 +4951,13 @@ function formatOperatingDividendError(message: string) {
 function formatDateTime(value?: string) {
   if (!value) return '-'
   const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`
+}
+
+function formatUtcDateTime(value?: string) {
+  if (!value) return '-'
+  const date = new Date(/[zZ]|[+-]\d{2}:?\d{2}$/.test(value) ? value : `${value}Z`)
   if (Number.isNaN(date.getTime())) return value
   return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`
 }

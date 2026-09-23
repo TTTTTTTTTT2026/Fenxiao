@@ -11,8 +11,10 @@ import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -75,6 +77,16 @@ public class PlatformGuildCompanyShareService {
     @Transactional(readOnly = true)
     public List<PlatformGuildCompanyShareRuleResponse> history(String platformCode, String guildId) {
         return jdbc.query(select() + " where platform_code=? and guild_id=? order by effective_from desc,id desc", (rs, row) -> map(rs), platform(platformCode), required(guildId, "guildId"));
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, PlatformGuildCompanyShareRuleResponse> latestDraftsByGuild(String platformCode) {
+        List<PlatformGuildCompanyShareRuleResponse> drafts = jdbc.query(
+                select() + " where platform_code=? and rule_status='DRAFT' order by id desc",
+                (rs, row) -> map(rs), platform(platformCode));
+        Map<String, PlatformGuildCompanyShareRuleResponse> latestByGuild = new LinkedHashMap<>();
+        drafts.forEach(draft -> latestByGuild.putIfAbsent(draft.guildId(), draft));
+        return Map.copyOf(latestByGuild);
     }
 
     @Transactional(readOnly = true)
