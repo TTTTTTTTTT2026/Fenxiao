@@ -110,6 +110,28 @@ class McnIncomeRewardCandidateServiceTest {
     }
 
     @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void shouldRemoveStaleTeamReserveWhenARevisedFactIsNoLongerFinal() {
+        Fixture fixture = fixture();
+        var changed = new McnIncomeRewardCandidateService.CandidateInput(
+                "event-1", 2L, "revision-2", DAY, 100L, "guild", "VOIDED",
+                OCCURRED, new BigDecimal("100.000000"), "XXX", "TIMO_DIAMOND");
+        when(fixture.jdbc.query(anyString(), any(RowMapper.class), any(Object[].class))).thenReturn(List.of(changed));
+
+        McnIncomeRewardCandidateSummaryResponse result = fixture.service.refresh("TIMO", DAY);
+
+        assertThat(result.candidateCount()).isZero();
+        assertThat(result.blockedCount()).isEqualTo(1);
+        verify(fixture.jdbc).update(
+                "DELETE FROM mcn_income_team_reward_reserve_fact WHERE source_system=? AND platform_code=? AND business_date=?",
+                "MCN", "TIMO", DAY);
+        verify(fixture.jdbc).update(
+                "DELETE FROM mcn_income_team_reward_reserve_fact WHERE source_system=? AND platform_code=? AND source_event_id=?",
+                "MCN", "TIMO", "event-1");
+        verify(fixture.jdbc, never()).update(contains("INSERT INTO mcn_income_team_reward_reserve_fact"), any(Object[].class));
+    }
+
+    @Test
     void shouldReserveBothCandidateAndBlockedEvidenceForLargerReviewSamples() {
         assertThat(McnIncomeRewardCandidateService.sampleQuota(10, 100, 100)).isEqualTo(5);
         assertThat(McnIncomeRewardCandidateService.sampleQuota(1, 100, 100)).isEqualTo(1);
