@@ -426,7 +426,7 @@ describe('Earnings landing page', () => {
     const markup = renderToStaticMarkup(<App />)
 
     expect(markup).toContain('我的收益')
-    expect(markup).toContain('申请提现')
+    expect(markup).toContain('提现暂未开放')
     expect(markup).toContain('全部记录')
     expect(markup).toContain('主要导航')
     expect(markup).not.toContain('控制台')
@@ -566,19 +566,18 @@ describe('Earnings landing page', () => {
     expect(markup).toContain('二级用户')
     expect(markup).toContain('三级用户')
     expect(markup).toContain('直接邀请奖励')
-    expect(markup).toContain('历史二级佣金（只读）')
-    expect(markup).toContain('历史三级佣金（只读）')
+    expect(markup).toContain('间接邀请奖励')
+    expect(markup).not.toContain('历史三级佣金（只读）')
     expect(markup).not.toContain('三层裂变人数')
   })
 
-  it('renders the payout action and concise empty states', () => {
+  it('renders frozen and unlocked points without enabling withdrawals', () => {
     const markup = renderToStaticMarkup(<App />)
 
-    expect(markup).toContain('可用奖励')
-    expect(markup).toContain('冻结奖励')
-    expect(markup).toContain('申请提现')
-    expect(markup).toContain('提现记录')
-    expect(markup).toContain('还没有提现记录')
+    expect(markup).toContain('已解冻积分')
+    expect(markup).toContain('冻结中')
+    expect(markup).toContain('提现暂未开放')
+    expect(markup).not.toContain('申请提现')
     expect(markup).toContain('还没有收益记录')
     expect(markup).toContain('先去生成邀请码并完成绑定，后续有收益会自动显示在这里。')
     expect(markup).not.toContain('提现只会按可用奖励里的钻石数量生成申请单')
@@ -587,7 +586,7 @@ describe('Earnings landing page', () => {
   it('removes the educational earnings board from the primary journey', () => {
     const markup = renderToStaticMarkup(<App />)
 
-    expect(markup).toContain('可用奖励')
+    expect(markup).toContain('已解冻积分')
     expect(markup).toContain('我的收益')
     expect(markup).not.toContain('你的收益会在这里持续更新')
     expect(markup).not.toContain('邀请码固定不变')
@@ -596,7 +595,7 @@ describe('Earnings landing page', () => {
   it('renders reward activity without a permanent status tutorial', () => {
     const markup = renderToStaticMarkup(<App />)
 
-    expect(markup).toContain('最近奖励动态')
+    expect(markup).toContain('账户流水')
     expect(markup).toContain('全部记录')
     expect(markup).not.toContain('状态说明')
     expect(markup).not.toContain('冻结中：奖励正在等待结算')
@@ -605,9 +604,9 @@ describe('Earnings landing page', () => {
   it('prioritizes balances over explanatory summary cards', () => {
     const markup = renderToStaticMarkup(<App />)
 
-    expect(markup).toContain('可用奖励')
-    expect(markup).toContain('冻结奖励')
-    expect(markup).toContain('累计奖励')
+    expect(markup).toContain('已解冻积分')
+    expect(markup).toContain('冻结中')
+    expect(markup).toContain('账户净额')
     expect(markup).not.toContain('来自你的下线成员累计确认收益。')
   })
 
@@ -616,8 +615,8 @@ describe('Earnings landing page', () => {
 
     expect(markup).toContain('<details>')
     expect(markup).toContain('团队概览')
-    expect(markup).toContain('奖励明细')
-    expect(markup).toContain('提现记录')
+    expect(markup).toContain('账户流水')
+    expect(markup).not.toContain('提现记录')
     expect(markup).not.toContain('冻结中 → 可结算 → 风险冻结')
   })
 

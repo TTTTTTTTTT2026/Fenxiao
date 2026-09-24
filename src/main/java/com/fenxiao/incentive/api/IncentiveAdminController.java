@@ -155,7 +155,8 @@ public class IncentiveAdminController {
                                                  @RequestHeader(value="X-Admin-Session",required=false) String session,
                                                  @RequestParam String platformCode) {
         guard.assertTeamManageAccess(token, session);
-        return Map.of("platformCode", platformCode.toUpperCase(java.util.Locale.ROOT), "refreshedCount", userPoints.refresh(platformCode));
+        throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.GONE,
+                "旧直邀积分口径已停用；正式邀请奖励积分请查询财务管理的用户账户");
     }
 
     @GetMapping("/admin/incentives/user-points/dashboard")
