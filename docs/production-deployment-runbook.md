@@ -1,6 +1,6 @@
 # BANDEIRA 生产发布与回滚 Runbook
 
-> 适用于后台、MCN 收入事实、邀请分成、等级和团队能力的生产发布。本文只描述应用发布与只读验收；它**不是**开启奖励、钱包、提现或付款的授权。
+> 适用于后台、MCN 收入事实、邀请分成、等级和团队能力的生产发布。MCN V2 已单独批准按已核验账号每日同步；本文**不是**开启奖励、钱包、提现或付款的授权。
 
 ## 1. 固定原则
 
@@ -30,13 +30,13 @@
    REWARD_ENGINE_ENABLED=false
    REAL_FINANCE_ENABLED=false
    LIFECYCLE_SHADOW_ONLY=true
-   MCN_INCOME_FACTS_ENABLED=false
+   MCN_INCOME_FACTS_ENABLED=true
    MCN_INCOME_FACTS_CONTROLLED_READ_ONLY_ENABLED=false
    APP_DISTRIBUTION_TEAM_OPERATING_REWARD_ENABLED=false
    APP_DISTRIBUTION_MENTOR_CASH_INCENTIVE_ENABLED=false
    ```
 
-   如需进入 MCN 的受控只读窗口，必须有单独书面批准；仅在批准窗口内调整相应的 MCN 读取开关，窗口结束后立即恢复关闭。任何情况下不得因为本 Runbook 开启真实奖励或资金能力；`REAL_FINANCE_ENABLED` 也必须保持 `false`。
+   `MCN_INCOME_FACTS_ENABLED=true` 仅对应已于 2026-09-24 通过 Timo 账号范围受控对账后批准的 V2 每日收入事实同步；发布时应延续线上现值并核对版本与专用凭据，不得回退到 V1 全平台拉取。若需再次进入 MCN 受控只读联调窗口，须单独批准并在窗口结束后关闭该联调开关。任何情况下不得因为本 Runbook 开启真实奖励或资金能力；`REAL_FINANCE_ENABLED` 必须保持 `false`。
 
 ## 3. 备份与发布包
 
