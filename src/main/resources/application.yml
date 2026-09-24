@@ -40,6 +40,11 @@ fenxiao:
     default-freeze-days: 7
 
 app:
+  invitation-reward:
+    # One UTC-based hold for formal invitation income; independent of legacy reward rules.
+    freeze-days: ${INVITATION_REWARD_FREEZE_DAYS:7}
+    release-cron: ${INVITATION_REWARD_RELEASE_CRON:0 * * * * *}
+    backfill-cron: ${INVITATION_REWARD_BACKFILL_CRON:0 10 10 * * *}
   mcn-income-facts:
     # The V2 reader runs once after MCN's daily income update and is disabled by default.
     sync-cron: ${MCN_INCOME_FACTS_SYNC_CRON:0 15 17 * * *}
@@ -103,7 +108,7 @@ app:
     reward-engine:
       enabled: ${REWARD_ENGINE_ENABLED:false}
       version: ${REWARD_ENGINE_VERSION:BANDEIRA_V1_DIRECT_ONLY}
-    # Rewards, wallets, withdrawal and payment writes require a separate launch decision.
+    # This legacy cash/withdrawal switch remains off. The invitation-points account is separate.
     real-finance:
       enabled: ${REAL_FINANCE_ENABLED:false}
     # Both programmes remain closed until their separate business formulae and launch approvals are complete.

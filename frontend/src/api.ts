@@ -366,6 +366,40 @@ export type DistributionHomeResponse = {
   userGradeCode: string
 }
 
+export type InvitationRewardAccountResponse = {
+  userId: number
+  unit: 'POINT'
+  frozenPoints: number
+  availablePoints: number
+  totalPoints: number
+  cumulativeIncomePoints: number
+  directIncomePoints: number
+  indirectIncomePoints: number
+  withdrawalEnabled: boolean
+  totalRecords: number
+  page: number
+  size: number
+  items: Array<{
+    id: number
+    type: string
+    frozenDelta: number
+    availableDelta: number
+    reason: string
+    recordedAt: string
+    platformCode: string
+    sourceEventId: string
+    rewardLevel: number
+    sourceUserId: number
+    rawDiamonds: number
+    companyShareRate: number
+    companyIncomeDiamonds: number
+    invitationRate: number
+    rewardDiamonds: number
+    pointsPerDiamond: number
+    conversionId: number
+  }>
+}
+
 export type TeamMemberItem = {
   userId: number
   inviteCode: string
@@ -1036,6 +1070,18 @@ export function getDistributionHome(userId: number, accessToken: string) {
     headers: {
       'X-Distribution-Token': accessToken,
     },
+  })
+}
+
+export function getDistributionInvitationAccount(userId: number, accessToken: string, page = 0, size = 20) {
+  return request<InvitationRewardAccountResponse>(`/api/distribution/accounts/${userId}?page=${page}&size=${size}`, {
+    headers: { 'X-Distribution-Token': accessToken },
+  })
+}
+
+export function getAdminInvitationAccount(adminSessionToken: string, userId: number, page = 0, size = 20) {
+  return request<InvitationRewardAccountResponse>(`/admin/invitation-accounts/${userId}?page=${page}&size=${size}`, {
+    headers: { 'X-Admin-Session': adminSessionToken },
   })
 }
 

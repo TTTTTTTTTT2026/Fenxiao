@@ -2,7 +2,6 @@ package com.fenxiao.income.mcn.service;
 
 import com.fenxiao.incentive.service.EffectiveUserQualificationService;
 import com.fenxiao.incentive.service.UserGradeAdminService;
-import com.fenxiao.incentive.service.UserPointFactService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,28 +14,26 @@ import java.util.Set;
 /**
  * Turns accepted MCN evidence into local, reviewable business facts.
  *
- * The sequence is deliberately non-financial: raw evidence -> bound FINAL projection ->
- * company-income invitation calculation -> qualification, points and grades.  It never
- * invokes the legacy reward engine and never creates a wallet, withdrawal, payment or
- * formal reward record.
+ * Accepted FINAL evidence is reconciled to a formal invitation account only after the
+ * company-income calculation. Withdrawal and payment remain separate and disabled.
  */
 @Service
 public class McnIncomeBusinessFactPipeline {
     private final McnIncomeShadowLedgerService ledger;
     private final McnIncomeRewardCandidateService invitations;
+    private final InvitationRewardAccountService invitationAccounts;
     private final EffectiveUserQualificationService effectiveUsers;
-    private final UserPointFactService points;
     private final UserGradeAdminService grades;
 
     public McnIncomeBusinessFactPipeline(McnIncomeShadowLedgerService ledger,
                                          McnIncomeRewardCandidateService invitations,
+                                         InvitationRewardAccountService invitationAccounts,
                                          EffectiveUserQualificationService effectiveUsers,
-                                         UserPointFactService points,
                                          UserGradeAdminService grades) {
         this.ledger = ledger;
         this.invitations = invitations;
+        this.invitationAccounts = invitationAccounts;
         this.effectiveUsers = effectiveUsers;
-        this.points = points;
         this.grades = grades;
     }
 
@@ -46,12 +43,11 @@ public class McnIncomeBusinessFactPipeline {
         businessDates.stream().filter(java.util.Objects::nonNull).sorted(Comparator.naturalOrder()).forEach(date -> {
             ledger.refresh(platform, date);
             invitations.refresh(platform, date);
+            invitationAccounts.reconcile(platform, date);
         });
-        // These functions only derive local eligibility/points/grade facts from BOUND_FINAL MCN
-        // evidence.  Grade refresh may create a Gold team record, but team-profit sharing remains
+        // Grade refresh may create a Gold team record, but team-profit sharing remains
         // governed by its separate, disabled feature flag.
         effectiveUsers.refreshPlatform(platform);
-        points.refresh(platform);
         grades.refreshAllVerifiedUsers();
     }
 

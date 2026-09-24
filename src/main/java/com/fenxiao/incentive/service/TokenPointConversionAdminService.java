@@ -18,7 +18,6 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 import java.util.UUID;
 
 /** Permanent per-platform token-to-points configuration. It is not a point accrual job. */
@@ -48,37 +47,28 @@ public class TokenPointConversionAdminService {
         validate(request);
         LocalDateTime now = LocalDateTime.now(clock);
         TokenPointConversionResponse before = currentSetting(platform);
-        Long targetId = before.id();
-
-        if (targetId == null) {
-            List<Long> drafts = jdbc.query("select id from token_point_conversion_version where platform_code=? and rule_status='DRAFT' order by id desc", (rs, row) -> rs.getLong(1), platform);
-            if (!drafts.isEmpty()) targetId = drafts.getFirst();
-        }
-
-        if (targetId != null) {
-            jdbc.update("update token_point_conversion_version set rule_status='RETIRED',effective_to=coalesce(effective_to,?),updated_at=? where platform_code=? and rule_status='ACTIVE' and id<>?", now, now, platform, targetId);
-            jdbc.update("update token_point_conversion_version set token_unit=?,points_per_token=?,effective_to=null,rule_status='ACTIVE',approved_by=null,approved_at=null,approval_note=null,updated_at=? where id=?", tokenUnit(platform), request.pointsPerToken(), now, targetId);
-        } else {
-            String code = "TPC-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase(Locale.ROOT);
-            KeyHolder keys = new GeneratedKeyHolder();
-            jdbc.update(connection -> {
-                PreparedStatement statement = connection.prepareStatement("insert into token_point_conversion_version(conversion_code,conversion_version,platform_code,token_unit,points_per_token,effective_from,effective_to,rule_status,created_by) values(?,1,?,?,?,?,null,'ACTIVE',?)", new String[]{"id"});
-                statement.setString(1, code); statement.setString(2, platform); statement.setString(3, tokenUnit(platform));
-                statement.setBigDecimal(4, request.pointsPerToken()); statement.setObject(5, now); statement.setLong(6, actor.accountId());
-                return statement;
-            }, keys);
-            targetId = Objects.requireNonNull(keys.getKey()).longValue();
-            jdbc.update("update token_point_conversion_version set rule_status='RETIRED',effective_to=coalesce(effective_to,?),updated_at=? where platform_code=? and rule_status='ACTIVE' and id<>?", now, now, platform, targetId);
-        }
+        // Each saved ratio is immutable: wallet entries keep the exact conversion ID/rate used at posting.
+        jdbc.update("update token_point_conversion_version set rule_status='RETIRED',effective_to=?,updated_at=? where platform_code=? and rule_status='ACTIVE'", now, now, platform);
+        String code = "TPC-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase(Locale.ROOT);
+        KeyHolder keys = new GeneratedKeyHolder();
+        jdbc.update(connection -> {
+            PreparedStatement statement = connection.prepareStatement("insert into token_point_conversion_version(conversion_code,conversion_version,platform_code,token_unit,points_per_token,effective_from,effective_to,rule_status,created_by) values(?,1,?,?,?,?,null,'ACTIVE',?)", new String[]{"id"});
+            statement.setString(1, code); statement.setString(2, platform); statement.setString(3, tokenUnit(platform));
+            statement.setBigDecimal(4, request.pointsPerToken()); statement.setObject(5, now); statement.setLong(6, actor.accountId());
+            return statement;
+        }, keys);
 
         TokenPointConversionResponse updated = currentSetting(platform);
-        audit(actor, Objects.requireNonNull(updated.id()), before, updated);
+        audit(actor, java.util.Objects.requireNonNull(updated.id()), before, updated);
         return updated;
     }
 
     private void validate(TokenPointConversionRequest request) {
         platform(request.platformCode());
-        if (request.pointsPerToken() == null || request.pointsPerToken().compareTo(BigDecimal.ZERO) < 0) throw new IllegalArgumentException("pointsPerToken must not be negative");
+        if (request.pointsPerToken() == null || request.pointsPerToken().compareTo(BigDecimal.ZERO) <= 0 ||
+                request.pointsPerToken().scale() > 6 || request.pointsPerToken().precision() > 18) {
+            throw new IllegalArgumentException("pointsPerToken must be positive with at most six decimals");
+        }
     }
 
     private TokenPointConversionResponse currentSetting(String platform) {
@@ -91,6 +81,6 @@ public class TokenPointConversionAdminService {
     private String platform(String value) { String normalized = required(value, "platformCode").toUpperCase(Locale.ROOT); if (!PLATFORMS.contains(normalized)) throw new IllegalArgumentException("unsupported platform"); return normalized; }
     private String tokenUnit(String platform) { return platform + "_DIAMOND"; }
     private String required(String value, String field) { if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " is required"); return value.trim(); }
-    private void audit(AdminSessionService.AdminPrincipal actor, long id, TokenPointConversionResponse before, TokenPointConversionResponse after) { audits.save(OperationAuditLog.create(actor.accountId(), actor.role(), MODULE, "token_point_conversion", id, "SAVE_PERMANENT_CONFIG", snapshot(before), snapshot(after), null, "保存长期代币积分换算配置；不会追溯记分或改变用户等级", LocalDateTime.now(clock))); }
+    private void audit(AdminSessionService.AdminPrincipal actor, long id, TokenPointConversionResponse before, TokenPointConversionResponse after) { audits.save(OperationAuditLog.create(actor.accountId(), actor.role(), MODULE, "token_point_conversion", id, "SAVE_VERSIONED_CONFIG", snapshot(before), snapshot(after), null, "新换算比例自保存后适用；已入账邀请奖励不重算，未入账的有效事实可补入；不改变用户等级", LocalDateTime.now(clock))); }
     private String snapshot(TokenPointConversionResponse value) { return "platform=" + value.platformCode() + ";unit=" + value.tokenUnit() + ";pointsPerToken=" + value.pointsPerToken() + ";configured=" + value.configured(); }
 }

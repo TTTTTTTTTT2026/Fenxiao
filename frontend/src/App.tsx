@@ -42,7 +42,6 @@ import {
   createAdminSession,
   createAdminAccount,
   createProfile,
-  createWithdrawRequest,
   getAdminAuditLogs,
   getAdminAccounts,
   getAdminDeviceSessions,
@@ -67,17 +66,15 @@ import {
   getAdminOwnership,
   getAdminRelation,
   getAdminRewards,
+  getAdminInvitationAccount,
   getAdminRiskEvents,
   getAdminWithdrawRequests,
   getExperimentDashboard,
   getDistributionHome,
-  getDistributionRewards,
-  getDistributionRewardSummary,
+  getDistributionInvitationAccount,
   getPlatformBinding,
   getVerifiedLinkyAccountBinding,
-  getDistributionTeam,
   getDistributionTeamWeeklyIncome,
-  getWithdrawHistory,
   issuePhoneCode,
   logoutAdminSession,
   logoutAllAdminSessions,
@@ -149,6 +146,7 @@ import {
   type AdminSecurityEventResponse,
   type AuditLogListResponse,
   type DistributionHomeResponse,
+  type InvitationRewardAccountResponse,
   type ExperimentDashboardResponse,
   type GuildConfigRequest,
   type GuildConfigResponse,
@@ -194,15 +192,11 @@ import {
   type ProfileResponse,
   type RelationDetailResponse,
   type RewardListResponse,
-  type RewardSummaryResponse,
   type RiskEventListResponse,
   type SeedInviterResponse,
   type SeedInviterListResponse,
   type UserPlatformProfileListResponse,
-  type TeamListResponse,
   type TeamWeeklyIncomeResponse,
-  type WithdrawHistoryListResponse,
-  type WithdrawRequestResponse,
   verifyPlatformBinding,
 } from './api'
 import {
@@ -253,7 +247,7 @@ type AdminAuthState = {
 type AdminProductKey = 'ALL' | 'LINKY' | 'TIMO'
 type AdminSettingsView = 'experiment' | 'guilds' | 'platforms' | 'incomeControlled' | 'incomeShadow' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification'
 type AdminAccountView = 'security' | 'staff' | 'audit'
-type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'riskQueue' | 'users' | 'platformGuildDirectory' | 'rewards' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'teams' | 'operatingDividends' | 'userGrades' | 'userGradeList' | 'advancedGradeAcceptance' | 'userGradeFacts' | 'tokenPointConversions' | 'accounts' | 'accountManagement' | 'mySecurity' | 'securityRecords' | 'settings' | 'systemExperiment' | 'systemGuilds' | 'systemPlatforms' | 'systemIncomeControlled' | 'systemIncomeShadow' | 'systemMockVerification' | 'systemAdvanced' | 'systemSeedInviter' | 'systemPhoneVerification'
+type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'riskQueue' | 'users' | 'platformGuildDirectory' | 'rewards' | 'userAccounts' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'teams' | 'operatingDividends' | 'userGrades' | 'userGradeList' | 'advancedGradeAcceptance' | 'userGradeFacts' | 'tokenPointConversions' | 'accounts' | 'accountManagement' | 'mySecurity' | 'securityRecords' | 'settings' | 'systemExperiment' | 'systemGuilds' | 'systemPlatforms' | 'systemIncomeControlled' | 'systemIncomeShadow' | 'systemMockVerification' | 'systemAdvanced' | 'systemSeedInviter' | 'systemPhoneVerification'
 type RiskActionName = 'HANDLE' | 'IGNORE' | 'FREEZE_USER' | 'UNFREEZE_USER'
 type WithdrawActionName = 'approve' | 'reject' | 'paid' | 'failed' | 'reverse'
 type WithdrawQuery = { userId: string; status: string; page: string; size: string }
@@ -270,6 +264,7 @@ const ADMIN_SECTION_HASHES: Record<AdminSectionKey, string> = {
   users: '#admin-users',
   platformGuildDirectory: '#admin-platform-guild-directory',
   rewards: '#admin-rewards',
+  userAccounts: '#admin-user-accounts',
   commissionPolicies: '#admin-commission-policies',
   mentorDirectory: '#admin-mentors',
   mentorIncentives: '#admin-mentor-incentives',
@@ -320,8 +315,8 @@ const SYSTEM_CONFIG_SECTION_VIEWS: Partial<Record<AdminSectionKey, AdminSettings
 
 function getVisibleFinanceSections(role?: string): AdminSectionKey[] {
   const normalizedRole = role?.toLowerCase()
-  if (normalizedRole === 'super_admin' || normalizedRole === 'admin' || !normalizedRole) return ['rewards', 'commissionPolicies', 'tokenPointConversions']
-  if (normalizedRole === 'finance') return ['rewards', 'commissionPolicies']
+  if (normalizedRole === 'super_admin' || normalizedRole === 'admin' || !normalizedRole) return ['rewards', 'userAccounts', 'commissionPolicies', 'tokenPointConversions']
+  if (normalizedRole === 'finance') return ['rewards', 'userAccounts', 'commissionPolicies']
   if (normalizedRole === 'operations') return ['tokenPointConversions']
   return []
 }
@@ -532,6 +527,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [adminWithdrawActionMessage, setAdminWithdrawActionMessage] = useState('')
   const [pendingWithdrawAction, setPendingWithdrawAction] = useState<PendingWithdrawAction | null>(null)
   const [adminFinanceView, setAdminFinanceView] = useState<'withdrawals' | 'rewards'>('withdrawals')
+  const [accountSearchUserId, setAccountSearchUserId] = useState('')
+  const [adminInvitationAccount, setAdminInvitationAccount] = useState<InvitationRewardAccountResponse | null>(null)
   const [selectedWithdrawRequestNo, setSelectedWithdrawRequestNo] = useState<string | null>(null)
   const [selectedWithdrawRequestNos, setSelectedWithdrawRequestNos] = useState<string[]>([])
   const [withdrawViews, setWithdrawViews] = useState(() => loadJsonState<NamedFilterView<WithdrawQuery>[]>(ADMIN_WITHDRAW_VIEWS_KEY) || [])
@@ -740,7 +737,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const isSystemConfigSection = activeAdminSection === 'settings' || currentSettingsView !== null
   const currentAccountView = SYSTEM_MANAGEMENT_SECTION_VIEWS[activeAdminSection] ?? (activeAdminSection === 'accounts' ? 'security' : null)
   const isSystemManagementSection = activeAdminSection === 'accounts' || currentAccountView !== null
-  const isFinanceManagementSection = ['rewards', 'commissionPolicies', 'tokenPointConversions'].includes(activeAdminSection)
+  const isFinanceManagementSection = ['rewards', 'userAccounts', 'commissionPolicies', 'tokenPointConversions'].includes(activeAdminSection)
   const showingProductSpecificDiagnostics = adminProduct === 'LINKY'
   const channelEntryLinks = useMemo(
     () => buildChannelEntryLinks(channelEntryForm.origin, {
@@ -894,6 +891,22 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
       setHasQueriedAdminRewards(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载奖励列表失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function loadAdminInvitationAccount(page = 0) {
+    if (!adminSession) return
+    const userId = Number(accountSearchUserId.trim())
+    if (!Number.isSafeInteger(userId) || userId <= 0) { setError('请输入有效的用户 ID'); return }
+    setLoading(true)
+    setError('')
+    try {
+      setAdminInvitationAccount(await getAdminInvitationAccount(adminSession.sessionToken, userId, page, 20))
+    } catch (err) {
+      setAdminInvitationAccount(null)
+      setError(err instanceof Error ? err.message : '查询用户账户失败')
     } finally {
       setLoading(false)
     }
@@ -2856,6 +2869,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               </button>
               {isFinanceManagementNavOpen ? <div className="admin-nav-submenu" aria-label="财务管理子菜单">
                 {visibleFinanceSections.includes('rewards') ? <a className={`admin-nav-subitem ${activeAdminSection === 'rewards' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.rewards}>收益提现</a> : null}
+                {visibleFinanceSections.includes('userAccounts') ? <a className={`admin-nav-subitem ${activeAdminSection === 'userAccounts' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.userAccounts}>用户账户</a> : null}
                 {visibleFinanceSections.includes('commissionPolicies') ? <a className={`admin-nav-subitem ${activeAdminSection === 'commissionPolicies' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.commissionPolicies} onClick={() => { if (!commissionPolicies) void loadCommissionPolicies() }}>邀请裂变分成</a> : null}
                 {visibleFinanceSections.includes('tokenPointConversions') ? <a className={`admin-nav-subitem ${activeAdminSection === 'tokenPointConversions' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.tokenPointConversions} onClick={() => { if (!tokenPointConversionDashboard) void loadTokenPointConversionDashboard() }}>代币积分兑换</a> : null}
               </div> : null}
@@ -3204,8 +3218,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   <InlineHint text="例如填写 0.2，表示该应用每 1 平台代币可兑换 0.2 积分。不同应用必须分别设置，不能把其原始代币直接相加。" />
                 </InfoCard>
                 <InfoCard title="原始代币单位与积分换算" tone="neutral">
-                  {tokenPointConversionDashboard ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>应用</th><th>原始收入代币单位</th><th>每 1 代币兑换积分</th><th>配置状态</th><th>操作</th></tr></thead><tbody>{tokenPointConversionDashboard.conversions.map((conversion) => <tr key={conversion.platformCode}><td>{conversion.platformCode}</td><td>{conversion.tokenUnit}</td><td><input aria-label={`${conversion.platformCode} 每 1 代币兑换积分`} required min="0" step="0.000001" inputMode="decimal" value={tokenPointConversionValues[conversion.platformCode] ?? ''} onChange={(event) => setTokenPointConversionValues({ ...tokenPointConversionValues, [conversion.platformCode]: event.target.value })} placeholder="例如：0.2" /></td><td>{conversion.configured ? '已配置（长期有效）' : '尚未配置'}</td><td><button className="primary-btn small-btn" onClick={() => requestSaveTokenPointConversion(conversion.platformCode, conversion.tokenUnit)} disabled={loading}>保存</button></td></tr>)}</tbody></table></div> : <EmptyState title="尚未读取换算配置" description="点击“刷新数据”读取 Timo 与 Linky 的原始代币单位。" />}
-                  <InlineHint text="无需设置起始或结束时间。保存前会再次展示本次换算比例供确认；保存后成为该应用唯一的长期配置，并保留操作审计。" />
+                  {tokenPointConversionDashboard ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>应用</th><th>原始收入代币单位</th><th>每 1 代币兑换积分</th><th>配置状态</th><th>操作</th></tr></thead><tbody>{tokenPointConversionDashboard.conversions.map((conversion) => <tr key={conversion.platformCode}><td>{conversion.platformCode}</td><td>{conversion.tokenUnit}</td><td><input aria-label={`${conversion.platformCode} 每 1 代币兑换积分`} required min="0.000001" step="0.000001" inputMode="decimal" value={tokenPointConversionValues[conversion.platformCode] ?? ''} onChange={(event) => setTokenPointConversionValues({ ...tokenPointConversionValues, [conversion.platformCode]: event.target.value })} placeholder="例如：0.2" /></td><td>{conversion.configured ? '已配置（长期有效）' : '尚未配置'}</td><td><button className="primary-btn small-btn" onClick={() => requestSaveTokenPointConversion(conversion.platformCode, conversion.tokenUnit)} disabled={loading}>保存</button></td></tr>)}</tbody></table></div> : <EmptyState title="尚未读取换算配置" description="点击“刷新数据”读取 Timo 与 Linky 的原始代币单位。" />}
+                  <InlineHint text="系统先计算公司业务收入与直邀／间邀奖励，再按来源平台的换算比例将邀请奖励钻石折算为钱包积分。每次保存生成新版本；已入账事实不重算，未入账的有效事实将按新比例补入。" />
                 </InfoCard>
               </div>
             </PanelSection>
@@ -3247,14 +3261,14 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   <div className="action-row">
                     <label>来源平台<select value={userPointPlatform} onChange={(event) => { const platform = event.target.value as 'TIMO' | 'LINKY'; setUserPointPlatform(platform); setUserPointDashboard(null); void loadUserPointDashboard(platform) }}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label>
                     <button className="ghost-btn" onClick={() => void loadUserPointDashboard()} disabled={loading}>读取积分事实</button>
-                    <button className="primary-btn" onClick={() => void refreshUserPointFacts()} disabled={loading}>按本地定稿收入刷新</button>
+                    <button className="primary-btn" onClick={() => void refreshUserPointFacts()} disabled>旧口径已停用</button>
                   </div>
                   {userPointDashboard ? <>
                     <div className="relation-grid top-gap"><RelationItem label="已累计积分事实" value={userPointDashboard.accruedFactCount} /><RelationItem label="暂无法记分" value={userPointDashboard.blockedFactCount} /><RelationItem label="证据已撤销" value={userPointDashboard.revokedFactCount} /><RelationItem label="本平台累计积分" value={userPointDashboard.accruedPointTotal.toFixed(6)} /></div>
-                    <InlineHint text="只取下级用户在收入发生时的直接邀请关系及本地 BOUND_FINAL 收入；积分基数是平台原始可结算代币金额。换算比例和邀请关系均保存快照，换算变更不会倒算历史积分。当前七级等级仍以已确认的有效直邀人数与高级经营验收为唯一升级口径，本积分事实不自动升级或任命团队负责人。" />
+                    <InlineHint text="此处仅供查阅历史直邀积分事实，原始收入直接换算的旧口径已停用，不会进入新用户账户。正式邀请奖励积分请在财务管理 → 用户账户查询。等级仍按有效直邀人数和高级经营验收判断。" />
                     {userPointDashboard.topBalances.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>邀请人用户</th><th>累计积分（跨平台）</th><th>有效积分事实</th><th>最近下级收入</th></tr></thead><tbody>{userPointDashboard.topBalances.map((balance) => <tr key={balance.userId}><td>{balance.userId}</td><td>{balance.totalPoints.toFixed(6)}</td><td>{balance.accruedFactCount}</td><td>{formatDateTime(balance.latestIncomeAt ?? undefined)}</td></tr>)}</tbody></table></div> : <EmptyState title="尚无可累计积分" description="需先为该平台保存代币积分换算，并存在已绑定、已定稿且具有直接邀请人的收入事实。" />}
                     {userPointDashboard.recentFacts.length ? <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>收入事实</th><th>下级 / 邀请人</th><th>原始收入</th><th>换算比例</th><th>积分</th><th>状态</th><th>依据</th></tr></thead><tbody>{userPointDashboard.recentFacts.map((fact) => <tr key={`${fact.platformCode}-${fact.sourceEventId}`}><td>{fact.sourceEventId}<small className="table-subtle">{formatDateTime(fact.occurredAt)}</small></td><td>{fact.sourceUserId ?? '—'} / {fact.beneficiaryUserId ?? '—'}</td><td>{fact.sourceAmount} {fact.tokenUnit}</td><td>{fact.pointsPerToken ?? '—'}</td><td>{fact.pointAmount ?? '—'}</td><td>{fact.factStatus}</td><td>{fact.decisionReason}</td></tr>)}</tbody></table></div> : null}
-                  </> : <EmptyState title="尚未读取积分事实" description="选择平台后读取，或按本地已定稿收入刷新。该操作不会请求 MCN。" />}
+                  </> : <EmptyState title="尚未读取历史积分事实" description="此处只读历史数据；新邀请奖励积分以用户账户为准。" />}
                 </InfoCard> : null}
                 {activeAdminSection === 'advancedGradeAcceptance' ? <InfoCard title="铂金：30 天培养与经营验收" tone="neutral">
                   <p>当前仅开放铂金验收。建立记录后，系统自动观察 30 天：候选人至少培养两名直属银牌成员；每名银牌成员的直属下线，在观察期最后 7 天内至少有 5 人分别在 3 个不同日期产生本人真实、可结算的聊天业务收入，即视为该银牌成员通过。系统不创建“经营小组”或额外虚拟关系。钻石、黑金待业务进入对应阶段后再启用。</p>
@@ -3671,11 +3685,30 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               </PanelSection>
           ) : null}
 
+          {activeAdminSection === 'userAccounts' ? (
+            <PanelSection sectionId="admin-user-accounts" eyebrow="Invitation income" title="用户账户" description="按准确用户 ID 查询邀请奖励积分；不展示平台账号，提现与付款均未开放。">
+              <form className="admin-filter-bar" onSubmit={(event) => { event.preventDefault(); void loadAdminInvitationAccount(0) }}>
+                <label>用户 ID<input inputMode="numeric" value={accountSearchUserId} onChange={(event) => { setAccountSearchUserId(event.target.value); setAdminInvitationAccount(null) }} placeholder="输入用户 ID 后查询" /></label>
+                <button className="primary-btn small-btn" type="submit" disabled={loading}>查询账户</button>
+              </form>
+              {adminInvitationAccount ? <>
+                <div className="relation-grid top-gap">
+                  <div className="relation-item"><span>冻结中</span><strong>{formatMoney(adminInvitationAccount.frozenPoints)} 积分</strong></div>
+                  <div className="relation-item"><span>已解冻积分</span><strong>{formatMoney(adminInvitationAccount.availablePoints)} 积分</strong></div>
+                  <div className="relation-item"><span>账户净额</span><strong>{formatMoney(adminInvitationAccount.totalPoints)} 积分</strong></div>
+                  <div className="relation-item"><span>累计邀请奖励收入</span><strong>{formatMoney(adminInvitationAccount.cumulativeIncomePoints)} 积分</strong></div>
+                </div>
+                <InlineHint text="已解冻不代表当前可以提现。流水包括邀请奖励入账、MCN 修订冲正与到期解冻；Timo／Linky 原始钻石分开留痕。" />
+                <div className="admin-table-wrap top-gap"><table className="admin-table"><thead><tr><th>时间 UTC</th><th>类型 / 原因</th><th>平台 / 层级</th><th>来源用户</th><th>原始钻石</th><th>公司比例</th><th>公司收入</th><th>邀请比例</th><th>邀请奖励钻石</th><th>换算率</th><th>冻结变动</th><th>已解冻变动</th><th>收入事实编号</th></tr></thead><tbody>{adminInvitationAccount.items.map((flow) => <tr key={flow.id}><td>{formatDateTime(flow.recordedAt)}</td><td>{flow.type}<small className="table-subtle">{flow.reason}</small></td><td>{flow.platformCode} / {flow.rewardLevel}</td><td>{flow.sourceUserId}</td><td>{flow.rawDiamonds}</td><td>{(flow.companyShareRate * 100).toFixed(2)}%</td><td>{flow.companyIncomeDiamonds}</td><td>{(flow.invitationRate * 100).toFixed(2)}%</td><td>{flow.rewardDiamonds}</td><td>{flow.pointsPerDiamond}</td><td>{flow.frozenDelta}</td><td>{flow.availableDelta}</td><td>{flow.sourceEventId}</td></tr>)}</tbody></table></div>
+                <div className="table-toolbar compact-toolbar"><span>共 {adminInvitationAccount.totalRecords} 条</span><button className="ghost-btn small-btn" onClick={() => void loadAdminInvitationAccount(adminInvitationAccount.page - 1)} disabled={loading || adminInvitationAccount.page === 0}>上一页</button><button className="ghost-btn small-btn" onClick={() => void loadAdminInvitationAccount(adminInvitationAccount.page + 1)} disabled={loading || (adminInvitationAccount.page + 1) * adminInvitationAccount.size >= adminInvitationAccount.totalRecords}>下一页</button></div>
+              </> : <EmptyState title="尚未查询用户账户" description="输入用户 ID 后再加载账户与流水。" />}
+            </PanelSection>
+          ) : null}
+
           {activeAdminSection === 'rewards' ? (
               <div className="admin-finance-workbench">
                 <div className="admin-view-tabs" role="tablist" aria-label="收益与提现分类">
                   <button className={adminFinanceView === 'withdrawals' ? 'is-active' : ''} onClick={() => setAdminFinanceView('withdrawals')} role="tab" aria-selected={adminFinanceView === 'withdrawals'}>提现审核</button>
-                  <button className={adminFinanceView === 'rewards' ? 'is-active' : ''} onClick={() => setAdminFinanceView('rewards')} role="tab" aria-selected={adminFinanceView === 'rewards'}>奖励流水</button>
                 </div>
                 {adminFinanceView === 'rewards' ? (
                 <PanelSection
@@ -6490,19 +6523,21 @@ function EarningsPage() {
   const [session, setSession] = useState<SessionState | null>(() => loadJsonState<SessionState>(STORAGE_KEY))
   const [locale, setLocale] = useState<keyof typeof externalPageCopyByLocale>(() => loadExternalLocale())
   const [home, setHome] = useState<DistributionHomeResponse | null>(null)
-  const [team, setTeam] = useState<TeamListResponse | null>(null)
   const [teamWeeklyIncome, setTeamWeeklyIncome] = useState<TeamWeeklyIncomeResponse | null>(null)
-  const [rewards, setRewards] = useState<RewardListResponse | null>(null)
-  const [rewardSummary, setRewardSummary] = useState<RewardSummaryResponse | null>(null)
-  const [withdrawRequest, setWithdrawRequest] = useState<WithdrawRequestResponse | null>(null)
-  const [withdrawHistory, setWithdrawHistory] = useState<WithdrawHistoryListResponse | null>(null)
+  const [wallet, setWallet] = useState<InvitationRewardAccountResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [successMessage, setSuccessMessage] = useState('')
   const [showBalance, setShowBalance] = useState(true)
   const [teamDetailsOpen, setTeamDetailsOpen] = useState(false)
   const [rewardDetailsOpen, setRewardDetailsOpen] = useState(false)
   const copy = externalPageCopyByLocale[locale]
+  const walletCopy = {
+    zh: { available: '已解冻积分', frozen: '冻结中', total: '账户净额', withdraw: '提现暂未开放', income: '邀请奖励', direct: '直接邀请奖励', indirect: '间接邀请奖励', release: '到期解冻', revision: '收入修订', records: '账户流水', sourceUser: '来自用户' },
+    en: { available: 'Unlocked points', frozen: 'Frozen', total: 'Account balance', withdraw: 'Withdrawals unavailable', income: 'Invitation income', direct: 'Direct invitation income', indirect: 'Indirect invitation income', release: 'Unlocked', revision: 'Income adjustment', records: 'Account activity', sourceUser: 'From user' },
+    es: { available: 'Puntos liberados', frozen: 'Congelados', total: 'Saldo de cuenta', withdraw: 'Retiros no disponibles', income: 'Ingreso por invitación', direct: 'Invitación directa', indirect: 'Invitación indirecta', release: 'Liberados', revision: 'Ajuste de ingresos', records: 'Movimientos', sourceUser: 'Del usuario' },
+    id: { available: 'Poin tersedia', frozen: 'Dibekukan', total: 'Saldo akun', withdraw: 'Penarikan belum tersedia', income: 'Pendapatan undangan', direct: 'Undangan langsung', indirect: 'Undangan tidak langsung', release: 'Dibuka', revision: 'Penyesuaian pendapatan', records: 'Riwayat akun', sourceUser: 'Dari pengguna' },
+    pt: { available: 'Pontos liberados', frozen: 'Congelados', total: 'Saldo da conta', withdraw: 'Saques indisponíveis', income: 'Receita por convite', direct: 'Convite direto', indirect: 'Convite indireto', release: 'Liberados', revision: 'Ajuste de receita', records: 'Movimentações', sourceUser: 'Do usuário' },
+  }[locale]
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -6516,20 +6551,14 @@ function EarningsPage() {
       setLoading(true)
       setError('')
       try {
-        const [homeData, teamData, teamWeeklyIncomeData, rewardData, rewardSummaryData, withdrawHistoryData] = await Promise.all([
+        const [homeData, teamWeeklyIncomeData, walletData] = await Promise.all([
           getDistributionHome(session.userId, session.accessToken),
-          getDistributionTeam(session.userId, session.accessToken),
           getDistributionTeamWeeklyIncome(session.userId, session.accessToken),
-          getDistributionRewards(session.userId, session.accessToken),
-          getDistributionRewardSummary(session.userId, session.accessToken),
-          getWithdrawHistory(session.userId, session.accessToken, { page: 0, size: 10 }),
+          getDistributionInvitationAccount(session.userId, session.accessToken),
         ])
         setHome(homeData)
-        setTeam(teamData)
         setTeamWeeklyIncome(teamWeeklyIncomeData)
-        setRewards(rewardData)
-        setRewardSummary(rewardSummaryData)
-        setWithdrawHistory(withdrawHistoryData)
+        setWallet(walletData)
       } catch (err) {
         const message = err instanceof Error ? err.message : '加载收益失败'
         if (/access denied|unauthorized|session/i.test(message)) {
@@ -6547,49 +6576,24 @@ function EarningsPage() {
     void loadData()
   }, [session])
 
-  async function handleCreateWithdrawRequest() {
-    if (!session) return
+  async function loadMoreWallet() {
+    if (!session || !wallet || wallet.items.length >= wallet.totalRecords) return
     setLoading(true)
     setError('')
-    setSuccessMessage('')
     try {
-      const request = await createWithdrawRequest(session.userId, session.accessToken)
-      setWithdrawRequest(request)
-      setSuccessMessage(`提现申请已提交，申请单号 ${request.requestNo}，本次申请钻石 ${request.requestedDiamondAmount}。`)
-      const [homeData, rewardData, withdrawHistoryData] = await Promise.all([
-        getDistributionHome(session.userId, session.accessToken),
-        getDistributionRewards(session.userId, session.accessToken),
-        getWithdrawHistory(session.userId, session.accessToken, { page: 0, size: 10 }),
-      ])
-      setHome(homeData)
-      setRewards(rewardData)
-      setWithdrawHistory(withdrawHistoryData)
+      const next = await getDistributionInvitationAccount(session.userId, session.accessToken, wallet.page + 1, wallet.size)
+      setWallet({ ...next, items: [...wallet.items, ...next.items] })
     } catch (err) {
-      setError(err instanceof Error ? err.message : '发起提现申请失败')
+      setError(err instanceof Error ? err.message : '加载账户流水失败')
     } finally {
       setLoading(false)
     }
   }
 
-  function getRewardStatusLabel(status?: string) {
-    if (status === 'FROZEN') return copy.rewardStatusFrozen
-    if (status === 'AVAILABLE') return copy.rewardStatusAvailable
-    if (status === 'RISK_HOLD') return copy.rewardStatusRiskHold
-    return copy.rewardStatusDefault
-  }
-
-  const inviteeIncome = team?.items.reduce((sum, item) => sum + item.confirmedIncomeTotal, 0) ?? 0
-  const myCommission = rewards?.items.reduce((sum, item) => sum + item.rewardAmount, 0) ?? 0
-  const rewardItems = rewards?.items ?? []
-  const rewardTierSummary = rewardSummary?.tiers ?? []
-  const tierSummaryByLevel = new Map(rewardTierSummary.map((tier) => [tier.rewardLevel, tier]))
+  const rewardItems = wallet?.items ?? []
 
   function getRewardActivityTitle(level?: number | null) {
-    if (locale !== 'zh') return formatBusinessRewardLevel(level, locale)
-    if (level === 1) return '直接邀请奖励'
-    if (level === 2) return '历史二级佣金（只读）'
-    if (level === 3) return '历史三级佣金（只读）'
-    return '历史层级佣金（只读）'
+    return level === 1 ? walletCopy.direct : walletCopy.indirect
   }
 
   function formatRewardDate(value?: string) {
@@ -6602,9 +6606,9 @@ function EarningsPage() {
     }).format(date)
   }
 
-  const availableReward = home?.availableReward ?? 0
-  const totalReward = home?.totalReward ?? myCommission
-  const frozenReward = home?.frozenReward ?? 0
+  const availableReward = wallet?.availablePoints ?? 0
+  const totalReward = wallet?.totalPoints ?? 0
+  const frozenReward = wallet?.frozenPoints ?? 0
   const effectiveUsersThisView = home?.effectiveUsers ?? 0
   const growthTarget = 10
   const growthProgress = Math.min(100, Math.round((effectiveUsersThisView / growthTarget) * 100))
@@ -6630,7 +6634,6 @@ function EarningsPage() {
         </header>
 
         {error ? <div className="consumer-banner is-error" role="alert">{error}</div> : null}
-        {!error && successMessage ? <div className="consumer-banner is-success" role="status">{successMessage}</div> : null}
 
         {!session ? (
           <section className="consumer-auth-gate">
@@ -6649,39 +6652,36 @@ function EarningsPage() {
               <span className="consumer-home-avatar"><User weight="fill" aria-hidden="true" /></span>
               <div>
                 <strong>{locale === 'zh' ? '早上好，伙伴！' : copy.earningsTitle}</strong>
-                <span>{locale === 'zh' ? '每一次有效邀请，都在积累你的奖励。' : copy.earningsSubtitle}</span>
+                <span>{locale === 'zh' ? '每一次有效邀请，都在积累你的收入。' : copy.earningsSubtitle}</span>
               </div>
               <a className="consumer-notification-link" href="#all-rewards" aria-label="查看奖励记录"><Bell weight="regular" aria-hidden="true" /><i /></a>
             </div>
 
-            <section className="consumer-balance-card" aria-label={copy.availableReward}>
+            <section className="consumer-balance-card" aria-label={walletCopy.available}>
               <div className="consumer-balance-top">
                 <div className="consumer-balance-label">
-                  <span>{copy.availableReward}</span>
+                  <span>{walletCopy.available}</span>
                   <button type="button" className="consumer-icon-button" onClick={() => setShowBalance((value) => !value)} aria-label={showBalance ? '隐藏余额' : '显示余额'}>
                     {showBalance ? <Eye weight="regular" aria-hidden="true" /> : <EyeSlash weight="regular" aria-hidden="true" />}
                   </button>
                 </div>
-                <button className="consumer-hero-withdraw" type="button" onClick={handleCreateWithdrawRequest} disabled={loading || availableReward <= 0}>
-                  {loading ? '处理中…' : '申请提现'}<CaretRight weight="bold" aria-hidden="true" />
-                </button>
+                <span className="consumer-hero-withdraw" aria-disabled="true">{walletCopy.withdraw}</span>
               </div>
               <div className="consumer-balance-value">
-                <Diamond weight="fill" aria-hidden="true" />
-                <strong>{showBalance ? formatMoney(availableReward) : '••••••'}</strong>
+                <strong>{showBalance ? formatMoney(availableReward) : '••••••'} {locale === 'zh' ? '积分' : 'points'}</strong>
               </div>
               <div className="consumer-balance-metrics">
                 <div>
-                  <span>{copy.frozenReward}</span>
+                  <span>{walletCopy.frozen}</span>
                   <strong>{showBalance ? formatMoney(frozenReward) : '••••'}</strong>
                 </div>
                 <div>
-                  <span>{copy.totalReward}</span>
+                  <span>{walletCopy.total}</span>
                   <strong>{showBalance ? formatMoney(totalReward) : '••••'}</strong>
                 </div>
                 <div>
-                  <span>{copy.inviteeIncome}</span>
-                  <strong>{showBalance ? formatMoney(inviteeIncome) : '••••'}</strong>
+                  <span>{walletCopy.income}</span>
+                  <strong>{showBalance ? formatMoney(wallet?.cumulativeIncomePoints) : '••••'}</strong>
                 </div>
                 <div>
                   <span>{copy.effectiveUsers}</span>
@@ -6705,8 +6705,8 @@ function EarningsPage() {
               <CaretRight weight="bold" aria-hidden="true" />
               <span className="consumer-team-summary-grid">
                 <span><small>已邀请用户</small><strong>{home?.directInvitedUsers ?? 0}</strong></span>
-                <span><small>下线确认收益</small><strong>{formatMoney(inviteeIncome)}</strong></span>
-                <span><small>我的累计奖励</small><strong>{formatMoney(totalReward)}</strong></span>
+                <span><small>{walletCopy.income}</small><strong>{formatMoney(wallet?.cumulativeIncomePoints)} {locale === 'zh' ? '积分' : 'points'}</strong></span>
+                <span><small>{walletCopy.total}</small><strong>{formatMoney(totalReward)} {locale === 'zh' ? '积分' : 'points'}</strong></span>
               </span>
             </button>
 
@@ -6720,13 +6720,13 @@ function EarningsPage() {
                 <a href="/invite"><span className="is-orange"><UserPlus weight="fill" /></span><div><strong>邀请新用户</strong><small>当前已邀请 {home?.directInvitedUsers ?? 0} 人</small></div><b>去邀请</b></a>
                 <a href="/account"><span className="is-pink"><LinkSimple weight="bold" /></span><div><strong>完成平台绑定</strong><small>登记并验证 Timo / Linky ID</small></div><b>去绑定</b></a>
                 <button type="button" onClick={() => setTeamDetailsOpen(true)}><span className="is-green"><UsersThree weight="fill" /></span><div><strong>跟进有效用户</strong><small>本期有效用户 {effectiveUsersThisView} 人</small></div><b>查看团队</b></button>
-                <button type="button" onClick={() => setRewardDetailsOpen(true)}><span className="is-purple"><Sparkle weight="fill" /></span><div><strong>查看奖励记录</strong><small>当前共 {rewardItems.length} 笔奖励</small></div><b>查看记录</b></button>
+                <button type="button" onClick={() => setRewardDetailsOpen(true)}><span className="is-purple"><Sparkle weight="fill" /></span><div><strong>{walletCopy.records}</strong><small>{wallet?.totalRecords ?? 0} 条</small></div><b>查看记录</b></button>
               </div>
             </section>
 
             <section className="consumer-activity-section">
               <div className="consumer-section-head">
-                <h2>{copy.rewardActivityTitle}</h2>
+                <h2>{walletCopy.records}</h2>
                 <button type="button" onClick={() => setRewardDetailsOpen(true)}>{locale === 'zh' ? '全部记录' : copy.rewardRecords}<CaretRight weight="bold" aria-hidden="true" /></button>
               </div>
 
@@ -6736,20 +6736,21 @@ function EarningsPage() {
                 </div>
               ) : rewardItems.length ? (
                 <div className="consumer-activity-list">
-                  {rewardItems.slice(0, 3).map((item, index) => {
-                    const isAvailable = item.rewardStatus === 'AVAILABLE'
+                  {rewardItems.slice(0, 3).map((item) => {
+                    const isAvailable = item.type === 'UNFREEZE'
+                    const amount = item.type === 'UNFREEZE' ? item.availableDelta : item.frozenDelta + item.availableDelta
                     return (
-                      <article className="consumer-activity-row" key={`${item.sourceUserId}-${item.calculatedAt}-${index}`}>
+                      <article className="consumer-activity-row" key={item.id}>
                         <span className={`consumer-activity-icon ${isAvailable ? 'is-available' : 'is-frozen'}`}>
                           {isAvailable ? <CheckCircle weight="fill" aria-hidden="true" /> : <LockSimple weight="fill" aria-hidden="true" />}
                         </span>
                         <div className="consumer-activity-copy">
-                          <strong>{getRewardActivityTitle(item.rewardLevel)}</strong>
-                          <span>{locale === 'zh' ? '来自用户' : copy.inviteeIncome} #{item.sourceUserId}</span>
+                          <strong>{item.type === 'UNFREEZE' ? walletCopy.release : item.type === 'MCN_REVISION' ? walletCopy.revision : getRewardActivityTitle(item.rewardLevel)}</strong>
+                          <span>{item.platformCode} · {walletCopy.sourceUser} #{item.sourceUserId}</span>
                         </div>
                         <div className={`consumer-activity-amount ${isAvailable ? 'is-available' : 'is-frozen'}`}>
-                          <strong>+ {formatMoney(item.rewardAmount)}</strong>
-                          <span>{getRewardStatusLabel(item.rewardStatus)} · {formatRewardDate(item.calculatedAt)}</span>
+                          <strong>{amount > 0 ? '+' : ''}{formatMoney(amount)} {locale === 'zh' ? '积分' : 'points'}</strong>
+                          <span>{item.type === 'UNFREEZE' ? walletCopy.available : item.type === 'MCN_REVISION' ? walletCopy.revision : walletCopy.frozen} · {formatRewardDate(item.recordedAt)}</span>
                         </div>
                       </article>
                     )
@@ -6775,25 +6776,18 @@ function EarningsPage() {
                 </div>
               </details>
               <details id="all-rewards" open={rewardDetailsOpen} onToggle={(event) => setRewardDetailsOpen(event.currentTarget.open)}>
-                <summary><span>奖励明细</span><strong>{rewardItems.length} 笔</strong></summary>
+                <summary><span>{walletCopy.records}</span><strong>{wallet?.totalRecords ?? 0} 条</strong></summary>
                 <div className="consumer-detail-grid">
-                  {[1, 2, 3].map((level) => {
-                    const tier = tierSummaryByLevel.get(level)
-                    return <div key={level}><span>{tier?.businessLevelLabel || formatBusinessRewardLevel(level, locale)}</span><strong>{formatMoney(tier?.rewardAmount)}</strong></div>
-                  })}
-                  <div><span>{copy.inviteeIncome}</span><strong>{formatMoney(inviteeIncome)}</strong></div>
+                  <div><span>{walletCopy.income}</span><strong>{formatMoney(wallet?.cumulativeIncomePoints)} {locale === 'zh' ? '积分' : 'points'}</strong></div>
+                  <div><span>{walletCopy.direct}</span><strong>{formatMoney(wallet?.directIncomePoints)} {locale === 'zh' ? '积分' : 'points'}</strong></div>
+                  <div><span>{walletCopy.indirect}</span><strong>{formatMoney(wallet?.indirectIncomePoints)} {locale === 'zh' ? '积分' : 'points'}</strong></div>
+                  <div><span>{walletCopy.frozen}</span><strong>{formatMoney(frozenReward)} {locale === 'zh' ? '积分' : 'points'}</strong></div>
+                  <div><span>{walletCopy.available}</span><strong>{formatMoney(availableReward)} {locale === 'zh' ? '积分' : 'points'}</strong></div>
                 </div>
-              </details>
-              <details>
-                <summary><span>提现记录</span><strong>{withdrawHistory?.total ?? 0} 条</strong></summary>
-                {withdrawRequest ? <p className="consumer-detail-note">最近申请 {withdrawRequest.requestNo} · {withdrawRequest.requestedDiamondAmount} 钻石</p> : null}
-                {withdrawHistory?.items?.length ? (
-                  <div className="consumer-withdraw-list">
-                    {withdrawHistory.items.slice(0, 5).map((item) => (
-                      <div key={item.requestNo}><span>{item.requestNo}<small>{formatRewardDate(item.requestedAt)}</small></span><strong>{item.requestedDiamondAmount} · {item.requestStatus}</strong></div>
-                    ))}
-                  </div>
-                ) : <p className="consumer-detail-note">还没有提现记录。</p>}
+                {rewardItems.length ? <div className="consumer-withdraw-list">
+                  {rewardItems.map((item) => <div key={item.id}><span>{item.type === 'UNFREEZE' ? walletCopy.release : item.type === 'MCN_REVISION' ? walletCopy.revision : getRewardActivityTitle(item.rewardLevel)}<small>{item.platformCode} · {item.rewardDiamonds} {item.platformCode === 'TIMO' ? 'Timo' : 'Linky'} Diamond · {formatRewardDate(item.recordedAt)}</small></span><strong>{item.type === 'UNFREEZE' ? item.availableDelta : item.frozenDelta + item.availableDelta} {locale === 'zh' ? '积分' : 'points'}</strong></div>)}
+                </div> : null}
+                {wallet && wallet.items.length < wallet.totalRecords ? <button className="consumer-hero-withdraw" type="button" onClick={() => void loadMoreWallet()} disabled={loading}>{loading ? copy.loading : locale === 'zh' ? '加载更多流水' : 'Load more'}</button> : null}
               </details>
             </section>
           </>
