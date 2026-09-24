@@ -76,6 +76,9 @@ public class McnIncomeRewardCandidateService {
         // A corrected MCN revision can move an event out of this business date. Rebuild the current
         // view from the shadow-ledger inputs so no superseded candidate survives the next run.
         jdbc.update("DELETE FROM mcn_income_reward_candidate_projection WHERE source_system=? AND platform_code=? AND business_date=?", SOURCE_SYSTEM, platform, businessDate);
+        // A formerly eligible fact can be voided or removed. The non-payable 2% reserve must
+        // follow the same current-evidence rebuild rather than survive as a stale record.
+        jdbc.update("DELETE FROM mcn_income_team_reward_reserve_fact WHERE source_system=? AND platform_code=? AND business_date=?", SOURCE_SYSTEM, platform, businessDate);
         for (CandidateInput input : inputs) project(platform, input, now, counts);
         String runId = UUID.randomUUID().toString();
         jdbc.update("INSERT INTO mcn_income_reward_candidate_run (run_id,platform_code,business_date,source_fact_count,source_ready_count,candidate_count,blocked_count,candidate_amount,amount_unit,started_at,completed_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
@@ -114,6 +117,8 @@ public class McnIncomeRewardCandidateService {
 
     private void project(String platform, CandidateInput input, Instant now, Counts counts) {
         jdbc.update("DELETE FROM mcn_income_reward_candidate_projection WHERE source_system=? AND platform_code=? AND source_event_id=?", SOURCE_SYSTEM, platform, input.sourceEventId());
+        // Also covers a corrected event whose business date moved out of the previous day.
+        jdbc.update("DELETE FROM mcn_income_team_reward_reserve_fact WHERE source_system=? AND platform_code=? AND source_event_id=?", SOURCE_SYSTEM, platform, input.sourceEventId());
         if (!"BOUND_FINAL".equals(input.shadowStatus())) {
             writeBase(platform, input, null, "BLOCKED_" + input.shadowStatus(), "income fact is not a bound final fact", now);
             counts.blocked++; return;
