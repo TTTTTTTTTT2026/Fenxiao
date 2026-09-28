@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { applyAdminRiskEventBatchAction, applyAdminWithdrawBatchAction, approveAdminWithdrawRequest, approveWithdrawForPayment, correctAdminOwnership, createAdminPlatformGuildOperatingShareRate, createAdminSession, createExperiment, createWithdrawRequest, getAdminGuildConfigs, getAdminGuildWeeklyReport, getAdminMentorAssignedStudents, getAdminOwnership, getAdminPlatformGuildDirectory, getAdminPlatformGuildDirectorySyncRuns, getAdminPlatformIntegrations, getAdminSeedInviters, getAdminWithdrawRequests, getDistributionRewardSummary, getDistributionTeamWeeklyIncome, getExperimentDashboard, getWithdrawHistory, issuePhoneCode, logoutUserSession, phoneLogin, recordWithdrawPayment, refreshAdminLinkyEligibility, refreshAdminLinkyEligibilityBatch, rejectAdminWithdrawRequest, reverseWithdrawPayment, saveAdminGuildConfig } from './api'
+import { applyAdminRiskEventBatchAction, applyAdminWithdrawBatchAction, approveAdminWithdrawRequest, approveWithdrawForPayment, correctAdminOwnership, createAdminPlatformGuildOperatingShareRate, createAdminSession, createExperiment, createWithdrawRequest, getAdminGuildConfigs, getAdminGuildWeeklyReport, getAdminMentorAssignedStudents, getAdminOwnership, getAdminPlatformGuildDirectory, getAdminPlatformGuildDirectorySyncRuns, getAdminPlatformIntegrations, getAdminSeedInviters, getAdminSmsDeliveryStatus, getAdminWithdrawRequests, getDistributionRewardSummary, getDistributionTeamWeeklyIncome, getExperimentDashboard, getWithdrawHistory, issuePhoneCode, logoutUserSession, phoneLogin, recordWithdrawPayment, refreshAdminLinkyEligibility, refreshAdminLinkyEligibilityBatch, rejectAdminWithdrawRequest, reverseWithdrawPayment, saveAdminGuildConfig, updateAdminSmsDeliveryStatus } from './api'
 
 describe('ownership admin api', () => {
   afterEach(() => {
@@ -474,6 +474,27 @@ describe('platform integration admin api', () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(1, '/admin/distribution/platform-guild-directory?platform=LINKY', expect.objectContaining({ headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }) }))
     expect(fetchMock).toHaveBeenNthCalledWith(2, '/admin/distribution/platform-guild-directory/sync-runs?platform=TIMO', expect.objectContaining({ headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }) }))
+  })
+})
+
+describe('SMS delivery admin api', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('reads and changes the runtime switch with an admin session', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ enabled: false, ready: false, active: false }) })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await getAdminSmsDeliveryStatus('session-token')
+    await updateAdminSmsDeliveryStatus('session-token', true)
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/admin/sms-delivery', expect.objectContaining({
+      headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
+    }))
+    expect(fetchMock).toHaveBeenNthCalledWith(2, '/admin/sms-delivery', expect.objectContaining({
+      method: 'POST',
+      headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
+      body: JSON.stringify({ enabled: true }),
+    }))
   })
 })
 

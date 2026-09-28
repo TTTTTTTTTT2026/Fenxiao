@@ -322,6 +322,23 @@ class DistributionControllerTest {
     }
 
     @Test
+    void shouldLimitPhoneCodeIssuanceToFivePerUtcDay() throws Exception {
+        String phoneNumber = "+85250000001";
+        for (int count = 0; count < 5; count++) {
+            mockMvc.perform(post("/api/distribution/auth/phone-codes")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(Map.of("phoneNumber", phoneNumber))))
+                    .andExpect(status().isOk());
+            jdbcTemplate.update("update phone_verification_code set created_at=? where phone_number=?",
+                    LocalDateTime.now(Clock.systemUTC()).minusSeconds(61), phoneNumber);
+        }
+        mockMvc.perform(post("/api/distribution/auth/phone-codes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("phoneNumber", phoneNumber))))
+                .andExpect(status().isTooManyRequests());
+    }
+
+    @Test
     void shouldLoginWithLatestStoredPhoneVerificationCode() throws Exception {
         String inviteCode = distributionBindingService.createProfile(59003L, "BR", "pt-br", null).getInviteCode();
         mockMvc.perform(post("/api/distribution/auth/phone-codes")

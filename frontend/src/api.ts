@@ -1309,6 +1309,28 @@ export function getAdminPhoneVerificationCodes(adminSessionToken: string, filter
   })
 }
 
+export type SmsDeliveryStatus = {
+  enabled: boolean
+  ready: boolean
+  active: boolean
+  updatedAt: string | null
+  updatedBy: number | null
+}
+
+export function getAdminSmsDeliveryStatus(adminSessionToken: string) {
+  return request<SmsDeliveryStatus>('/admin/sms-delivery', {
+    headers: { 'X-Admin-Session': adminSessionToken },
+  })
+}
+
+export function updateAdminSmsDeliveryStatus(adminSessionToken: string, enabled: boolean) {
+  return request<SmsDeliveryStatus>('/admin/sms-delivery', {
+    method: 'POST',
+    headers: { 'X-Admin-Session': adminSessionToken },
+    body: JSON.stringify({ enabled }),
+  })
+}
+
 export function revealAdminPhoneVerificationCode(adminSessionToken: string, id: number) {
   return request<PhoneVerificationCodeRevealResponse>(`/admin/distribution/phone-verification-codes/${id}/reveal`, {
     headers: { 'X-Admin-Session': adminSessionToken },
