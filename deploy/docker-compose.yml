@@ -28,6 +28,12 @@ services:
       dockerfile: deploy/Dockerfile.backend
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      # Server-side SMS capability gate; the audited database switch remains OFF after deployment.
+      SMS_PROVIDER: ${SMS_PROVIDER:-LOG_ONLY}
+      SMS_CHUANGLAN_ACCOUNT: ${SMS_CHUANGLAN_ACCOUNT:-}
+      SMS_CHUANGLAN_PASSWORD: ${SMS_CHUANGLAN_PASSWORD:-}
+      SMS_CHUANGLAN_TEST_NUMBERS: ${SMS_CHUANGLAN_TEST_NUMBERS:-}
+      SMS_CHUANGLAN_BASE_URL: ${SMS_CHUANGLAN_BASE_URL:-https://sg-intapi.tig253.com/send/sms}
       DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC
       DB_USERNAME: ${MYSQL_USER}
       DB_PASSWORD: ${MYSQL_PASSWORD}
