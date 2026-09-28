@@ -22,6 +22,7 @@ public class PhoneAuthService {
     private static final String PURPOSE = "LOGIN";
     private static final int MAX_ATTEMPTS = 5;
     private static final int TTL_MINUTES = 10;
+    private static final int MAX_CODES_PER_UTC_DAY = 5;
     public static final int RESEND_COOLDOWN_SECONDS = 60;
     private final PhoneVerificationCodeRepository codeRepository;
     private final UserDistributionProfileRepository profileRepository;
@@ -57,6 +58,10 @@ public class PhoneAuthService {
     public String issueCode(String phoneNumber) {
         String normalizedPhone = normalizePhone(phoneNumber);
         LocalDateTime now = LocalDateTime.now(clock);
+        if (codeRepository.countByPhoneNumberAndPurposeAndCreatedAtGreaterThanEqual(
+                normalizedPhone, PURPOSE, now.toLocalDate().atStartOfDay()) >= MAX_CODES_PER_UTC_DAY) {
+            throw new TooManyRequestsException("daily phone verification code limit exceeded");
+        }
         codeRepository.findTopByPhoneNumberAndPurposeAndConsumedFalseAndExpiresAtAfterOrderByIdDesc(normalizedPhone, PURPOSE, now)
                 .ifPresent(existing -> {
                     if (existing.getCreatedAt() == null || existing.getCreatedAt().plusSeconds(RESEND_COOLDOWN_SECONDS).isAfter(now)) {

@@ -10,6 +10,7 @@ import java.util.Optional;
 public interface PhoneVerificationCodeRepository extends JpaRepository<PhoneVerificationCode, Long> {
     Optional<PhoneVerificationCode> findTopByPhoneNumberAndPurposeAndConsumedFalseOrderByIdDesc(String phoneNumber, String purpose);
     Optional<PhoneVerificationCode> findTopByPhoneNumberAndPurposeAndConsumedFalseAndExpiresAtAfterOrderByIdDesc(String phoneNumber, String purpose, LocalDateTime now);
+    long countByPhoneNumberAndPurposeAndCreatedAtGreaterThanEqual(String phoneNumber, String purpose, LocalDateTime since);
     Page<PhoneVerificationCode> findAllByOrderByIdDesc(Pageable pageable);
     Page<PhoneVerificationCode> findByPhoneNumberContainingOrderByIdDesc(String phoneNumber, Pageable pageable);
 }
