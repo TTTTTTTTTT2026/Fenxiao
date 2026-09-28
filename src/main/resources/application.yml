@@ -41,7 +41,8 @@ fenxiao:
 
 app:
   sms:
-    # Explicit opt-in. The live adapter refuses to start without credentials and a test-number allowlist.
+    # Deployment-side permission only. A separate database switch defaults OFF and must be enabled by a super admin.
+    # The live adapter refuses to start without credentials and a test-number allowlist.
     provider: ${SMS_PROVIDER:LOG_ONLY}
     chuanglan:
       base-url: ${SMS_CHUANGLAN_BASE_URL:https://sg-intapi.tig253.com/send/sms}

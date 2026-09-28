@@ -127,6 +127,24 @@ class AdminIdentityManagementTest {
         mvc.perform(get("/admin/auth/session").header("X-Admin-Session",token)).andExpect(status().isForbidden());
     }
 
+    @Test void smsSwitchIsOffByDefaultAndCannotBeEnabledWithoutConfiguredSender() throws Exception {
+        String root = login("root_admin", "Root-Secure-Password-2026!", true);
+        mvc.perform(get("/admin/sms-delivery").header("X-Admin-Session", root))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.enabled").value(false))
+                .andExpect(jsonPath("$.active").value(false)).andExpect(jsonPath("$.ready").value(false));
+        mvc.perform(post("/admin/sms-delivery").header("X-Admin-Session", root)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":true}"))
+                .andExpect(status().isBadRequest());
+        assertThat(jdbc.queryForObject("select count(*) from sms_delivery_control where enabled=true", Integer.class)).isZero();
+
+        accounts.save(AdminAccount.create("sms_operator", "SMS Operator", "operator", hasher.hash("Operator-Password-2026!"), true));
+        String operator = login("sms_operator", "Operator-Password-2026!", false);
+        mvc.perform(get("/admin/sms-delivery").header("X-Admin-Session", operator)).andExpect(status().isForbidden());
+        mvc.perform(post("/admin/sms-delivery").header("X-Admin-Session", operator)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":false}"))
+                .andExpect(status().isForbidden());
+    }
+
     private String sha(String value) throws Exception {return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8)));}
 
     private String login(String username,String password,boolean remember) throws Exception {

@@ -339,6 +339,7 @@ describe('ConsoleApp admin core distribution workspace', () => {
     expect(operatorMarkup).not.toContain('验证码审查')
     expect(superAdminMarkup).toContain('种子邀请人')
     expect(superAdminMarkup).toContain('验证码审查')
+    expect(operatorMarkup).not.toContain('创蓝短信接口开关')
   })
 })
 

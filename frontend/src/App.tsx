@@ -54,6 +54,7 @@ import {
   getAdminOverview,
   getAdminPhoneVerificationCodeAudit,
   getAdminPhoneVerificationCodes,
+  getAdminSmsDeliveryStatus,
   getAdminPlatformIntegrations,
   createAdminPlatformGuildOperatingShareRate,
   getAdminPlatformGuildCompanyShareRules,
@@ -138,6 +139,7 @@ import {
   submitPlatformBinding,
   updateAdminAccount,
   updateAdminLinkyInvitationGuild,
+  updateAdminSmsDeliveryStatus,
   enrollExperimentParticipant,
   type AdminWithdrawRequestListResponse,
   type BatchOperationResultResponse,
@@ -182,6 +184,7 @@ import {
   type OverviewReportResponse,
   type OwnershipDetailResponse,
   type PhoneVerificationCodeListResponse,
+  type SmsDeliveryStatus,
   type PlatformIntegrationResponse,
   type PlatformGuildCompanyShareRuleResponse,
   type PlatformGuildDirectoryItem,
@@ -481,6 +484,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [riskEvents, setRiskEvents] = useState<RiskEventListResponse | null>(null)
   const [auditLogs, setAuditLogs] = useState<AuditLogListResponse | null>(null)
   const [phoneVerificationCodes, setPhoneVerificationCodes] = useState<PhoneVerificationCodeListResponse | null>(null)
+  const [smsDeliveryStatus, setSmsDeliveryStatus] = useState<SmsDeliveryStatus | null>(null)
   const [phoneVerificationAuditLogs, setPhoneVerificationAuditLogs] = useState<AuditLogListResponse | null>(null)
   const [revealedPhoneVerificationCodes, setRevealedPhoneVerificationCodes] = useState<Record<number, string>>({})
   const [adminOwnership, setAdminOwnership] = useState<OwnershipDetailResponse | null>(null)
@@ -771,6 +775,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   useEffect(() => {
     if (currentSettingsView !== 'phoneVerification' || !adminSession || !canAuditPhoneVerification) return
     void loadPhoneVerificationCodes()
+    void loadSmsDeliveryStatus()
     // The list is deliberately refreshed whenever this sensitive review tab is entered.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSettingsView, adminSession?.sessionToken, canAuditPhoneVerification])
@@ -1212,6 +1217,32 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
       setPhoneVerificationCodes(result)
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载验证码记录失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function loadSmsDeliveryStatus() {
+    if (!adminSession || !canAuditPhoneVerification) return
+    try {
+      setSmsDeliveryStatus(await getAdminSmsDeliveryStatus(adminSession.sessionToken))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '加载短信接口状态失败')
+    }
+  }
+
+  async function handleSmsDeliverySwitch() {
+    if (!adminSession || !canAuditPhoneVerification || !smsDeliveryStatus) return
+    const nextEnabled = !smsDeliveryStatus.enabled
+    if (nextEnabled && !window.confirm('确认开启创蓝短信？开启后仅测试白名单号码会调用创蓝，其他号码会被拒绝。')) return
+    setLoading(true)
+    setError('')
+    try {
+      const next = await updateAdminSmsDeliveryStatus(adminSession.sessionToken, nextEnabled)
+      setSmsDeliveryStatus(next)
+      setSuccessMessage(next.active ? '创蓝短信已开启（仅测试白名单号码）。' : '创蓝短信已关闭，验证码仍可在受限后台审查。')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '切换短信接口失败')
     } finally {
       setLoading(false)
     }
@@ -3553,6 +3584,18 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               action={<button className="primary-btn" onClick={() => void loadPhoneVerificationCodes()} disabled={loading}>{loading ? '刷新中…' : '刷新记录'}</button>}
             >
               <div className="stack-gap">
+                <InfoCard title="创蓝短信接口开关" tone={smsDeliveryStatus?.active ? 'success' : 'neutral'}>
+                  <div className="relation-grid">
+                    <RelationItem label="当前状态" value={smsDeliveryStatus?.active ? '已开启 · 创蓝发送' : '已关闭 · 不调用创蓝'} />
+                    <RelationItem label="服务器配置" value={smsDeliveryStatus?.ready ? '已就绪' : '未配置或未启用'} />
+                    <RelationItem label="最近调整" value={smsDeliveryStatus?.updatedBy ? `${formatUtcDateTime(smsDeliveryStatus.updatedAt ?? undefined)} · 管理员 ${smsDeliveryStatus.updatedBy}` : '尚无人工调整'} />
+                  </div>
+                  <InlineHint text="默认关闭；关闭时继续通过后台审查验证码。开启须同时配置服务器凭据和测试号码白名单，仅白名单号码会调用创蓝；开关变更留存操作日志。" />
+                  <div className="action-row top-gap">
+                    <button type="button" className={smsDeliveryStatus?.active ? 'ghost-btn small-btn' : 'primary-btn'} onClick={() => void handleSmsDeliverySwitch()} disabled={loading || !smsDeliveryStatus || (!smsDeliveryStatus.ready && !smsDeliveryStatus.enabled)}>{smsDeliveryStatus?.enabled ? '关闭创蓝短信' : '开启创蓝短信'}</button>
+                    <button type="button" className="ghost-btn small-btn" onClick={() => void loadSmsDeliveryStatus()} disabled={loading}>刷新开关状态</button>
+                  </div>
+                </InfoCard>
                 <div className="grid-form compact-form">
                   <label>
                     手机号筛选
