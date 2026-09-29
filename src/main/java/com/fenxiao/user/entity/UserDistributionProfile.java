@@ -153,6 +153,10 @@ public class UserDistributionProfile extends BaseEntity {
         this.phoneNumber = phoneNumber;
     }
 
+    public void changeCountry(String countryCode) {
+        this.countryCode = countryCode;
+    }
+
     public void freezeAccount() {
         if (accountStatus == AccountStatus.CANCELLED) throw new IllegalStateException("cancelled account is permanent");
         accountStatus = AccountStatus.FROZEN;

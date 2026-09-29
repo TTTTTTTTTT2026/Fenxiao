@@ -160,4 +160,9 @@ public class DistributionRelation extends BaseEntity {
         this.crossCountry = crossCountry;
         this.bindTime = bindTime;
     }
+
+    public void changeCountry(String countryCode, boolean crossCountry) {
+        this.countryCode = countryCode;
+        this.crossCountry = crossCountry;
+    }
 }
