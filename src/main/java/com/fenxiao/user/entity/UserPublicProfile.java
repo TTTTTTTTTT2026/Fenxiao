@@ -20,7 +20,7 @@ public class UserPublicProfile {
     private String avatarMediaType;
 
     @Lob
-    @Column(name = "avatar_data")
+    @Column(name = "avatar_data", columnDefinition = "LONGBLOB")
     private byte[] avatarData;
 
     protected UserPublicProfile() { }
