@@ -26,6 +26,8 @@ import com.fenxiao.admin.api.dto.WithdrawRequestActionRequest;
 import com.fenxiao.admin.api.dto.WithdrawRequestItemResponse;
 import com.fenxiao.admin.api.dto.WithdrawRequestListResponse;
 import com.fenxiao.admin.api.dto.UserPlatformProfileListResponse;
+import com.fenxiao.admin.api.dto.UpdateUserCountryRequest;
+import com.fenxiao.admin.api.dto.UserCountryUpdateResponse;
 import com.fenxiao.admin.api.dto.UpdateLinkyInvitationGuildRequest;
 import com.fenxiao.admin.api.dto.PlatformGuildDirectoryResponse;
 import com.fenxiao.distribution.api.dto.GuildConfigRequest;
@@ -44,6 +46,7 @@ import com.fenxiao.admin.service.RiskEventQueryService;
 import com.fenxiao.admin.service.RewardEngineReportService;
 import com.fenxiao.admin.service.SeedInviterAdminService;
 import com.fenxiao.admin.service.UserPlatformProfileAdminService;
+import com.fenxiao.admin.service.UserCountryAdminService;
 import com.fenxiao.distribution.service.LinkyInvitationGuildAttributionService;
 import com.fenxiao.common.security.DistributionAccessGuard;
 import com.fenxiao.distribution.entity.LinkyAccountBinding;
@@ -103,6 +106,7 @@ public class DistributionAdminController {
     private final PhoneVerificationAuditService phoneVerificationAuditService;
     private final SeedInviterAdminService seedInviterAdminService;
     private final UserPlatformProfileAdminService userPlatformProfileAdminService;
+    private final UserCountryAdminService userCountryAdminService;
     private final LinkyInvitationGuildAttributionService linkyInvitationGuildAttributionService;
     private final LinkyVerificationModeService linkyVerificationModeService;
     private final PlatformGuildDirectoryService platformGuildDirectoryService;
@@ -126,6 +130,7 @@ public class DistributionAdminController {
                                        PhoneVerificationAuditService phoneVerificationAuditService,
                                        SeedInviterAdminService seedInviterAdminService,
                                        UserPlatformProfileAdminService userPlatformProfileAdminService,
+                                       UserCountryAdminService userCountryAdminService,
                                        LinkyInvitationGuildAttributionService linkyInvitationGuildAttributionService,
                                        LinkyVerificationModeService linkyVerificationModeService,
                                        PlatformGuildDirectoryService platformGuildDirectoryService,
@@ -148,6 +153,7 @@ public class DistributionAdminController {
         this.phoneVerificationAuditService = phoneVerificationAuditService;
         this.seedInviterAdminService = seedInviterAdminService;
         this.userPlatformProfileAdminService = userPlatformProfileAdminService;
+        this.userCountryAdminService = userCountryAdminService;
         this.linkyInvitationGuildAttributionService = linkyInvitationGuildAttributionService;
         this.linkyVerificationModeService = linkyVerificationModeService;
         this.platformGuildDirectoryService = platformGuildDirectoryService;
@@ -192,6 +198,18 @@ public class DistributionAdminController {
                                                                  @RequestParam(defaultValue = "20") int size) {
         distributionAccessGuard.assertAdminAccess(adminToken, adminSessionToken);
         return userPlatformProfileAdminService.list(userId, page, size);
+    }
+
+    @PostMapping("/user-platform-profiles/{userId}/country")
+    public UserCountryUpdateResponse updateUserCountry(
+            @RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
+            @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
+            @PathVariable Long userId,
+            @Valid @RequestBody UpdateUserCountryRequest request,
+            HttpServletRequest httpServletRequest) {
+        var principal = distributionAccessGuard.assertAdminWriteAccess(adminToken, adminSessionToken);
+        return userCountryAdminService.changeCountry(userId, request.countryCode(),
+                principal.accountId(), principal.role(), httpServletRequest.getRemoteAddr());
     }
 
     @PostMapping("/user-platform-profiles/{userId}/linky-invitation-guild")

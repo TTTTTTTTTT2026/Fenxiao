@@ -119,6 +119,67 @@ class DistributionMvpAdminControllerTest {
     }
 
     @Test
+    void shouldAdjustUserCountryAndAuditWithoutChangingInvitationOrPhone() throws Exception {
+        String inviterCode = distributionBindingService.createProfile(10021L, "ID", "id", null).getInviteCode();
+        UserDistributionProfile profile = distributionBindingService.createProfile(10022L, "ID", "id", inviterCode);
+        profile.bindPhoneNumber("+6281234567890");
+        userDistributionProfileRepository.save(profile);
+        String session = loginAsAdmin();
+
+        mockMvc.perform(post("/admin/distribution/user-platform-profiles/10022/country")
+                        .header("X-Admin-Session", session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"countryCode\":\"br\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userId").value(10022))
+                .andExpect(jsonPath("$.countryCode").value("BR"));
+
+        mockMvc.perform(get("/admin/distribution/user-platform-profiles")
+                        .header("X-Admin-Session", session)
+                        .param("userId", "10022"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].countryCode").value("BR"))
+                .andExpect(jsonPath("$.items[0].phoneNumber").value("+6281234567890"))
+                .andExpect(jsonPath("$.items[0].directInviterUserId").value(10021));
+
+        var updated = userDistributionProfileRepository.findById(10022L).orElseThrow();
+        var relation = distributionRelationRepository.findByUserId(10022L).orElseThrow();
+        org.assertj.core.api.Assertions.assertThat(updated.getLanguageCode()).isEqualTo("id");
+        org.assertj.core.api.Assertions.assertThat(relation.getCountryCode()).isEqualTo("BR");
+        org.assertj.core.api.Assertions.assertThat(relation.isCrossCountry()).isTrue();
+        var logs = operationAuditLogRepository.findByAuditTarget("user", "user_distribution_profile", 10022L,
+                org.springframework.data.domain.PageRequest.of(0, 10));
+        org.assertj.core.api.Assertions.assertThat(logs.getTotalElements()).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(logs.getContent().getFirst().getBeforeData()).contains("countryCode=ID");
+        org.assertj.core.api.Assertions.assertThat(logs.getContent().getFirst().getAfterData()).contains("countryCode=BR");
+
+        mockMvc.perform(post("/admin/distribution/user-platform-profiles/10022/country")
+                        .header("X-Admin-Session", session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"countryCode\":\"BR\"}"))
+                .andExpect(status().isOk());
+        org.assertj.core.api.Assertions.assertThat(operationAuditLogRepository.findByAuditTarget(
+                "user", "user_distribution_profile", 10022L, org.springframework.data.domain.PageRequest.of(0, 10)).getTotalElements())
+                .isEqualTo(1);
+    }
+
+    @Test
+    void shouldRejectInvalidCountryAndUnauthorizedCountryAdjustment() throws Exception {
+        distributionBindingService.createProfile(10023L, "ID", "id", null);
+        mockMvc.perform(post("/admin/distribution/user-platform-profiles/10023/country")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"countryCode\":\"BR\"}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/admin/distribution/user-platform-profiles/10023/country")
+                        .header("X-Admin-Session", loginAsAdmin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"countryCode\":\"ZZ\"}"))
+                .andExpect(status().isBadRequest());
+        org.assertj.core.api.Assertions.assertThat(userDistributionProfileRepository.findById(10023L).orElseThrow().getCountryCode())
+                .isEqualTo("ID");
+    }
+
+    @Test
     void shouldRestrictRelationDetailByProductCode() throws Exception {
         String linkyRootCode = inviteCodeIssueService.issue(new IssueInviteCodeRequest("LINKY", "+628****5101", "10101")).record().getInviteCode();
         distributionBindingService.createProfile(10102L, "ID", "id", linkyRootCode);
