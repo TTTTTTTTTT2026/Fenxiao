@@ -2,9 +2,7 @@ package com.fenxiao.admin.service;
 
 import com.fenxiao.admin.api.dto.*;
 import com.fenxiao.admin.entity.AdminAccount;
-import com.fenxiao.admin.entity.AdminPasswordHistory;
 import com.fenxiao.admin.repository.AdminAccountRepository;
-import com.fenxiao.admin.repository.AdminPasswordHistoryRepository;
 import com.fenxiao.audit.entity.OperationAuditLog;
 import com.fenxiao.audit.repository.OperationAuditLogRepository;
 import com.fenxiao.common.api.ForbiddenException;
@@ -22,14 +20,14 @@ import java.util.Set;
 public class AdminAccountManagementService {
     private static final Set<String> ROLES=Set.of("super_admin","admin","operator","operations","mentor","team_leader","finance","customer_support");
     private static final SecureRandom RANDOM=new SecureRandom();
-    private final AdminAccountRepository accounts; private final AdminPasswordHistoryRepository history;
+    private final AdminAccountRepository accounts;
     private final AdminPasswordHasher hasher; private final AdminPasswordPolicy policy; private final AdminSessionService sessions;
     private final OperationAuditLogRepository audits; private final AdminSecurityEventService securityEvents; private final long passwordMaxAgeDays;
 
-    public AdminAccountManagementService(AdminAccountRepository accounts,AdminPasswordHistoryRepository history,AdminPasswordHasher hasher,
+    public AdminAccountManagementService(AdminAccountRepository accounts,AdminPasswordHasher hasher,
                                          AdminPasswordPolicy policy,AdminSessionService sessions,OperationAuditLogRepository audits,AdminSecurityEventService securityEvents,
                                          @Value("${app.admin.password-max-age-days:90}") long passwordMaxAgeDays){
-        this.accounts=accounts;this.history=history;this.hasher=hasher;this.policy=policy;this.sessions=sessions;this.audits=audits;this.securityEvents=securityEvents;this.passwordMaxAgeDays=passwordMaxAgeDays;
+        this.accounts=accounts;this.hasher=hasher;this.policy=policy;this.sessions=sessions;this.audits=audits;this.securityEvents=securityEvents;this.passwordMaxAgeDays=passwordMaxAgeDays;
     }
 
     @Transactional(readOnly=true)
@@ -96,10 +94,9 @@ public class AdminAccountManagementService {
 
     private void applyPassword(AdminAccount account,String password,boolean mustChange){
         policy.validate(account.getUsername(),password);
-        if(hasher.matches(password,account.getPasswordHash())||history.findTop5ByAccountIdOrderByCreatedAtDesc(account.getId()).stream().anyMatch(h->hasher.matches(password,h.getPasswordHash())))
-            throw new IllegalArgumentException("password was used recently");
-        LocalDateTime now=LocalDateTime.now(); history.save(AdminPasswordHistory.create(account.getId(),account.getPasswordHash(),now));
-        account.updatePasswordHash(hasher.hash(password),mustChange,now);
+        if(hasher.matches(password,account.getPasswordHash()))
+            throw new IllegalArgumentException("new password must differ from current password");
+        account.updatePasswordHash(hasher.hash(password),mustChange,LocalDateTime.now());
     }
 
     private AdminAccount require(long id){return accounts.findById(id).orElseThrow(()->new IllegalArgumentException("admin account not found"));}

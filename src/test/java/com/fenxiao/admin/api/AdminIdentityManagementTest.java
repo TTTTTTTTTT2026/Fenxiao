@@ -45,6 +45,28 @@ class AdminIdentityManagementTest {
         mvc.perform(get("/admin/distribution/reports/overview").param("product","TIMO").header("X-Admin-Session",renewed)).andExpect(status().isForbidden()).andExpect(jsonPath("$.message").value("admin data scope denied"));
     }
 
+    @Test void allowsHistoricalPasswordReuseButRejectsCurrentPassword() throws Exception {
+        AdminAccount root = accounts.findByUsername("root_admin").orElseThrow();
+        jdbc.update("insert into admin_password_history (account_id, password_hash, created_at) values (?, ?, current_timestamp)",
+                root.getId(), root.getPasswordHash());
+
+        String first = login("root_admin", "Root-Secure-Password-2026!", false);
+        mvc.perform(post("/admin/auth/password").header("X-Admin-Session", first).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"Root-Secure-Password-2026!\",\"newPassword\":\"Another-Password-2026!\"}"))
+                .andExpect(status().isOk());
+
+        String second = login("root_admin", "Another-Password-2026!", false);
+        mvc.perform(post("/admin/auth/password").header("X-Admin-Session", second).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"Another-Password-2026!\",\"newPassword\":\"Root-Secure-Password-2026!\"}"))
+                .andExpect(status().isOk());
+
+        String third = login("root_admin", "Root-Secure-Password-2026!", false);
+        mvc.perform(post("/admin/auth/password").header("X-Admin-Session", third).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"Root-Secure-Password-2026!\",\"newPassword\":\"Root-Secure-Password-2026!\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("new password must differ from current password"));
+    }
+
     @Test void protectsLastSuperAdminAndRevokesLogoutServerSide() throws Exception {
         String root=login("root_admin","Root-Secure-Password-2026!",true);
         long id=accounts.findByUsername("root_admin").orElseThrow().getId();
