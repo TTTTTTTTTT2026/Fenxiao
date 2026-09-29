@@ -42,13 +42,12 @@ fenxiao:
 app:
   sms:
     # Deployment-side permission only. A separate database switch defaults OFF and must be enabled by a super admin.
-    # The live adapter refuses to start without credentials and a test-number allowlist.
+    # The live adapter refuses to start without credentials. The audited database switch defaults OFF.
     provider: ${SMS_PROVIDER:LOG_ONLY}
     chuanglan:
       base-url: ${SMS_CHUANGLAN_BASE_URL:https://sg-intapi.tig253.com/send/sms}
       account: ${SMS_CHUANGLAN_ACCOUNT:}
       password: ${SMS_CHUANGLAN_PASSWORD:}
-      test-numbers: ${SMS_CHUANGLAN_TEST_NUMBERS:}
       connect-timeout: ${SMS_CHUANGLAN_CONNECT_TIMEOUT:5s}
       request-timeout: ${SMS_CHUANGLAN_REQUEST_TIMEOUT:15s}
   invitation-reward:

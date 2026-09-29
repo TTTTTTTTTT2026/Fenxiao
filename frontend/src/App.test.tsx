@@ -274,6 +274,65 @@ describe('signed-out login hero', () => {
   })
 })
 
+describe('signed-out login hero', () => {
+  const assets = {
+    zh: { file: 'login-hero-zh-v1', alt: '恭喜你！' },
+    en: { file: 'login-hero-en-v1', alt: 'Congratulations!' },
+    es: { file: 'login-hero-es-v1', alt: '¡Felicidades!' },
+    id: { file: 'login-hero-id-v1', alt: 'Selamat!' },
+    pt: { file: 'login-hero-pt-BR-v1', alt: 'Parabéns!' },
+  } as const
+
+  for (const [locale, hero] of Object.entries(assets)) {
+    it(`renders only the ${locale} hero with responsive sources above the sign-in form`, () => {
+      const localStorage = createStorage()
+      localStorage.setItem('fenxiao-external-locale', locale)
+      Object.defineProperty(globalThis, 'window', {
+        configurable: true,
+        value: { location: { pathname: '/invite', search: '', origin: 'http://127.0.0.1:4173' }, localStorage },
+      })
+
+      const markup = renderToStaticMarkup(<App />)
+      expect(markup).toContain(`alt="${hero.alt}`)
+      expect(markup).toContain(`${hero.file}-800.webp`)
+      expect(markup).toContain(`${hero.file}-1600.webp`)
+      expect(markup.indexOf('consumer-login-hero')).toBeLessThan(markup.indexOf('id="phone-login"'))
+      expect(markup).toContain('loading="eager"')
+      for (const other of Object.values(assets).filter((asset) => asset.file !== hero.file)) {
+        expect(markup).not.toContain(other.file)
+      }
+    })
+  }
+
+  it('keeps the hero off the signed-in invite page', () => {
+    const localStorage = createStorage()
+    localStorage.setItem('fenxiao-web-session', JSON.stringify({
+      userId: 10001, inviteCode: 'ABCD1234', countryCode: 'BR', languageCode: 'pt-br', accessToken: 'test-token',
+    }))
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: { location: { pathname: '/invite', search: '', origin: 'http://127.0.0.1:4173' }, localStorage },
+    })
+
+    const markup = renderToStaticMarkup(<App />)
+    expect(markup).not.toContain('consumer-login-hero')
+    expect(markup).toContain('consumer-invite-card')
+  })
+
+  it('maps a stored regional language to the matching image and page language', () => {
+    const localStorage = createStorage()
+    localStorage.setItem('fenxiao-external-locale', 'pt-BR')
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: { location: { pathname: '/invite', search: '', origin: 'http://127.0.0.1:4173' }, localStorage },
+    })
+
+    const markup = renderToStaticMarkup(<App />)
+    expect(markup).toContain('login-hero-pt-BR-v1-800.webp')
+    expect(markup).toContain('Entrar com telefone')
+  })
+})
+
 describe('invite page operation errors', () => {
   it('translates known backend errors into the selected page language', () => {
     expect(localizeInviteOperationError(new Error('phone number is invalid'), 'zh', 'send')).toBe('请输入有效的手机号码。')

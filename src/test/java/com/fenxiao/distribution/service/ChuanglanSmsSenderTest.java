@@ -27,19 +27,18 @@ class ChuanglanSmsSenderTest {
     }
 
     @Test
-    void requiresCredentialsAndAnExplicitTestNumberAllowlist() {
+    void requiresCredentialsButNoRecipientAllowlist() {
         var properties = properties();
         properties.setPassword("");
         assertThatThrownBy(() -> new ChuanglanSmsSender(properties, new ObjectMapper(), mock(HttpClient.class), FIXED_CLOCK))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("credentials");
         properties.setPassword("test-password");
-        properties.setTestNumbers("");
-        assertThatThrownBy(() -> new ChuanglanSmsSender(properties, new ObjectMapper(), mock(HttpClient.class), FIXED_CLOCK))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("allowlist");
+        assertThat(new ChuanglanSmsSender(properties, new ObjectMapper(), mock(HttpClient.class), FIXED_CLOCK))
+                .isNotNull();
     }
 
     @Test
-    void submitsOnlyTheAllowedNumberToTheSingaporeEndpoint() throws Exception {
+    void submitsValidNumbersWithoutAnAllowlistToTheSingaporeEndpoint() throws Exception {
         HttpClient http = mock(HttpClient.class);
         @SuppressWarnings("unchecked") HttpResponse<String> response = mock(HttpResponse.class);
         when(response.statusCode()).thenReturn(200);
@@ -48,15 +47,18 @@ class ChuanglanSmsSenderTest {
         var sender = new ChuanglanSmsSender(properties(), new ObjectMapper(), http, FIXED_CLOCK);
 
         sender.sendVerificationCode("+852 5000 0001", "123456", 10);
+        sender.sendVerificationCode("+628123456789", "654321", 10);
 
         var request = org.mockito.ArgumentCaptor.forClass(HttpRequest.class);
-        verify(http).send(request.capture(), any());
-        assertThat(request.getValue().uri().toString()).isEqualTo("https://sg-intapi.tig253.com/send/sms");
-        assertThat(request.getValue().headers().firstValue("nonce")).isPresent();
-        assertThat(request.getValue().headers().firstValue("sign")).isPresent();
-        assertThat(request.getValue().method()).isEqualTo("POST");
-        assertThatThrownBy(() -> sender.sendVerificationCode("+628123456789", "123456", 10))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("not allowed");
+        verify(http, times(2)).send(request.capture(), any());
+        assertThat(request.getAllValues()).allSatisfy(sent -> {
+            assertThat(sent.uri().toString()).isEqualTo("https://sg-intapi.tig253.com/send/sms");
+            assertThat(sent.headers().firstValue("nonce")).isPresent();
+            assertThat(sent.headers().firstValue("sign")).isPresent();
+            assertThat(sent.method()).isEqualTo("POST");
+        });
+        assertThatThrownBy(() -> sender.sendVerificationCode("001234", "123456", 10))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("country code");
         verifyNoMoreInteractions(http);
     }
 
@@ -77,7 +79,6 @@ class ChuanglanSmsSenderTest {
         var properties = new ChuanglanSmsProperties();
         properties.setAccount("I1234567");
         properties.setPassword("test-password");
-        properties.setTestNumbers("+85250000001");
         return properties;
     }
 }

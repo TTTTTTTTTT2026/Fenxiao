@@ -1251,13 +1251,13 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   async function handleSmsDeliverySwitch() {
     if (!adminSession || !canAuditPhoneVerification || !smsDeliveryStatus) return
     const nextEnabled = !smsDeliveryStatus.enabled
-    if (nextEnabled && !window.confirm('确认开启创蓝短信？开启后仅测试白名单号码会调用创蓝，其他号码会被拒绝。')) return
+    if (nextEnabled && !window.confirm('确认开启创蓝短信？开启后所有符合格式的手机号码都可申请验证码并触发付费短信。当前仍有同一号码的发送频率限制；请确认已准备好监控短信费用。')) return
     setLoading(true)
     setError('')
     try {
       const next = await updateAdminSmsDeliveryStatus(adminSession.sessionToken, nextEnabled)
       setSmsDeliveryStatus(next)
-      setSuccessMessage(next.active ? '创蓝短信已开启（仅测试白名单号码）。' : '创蓝短信已关闭，验证码仍可在受限后台审查。')
+      setSuccessMessage(next.active ? '创蓝短信已开启，符合格式的号码可以申请验证码。' : '创蓝短信已关闭，验证码仍可在受限后台审查。')
     } catch (err) {
       setError(err instanceof Error ? err.message : '切换短信接口失败')
     } finally {
@@ -3633,7 +3633,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                     <RelationItem label="服务器配置" value={smsDeliveryStatus?.ready ? '已就绪' : '未配置或未启用'} />
                     <RelationItem label="最近调整" value={smsDeliveryStatus?.updatedBy ? `${formatUtcDateTime(smsDeliveryStatus.updatedAt ?? undefined)} · 管理员 ${smsDeliveryStatus.updatedBy}` : '尚无人工调整'} />
                   </div>
-                  <InlineHint text="默认关闭；关闭时继续通过后台审查验证码。开启须同时配置服务器凭据和测试号码白名单，仅白名单号码会调用创蓝；开关变更留存操作日志。" />
+                  <InlineHint text="默认关闭；关闭时继续通过后台审查验证码。服务器配置创蓝凭据后可开启，开启后不再限制测试手机号名单；同一号码仍受发送频率限制，开关变更留存操作日志。" />
                   <div className="action-row top-gap">
                     <button type="button" className={smsDeliveryStatus?.active ? 'ghost-btn small-btn' : 'primary-btn'} onClick={() => void handleSmsDeliverySwitch()} disabled={loading || !smsDeliveryStatus || (!smsDeliveryStatus.ready && !smsDeliveryStatus.enabled)}>{smsDeliveryStatus?.enabled ? '关闭创蓝短信' : '开启创蓝短信'}</button>
                     <button type="button" className="ghost-btn small-btn" onClick={() => void loadSmsDeliveryStatus()} disabled={loading}>刷新开关状态</button>
