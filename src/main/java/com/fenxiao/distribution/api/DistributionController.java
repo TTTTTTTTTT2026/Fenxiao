@@ -3,6 +3,7 @@ package com.fenxiao.distribution.api;
 import com.fenxiao.common.security.DistributionAccessGuard;
 import com.fenxiao.distribution.api.dto.CreateProfileRequest;
 import com.fenxiao.distribution.api.dto.DistributionHomeResponse;
+import com.fenxiao.distribution.api.dto.EffectiveTeamResponse;
 import com.fenxiao.distribution.api.dto.InviteBindingResponse;
 import com.fenxiao.distribution.api.dto.IssueInviteCodeRequest;
 import com.fenxiao.distribution.api.dto.IssueInviteCodeResponse;
@@ -178,6 +179,13 @@ public class DistributionController {
                                          @PathVariable Long userId) {
         distributionAccessGuard.assertUserAccess(userId, accessToken);
         return distributionFrontendService.getHome(userId);
+    }
+
+    @GetMapping("/team/{userId}/effective")
+    public EffectiveTeamResponse effectiveTeam(@RequestHeader("X-Distribution-Token") String accessToken,
+                                                @PathVariable Long userId) {
+        distributionAccessGuard.assertUserAccess(userId, accessToken);
+        return distributionFrontendService.getEffectiveTeam(userId);
     }
 
     @GetMapping("/team/{userId}")

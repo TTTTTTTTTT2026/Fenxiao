@@ -82,10 +82,13 @@ import {
   getAdminWithdrawRequests,
   getExperimentDashboard,
   getDistributionHome,
+  getDistributionEffectiveTeam,
   getDistributionInvitationAccount,
+  getUserPublicProfile,
+  updateUserNickname,
+  updateUserAvatar,
   getPlatformBinding,
   getVerifiedLinkyAccountBinding,
-  getDistributionTeamWeeklyIncome,
   issuePhoneCode,
   logoutAdminSession,
   logoutAllAdminSessions,
@@ -204,13 +207,14 @@ import {
   type PlatformVerificationMockResponse,
   type PlatformVerificationRuntimeResponse,
   type ProfileResponse,
+  type UserPublicProfileResponse,
   type RelationDetailResponse,
   type RewardListResponse,
   type RiskEventListResponse,
   type SeedInviterResponse,
   type SeedInviterListResponse,
   type UserPlatformProfileListResponse,
-  type TeamWeeklyIncomeResponse,
+  type EffectiveTeamResponse,
   verifyPlatformBinding,
 } from './api'
 import {
@@ -6499,6 +6503,10 @@ function AccountPage() {
   const [signingOut, setSigningOut] = useState(false)
   const [linkyBinding, setLinkyBinding] = useState<LinkyAccountBindingResponse | null>(null)
   const [timoBinding, setTimoBinding] = useState<PlatformBindingResponse | null>(null)
+  const [linkyStatusLoading, setLinkyStatusLoading] = useState(true)
+  const [timoStatusLoading, setTimoStatusLoading] = useState(true)
+  const [linkyStatusError, setLinkyStatusError] = useState(false)
+  const [timoStatusError, setTimoStatusError] = useState(false)
   const [userGradeCode, setUserGradeCode] = useState('NORMAL_MEMBER')
   const copy = consumerAccountCopy[locale]
   const timoCopy = timoBindingCopy[locale]
@@ -6512,15 +6520,32 @@ function AccountPage() {
     let active = true
     void getVerifiedLinkyAccountBinding(session.userId, session.accessToken)
       .then((value) => { if (active) setLinkyBinding(value) })
-      .catch(() => { if (active) setLinkyBinding(null) })
+      .catch((error) => { if (active) { setLinkyBinding(null); setLinkyStatusError(!String(error).includes('verified Linky binding not found')) } })
+      .finally(() => { if (active) setLinkyStatusLoading(false) })
     void getPlatformBinding(session.userId, session.accessToken, 'TIMO')
       .then((value) => { if (active) setTimoBinding(value) })
-      .catch(() => { if (active) setTimoBinding(null) })
+      .catch((error) => { if (active) { setTimoBinding(null); setTimoStatusError(!String(error).includes('platform binding not found')) } })
+      .finally(() => { if (active) setTimoStatusLoading(false) })
     void getDistributionHome(session.userId, session.accessToken)
       .then((value) => { if (active) setUserGradeCode(value.userGradeCode) })
       .catch(() => { if (active) setUserGradeCode('NORMAL_MEMBER') })
     return () => { active = false }
   }, [session])
+
+  const statusCopy = {
+    zh: { unbound: '未绑定', submitted: '绑定中', verifying: '核验中', verified: '已绑定', rejected: '核验未通过', loading: '状态读取中', error: '状态暂不可用', view: '查看详情' },
+    en: { unbound: 'Not bound', submitted: 'Binding', verifying: 'Verifying', verified: 'Bound', rejected: 'Not verified', loading: 'Loading status', error: 'Status unavailable', view: 'View details' },
+    es: { unbound: 'Sin vincular', submitted: 'Vinculando', verifying: 'Verificando', verified: 'Vinculada', rejected: 'No verificada', loading: 'Cargando estado', error: 'Estado no disponible', view: 'Ver detalles' },
+    id: { unbound: 'Belum terhubung', submitted: 'Menghubungkan', verifying: 'Memverifikasi', verified: 'Terhubung', rejected: 'Verifikasi gagal', loading: 'Memuat status', error: 'Status tidak tersedia', view: 'Lihat detail' },
+    pt: { unbound: 'Não vinculada', submitted: 'Vinculando', verifying: 'Verificando', verified: 'Vinculada', rejected: 'Não verificada', loading: 'Carregando status', error: 'Status indisponível', view: 'Ver detalhes' },
+  }[locale]
+  const timoStatus = timoStatusLoading ? statusCopy.loading : timoStatusError ? statusCopy.error
+    : timoBinding?.status === 'VERIFIED' ? statusCopy.verified
+      : timoBinding?.status === 'VERIFYING' ? statusCopy.verifying
+        : timoBinding?.status === 'SUBMITTED' ? statusCopy.submitted
+          : timoBinding?.status === 'REJECTED' ? statusCopy.rejected : statusCopy.unbound
+  const linkyStatus = linkyStatusLoading ? statusCopy.loading : linkyStatusError ? statusCopy.error
+    : linkyBinding?.status === 'VERIFIED' ? statusCopy.verified : statusCopy.unbound
 
   async function handleSignOut() {
     if (!session || signingOut) return
@@ -6561,8 +6586,8 @@ function AccountPage() {
             <section className="consumer-settings-card consumer-platform-card">
               <div className="consumer-platform-card-head"><span className="consumer-platform-icon"><LinkSimple weight="bold" aria-hidden="true" /></span><div><h2>{copy.platform}</h2></div></div>
               <div className="consumer-platform-account-list">
-                <div className="consumer-platform-account-row"><div><strong>{copy.linkyTitle}</strong></div>{linkyBinding?.status === 'VERIFIED' ? <div className="consumer-platform-account-bound" aria-label={`${copy.bound}: ${linkyBinding.linkyAccount}`}><CheckCircle weight="fill" aria-hidden="true" /><span>{copy.bound}</span><strong>{linkyBinding.linkyAccount}</strong></div> : <a className="consumer-secondary-link" href="/account/linky">{copy.bindLinky}<ArrowRight weight="bold" aria-hidden="true" /></a>}</div>
-                <div className="consumer-platform-account-row"><div><strong>{timoCopy.open}</strong></div>{timoBinding?.status === 'VERIFIED' ? <div className="consumer-platform-account-bound" aria-label={`${copy.bound}: ${timoBinding.platformUserId}`}><CheckCircle weight="fill" aria-hidden="true" /><span>{copy.bound}</span><strong>{timoBinding.platformUserId}</strong></div> : <a className="consumer-secondary-link" href="/account/timo">{timoCopy.open}<ArrowRight weight="bold" aria-hidden="true" /></a>}</div>
+                <div className="consumer-platform-account-row"><div><strong>{copy.linkyTitle}</strong><span className="consumer-platform-status" role="status">{linkyStatus}{linkyBinding?.status === 'VERIFIED' ? ` · ${linkyBinding.linkyAccount}` : ''}</span></div>{linkyBinding?.status === 'VERIFIED' ? <CheckCircle weight="fill" className="consumer-status-check" aria-hidden="true" /> : <a className="consumer-secondary-link" href="/account/linky">{linkyStatusLoading ? statusCopy.loading : copy.bindLinky}<ArrowRight weight="bold" aria-hidden="true" /></a>}</div>
+                <div className="consumer-platform-account-row"><div><strong>{timoCopy.open}</strong><span className="consumer-platform-status" role="status">{timoStatus}{timoBinding?.platformUserId ? ` · ${timoBinding.platformUserId}` : ''}</span></div>{timoBinding?.status === 'VERIFIED' ? <CheckCircle weight="fill" className="consumer-status-check" aria-hidden="true" /> : <a className="consumer-secondary-link" href="/account/timo">{timoBinding ? statusCopy.view : timoStatusLoading ? statusCopy.loading : timoCopy.open}<ArrowRight weight="bold" aria-hidden="true" /></a>}</div>
               </div>
             </section>
             <section className="consumer-settings-card consumer-security-card">
@@ -6577,6 +6602,76 @@ function AccountPage() {
       </main>
     </div>
   )
+}
+
+const consumerProfileCopy = {
+  zh: { title: '个人资料', back: '返回收益', nickname: '昵称', avatar: '头像', avatarHint: '上传 PNG 或 JPG 图片，文件不超过 1 MB，宽高不超过 2048 像素。', save: '保存昵称', saving: '保存中…', saved: '已保存，无需审核', upload: '上传头像', loading: '读取中…', failed: '保存失败，请稍后重试。', invalid: '请选择不超过 1 MB 的 PNG 或 JPG 图片。' },
+  en: { title: 'My profile', back: 'Back to earnings', nickname: 'Nickname', avatar: 'Avatar', avatarHint: 'Upload a PNG or JPG image up to 1 MB and 2048 × 2048 pixels.', save: 'Save nickname', saving: 'Saving…', saved: 'Saved without review', upload: 'Upload avatar', loading: 'Loading…', failed: 'Could not save. Try again.', invalid: 'Choose a PNG or JPG image up to 1 MB.' },
+  es: { title: 'Mi perfil', back: 'Volver a ganancias', nickname: 'Apodo', avatar: 'Foto de perfil', avatarHint: 'Sube una imagen PNG o JPG de hasta 1 MB y 2048 × 2048 píxeles.', save: 'Guardar apodo', saving: 'Guardando…', saved: 'Guardado sin revisión', upload: 'Subir foto', loading: 'Cargando…', failed: 'No se pudo guardar. Inténtalo otra vez.', invalid: 'Elige una imagen PNG o JPG de hasta 1 MB.' },
+  id: { title: 'Profil saya', back: 'Kembali ke penghasilan', nickname: 'Nama panggilan', avatar: 'Foto profil', avatarHint: 'Unggah gambar PNG atau JPG maksimal 1 MB dan 2048 × 2048 piksel.', save: 'Simpan nama', saving: 'Menyimpan…', saved: 'Tersimpan tanpa peninjauan', upload: 'Unggah foto', loading: 'Memuat…', failed: 'Gagal menyimpan. Coba lagi.', invalid: 'Pilih gambar PNG atau JPG maksimal 1 MB.' },
+  pt: { title: 'Meu perfil', back: 'Voltar aos ganhos', nickname: 'Apelido', avatar: 'Foto de perfil', avatarHint: 'Envie uma imagem PNG ou JPG de até 1 MB e 2048 × 2048 pixels.', save: 'Salvar apelido', saving: 'Salvando…', saved: 'Salvo sem revisão', upload: 'Enviar foto', loading: 'Carregando…', failed: 'Não foi possível salvar. Tente novamente.', invalid: 'Escolha uma imagem PNG ou JPG de até 1 MB.' },
+} as const
+
+function PublicProfilePage() {
+  const [session] = useState<SessionState | null>(() => loadJsonState<SessionState>(STORAGE_KEY))
+  const [locale] = useState<ConsumerLocale>(() => loadExternalLocale())
+  const [profile, setProfile] = useState<UserPublicProfileResponse | null>(null)
+  const [nickname, setNickname] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+  const copy = consumerProfileCopy[locale]
+
+  useEffect(() => {
+    if (!session) return
+    let active = true
+    void getUserPublicProfile(session.userId, session.accessToken)
+      .then((value) => { if (active) { setProfile(value); setNickname(value.nickname || '') } })
+      .catch(() => { if (active) setError(copy.failed) })
+    return () => { active = false }
+  }, [session, copy.failed])
+
+  async function saveNickname(event: FormEvent) {
+    event.preventDefault()
+    if (!session || busy) return
+    setBusy(true); setError(''); setMessage('')
+    try { setProfile(await updateUserNickname(session.userId, session.accessToken, nickname)); setMessage(copy.saved) }
+    catch { setError(copy.failed) }
+    finally { setBusy(false) }
+  }
+
+  async function uploadAvatar(file?: File) {
+    if (!session || !file) return
+    if (!['image/png', 'image/jpeg'].includes(file.type) || file.size > 1024 * 1024 || file.size === 0) { setError(copy.invalid); return }
+    setBusy(true); setError(''); setMessage('')
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result))
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+      setProfile(await updateUserAvatar(session.userId, session.accessToken, dataUrl))
+      setMessage(copy.saved)
+    } catch { setError(copy.failed) }
+    finally { setBusy(false) }
+  }
+
+  return <div className="consumer-app-page"><main className="consumer-shell consumer-form-shell">
+    <header className="consumer-topbar"><a className="consumer-brand" href="/earnings">BANDEIRA</a></header>
+    <a className="consumer-detail-back" href="/earnings">← {copy.back}</a>
+    <section className="consumer-commercial-heading"><h1>{copy.title}</h1></section>
+    {!session ? <a className="consumer-primary-link" href="/invite#phone-login">{consumerAccountCopy[locale].signIn}</a> :
+      <section className="consumer-settings-card consumer-profile-card">
+        <div className="consumer-profile-avatar">{profile?.avatarDataUrl ? <img src={profile.avatarDataUrl} alt="" /> : <User weight="fill" aria-hidden="true" />}</div>
+        <label className="consumer-profile-upload">{copy.upload}<input type="file" accept="image/png,image/jpeg" disabled={busy} onChange={(event) => { void uploadAvatar(event.target.files?.[0]); event.target.value = '' }} /></label>
+        <p>{copy.avatarHint}</p>
+        <form onSubmit={(event) => { void saveNickname(event) }}><label className="consumer-field"><span>{copy.nickname}</span><input value={nickname} maxLength={40} onChange={(event) => setNickname(event.target.value)} required /></label><button className="consumer-form-submit" type="submit" disabled={busy || !nickname.trim()}>{busy ? copy.saving : copy.save}</button></form>
+        {message ? <p role="status" className="consumer-profile-success">{message}</p> : null}
+        {error ? <p role="alert" className="consumer-banner is-error">{error}</p> : null}
+      </section>}
+    {session ? <ConsumerBottomNavigation locale={locale} active="account" /> : null}
+  </main></div>
 }
 
 function TimoBindingPage() {
@@ -6703,70 +6798,86 @@ function TimoBindingPage() {
   )
 }
 
-function EarningsPage() {
+const consumerWithdrawalCopy = {
+  zh: { title: '管理收益提现', close: '关闭', when: '什么时候开放收益提现？', whenAnswer: '开放时间待定，以官方通知为准。', how: '收益如何发放？', howAnswer: '邀请奖励先计入积分账户，冻结 7 天后解冻；实际提现方式另行公布。' },
+  en: { title: 'Manage earnings withdrawals', close: 'Close', when: 'When will withdrawals open?', whenAnswer: 'The launch date has not been set. Please follow official announcements.', how: 'How are earnings paid?', howAnswer: 'Invitation rewards first enter your points account and unlock after 7 days. Withdrawal methods will be announced separately.' },
+  es: { title: 'Gestionar retiros de ganancias', close: 'Cerrar', when: '¿Cuándo estarán disponibles los retiros?', whenAnswer: 'La fecha aún no está definida. Consulta los anuncios oficiales.', how: '¿Cómo se pagan las ganancias?', howAnswer: 'Las recompensas por invitación entran primero en la cuenta de puntos y se liberan después de 7 días. El método de retiro se anunciará por separado.' },
+  id: { title: 'Kelola penarikan penghasilan', close: 'Tutup', when: 'Kapan penarikan tersedia?', whenAnswer: 'Tanggalnya belum ditetapkan. Ikuti pengumuman resmi.', how: 'Bagaimana penghasilan dibayarkan?', howAnswer: 'Imbalan undangan masuk ke akun poin dan tersedia setelah 7 hari. Metode penarikan akan diumumkan terpisah.' },
+  pt: { title: 'Gerenciar saques dos ganhos', close: 'Fechar', when: 'Quando os saques estarão disponíveis?', whenAnswer: 'A data ainda não foi definida. Acompanhe os anúncios oficiais.', how: 'Como os ganhos são pagos?', howAnswer: 'As recompensas por convite entram primeiro na conta de pontos e são liberadas após 7 dias. O método de saque será anunciado separadamente.' },
+} as const
+
+function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' | 'activity' }) {
   const [session, setSession] = useState<SessionState | null>(() => loadJsonState<SessionState>(STORAGE_KEY))
   const [locale, setLocale] = useState<keyof typeof externalPageCopyByLocale>(() => loadExternalLocale())
   const [home, setHome] = useState<DistributionHomeResponse | null>(null)
-  const [teamWeeklyIncome, setTeamWeeklyIncome] = useState<TeamWeeklyIncomeResponse | null>(null)
+  const [team, setTeam] = useState<EffectiveTeamResponse | null>(null)
   const [wallet, setWallet] = useState<InvitationRewardAccountResponse | null>(null)
+  const [profile, setProfile] = useState<UserPublicProfileResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showBalance, setShowBalance] = useState(true)
-  const [teamDetailsOpen, setTeamDetailsOpen] = useState(false)
-  const [rewardDetailsOpen, setRewardDetailsOpen] = useState(false)
+  const [withdrawalDialogOpen, setWithdrawalDialogOpen] = useState(false)
+  const withdrawalCopy = consumerWithdrawalCopy[locale]
   const copy = externalPageCopyByLocale[locale]
   const walletCopy = {
     zh: {
-      available: '已解冻积分', frozen: '冻结中', total: '账户净额', withdraw: '提现暂未开放', income: '邀请奖励', direct: '直接邀请奖励', indirect: '间接邀请奖励', release: '到期解冻', revision: '收入修订', records: '账户流水', sourceUser: '来自用户', unit: '积分', diamondUnit: '钻石',
+      available: '已解冻积分', frozen: '冻结中', total: '账户净额', withdraw: '管理收益提现', income: '邀请奖励', direct: '直接邀请奖励', indirect: '间接邀请奖励', release: '到期解冻', revision: '收入修订', records: '账户流水', sourceUser: '来自用户', unit: '积分', diamondUnit: '钻石',
       signIn: '登录', greeting: '早上好，伙伴！', greetingSubtitle: '每一次有效邀请，都在积累你的收入。', notificationLabel: '查看奖励记录', hideBalance: '隐藏余额', showBalance: '显示余额',
       growthTitle: '新星邀请人', growthBefore: '再邀请 ', growthAfter: ' 位有效用户，即可完成本阶段目标', growthDone: '本阶段目标已完成，继续保持增长',
       inviteOverview: '邀请概览（本周）', invitedUsers: '已邀请用户', actionsTitle: '今天怎么推进收益', actionsCount: '4 个关键动作',
       inviteAction: '邀请新用户', invitedCount: (count: number) => `当前已邀请 ${count} 人`, goInvite: '去邀请', bindAction: '完成平台绑定', bindHint: '登记并验证 Timo / Linky ID', goBind: '去绑定',
-      followAction: '跟进有效用户', effectiveCount: (count: number) => `本期有效用户 ${count} 人`, viewTeam: '查看团队', recordsCount: (count: number) => `${count} 条`, viewRecords: '查看记录', allRecords: '全部记录',
+      followAction: '跟进有效用户', effectiveCount: (count: number) => `已达标有效用户 ${count} 人`, viewTeam: '查看团队', recordsCount: (count: number) => `${count} 条`, viewRecords: '查看记录', allRecords: '全部记录',
       teamOverview: '团队概览', peopleCount: (count: number) => `${count} 人`, firstLevel: '一级用户', secondLevel: '二级用户', thirdLevel: '三级用户', weeklyTeamIncome: '团队本周收入', loadMore: '加载更多流水',
       loadFailure: '收益加载失败，请稍后重试。', sessionExpired: '登录状态已过期，请重新登录。', activityLoadFailure: '账户流水加载失败，请稍后重试。',
     },
     en: {
-      available: 'Unlocked points', frozen: 'Frozen', total: 'Account balance', withdraw: 'Withdrawals unavailable', income: 'Invitation income', direct: 'Direct invitation income', indirect: 'Indirect invitation income', release: 'Unlocked', revision: 'Income adjustment', records: 'Account activity', sourceUser: 'From user', unit: 'points', diamondUnit: 'diamonds',
+      available: 'Unlocked points', frozen: 'Frozen', total: 'Account balance', withdraw: 'Manage earnings withdrawals', income: 'Invitation income', direct: 'Direct invitation income', indirect: 'Indirect invitation income', release: 'Unlocked', revision: 'Income adjustment', records: 'Account activity', sourceUser: 'From user', unit: 'points', diamondUnit: 'diamonds',
       signIn: 'Sign in', greeting: 'Good morning, partner!', greetingSubtitle: 'Every eligible invitation helps your earnings grow.', notificationLabel: 'View reward activity', hideBalance: 'Hide balance', showBalance: 'Show balance',
       growthTitle: 'Rising Star inviter', growthBefore: 'Invite ', growthAfter: ' more eligible users to reach this stage’s goal', growthDone: 'Stage goal reached. Keep growing!',
       inviteOverview: 'Invitation overview (this week)', invitedUsers: 'Users invited', actionsTitle: 'Grow your earnings today', actionsCount: '4 key actions',
       inviteAction: 'Invite new users', invitedCount: (count: number) => `${count} users invited so far`, goInvite: 'Invite now', bindAction: 'Bind platform accounts', bindHint: 'Register and verify your Timo / Linky ID', goBind: 'Bind now',
-      followAction: 'Follow up with eligible users', effectiveCount: (count: number) => `${count} eligible users this period`, viewTeam: 'View team', recordsCount: (count: number) => `${count} records`, viewRecords: 'View records', allRecords: 'All records',
+      followAction: 'Follow up with eligible users', effectiveCount: (count: number) => `${count} qualified users`, viewTeam: 'View team', recordsCount: (count: number) => `${count} records`, viewRecords: 'View records', allRecords: 'All records',
       teamOverview: 'Team overview', peopleCount: (count: number) => `${count} people`, firstLevel: 'Direct users', secondLevel: 'Second-level users', thirdLevel: 'Third-level users', weeklyTeamIncome: 'Team income this week', loadMore: 'Load more activity',
       loadFailure: 'Could not load earnings. Try again later.', sessionExpired: 'Your session has expired. Sign in again.', activityLoadFailure: 'Could not load account activity. Try again later.',
     },
     es: {
-      available: 'Puntos liberados', frozen: 'Congelados', total: 'Saldo de cuenta', withdraw: 'Retiros no disponibles', income: 'Ingreso por invitación', direct: 'Invitación directa', indirect: 'Invitación indirecta', release: 'Liberados', revision: 'Ajuste de ingresos', records: 'Movimientos', sourceUser: 'Del usuario', unit: 'puntos', diamondUnit: 'diamantes',
+      available: 'Puntos liberados', frozen: 'Congelados', total: 'Saldo de cuenta', withdraw: 'Gestionar retiros', income: 'Ingreso por invitación', direct: 'Invitación directa', indirect: 'Invitación indirecta', release: 'Liberados', revision: 'Ajuste de ingresos', records: 'Movimientos', sourceUser: 'Del usuario', unit: 'puntos', diamondUnit: 'diamantes',
       signIn: 'Iniciar sesión', greeting: '¡Buenos días!', greetingSubtitle: 'Cada invitación válida ayuda a aumentar tus ingresos.', notificationLabel: 'Ver movimientos de recompensas', hideBalance: 'Ocultar saldo', showBalance: 'Mostrar saldo',
       growthTitle: 'Invitador Nueva Estrella', growthBefore: 'Invita a ', growthAfter: ' usuarios válidos más para alcanzar la meta de esta etapa', growthDone: '¡Meta alcanzada! Sigue creciendo.',
       inviteOverview: 'Resumen de invitaciones (esta semana)', invitedUsers: 'Usuarios invitados', actionsTitle: 'Impulsa tus ingresos hoy', actionsCount: '4 acciones clave',
       inviteAction: 'Invitar a nuevos usuarios', invitedCount: (count: number) => `${count} usuarios invitados hasta ahora`, goInvite: 'Invitar', bindAction: 'Vincular cuentas de plataforma', bindHint: 'Registra y verifica tu ID de Timo / Linky', goBind: 'Vincular',
-      followAction: 'Dar seguimiento a usuarios válidos', effectiveCount: (count: number) => `${count} usuarios válidos en este período`, viewTeam: 'Ver equipo', recordsCount: (count: number) => `${count} registros`, viewRecords: 'Ver registros', allRecords: 'Todos los registros',
+      followAction: 'Dar seguimiento a usuarios válidos', effectiveCount: (count: number) => `${count} usuarios calificados`, viewTeam: 'Ver equipo', recordsCount: (count: number) => `${count} registros`, viewRecords: 'Ver registros', allRecords: 'Todos los registros',
       teamOverview: 'Resumen del equipo', peopleCount: (count: number) => `${count} personas`, firstLevel: 'Usuarios directos', secondLevel: 'Usuarios de segundo nivel', thirdLevel: 'Usuarios de tercer nivel', weeklyTeamIncome: 'Ingresos del equipo esta semana', loadMore: 'Cargar más movimientos',
       loadFailure: 'No se pudieron cargar los ingresos. Inténtalo más tarde.', sessionExpired: 'Tu sesión caducó. Inicia sesión de nuevo.', activityLoadFailure: 'No se pudieron cargar los movimientos. Inténtalo más tarde.',
     },
     id: {
-      available: 'Poin tersedia', frozen: 'Dibekukan', total: 'Saldo akun', withdraw: 'Penarikan belum tersedia', income: 'Pendapatan undangan', direct: 'Undangan langsung', indirect: 'Undangan tidak langsung', release: 'Dibuka', revision: 'Penyesuaian pendapatan', records: 'Riwayat akun', sourceUser: 'Dari pengguna', unit: 'poin', diamondUnit: 'berlian',
+      available: 'Poin tersedia', frozen: 'Dibekukan', total: 'Saldo akun', withdraw: 'Kelola penarikan', income: 'Pendapatan undangan', direct: 'Undangan langsung', indirect: 'Undangan tidak langsung', release: 'Dibuka', revision: 'Penyesuaian pendapatan', records: 'Riwayat akun', sourceUser: 'Dari pengguna', unit: 'poin', diamondUnit: 'berlian',
       signIn: 'Masuk', greeting: 'Selamat pagi!', greetingSubtitle: 'Setiap undangan yang valid membantu meningkatkan penghasilanmu.', notificationLabel: 'Lihat riwayat imbalan', hideBalance: 'Sembunyikan saldo', showBalance: 'Tampilkan saldo',
       growthTitle: 'Pengundang Bintang Baru', growthBefore: 'Undang ', growthAfter: ' pengguna valid lagi untuk mencapai target tahap ini', growthDone: 'Target tahap ini tercapai. Terus berkembang!',
       inviteOverview: 'Ringkasan undangan (minggu ini)', invitedUsers: 'Pengguna yang diundang', actionsTitle: 'Tingkatkan penghasilan hari ini', actionsCount: '4 tindakan utama',
       inviteAction: 'Undang pengguna baru', invitedCount: (count: number) => `${count} pengguna sudah diundang`, goInvite: 'Undang', bindAction: 'Hubungkan akun platform', bindHint: 'Daftarkan dan verifikasi ID Timo / Linky', goBind: 'Hubungkan',
-      followAction: 'Tindak lanjuti pengguna valid', effectiveCount: (count: number) => `${count} pengguna valid periode ini`, viewTeam: 'Lihat tim', recordsCount: (count: number) => `${count} catatan`, viewRecords: 'Lihat riwayat', allRecords: 'Semua catatan',
+      followAction: 'Tindak lanjuti pengguna valid', effectiveCount: (count: number) => `${count} pengguna yang memenuhi syarat`, viewTeam: 'Lihat tim', recordsCount: (count: number) => `${count} catatan`, viewRecords: 'Lihat riwayat', allRecords: 'Semua catatan',
       teamOverview: 'Ringkasan tim', peopleCount: (count: number) => `${count} orang`, firstLevel: 'Pengguna langsung', secondLevel: 'Pengguna tingkat kedua', thirdLevel: 'Pengguna tingkat ketiga', weeklyTeamIncome: 'Pendapatan tim minggu ini', loadMore: 'Muat riwayat lainnya',
       loadFailure: 'Penghasilan tidak dapat dimuat. Coba lagi nanti.', sessionExpired: 'Sesi kamu sudah berakhir. Masuk lagi.', activityLoadFailure: 'Riwayat akun tidak dapat dimuat. Coba lagi nanti.',
     },
     pt: {
-      available: 'Pontos liberados', frozen: 'Congelados', total: 'Saldo da conta', withdraw: 'Saques indisponíveis', income: 'Receita por convite', direct: 'Convite direto', indirect: 'Convite indireto', release: 'Liberados', revision: 'Ajuste de receita', records: 'Movimentações', sourceUser: 'Do usuário', unit: 'pontos', diamondUnit: 'diamantes',
+      available: 'Pontos liberados', frozen: 'Congelados', total: 'Saldo da conta', withdraw: 'Gerenciar saques', income: 'Receita por convite', direct: 'Convite direto', indirect: 'Convite indireto', release: 'Liberados', revision: 'Ajuste de receita', records: 'Movimentações', sourceUser: 'Do usuário', unit: 'pontos', diamondUnit: 'diamantes',
       signIn: 'Entrar', greeting: 'Bom dia!', greetingSubtitle: 'Cada convite válido ajuda a aumentar seus ganhos.', notificationLabel: 'Ver movimentações de recompensas', hideBalance: 'Ocultar saldo', showBalance: 'Mostrar saldo',
       growthTitle: 'Convidador Nova Estrela', growthBefore: 'Convide mais ', growthAfter: ' usuários válidos para atingir a meta desta etapa', growthDone: 'Meta desta etapa atingida. Continue crescendo!',
       inviteOverview: 'Visão geral dos convites (esta semana)', invitedUsers: 'Usuários convidados', actionsTitle: 'Como aumentar seus ganhos hoje', actionsCount: '4 ações importantes',
       inviteAction: 'Convidar novos usuários', invitedCount: (count: number) => `${count} usuários convidados até agora`, goInvite: 'Convidar', bindAction: 'Vincular contas da plataforma', bindHint: 'Cadastre e valide seu ID Timo / Linky', goBind: 'Vincular',
-      followAction: 'Acompanhar usuários válidos', effectiveCount: (count: number) => `${count} usuários válidos neste período`, viewTeam: 'Ver equipe', recordsCount: (count: number) => `${count} registros`, viewRecords: 'Ver registros', allRecords: 'Todos os registros',
+      followAction: 'Acompanhar usuários válidos', effectiveCount: (count: number) => `${count} usuários qualificados`, viewTeam: 'Ver equipe', recordsCount: (count: number) => `${count} registros`, viewRecords: 'Ver registros', allRecords: 'Todos os registros',
       teamOverview: 'Visão geral da equipe', peopleCount: (count: number) => `${count} pessoas`, firstLevel: 'Usuários diretos', secondLevel: 'Usuários do segundo nível', thirdLevel: 'Usuários do terceiro nível', weeklyTeamIncome: 'Receita da equipe nesta semana', loadMore: 'Carregar mais movimentações',
       loadFailure: 'Não foi possível carregar os ganhos. Tente novamente mais tarde.', sessionExpired: 'Sua sessão expirou. Entre novamente.', activityLoadFailure: 'Não foi possível carregar as movimentações da conta. Tente novamente mais tarde.',
     },
   }[locale]
+
+  useEffect(() => {
+    if (!withdrawalDialogOpen) return
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setWithdrawalDialogOpen(false) }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [withdrawalDialogOpen])
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -6780,14 +6891,16 @@ function EarningsPage() {
       setLoading(true)
       setError('')
       try {
-        const [homeData, teamWeeklyIncomeData, walletData] = await Promise.all([
+        const [homeData, teamData, walletData, profileData] = await Promise.all([
           getDistributionHome(session.userId, session.accessToken),
-          getDistributionTeamWeeklyIncome(session.userId, session.accessToken),
+          getDistributionEffectiveTeam(session.userId, session.accessToken).catch(() => null),
           getDistributionInvitationAccount(session.userId, session.accessToken),
+          getUserPublicProfile(session.userId, session.accessToken).catch(() => null),
         ])
         setHome(homeData)
-        setTeamWeeklyIncome(teamWeeklyIncomeData)
+        setTeam(teamData)
         setWallet(walletData)
+        setProfile(profileData)
       } catch (err) {
         const message = err instanceof Error ? err.message : ''
         if (/access denied|unauthorized|session/i.test(message)) {
@@ -6803,7 +6916,7 @@ function EarningsPage() {
     }
 
     void loadData()
-  }, [session, walletCopy.loadFailure, walletCopy.sessionExpired])
+  }, [session, view, walletCopy.loadFailure, walletCopy.sessionExpired])
 
   async function loadMoreWallet() {
     if (!session || !wallet || wallet.items.length >= wallet.totalRecords) return
@@ -6838,10 +6951,41 @@ function EarningsPage() {
   const availableReward = wallet?.availablePoints ?? 0
   const totalReward = wallet?.totalPoints ?? 0
   const frozenReward = wallet?.frozenPoints ?? 0
-  const effectiveUsersThisView = home?.effectiveUsers ?? 0
+  const effectiveUsersThisView = team?.total ?? home?.effectiveUsers ?? 0
   const growthTarget = 10
   const growthProgress = Math.min(100, Math.round((effectiveUsersThisView / growthTarget) * 100))
   const growthRemaining = Math.max(0, growthTarget - effectiveUsersThisView)
+
+  if (view !== 'overview') {
+    const detailTitle = view === 'effective' ? walletCopy.followAction : walletCopy.records
+    return <div className="consumer-app-page"><main className="consumer-shell consumer-detail-page">
+      <header className="consumer-topbar"><a className="consumer-brand" href="/earnings">BANDEIRA</a></header>
+      <a className="consumer-detail-back" href="/earnings">← {consumerNavigationCopy[locale].earnings}</a>
+      <section className="consumer-commercial-heading"><h1>{detailTitle}</h1></section>
+      {error ? <div className="consumer-banner is-error" role="alert">{error}</div> : null}
+      {!session ? <a className="consumer-primary-link" href="/invite#phone-login">{walletCopy.signIn}</a> :
+        view === 'effective' ? <section className="consumer-settings-card">
+          <h2>{walletCopy.effectiveCount(team?.total ?? 0)}</h2>
+          <p>{walletCopy.teamOverview}</p>
+          {loading ? <p>{copy.loading}</p> : team?.items.length ?
+            <div className="consumer-detail-member-list">{team.items.map((item) =>
+              <div key={`${item.level}-${item.userId}`}><strong>#{item.userId}</strong><span>{item.level === 1 ? walletCopy.firstLevel : item.level === 2 ? walletCopy.secondLevel : walletCopy.thirdLevel} · {consumerCountryName(item.countryCode, locale)}</span></div>)}</div> :
+            <div className="consumer-empty-state"><UsersThree weight="duotone" aria-hidden="true" /><p>{walletCopy.effectiveCount(0)}</p></div>}
+        </section> : <section className="consumer-settings-card">
+          <h2>{walletCopy.recordsCount(wallet?.totalRecords ?? 0)}</h2>
+          <div className="consumer-detail-grid">
+            <div><span>{walletCopy.income}</span><strong>{formatMoney(wallet?.cumulativeIncomePoints, locale)} {walletCopy.unit}</strong></div>
+            <div><span>{walletCopy.frozen}</span><strong>{formatMoney(frozenReward, locale)} {walletCopy.unit}</strong></div>
+            <div><span>{walletCopy.available}</span><strong>{formatMoney(availableReward, locale)} {walletCopy.unit}</strong></div>
+          </div>
+          {rewardItems.length ? <div className="consumer-withdraw-list">{rewardItems.map((item) =>
+            <div key={item.id}><span>{item.type === 'UNFREEZE' ? walletCopy.release : item.type === 'MCN_REVISION' ? walletCopy.revision : getRewardActivityTitle(item.rewardLevel)}<small>{item.platformCode} · {formatMoney(item.rewardDiamonds, locale)} {walletCopy.diamondUnit} · {formatRewardDate(item.recordedAt)}</small></span><strong>{formatMoney(item.type === 'UNFREEZE' ? item.availableDelta : item.frozenDelta + item.availableDelta, locale)} {walletCopy.unit}</strong></div>)}</div> :
+            <div className="consumer-empty-state"><Wallet weight="duotone" aria-hidden="true" /><p>{copy.emptyRewardsTitle}</p></div>}
+          {wallet && wallet.items.length < wallet.totalRecords ? <button className="consumer-detail-load-more" type="button" onClick={() => void loadMoreWallet()} disabled={loading}>{loading ? copy.loading : walletCopy.loadMore}</button> : null}
+        </section>}
+      {session ? <ConsumerBottomNavigation locale={locale} active="earnings" /> : null}
+    </main></div>
+  }
 
   return (
     <div className="consumer-app-page">
@@ -6878,12 +7022,11 @@ function EarningsPage() {
           <>
             <div className="consumer-home-greeting">
               <h1 className="consumer-visually-hidden">{copy.earningsTitle}</h1>
-              <span className="consumer-home-avatar"><User weight="fill" aria-hidden="true" /></span>
-              <div>
-                <strong>{walletCopy.greeting}</strong>
-                <span>{walletCopy.greetingSubtitle}</span>
-              </div>
-              <a className="consumer-notification-link" href="#all-rewards" aria-label={walletCopy.notificationLabel}><Bell weight="regular" aria-hidden="true" /><i /></a>
+              <a className="consumer-home-profile-link" href="/account/profile" aria-label={consumerProfileCopy[locale].title}>
+                <span className="consumer-home-avatar">{profile?.avatarDataUrl ? <img src={profile.avatarDataUrl} alt="" /> : <User weight="fill" aria-hidden="true" />}</span>
+                <span className="consumer-home-profile-copy"><strong>{profile?.nickname || walletCopy.greeting}</strong><span>{walletCopy.greetingSubtitle}</span></span>
+              </a>
+              <a className="consumer-notification-link" href="/earnings/activity" aria-label={walletCopy.notificationLabel}><Bell weight="regular" aria-hidden="true" /><i /></a>
             </div>
 
             <section className="consumer-balance-card" aria-label={walletCopy.available}>
@@ -6894,7 +7037,7 @@ function EarningsPage() {
                     {showBalance ? <Eye weight="regular" aria-hidden="true" /> : <EyeSlash weight="regular" aria-hidden="true" />}
                   </button>
                 </div>
-                <span className="consumer-hero-withdraw" aria-disabled="true">{walletCopy.withdraw}</span>
+                <button className="consumer-hero-withdraw" type="button" onClick={() => setWithdrawalDialogOpen(true)}>{withdrawalCopy.title}</button>
               </div>
               <div className="consumer-balance-value">
                 <strong>{showBalance ? formatMoney(availableReward, locale) : '••••••'} {walletCopy.unit}</strong>
@@ -6919,7 +7062,7 @@ function EarningsPage() {
               </div>
             </section>
 
-            <button className="consumer-growth-card" type="button" onClick={() => setTeamDetailsOpen(true)}>
+            <a className="consumer-growth-card" href="/earnings/effective-users">
               <span className="consumer-growth-medal"><Medal weight="duotone" aria-hidden="true" /></span>
               <span className="consumer-growth-copy">
                 <span><strong>{walletCopy.growthTitle}</strong><b>{effectiveUsersThisView}<small>/{growthTarget}</small></b></span>
@@ -6927,9 +7070,9 @@ function EarningsPage() {
                 <small>{growthRemaining > 0 ? <>{walletCopy.growthBefore}<strong>{growthRemaining}</strong>{walletCopy.growthAfter}</> : walletCopy.growthDone}</small>
               </span>
               <CaretRight weight="bold" aria-hidden="true" />
-            </button>
+            </a>
 
-            <button className="consumer-team-summary" type="button" onClick={() => setTeamDetailsOpen(true)}>
+            <a className="consumer-team-summary" href="/earnings/effective-users">
               <span className="consumer-card-title"><UsersThree weight="fill" aria-hidden="true" />{walletCopy.inviteOverview}</span>
               <CaretRight weight="bold" aria-hidden="true" />
               <span className="consumer-team-summary-grid">
@@ -6937,7 +7080,7 @@ function EarningsPage() {
                 <span><small>{walletCopy.income}</small><strong>{formatMoney(wallet?.cumulativeIncomePoints, locale)} {walletCopy.unit}</strong></span>
                 <span><small>{walletCopy.total}</small><strong>{formatMoney(totalReward, locale)} {walletCopy.unit}</strong></span>
               </span>
-            </button>
+            </a>
 
             <section className="consumer-task-section">
               <div className="consumer-section-head consumer-task-head">
@@ -6948,15 +7091,15 @@ function EarningsPage() {
               <div className="consumer-task-list">
                 <a href="/invite"><span className="is-orange"><UserPlus weight="fill" /></span><div><strong>{walletCopy.inviteAction}</strong><small>{walletCopy.invitedCount(home?.directInvitedUsers ?? 0)}</small></div><b>{walletCopy.goInvite}</b></a>
                 <a href="/account"><span className="is-pink"><LinkSimple weight="bold" /></span><div><strong>{walletCopy.bindAction}</strong><small>{walletCopy.bindHint}</small></div><b>{walletCopy.goBind}</b></a>
-                <button type="button" onClick={() => setTeamDetailsOpen(true)}><span className="is-green"><UsersThree weight="fill" /></span><div><strong>{walletCopy.followAction}</strong><small>{walletCopy.effectiveCount(effectiveUsersThisView)}</small></div><b>{walletCopy.viewTeam}</b></button>
-                <button type="button" onClick={() => setRewardDetailsOpen(true)}><span className="is-purple"><Sparkle weight="fill" /></span><div><strong>{walletCopy.records}</strong><small>{walletCopy.recordsCount(wallet?.totalRecords ?? 0)}</small></div><b>{walletCopy.viewRecords}</b></button>
+                <a href="/earnings/effective-users"><span className="is-green"><UsersThree weight="fill" /></span><div><strong>{walletCopy.followAction}</strong><small>{walletCopy.effectiveCount(effectiveUsersThisView)}</small></div><b>{walletCopy.viewTeam}</b></a>
+                <a href="/earnings/activity"><span className="is-purple"><Sparkle weight="fill" /></span><div><strong>{walletCopy.records}</strong><small>{walletCopy.recordsCount(wallet?.totalRecords ?? 0)}</small></div><b>{walletCopy.viewRecords}</b></a>
               </div>
             </section>
 
             <section className="consumer-activity-section">
               <div className="consumer-section-head">
                 <h2>{walletCopy.records}</h2>
-                <button type="button" onClick={() => setRewardDetailsOpen(true)}>{walletCopy.allRecords}<CaretRight weight="bold" aria-hidden="true" /></button>
+                <a href="/earnings/activity">{walletCopy.allRecords}<CaretRight weight="bold" aria-hidden="true" /></a>
               </div>
 
               {loading ? (
@@ -6994,31 +7137,14 @@ function EarningsPage() {
               )}
             </section>
 
-            <section className="consumer-details" id="team-details">
-              <details open={teamDetailsOpen} onToggle={(event) => setTeamDetailsOpen(event.currentTarget.open)}>
-                <summary><span>{walletCopy.teamOverview}</span><strong>{walletCopy.peopleCount(home?.totalTeamUsers ?? 0)}</strong></summary>
-                <div className="consumer-detail-grid">
-                  <div><span>{walletCopy.firstLevel}</span><strong>{home?.directInvitedUsers ?? 0}</strong></div>
-                  <div><span>{walletCopy.secondLevel}</span><strong>{home?.secondLevelInvitedUsers ?? 0}</strong></div>
-                  <div><span>{walletCopy.thirdLevel}</span><strong>{home?.thirdLevelInvitedUsers ?? 0}</strong></div>
-                  <div><span>{walletCopy.weeklyTeamIncome}</span><strong>{formatMoney(teamWeeklyIncome?.currentWeekTeamIncome, locale)}</strong></div>
-                </div>
-              </details>
-              <details id="all-rewards" open={rewardDetailsOpen} onToggle={(event) => setRewardDetailsOpen(event.currentTarget.open)}>
-                <summary><span>{walletCopy.records}</span><strong>{walletCopy.recordsCount(wallet?.totalRecords ?? 0)}</strong></summary>
-                <div className="consumer-detail-grid">
-                  <div><span>{walletCopy.income}</span><strong>{formatMoney(wallet?.cumulativeIncomePoints, locale)} {walletCopy.unit}</strong></div>
-                  <div><span>{walletCopy.direct}</span><strong>{formatMoney(wallet?.directIncomePoints, locale)} {walletCopy.unit}</strong></div>
-                  <div><span>{walletCopy.indirect}</span><strong>{formatMoney(wallet?.indirectIncomePoints, locale)} {walletCopy.unit}</strong></div>
-                  <div><span>{walletCopy.frozen}</span><strong>{formatMoney(frozenReward, locale)} {walletCopy.unit}</strong></div>
-                  <div><span>{walletCopy.available}</span><strong>{formatMoney(availableReward, locale)} {walletCopy.unit}</strong></div>
-                </div>
-                {rewardItems.length ? <div className="consumer-withdraw-list">
-                  {rewardItems.map((item) => <div key={item.id}><span>{item.type === 'UNFREEZE' ? walletCopy.release : item.type === 'MCN_REVISION' ? walletCopy.revision : getRewardActivityTitle(item.rewardLevel)}<small>{item.platformCode} · {formatMoney(item.rewardDiamonds, locale)} {walletCopy.diamondUnit} · {formatRewardDate(item.recordedAt)}</small></span><strong>{formatMoney(item.type === 'UNFREEZE' ? item.availableDelta : item.frozenDelta + item.availableDelta, locale)} {walletCopy.unit}</strong></div>)}
-                </div> : null}
-                {wallet && wallet.items.length < wallet.totalRecords ? <button className="consumer-hero-withdraw" type="button" onClick={() => void loadMoreWallet()} disabled={loading}>{loading ? copy.loading : walletCopy.loadMore}</button> : null}
-              </details>
-            </section>
+            {withdrawalDialogOpen ? <div className="consumer-modal-backdrop" onClick={() => setWithdrawalDialogOpen(false)}>
+              <section className="consumer-withdrawal-dialog" role="dialog" aria-modal="true" aria-label={withdrawalCopy.title} onClick={(event) => event.stopPropagation()}>
+                <h2>{withdrawalCopy.title}</h2>
+                <h3>{withdrawalCopy.when}</h3><p>{withdrawalCopy.whenAnswer}</p>
+                <h3>{withdrawalCopy.how}</h3><p>{withdrawalCopy.howAnswer}</p>
+                <button type="button" autoFocus onClick={() => setWithdrawalDialogOpen(false)}>{withdrawalCopy.close}</button>
+              </section>
+            </div> : null}
           </>
         )}
 
@@ -7030,10 +7156,13 @@ function EarningsPage() {
 
 function App() {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '/'
+  if (pathname.startsWith('/account/profile')) return <PublicProfilePage />
   if (pathname.startsWith('/account/timo')) return <TimoBindingPage />
   if (pathname.startsWith('/account/linky') || pathname.startsWith('/bind')) return <BindLandingPage />
   if (pathname.startsWith('/account')) return <AccountPage />
   if (pathname.startsWith('/invite')) return <InviteCodePage />
+  if (pathname.startsWith('/earnings/effective-users')) return <EarningsPage view="effective" />
+  if (pathname.startsWith('/earnings/activity')) return <EarningsPage view="activity" />
   if (pathname.startsWith('/earnings')) return <EarningsPage />
   const designPreview = import.meta.env.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('adminPreview') === '1'
   return <ConsoleApp initialAdminSession={designPreview ? {

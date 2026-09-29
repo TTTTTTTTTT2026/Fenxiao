@@ -13,6 +13,11 @@ export type ProfileResponse = {
   accessToken: string
 }
 
+export type UserPublicProfileResponse = {
+  nickname: string | null
+  avatarDataUrl: string | null
+}
+
 export type RegisterLinkyAccountRequest = {
   productCode: string
   linkyAccount: string
@@ -412,6 +417,11 @@ export type TeamMemberItem = {
 
 export type TeamListResponse = {
   items: TeamMemberItem[]
+  total: number
+}
+
+export type EffectiveTeamResponse = {
+  items: Array<{ userId: number; countryCode: string; level: number }>
   total: number
 }
 
@@ -1073,6 +1083,24 @@ export function getDistributionHome(userId: number, accessToken: string) {
   })
 }
 
+export function getUserPublicProfile(userId: number, accessToken: string) {
+  return request<UserPublicProfileResponse>(`/api/distribution/public-profiles/${userId}`, {
+    headers: { 'X-Distribution-Token': accessToken },
+  })
+}
+
+export function updateUserNickname(userId: number, accessToken: string, nickname: string) {
+  return request<UserPublicProfileResponse>(`/api/distribution/public-profiles/${userId}/nickname`, {
+    method: 'POST', headers: { 'X-Distribution-Token': accessToken }, body: JSON.stringify({ nickname }),
+  })
+}
+
+export function updateUserAvatar(userId: number, accessToken: string, dataUrl: string) {
+  return request<UserPublicProfileResponse>(`/api/distribution/public-profiles/${userId}/avatar`, {
+    method: 'POST', headers: { 'X-Distribution-Token': accessToken }, body: JSON.stringify({ dataUrl }),
+  })
+}
+
 export function getDistributionInvitationAccount(userId: number, accessToken: string, page = 0, size = 20) {
   return request<InvitationRewardAccountResponse>(`/api/distribution/accounts/${userId}?page=${page}&size=${size}`, {
     headers: { 'X-Distribution-Token': accessToken },
@@ -1090,6 +1118,12 @@ export function getDistributionTeam(userId: number, accessToken: string) {
     headers: {
       'X-Distribution-Token': accessToken,
     },
+  })
+}
+
+export function getDistributionEffectiveTeam(userId: number, accessToken: string) {
+  return request<EffectiveTeamResponse>(`/api/distribution/team/${userId}/effective`, {
+    headers: { 'X-Distribution-Token': accessToken },
   })
 }
 
