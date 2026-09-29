@@ -4928,6 +4928,33 @@ code {
   padding-bottom: max(42px, calc(24px + env(safe-area-inset-bottom)));
 }
 
+.consumer-login-hero {
+  width: 100%;
+  aspect-ratio: 1720 / 914;
+  margin: 18px 0 20px;
+}
+
+.consumer-login-hero img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.consumer-login-hero-fallback {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  margin: 0;
+  padding: clamp(16px, 6%, 40px);
+  border-radius: 14px;
+  background: linear-gradient(120deg, #ff8b47, #f95c56);
+  color: #fff;
+  font-size: clamp(16px, 3vw, 24px);
+  font-weight: 750;
+  line-height: 1.3;
+}
+
 .consumer-form-shell .consumer-bottom-nav {
   margin-bottom: 0;
 }
