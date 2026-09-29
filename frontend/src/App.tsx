@@ -139,6 +139,7 @@ import {
   submitPlatformBinding,
   updateAdminAccount,
   updateAdminLinkyInvitationGuild,
+  updateAdminUserCountry,
   updateAdminSmsDeliveryStatus,
   enrollExperimentParticipant,
   type AdminWithdrawRequestListResponse,
@@ -650,6 +651,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [seedInviters, setSeedInviters] = useState<SeedInviterListResponse | null>(null)
   const [userPlatformProfiles, setUserPlatformProfiles] = useState<UserPlatformProfileListResponse | null>(null)
   const [userPlatformQuery, setUserPlatformQuery] = useState({ userId: '', page: '0', size: '20' })
+  const [userCountryDraft, setUserCountryDraft] = useState<{ userId: number; currentCountryCode: string; targetCountryCode: string } | null>(null)
   const [platformGuildDirectoryPlatform, setPlatformGuildDirectoryPlatform] = useState<'LINKY' | 'TIMO'>('LINKY')
   const [platformGuildDirectory, setPlatformGuildDirectory] = useState<PlatformGuildDirectoryItem[] | null>(null)
   const [platformGuildDirectorySyncRuns, setPlatformGuildDirectorySyncRuns] = useState<PlatformGuildDirectorySyncRun[] | null>(null)
@@ -724,6 +726,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const canManageOperatingDividends = canRunControlledIncome
   const canManageTeams = ['super_admin', 'admin', 'operations'].includes(adminSession?.role?.toLowerCase() ?? '')
   const canManageLinkyInvitationGuild = ['super_admin', 'admin'].includes(adminSession?.role?.toLowerCase() ?? '')
+  const canManageUserCountry = ['super_admin', 'admin', 'operations'].includes(adminSession?.role?.toLowerCase() ?? '')
   const linkyGuildOptions = useMemo(() => {
     return (linkyInvitationGuildOptions ?? [])
       .filter((item) => item.directoryStatus === 'NORMAL' && ['ACTIVE', 'ENABLED'].includes(item.guildStatus.toUpperCase()))
@@ -1325,6 +1328,32 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
       setLoading(false)
     }
   }, [adminSession, userPlatformQuery])
+
+  async function saveUserCountry() {
+    if (!adminSession || !canManageUserCountry || !userCountryDraft || !userCountryDraft.targetCountryCode
+      || userCountryDraft.targetCountryCode === userCountryDraft.currentCountryCode) return
+    setLoading(true)
+    setError('')
+    setSuccessMessage('')
+    try {
+      await updateAdminUserCountry(adminSession.sessionToken, userCountryDraft.userId, userCountryDraft.targetCountryCode)
+      await loadUserPlatformProfiles()
+      setUserCountryDraft(null)
+      setSuccessMessage(`用户 #${userCountryDraft.userId} 的归属国家已调整为${formatCountryNameZh(userCountryDraft.targetCountryCode)}。`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '调整用户归属国家失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function openUserCountryDialog(item: UserPlatformProfileListResponse['items'][number]) {
+    setUserCountryDraft({
+      userId: item.userId,
+      currentCountryCode: item.countryCode,
+      targetCountryCode: phoneCountries.some((country) => country.countryCode === item.countryCode) ? item.countryCode : '',
+    })
+  }
 
   useEffect(() => {
     if (activeAdminSection !== 'users' || !adminSession) return
@@ -3485,7 +3514,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               sectionId="admin-users"
               eyebrow="User directory"
               title="用户信息与平台归属"
-              description="集中查询用户资料、邀请码关系、平台绑定事实与 Linky 邀请链归属。人工调整仅改变该用户未来下级的 Linky 目标公会。"
+              description="集中查询用户资料、邀请码关系、平台绑定事实与 Linky 邀请链归属。用户归属国家与 Linky 邀请链归属是两项独立设置。"
               action={<button className="primary-btn" onClick={() => void loadUserPlatformProfiles()} disabled={loading}>{loading ? '加载中…' : '刷新用户'}</button>}
             >
               <div className="stack-gap">
@@ -3494,7 +3523,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                     <label>用户 ID（留空查看列表）<input inputMode="numeric" value={userPlatformQuery.userId} onChange={(event) => setUserPlatformQuery({ ...userPlatformQuery, userId: event.target.value.replace(/\D/g, ''), page: '0' })} placeholder="例如 1001" /></label>
                     <label>每页数量<select value={userPlatformQuery.size} onChange={(event) => setUserPlatformQuery({ ...userPlatformQuery, size: event.target.value, page: '0' })}><option value="20">20</option><option value="50">50</option><option value="100">100</option></select></label>
                   </div>
-                  <InlineHint text="实际 Linky / Timo 公会是平台核验事实；“邀请链归属”才是该用户邀请新下级时使用的 Linky 目标公会。" />
+                  <InlineHint text="实际 Linky / Timo 公会是平台核验事实；调整用户归属国家不会更改平台公会。Linky 邀请链归属决定该用户邀请新下级时使用的目标公会。" />
                 </InfoCard>
                 <InfoCard title="用户与平台核验信息" tone="neutral">
                   <DataTable
@@ -3510,7 +3539,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                       item.linky ? <div className="stack-gap small"><strong>{item.linky.accountId}</strong><span>{item.linky.status} · {item.linky.guildName || item.linky.guildId || '未返回公会'}{item.linky.expectedGuildSource ? ` · 目标来源 ${item.linky.expectedGuildSource}` : ''}</span></div> : '-',
                       item.timo ? <div className="stack-gap small"><strong>{item.timo.accountId}</strong><span>{item.timo.status} · {item.timo.guildId || '未返回公会'}</span></div> : '-',
                       item.invitationGuild ? <div className="stack-gap small"><strong>{item.invitationGuild.guildName} · {item.invitationGuild.guildId}</strong><span>{item.invitationGuild.source}{item.invitationGuild.inheritedFromUserId ? ` · 继承自 #${item.invitationGuild.inheritedFromUserId}` : ''}</span></div> : '-',
-                      canManageLinkyInvitationGuild ? <button className="ghost-btn small-btn" onClick={() => openLinkyInvitationGuildOverride(item)}>调整归属</button> : '只读',
+                      canManageUserCountry || canManageLinkyInvitationGuild ? <div className="action-row">{canManageUserCountry ? <button className="ghost-btn small-btn" onClick={() => openUserCountryDialog(item)}>调整国家</button> : null}{canManageLinkyInvitationGuild ? <button className="ghost-btn small-btn" onClick={() => openLinkyInvitationGuildOverride(item)}>调整 Linky 归属</button> : null}</div> : '只读',
                     ])}
                     emptyText="输入用户 ID 后查询，或直接查询查看近期用户。"
                   />
@@ -4408,6 +4437,27 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           <label>处理结论<select value={incomeExceptionReviewForm.reviewStatus} onChange={(event) => setIncomeExceptionReviewForm({ ...incomeExceptionReviewForm, reviewStatus: event.target.value as 'ACKNOWLEDGED' | 'IGNORED' })}><option value="ACKNOWLEDGED">已知悉，待后续处理</option><option value="IGNORED">确认不纳入本次处理</option></select></label>
           <label className="top-gap">复核备注<textarea value={incomeExceptionReviewForm.reviewNote} maxLength={255} onChange={(event) => setIncomeExceptionReviewForm({ ...incomeExceptionReviewForm, reviewNote: event.target.value })} placeholder="说明已核对的依据、后续负责人或不纳入原因" /></label>
           <InlineHint text="保存复核结论不会改变 MCN 原始事实、绑定状态、候选测算或任何财务数据。" />
+        </ConfirmDialog>
+      ) : null}
+
+      {userCountryDraft ? (
+        <ConfirmDialog
+          title={`调整用户归属国家 · 用户 #${userCountryDraft.userId}`}
+          tone="success"
+          confirmText="保存国家"
+          loading={loading}
+          confirmDisabled={!userCountryDraft.targetCountryCode || userCountryDraft.targetCountryCode === userCountryDraft.currentCountryCode}
+          onCancel={() => setUserCountryDraft(null)}
+          onConfirm={() => void saveUserCountry()}
+        >
+          <InfoRow label="当前归属国家" value={formatCountryNameZh(userCountryDraft.currentCountryCode)} />
+          <label className="dialog-field">目标国家
+            <select value={userCountryDraft.targetCountryCode} onChange={(event) => setUserCountryDraft({ ...userCountryDraft, targetCountryCode: event.target.value })}>
+              <option value="">请选择目标国家</option>
+              {phoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names.zh}</option>)}
+            </select>
+          </label>
+          <InlineHint text="仅调整用户当前归属国家和邀请关系中的国家标记，供后续业务规则使用；不会改动手机号、界面语言、邀请码、平台公会或既有收入与奖励记录。操作会留下修改前后和操作人的审计记录。" />
         </ConfirmDialog>
       ) : null}
 

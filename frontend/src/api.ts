@@ -1370,6 +1370,14 @@ export function getAdminUserPlatformProfiles(adminSessionToken: string, filters?
   })
 }
 
+export function updateAdminUserCountry(adminSessionToken: string, userId: number, countryCode: string) {
+  return request<{ userId: number; countryCode: string }>(`/admin/distribution/user-platform-profiles/${userId}/country`, {
+    method: 'POST',
+    headers: { 'X-Admin-Session': adminSessionToken },
+    body: JSON.stringify({ countryCode }),
+  })
+}
+
 export function updateAdminLinkyInvitationGuild(adminSessionToken: string, userId: number, payload: {
   guildId: string
   guildName: string

@@ -1,9 +1,25 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { applyAdminRiskEventBatchAction, applyAdminWithdrawBatchAction, approveAdminWithdrawRequest, approveWithdrawForPayment, correctAdminOwnership, createAdminPlatformGuildOperatingShareRate, createAdminSession, createExperiment, createWithdrawRequest, getAdminGuildConfigs, getAdminGuildWeeklyReport, getAdminMentorAssignedStudents, getAdminOwnership, getAdminPlatformGuildDirectory, getAdminPlatformGuildDirectorySyncRuns, getAdminPlatformIntegrations, getAdminSeedInviters, getAdminSmsDeliveryStatus, getAdminWithdrawRequests, getDistributionRewardSummary, getDistributionTeamWeeklyIncome, getExperimentDashboard, getWithdrawHistory, issuePhoneCode, logoutUserSession, phoneLogin, recordWithdrawPayment, refreshAdminLinkyEligibility, refreshAdminLinkyEligibilityBatch, rejectAdminWithdrawRequest, reverseWithdrawPayment, saveAdminGuildConfig, updateAdminSmsDeliveryStatus } from './api'
+import { applyAdminRiskEventBatchAction, applyAdminWithdrawBatchAction, approveAdminWithdrawRequest, approveWithdrawForPayment, correctAdminOwnership, createAdminPlatformGuildOperatingShareRate, createAdminSession, createExperiment, createWithdrawRequest, getAdminGuildConfigs, getAdminGuildWeeklyReport, getAdminMentorAssignedStudents, getAdminOwnership, getAdminPlatformGuildDirectory, getAdminPlatformGuildDirectorySyncRuns, getAdminPlatformIntegrations, getAdminSeedInviters, getAdminSmsDeliveryStatus, getAdminWithdrawRequests, getDistributionRewardSummary, getDistributionTeamWeeklyIncome, getExperimentDashboard, getWithdrawHistory, issuePhoneCode, logoutUserSession, phoneLogin, recordWithdrawPayment, refreshAdminLinkyEligibility, refreshAdminLinkyEligibilityBatch, rejectAdminWithdrawRequest, reverseWithdrawPayment, saveAdminGuildConfig, updateAdminSmsDeliveryStatus, updateAdminUserCountry } from './api'
 
 describe('ownership admin api', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
+  })
+
+  it('saves user country with the admin session', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ userId: 1001, countryCode: 'BR' }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await updateAdminUserCountry('session-token', 1001, 'BR')
+
+    expect(fetchMock).toHaveBeenCalledWith('/admin/distribution/user-platform-profiles/1001/country', expect.objectContaining({
+      method: 'POST',
+      headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
+      body: JSON.stringify({ countryCode: 'BR' }),
+    }))
   })
 
   it('requests ownership detail with admin session header', async () => {
