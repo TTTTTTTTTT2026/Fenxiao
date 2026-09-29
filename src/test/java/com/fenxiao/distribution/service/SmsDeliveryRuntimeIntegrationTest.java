@@ -13,8 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(properties = {
         "app.sms.provider=CHUANGLAN",
         "app.sms.chuanglan.account=I1234567",
-        "app.sms.chuanglan.password=fake-test-secret",
-        "app.sms.chuanglan.test-numbers=+85250000001"
+        "app.sms.chuanglan.password=fake-test-secret"
 })
 class SmsDeliveryRuntimeIntegrationTest {
     @Autowired SmsDeliveryControlService controls;
