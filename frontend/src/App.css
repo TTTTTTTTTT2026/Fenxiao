@@ -5752,7 +5752,9 @@ code {
 }
 
 .consumer-growth-copy > span strong {
+  min-width: 0;
   font-size: 16px;
+  overflow-wrap: anywhere;
 }
 
 .consumer-growth-copy b {
@@ -5781,11 +5783,9 @@ code {
 }
 
 .consumer-growth-copy > small {
-  overflow: hidden;
   color: #7b716b;
   font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.4;
 }
 
 .consumer-growth-copy > small strong {
@@ -5950,13 +5950,15 @@ code {
 
 .consumer-task-list b {
   min-width: 60px;
+  max-width: 92px;
   padding: 7px 10px;
   border: 1px solid #f3a176;
   border-radius: 999px;
   color: #e85b21;
   font-size: 11px;
   text-align: center;
-  white-space: nowrap;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .consumer-activity-section {

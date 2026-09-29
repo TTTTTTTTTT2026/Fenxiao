@@ -5012,6 +5012,14 @@ const linkyGuildMismatchCopy: Record<ConsumerLocale, string> = {
   pt: 'Esta conta e quem fez o convite não pertencem à mesma guilda. A vinculação falhou.',
 }
 
+const linkyBindingErrorCopy: Record<ConsumerLocale, { configuration: string; duplicateAccount: string; duplicatePhone: string; unavailable: string; generic: string }> = {
+  zh: { configuration: '当前邀请路径尚未配置可核验的 Linky 公会，请联系运营人员。', duplicateAccount: '这个 Linky 账号已被绑定。', duplicatePhone: '这个手机号已被登记。', unavailable: 'Linky 核验暂时不可用，请稍后重试。', generic: '绑定未完成，请稍后重试或联系运营人员。' },
+  en: { configuration: 'This invitation route has no eligible Linky guild yet. Please contact support.', duplicateAccount: 'This Linky account is already bound.', duplicatePhone: 'This phone number is already registered.', unavailable: 'Linky verification is temporarily unavailable. Try again later.', generic: 'Binding could not be completed. Try again later or contact support.' },
+  es: { configuration: 'Esta ruta de invitación aún no tiene un gremio Linky válido. Contacta al equipo de soporte.', duplicateAccount: 'Esta cuenta Linky ya está vinculada.', duplicatePhone: 'Este número de teléfono ya está registrado.', unavailable: 'La verificación de Linky no está disponible por ahora. Inténtalo más tarde.', generic: 'No se pudo completar la vinculación. Inténtalo más tarde o contacta al equipo de soporte.' },
+  id: { configuration: 'Jalur undangan ini belum memiliki guild Linky yang dapat diverifikasi. Hubungi tim dukungan.', duplicateAccount: 'Akun Linky ini sudah terhubung.', duplicatePhone: 'Nomor telepon ini sudah terdaftar.', unavailable: 'Verifikasi Linky sementara tidak tersedia. Coba lagi nanti.', generic: 'Penghubungan akun belum selesai. Coba lagi nanti atau hubungi tim dukungan.' },
+  pt: { configuration: 'Esta rota de convite ainda não tem uma guilda Linky válida. Entre em contato com o suporte.', duplicateAccount: 'Esta conta Linky já está vinculada.', duplicatePhone: 'Este número de telefone já está cadastrado.', unavailable: 'A verificação do Linky está temporariamente indisponível. Tente novamente mais tarde.', generic: 'Não foi possível concluir o vínculo. Tente novamente mais tarde ou entre em contato com o suporte.' },
+}
+
 // eslint-disable-next-line react-refresh/only-export-components
 export function isLinkyGuildMismatch(message: string) {
   return /Linky account is not in (?:the )?expected guild|Please join expected Linky guild|Linky account joined another guild/i.test(message)
@@ -5019,7 +5027,14 @@ export function isLinkyGuildMismatch(message: string) {
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function localizeLinkyBindingError(message: string, locale: ConsumerLocale) {
-  return isLinkyGuildMismatch(message) ? linkyGuildMismatchCopy[locale] : message
+  if (isLinkyGuildMismatch(message)) return linkyGuildMismatchCopy[locale]
+  const normalized = message.toLowerCase()
+  const copy = linkyBindingErrorCopy[locale]
+  if (normalized.includes('invitation route is mapped to an active mcn guild') || normalized.includes('expected_guild_not_mcn_allowlisted')) return copy.configuration
+  if (normalized.includes('linky account already registered') || normalized.includes('linky account already bound')) return copy.duplicateAccount
+  if (normalized.includes('whatsapp number already registered') || normalized.includes('phone number already registered')) return copy.duplicatePhone
+  if (normalized.includes('linky verification is temporarily unavailable')) return copy.unavailable
+  return copy.generic
 }
 
 function BindLandingPage() {
@@ -5201,7 +5216,7 @@ function BindLandingPage() {
       heroSubtitle: 'Regra simples: registre primeiro código + WhatsApp + conta de 8 dígitos, depois a atribuição e as recompensas seguirão esta linha.',
       chips: ['Trabalho remoto flexível', 'Fluxo de moedas', 'Comece pelo celular'],
       floating: ['🏠 Casa', '📱 Celular', '🪙 Moedas'],
-      stats: ['Vincule primeiro', 'Promova depois', 'Reward depois'],
+      stats: ['Vincule primeiro', 'Divulgue depois', 'Receba recompensas depois'],
       formTitle: 'Envie agora e bloqueie sua linha de recompensa',
       formSubtitle: 'Uma ação só: registre a relação primeiro.',
       inviteCode: 'Código de convite',
@@ -5297,8 +5312,8 @@ function BindLandingPage() {
           <h1>{accountCopy.bindingTitle}</h1>
           <p>{copy.productLabel} · Linky · {accountCopy.bindingSubtitle}</p>
           <div className="consumer-commercial-proof">
-            <span><ShieldCheck weight="fill" aria-hidden="true" />归属锁定</span>
-            <span><LinkSimple weight="bold" aria-hidden="true" />记录可追踪</span>
+            <span><ShieldCheck weight="fill" aria-hidden="true" />{platformBindingProofCopy[locale].ownership}</span>
+            <span><LinkSimple weight="bold" aria-hidden="true" />{platformBindingProofCopy[locale].traceable}</span>
           </div>
         </section>
 
@@ -5349,9 +5364,10 @@ function BindLandingPage() {
   )
 }
 
-function formatMoney(value?: number | null) {
+function formatMoney(value?: number | null, locale?: ConsumerLocale) {
   if (value === undefined || value === null) return '--'
-  return new Intl.NumberFormat('en-US', {
+  const numberLocale = locale ? { zh: 'zh-CN', en: 'en-US', es: 'es-ES', id: 'id-ID', pt: 'pt-BR' }[locale] : 'en-US'
+  return new Intl.NumberFormat(numberLocale, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value)
@@ -5790,6 +5806,28 @@ const timoBindingCopy: Record<ConsumerLocale, {
   pt: { title: 'Vincular conta Timo', subtitle: 'Informe o ID oficial do Timo e valide a titularidade antes do cálculo de recompensas em modo sombra.', summary: 'Use o ID oficial do Timo com 12 dígitos para validar a titularidade.', open: 'Vincular conta Timo', account: 'ID Timo (12 dígitos)', hint: 'Informe o ID numérico oficial do Timo com 12 dígitos e sem começar por 0. Não use apelido, WhatsApp ou código de convite.', placeholder: 'ex. 123456789012', submit: 'Enviar e validar ID Timo', verifying: 'Validando…', verifyAgain: 'Validar novamente', verified: 'Sua conta Timo foi validada.', submitted: 'Seu ID Timo foi enviado e aguarda validação.', pending: 'O ID foi enviado; a validação ainda não terminou. Tente mais tarde.', rejected: 'A validação não foi aprovada', signInTitle: 'Entre para vincular o Timo', signInHint: 'Entre com o telefone antes de vincular o ID oficial do Timo.', signIn: 'Entrar com telefone', failure: 'Falha ao vincular Timo' },
 }
 
+const timoBindingErrorCopy: Record<ConsumerLocale, { country: string; targetGuild: string; duplicate: string; notInGuild: string; joinWindow: string; joinedAtMissing: string; unavailable: string; generic: string }> = {
+  zh: { country: '当前登记国家尚未配置 Timo 公会核验，请联系运营人员。', targetGuild: '目标 Timo 公会未配置或与权威记录不符。', duplicate: '这个 Timo ID 已被登记，不能重复绑定。', notInGuild: '这个 Timo ID 不属于目标公会。', joinWindow: '公会加入时间与绑定提交时间不符合核验要求。', joinedAtMissing: 'MCN 暂未提供可核验的公会加入时间。', unavailable: 'Timo 核验暂时不可用，请稍后重试。', generic: 'Timo 核验未完成，请稍后重试或联系运营人员。' },
+  en: { country: 'Timo guild verification is not configured for your registered country. Please contact support.', targetGuild: 'The expected Timo guild is not configured or does not match the official record.', duplicate: 'This Timo ID is already registered and cannot be bound again.', notInGuild: 'This Timo ID is not in the expected guild.', joinWindow: 'The guild join date does not meet the binding verification window.', joinedAtMissing: 'MCN has not provided a verifiable guild join date.', unavailable: 'Timo verification is temporarily unavailable. Try again later.', generic: 'Timo verification could not be completed. Try again later or contact support.' },
+  es: { country: 'La verificación del gremio Timo no está configurada para tu país de registro. Contacta al equipo de soporte.', targetGuild: 'El gremio Timo esperado no está configurado o no coincide con el registro oficial.', duplicate: 'Este ID de Timo ya está registrado y no puede vincularse otra vez.', notInGuild: 'Este ID de Timo no pertenece al gremio esperado.', joinWindow: 'La fecha de ingreso al gremio no cumple el plazo de verificación.', joinedAtMissing: 'MCN no ha proporcionado una fecha de ingreso verificable.', unavailable: 'La verificación de Timo no está disponible por ahora. Inténtalo más tarde.', generic: 'No se pudo completar la verificación de Timo. Inténtalo más tarde o contacta al equipo de soporte.' },
+  id: { country: 'Verifikasi guild Timo belum tersedia untuk negara pendaftaranmu. Hubungi tim dukungan.', targetGuild: 'Guild Timo tujuan belum dikonfigurasi atau tidak cocok dengan data resmi.', duplicate: 'ID Timo ini sudah terdaftar dan tidak dapat dihubungkan lagi.', notInGuild: 'ID Timo ini tidak berada di guild tujuan.', joinWindow: 'Tanggal bergabung dengan guild tidak memenuhi batas waktu verifikasi.', joinedAtMissing: 'MCN belum menyediakan tanggal bergabung dengan guild yang dapat diverifikasi.', unavailable: 'Verifikasi Timo sementara tidak tersedia. Coba lagi nanti.', generic: 'Verifikasi Timo belum selesai. Coba lagi nanti atau hubungi tim dukungan.' },
+  pt: { country: 'A verificação da guilda Timo não está configurada para o seu país de cadastro. Entre em contato com o suporte.', targetGuild: 'A guilda Timo esperada não está configurada ou não corresponde ao registro oficial.', duplicate: 'Este ID Timo já está cadastrado e não pode ser vinculado novamente.', notInGuild: 'Este ID Timo não pertence à guilda esperada.', joinWindow: 'A data de entrada na guilda não atende ao prazo de verificação.', joinedAtMissing: 'O MCN ainda não forneceu uma data de entrada na guilda que possa ser verificada.', unavailable: 'A verificação do Timo está temporariamente indisponível. Tente novamente mais tarde.', generic: 'Não foi possível concluir a verificação do Timo. Tente novamente mais tarde ou entre em contato com o suporte.' },
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function localizeTimoBindingError(message: string, locale: ConsumerLocale) {
+  const normalized = message.toLowerCase()
+  const copy = timoBindingErrorCopy[locale]
+  if (normalized.includes('no mcn timo country mapping') || normalized.includes('no enabled timo target guild')) return copy.country
+  if (normalized.includes('expected_guild_mismatch')) return copy.targetGuild
+  if (normalized.includes('already has a binding') || normalized.includes('already been recorded')) return copy.duplicate
+  if (normalized.includes('not_in_target_guild') || normalized.includes('not in the target guild')) return copy.notInGuild
+  if (normalized.includes('join_time_window_exceeded') || normalized.includes('join time is more than 24 hours')) return copy.joinWindow
+  if (normalized.includes('formal_join_time_missing')) return copy.joinedAtMissing
+  if (normalized.includes('temporarily disabled') || normalized.includes('temporarily unavailable') || normalized.includes('not configured')) return copy.unavailable
+  return copy.generic
+}
+
 const platformBindingProofCopy: Record<ConsumerLocale, { ownership: string; traceable: string }> = {
   zh: { ownership: '归属核验', traceable: '记录可追踪' },
   en: { ownership: 'Ownership verification', traceable: 'Traceable record' },
@@ -5979,6 +6017,23 @@ const phoneCountries = [
   { countryCode: 'VN', callingCode: '+84', names: { zh: '越南', en: 'Vietnam', es: 'Vietnam', id: 'Vietnam', pt: 'Vietnã' } },
   { countryCode: 'MY', callingCode: '+60', names: { zh: '马来西亚', en: 'Malaysia', es: 'Malasia', id: 'Malaysia', pt: 'Malásia' } },
 ] as const
+
+function consumerCountryName(countryCode: string, locale: ConsumerLocale) {
+  return phoneCountries.find((country) => country.countryCode === countryCode.toUpperCase())?.names[locale] ?? countryCode
+}
+
+const consumerLanguageNames: Record<ConsumerLocale, Record<ConsumerLocale, string>> = {
+  zh: { zh: '中文', en: '英语', es: '西班牙语', id: '印尼语', pt: '葡萄牙语' },
+  en: { zh: 'Chinese', en: 'English', es: 'Spanish', id: 'Indonesian', pt: 'Portuguese' },
+  es: { zh: 'Chino', en: 'Inglés', es: 'Español', id: 'Indonesio', pt: 'Portugués' },
+  id: { zh: 'Bahasa Mandarin', en: 'Bahasa Inggris', es: 'Bahasa Spanyol', id: 'Bahasa Indonesia', pt: 'Bahasa Portugis' },
+  pt: { zh: 'Chinês', en: 'Inglês', es: 'Espanhol', id: 'Indonésio', pt: 'Português' },
+}
+
+function consumerLanguageName(languageCode: string, locale: ConsumerLocale) {
+  const language = languageCode.toLowerCase().split(/[-_]/)[0] as ConsumerLocale
+  return consumerLanguageNames[locale][language] ?? languageCode
+}
 
 function formatCountryNameZh(countryCode: string | null | undefined) {
   return phoneCountries.find((country) => country.countryCode === countryCode?.trim().toUpperCase())?.names.zh ?? '未识别国家'
@@ -6415,7 +6470,7 @@ function AccountPage() {
             </section>
             <section className="consumer-settings-card">
               <h2>{copy.accountInfo}</h2>
-              <dl><div><dt>{copy.country}</dt><dd>{session.countryCode}</dd></div><div><dt>{copy.language}</dt><dd>{session.languageCode}</dd></div></dl>
+              <dl><div><dt>{copy.country}</dt><dd>{consumerCountryName(session.countryCode, locale)}</dd></div><div><dt>{copy.language}</dt><dd>{consumerLanguageName(session.languageCode, locale)}</dd></div></dl>
             </section>
             <section className="consumer-settings-card consumer-platform-card">
               <div className="consumer-platform-card-head"><span className="consumer-platform-icon"><LinkSimple weight="bold" aria-hidden="true" /></span><div><h2>{copy.platform}</h2></div></div>
@@ -6460,10 +6515,10 @@ function TimoBindingPage() {
       .then((value) => { if (active) { setBinding(value); setTimoId(value.platformUserId) } })
       .catch((err) => {
         const message = err instanceof Error ? err.message.toLowerCase() : ''
-        if (active && !message.includes('platform binding not found')) setError(err instanceof Error ? err.message : copy.failure)
+        if (active && !message.includes('platform binding not found')) setError(localizeTimoBindingError(message, locale))
       })
     return () => { active = false }
-  }, [session, copy.failure])
+  }, [session, locale])
 
   useEffect(() => {
     if (!success) return undefined
@@ -6477,14 +6532,14 @@ function TimoBindingPage() {
       const verified = await verifyPlatformBinding(session.userId, session.accessToken, 'TIMO')
       setBinding(verified)
       if (verified.status === 'VERIFIED') setSuccess(copy.verified)
-      else if (verified.status === 'REJECTED') setError(`${copy.rejected}${verified.rejectionReason ? `：${verified.rejectionReason}` : ''}`)
+      else if (verified.status === 'REJECTED') setError(localizeTimoBindingError(verified.rejectionCode || verified.rejectionReason || '', locale))
       else setSuccess(copy.pending)
     } catch (err) {
       setBinding(current)
       const message = err instanceof Error ? err.message.toLowerCase() : ''
       if (message.includes('no enabled local mock verification record')) setSuccess(copy.pending)
       else if (message.includes('mcn verification client is not configured')) setSuccess(copy.pending)
-      else setError(err instanceof Error ? err.message : copy.failure)
+      else setError(localizeTimoBindingError(message, locale))
     }
   }
 
@@ -6500,7 +6555,7 @@ function TimoBindingPage() {
       setSuccess(copy.submitted)
       await verifyCurrentBinding(submitted)
     } catch (err) {
-      setError(err instanceof Error ? err.message : copy.failure)
+      setError(localizeTimoBindingError(err instanceof Error ? err.message : '', locale))
     } finally {
       setLoading(false)
     }
@@ -6553,7 +6608,7 @@ function TimoBindingPage() {
                 <button className="consumer-form-submit" type="submit" disabled={loading || !/^[1-9][0-9]{11}$/.test(timoId)}>{loading ? copy.verifying : copy.submit}</button>
               </form>
             ) : null}
-            {binding && !isVerified ? <div className="consumer-form-note"><strong>{isRejected ? copy.rejected : copy.submitted}</strong><span>Timo ID · {binding.platformUserId}</span>{binding.rejectionReason ? <span>{binding.rejectionReason}</span> : null}<button className="consumer-secondary-link" type="button" onClick={() => void handleRetryVerification()} disabled={loading}>{loading ? copy.verifying : copy.verifyAgain}</button></div> : null}
+            {binding && !isVerified ? <div className="consumer-form-note"><strong>{isRejected ? copy.rejected : copy.submitted}</strong><span>Timo ID · {binding.platformUserId}</span>{isRejected && (binding.rejectionCode || binding.rejectionReason) ? <span>{localizeTimoBindingError(binding.rejectionCode || binding.rejectionReason || '', locale)}</span> : null}<button className="consumer-secondary-link" type="button" onClick={() => void handleRetryVerification()} disabled={loading}>{loading ? copy.verifying : copy.verifyAgain}</button></div> : null}
           </section>
         </> : <section className="consumer-auth-gate"><div className="consumer-auth-icon"><LockSimple weight="duotone" aria-hidden="true" /></div><h1>{copy.signInTitle}</h1><p>{copy.signInHint}</p><a className="consumer-primary-link" href="/invite#phone-login">{copy.signIn}<ArrowRight weight="bold" aria-hidden="true" /></a></section>}
         {session ? <ConsumerBottomNavigation locale={locale} active="account" /> : null}
@@ -6575,11 +6630,56 @@ function EarningsPage() {
   const [rewardDetailsOpen, setRewardDetailsOpen] = useState(false)
   const copy = externalPageCopyByLocale[locale]
   const walletCopy = {
-    zh: { available: '已解冻积分', frozen: '冻结中', total: '账户净额', withdraw: '提现暂未开放', income: '邀请奖励', direct: '直接邀请奖励', indirect: '间接邀请奖励', release: '到期解冻', revision: '收入修订', records: '账户流水', sourceUser: '来自用户' },
-    en: { available: 'Unlocked points', frozen: 'Frozen', total: 'Account balance', withdraw: 'Withdrawals unavailable', income: 'Invitation income', direct: 'Direct invitation income', indirect: 'Indirect invitation income', release: 'Unlocked', revision: 'Income adjustment', records: 'Account activity', sourceUser: 'From user' },
-    es: { available: 'Puntos liberados', frozen: 'Congelados', total: 'Saldo de cuenta', withdraw: 'Retiros no disponibles', income: 'Ingreso por invitación', direct: 'Invitación directa', indirect: 'Invitación indirecta', release: 'Liberados', revision: 'Ajuste de ingresos', records: 'Movimientos', sourceUser: 'Del usuario' },
-    id: { available: 'Poin tersedia', frozen: 'Dibekukan', total: 'Saldo akun', withdraw: 'Penarikan belum tersedia', income: 'Pendapatan undangan', direct: 'Undangan langsung', indirect: 'Undangan tidak langsung', release: 'Dibuka', revision: 'Penyesuaian pendapatan', records: 'Riwayat akun', sourceUser: 'Dari pengguna' },
-    pt: { available: 'Pontos liberados', frozen: 'Congelados', total: 'Saldo da conta', withdraw: 'Saques indisponíveis', income: 'Receita por convite', direct: 'Convite direto', indirect: 'Convite indireto', release: 'Liberados', revision: 'Ajuste de receita', records: 'Movimentações', sourceUser: 'Do usuário' },
+    zh: {
+      available: '已解冻积分', frozen: '冻结中', total: '账户净额', withdraw: '提现暂未开放', income: '邀请奖励', direct: '直接邀请奖励', indirect: '间接邀请奖励', release: '到期解冻', revision: '收入修订', records: '账户流水', sourceUser: '来自用户', unit: '积分', diamondUnit: '钻石',
+      signIn: '登录', greeting: '早上好，伙伴！', greetingSubtitle: '每一次有效邀请，都在积累你的收入。', notificationLabel: '查看奖励记录', hideBalance: '隐藏余额', showBalance: '显示余额',
+      growthTitle: '新星邀请人', growthBefore: '再邀请 ', growthAfter: ' 位有效用户，即可完成本阶段目标', growthDone: '本阶段目标已完成，继续保持增长',
+      inviteOverview: '邀请概览（本周）', invitedUsers: '已邀请用户', actionsTitle: '今天怎么推进收益', actionsCount: '4 个关键动作',
+      inviteAction: '邀请新用户', invitedCount: (count: number) => `当前已邀请 ${count} 人`, goInvite: '去邀请', bindAction: '完成平台绑定', bindHint: '登记并验证 Timo / Linky ID', goBind: '去绑定',
+      followAction: '跟进有效用户', effectiveCount: (count: number) => `本期有效用户 ${count} 人`, viewTeam: '查看团队', recordsCount: (count: number) => `${count} 条`, viewRecords: '查看记录', allRecords: '全部记录',
+      teamOverview: '团队概览', peopleCount: (count: number) => `${count} 人`, firstLevel: '一级用户', secondLevel: '二级用户', thirdLevel: '三级用户', weeklyTeamIncome: '团队本周收入', loadMore: '加载更多流水',
+      loadFailure: '收益加载失败，请稍后重试。', sessionExpired: '登录状态已过期，请重新登录。', activityLoadFailure: '账户流水加载失败，请稍后重试。',
+    },
+    en: {
+      available: 'Unlocked points', frozen: 'Frozen', total: 'Account balance', withdraw: 'Withdrawals unavailable', income: 'Invitation income', direct: 'Direct invitation income', indirect: 'Indirect invitation income', release: 'Unlocked', revision: 'Income adjustment', records: 'Account activity', sourceUser: 'From user', unit: 'points', diamondUnit: 'diamonds',
+      signIn: 'Sign in', greeting: 'Good morning, partner!', greetingSubtitle: 'Every eligible invitation helps your earnings grow.', notificationLabel: 'View reward activity', hideBalance: 'Hide balance', showBalance: 'Show balance',
+      growthTitle: 'Rising Star inviter', growthBefore: 'Invite ', growthAfter: ' more eligible users to reach this stage’s goal', growthDone: 'Stage goal reached. Keep growing!',
+      inviteOverview: 'Invitation overview (this week)', invitedUsers: 'Users invited', actionsTitle: 'Grow your earnings today', actionsCount: '4 key actions',
+      inviteAction: 'Invite new users', invitedCount: (count: number) => `${count} users invited so far`, goInvite: 'Invite now', bindAction: 'Bind platform accounts', bindHint: 'Register and verify your Timo / Linky ID', goBind: 'Bind now',
+      followAction: 'Follow up with eligible users', effectiveCount: (count: number) => `${count} eligible users this period`, viewTeam: 'View team', recordsCount: (count: number) => `${count} records`, viewRecords: 'View records', allRecords: 'All records',
+      teamOverview: 'Team overview', peopleCount: (count: number) => `${count} people`, firstLevel: 'Direct users', secondLevel: 'Second-level users', thirdLevel: 'Third-level users', weeklyTeamIncome: 'Team income this week', loadMore: 'Load more activity',
+      loadFailure: 'Could not load earnings. Try again later.', sessionExpired: 'Your session has expired. Sign in again.', activityLoadFailure: 'Could not load account activity. Try again later.',
+    },
+    es: {
+      available: 'Puntos liberados', frozen: 'Congelados', total: 'Saldo de cuenta', withdraw: 'Retiros no disponibles', income: 'Ingreso por invitación', direct: 'Invitación directa', indirect: 'Invitación indirecta', release: 'Liberados', revision: 'Ajuste de ingresos', records: 'Movimientos', sourceUser: 'Del usuario', unit: 'puntos', diamondUnit: 'diamantes',
+      signIn: 'Iniciar sesión', greeting: '¡Buenos días!', greetingSubtitle: 'Cada invitación válida ayuda a aumentar tus ingresos.', notificationLabel: 'Ver movimientos de recompensas', hideBalance: 'Ocultar saldo', showBalance: 'Mostrar saldo',
+      growthTitle: 'Invitador Nueva Estrella', growthBefore: 'Invita a ', growthAfter: ' usuarios válidos más para alcanzar la meta de esta etapa', growthDone: '¡Meta alcanzada! Sigue creciendo.',
+      inviteOverview: 'Resumen de invitaciones (esta semana)', invitedUsers: 'Usuarios invitados', actionsTitle: 'Impulsa tus ingresos hoy', actionsCount: '4 acciones clave',
+      inviteAction: 'Invitar a nuevos usuarios', invitedCount: (count: number) => `${count} usuarios invitados hasta ahora`, goInvite: 'Invitar', bindAction: 'Vincular cuentas de plataforma', bindHint: 'Registra y verifica tu ID de Timo / Linky', goBind: 'Vincular',
+      followAction: 'Dar seguimiento a usuarios válidos', effectiveCount: (count: number) => `${count} usuarios válidos en este período`, viewTeam: 'Ver equipo', recordsCount: (count: number) => `${count} registros`, viewRecords: 'Ver registros', allRecords: 'Todos los registros',
+      teamOverview: 'Resumen del equipo', peopleCount: (count: number) => `${count} personas`, firstLevel: 'Usuarios directos', secondLevel: 'Usuarios de segundo nivel', thirdLevel: 'Usuarios de tercer nivel', weeklyTeamIncome: 'Ingresos del equipo esta semana', loadMore: 'Cargar más movimientos',
+      loadFailure: 'No se pudieron cargar los ingresos. Inténtalo más tarde.', sessionExpired: 'Tu sesión caducó. Inicia sesión de nuevo.', activityLoadFailure: 'No se pudieron cargar los movimientos. Inténtalo más tarde.',
+    },
+    id: {
+      available: 'Poin tersedia', frozen: 'Dibekukan', total: 'Saldo akun', withdraw: 'Penarikan belum tersedia', income: 'Pendapatan undangan', direct: 'Undangan langsung', indirect: 'Undangan tidak langsung', release: 'Dibuka', revision: 'Penyesuaian pendapatan', records: 'Riwayat akun', sourceUser: 'Dari pengguna', unit: 'poin', diamondUnit: 'berlian',
+      signIn: 'Masuk', greeting: 'Selamat pagi!', greetingSubtitle: 'Setiap undangan yang valid membantu meningkatkan penghasilanmu.', notificationLabel: 'Lihat riwayat imbalan', hideBalance: 'Sembunyikan saldo', showBalance: 'Tampilkan saldo',
+      growthTitle: 'Pengundang Bintang Baru', growthBefore: 'Undang ', growthAfter: ' pengguna valid lagi untuk mencapai target tahap ini', growthDone: 'Target tahap ini tercapai. Terus berkembang!',
+      inviteOverview: 'Ringkasan undangan (minggu ini)', invitedUsers: 'Pengguna yang diundang', actionsTitle: 'Tingkatkan penghasilan hari ini', actionsCount: '4 tindakan utama',
+      inviteAction: 'Undang pengguna baru', invitedCount: (count: number) => `${count} pengguna sudah diundang`, goInvite: 'Undang', bindAction: 'Hubungkan akun platform', bindHint: 'Daftarkan dan verifikasi ID Timo / Linky', goBind: 'Hubungkan',
+      followAction: 'Tindak lanjuti pengguna valid', effectiveCount: (count: number) => `${count} pengguna valid periode ini`, viewTeam: 'Lihat tim', recordsCount: (count: number) => `${count} catatan`, viewRecords: 'Lihat riwayat', allRecords: 'Semua catatan',
+      teamOverview: 'Ringkasan tim', peopleCount: (count: number) => `${count} orang`, firstLevel: 'Pengguna langsung', secondLevel: 'Pengguna tingkat kedua', thirdLevel: 'Pengguna tingkat ketiga', weeklyTeamIncome: 'Pendapatan tim minggu ini', loadMore: 'Muat riwayat lainnya',
+      loadFailure: 'Penghasilan tidak dapat dimuat. Coba lagi nanti.', sessionExpired: 'Sesi kamu sudah berakhir. Masuk lagi.', activityLoadFailure: 'Riwayat akun tidak dapat dimuat. Coba lagi nanti.',
+    },
+    pt: {
+      available: 'Pontos liberados', frozen: 'Congelados', total: 'Saldo da conta', withdraw: 'Saques indisponíveis', income: 'Receita por convite', direct: 'Convite direto', indirect: 'Convite indireto', release: 'Liberados', revision: 'Ajuste de receita', records: 'Movimentações', sourceUser: 'Do usuário', unit: 'pontos', diamondUnit: 'diamantes',
+      signIn: 'Entrar', greeting: 'Bom dia!', greetingSubtitle: 'Cada convite válido ajuda a aumentar seus ganhos.', notificationLabel: 'Ver movimentações de recompensas', hideBalance: 'Ocultar saldo', showBalance: 'Mostrar saldo',
+      growthTitle: 'Convidador Nova Estrela', growthBefore: 'Convide mais ', growthAfter: ' usuários válidos para atingir a meta desta etapa', growthDone: 'Meta desta etapa atingida. Continue crescendo!',
+      inviteOverview: 'Visão geral dos convites (esta semana)', invitedUsers: 'Usuários convidados', actionsTitle: 'Como aumentar seus ganhos hoje', actionsCount: '4 ações importantes',
+      inviteAction: 'Convidar novos usuários', invitedCount: (count: number) => `${count} usuários convidados até agora`, goInvite: 'Convidar', bindAction: 'Vincular contas da plataforma', bindHint: 'Cadastre e valide seu ID Timo / Linky', goBind: 'Vincular',
+      followAction: 'Acompanhar usuários válidos', effectiveCount: (count: number) => `${count} usuários válidos neste período`, viewTeam: 'Ver equipe', recordsCount: (count: number) => `${count} registros`, viewRecords: 'Ver registros', allRecords: 'Todos os registros',
+      teamOverview: 'Visão geral da equipe', peopleCount: (count: number) => `${count} pessoas`, firstLevel: 'Usuários diretos', secondLevel: 'Usuários do segundo nível', thirdLevel: 'Usuários do terceiro nível', weeklyTeamIncome: 'Receita da equipe nesta semana', loadMore: 'Carregar mais movimentações',
+      loadFailure: 'Não foi possível carregar os ganhos. Tente novamente mais tarde.', sessionExpired: 'Sua sessão expirou. Entre novamente.', activityLoadFailure: 'Não foi possível carregar as movimentações da conta. Tente novamente mais tarde.',
+    },
   }[locale]
 
   useEffect(() => {
@@ -6603,13 +6703,13 @@ function EarningsPage() {
         setTeamWeeklyIncome(teamWeeklyIncomeData)
         setWallet(walletData)
       } catch (err) {
-        const message = err instanceof Error ? err.message : '加载收益失败'
+        const message = err instanceof Error ? err.message : ''
         if (/access denied|unauthorized|session/i.test(message)) {
           window.localStorage.removeItem(STORAGE_KEY)
           setSession(null)
-          setError('登录状态已过期，请重新登录。')
+          setError(walletCopy.sessionExpired)
         } else {
-          setError(message)
+          setError(walletCopy.loadFailure)
         }
       } finally {
         setLoading(false)
@@ -6617,7 +6717,7 @@ function EarningsPage() {
     }
 
     void loadData()
-  }, [session])
+  }, [session, walletCopy.loadFailure, walletCopy.sessionExpired])
 
   async function loadMoreWallet() {
     if (!session || !wallet || wallet.items.length >= wallet.totalRecords) return
@@ -6626,8 +6726,8 @@ function EarningsPage() {
     try {
       const next = await getDistributionInvitationAccount(session.userId, session.accessToken, wallet.page + 1, wallet.size)
       setWallet({ ...next, items: [...wallet.items, ...next.items] })
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '加载账户流水失败')
+    } catch {
+      setError(walletCopy.activityLoadFailure)
     } finally {
       setLoading(false)
     }
@@ -6672,7 +6772,7 @@ function EarningsPage() {
                 <option value="pt">PT</option>
               </select>
             ) : null}
-            {session ? <ConsumerAccountLink locale={locale} /> : <a className="consumer-account-link" href="/invite#phone-login"><UserCircle weight="regular" aria-hidden="true" /><span>登录</span><CaretRight weight="bold" aria-hidden="true" /></a>}
+            {session ? <ConsumerAccountLink locale={locale} /> : <a className="consumer-account-link" href="/invite#phone-login"><UserCircle weight="regular" aria-hidden="true" /><span>{walletCopy.signIn}</span><CaretRight weight="bold" aria-hidden="true" /></a>}
           </div>
         </header>
 
@@ -6694,37 +6794,37 @@ function EarningsPage() {
               <h1 className="consumer-visually-hidden">{copy.earningsTitle}</h1>
               <span className="consumer-home-avatar"><User weight="fill" aria-hidden="true" /></span>
               <div>
-                <strong>{locale === 'zh' ? '早上好，伙伴！' : copy.earningsTitle}</strong>
-                <span>{locale === 'zh' ? '每一次有效邀请，都在积累你的收入。' : copy.earningsSubtitle}</span>
+                <strong>{walletCopy.greeting}</strong>
+                <span>{walletCopy.greetingSubtitle}</span>
               </div>
-              <a className="consumer-notification-link" href="#all-rewards" aria-label="查看奖励记录"><Bell weight="regular" aria-hidden="true" /><i /></a>
+              <a className="consumer-notification-link" href="#all-rewards" aria-label={walletCopy.notificationLabel}><Bell weight="regular" aria-hidden="true" /><i /></a>
             </div>
 
             <section className="consumer-balance-card" aria-label={walletCopy.available}>
               <div className="consumer-balance-top">
                 <div className="consumer-balance-label">
                   <span>{walletCopy.available}</span>
-                  <button type="button" className="consumer-icon-button" onClick={() => setShowBalance((value) => !value)} aria-label={showBalance ? '隐藏余额' : '显示余额'}>
+                  <button type="button" className="consumer-icon-button" onClick={() => setShowBalance((value) => !value)} aria-label={showBalance ? walletCopy.hideBalance : walletCopy.showBalance}>
                     {showBalance ? <Eye weight="regular" aria-hidden="true" /> : <EyeSlash weight="regular" aria-hidden="true" />}
                   </button>
                 </div>
                 <span className="consumer-hero-withdraw" aria-disabled="true">{walletCopy.withdraw}</span>
               </div>
               <div className="consumer-balance-value">
-                <strong>{showBalance ? formatMoney(availableReward) : '••••••'} {locale === 'zh' ? '积分' : 'points'}</strong>
+                <strong>{showBalance ? formatMoney(availableReward, locale) : '••••••'} {walletCopy.unit}</strong>
               </div>
               <div className="consumer-balance-metrics">
                 <div>
                   <span>{walletCopy.frozen}</span>
-                  <strong>{showBalance ? formatMoney(frozenReward) : '••••'}</strong>
+                  <strong>{showBalance ? formatMoney(frozenReward, locale) : '••••'}</strong>
                 </div>
                 <div>
                   <span>{walletCopy.total}</span>
-                  <strong>{showBalance ? formatMoney(totalReward) : '••••'}</strong>
+                  <strong>{showBalance ? formatMoney(totalReward, locale) : '••••'}</strong>
                 </div>
                 <div>
                   <span>{walletCopy.income}</span>
-                  <strong>{showBalance ? formatMoney(wallet?.cumulativeIncomePoints) : '••••'}</strong>
+                  <strong>{showBalance ? formatMoney(wallet?.cumulativeIncomePoints, locale) : '••••'}</strong>
                 </div>
                 <div>
                   <span>{copy.effectiveUsers}</span>
@@ -6736,41 +6836,41 @@ function EarningsPage() {
             <button className="consumer-growth-card" type="button" onClick={() => setTeamDetailsOpen(true)}>
               <span className="consumer-growth-medal"><Medal weight="duotone" aria-hidden="true" /></span>
               <span className="consumer-growth-copy">
-                <span><strong>新星邀请人</strong><b>{effectiveUsersThisView}<small>/{growthTarget}</small></b></span>
+                <span><strong>{walletCopy.growthTitle}</strong><b>{effectiveUsersThisView}<small>/{growthTarget}</small></b></span>
                 <i><em style={{ width: `${growthProgress}%` }} /></i>
-                <small>{growthRemaining > 0 ? <>再邀请 <strong>{growthRemaining}</strong> 位有效用户，即可完成本阶段目标</> : '本阶段目标已完成，继续保持增长'}</small>
+                <small>{growthRemaining > 0 ? <>{walletCopy.growthBefore}<strong>{growthRemaining}</strong>{walletCopy.growthAfter}</> : walletCopy.growthDone}</small>
               </span>
               <CaretRight weight="bold" aria-hidden="true" />
             </button>
 
             <button className="consumer-team-summary" type="button" onClick={() => setTeamDetailsOpen(true)}>
-              <span className="consumer-card-title"><UsersThree weight="fill" aria-hidden="true" />邀请概览（本周）</span>
+              <span className="consumer-card-title"><UsersThree weight="fill" aria-hidden="true" />{walletCopy.inviteOverview}</span>
               <CaretRight weight="bold" aria-hidden="true" />
               <span className="consumer-team-summary-grid">
-                <span><small>已邀请用户</small><strong>{home?.directInvitedUsers ?? 0}</strong></span>
-                <span><small>{walletCopy.income}</small><strong>{formatMoney(wallet?.cumulativeIncomePoints)} {locale === 'zh' ? '积分' : 'points'}</strong></span>
-                <span><small>{walletCopy.total}</small><strong>{formatMoney(totalReward)} {locale === 'zh' ? '积分' : 'points'}</strong></span>
+                <span><small>{walletCopy.invitedUsers}</small><strong>{home?.directInvitedUsers ?? 0}</strong></span>
+                <span><small>{walletCopy.income}</small><strong>{formatMoney(wallet?.cumulativeIncomePoints, locale)} {walletCopy.unit}</strong></span>
+                <span><small>{walletCopy.total}</small><strong>{formatMoney(totalReward, locale)} {walletCopy.unit}</strong></span>
               </span>
             </button>
 
             <section className="consumer-task-section">
               <div className="consumer-section-head consumer-task-head">
-                <h2><Target weight="fill" aria-hidden="true" />今天怎么推进收益</h2>
-                <span>4 个关键动作</span>
+                <h2><Target weight="fill" aria-hidden="true" />{walletCopy.actionsTitle}</h2>
+                <span>{walletCopy.actionsCount}</span>
               </div>
 
               <div className="consumer-task-list">
-                <a href="/invite"><span className="is-orange"><UserPlus weight="fill" /></span><div><strong>邀请新用户</strong><small>当前已邀请 {home?.directInvitedUsers ?? 0} 人</small></div><b>去邀请</b></a>
-                <a href="/account"><span className="is-pink"><LinkSimple weight="bold" /></span><div><strong>完成平台绑定</strong><small>登记并验证 Timo / Linky ID</small></div><b>去绑定</b></a>
-                <button type="button" onClick={() => setTeamDetailsOpen(true)}><span className="is-green"><UsersThree weight="fill" /></span><div><strong>跟进有效用户</strong><small>本期有效用户 {effectiveUsersThisView} 人</small></div><b>查看团队</b></button>
-                <button type="button" onClick={() => setRewardDetailsOpen(true)}><span className="is-purple"><Sparkle weight="fill" /></span><div><strong>{walletCopy.records}</strong><small>{wallet?.totalRecords ?? 0} 条</small></div><b>查看记录</b></button>
+                <a href="/invite"><span className="is-orange"><UserPlus weight="fill" /></span><div><strong>{walletCopy.inviteAction}</strong><small>{walletCopy.invitedCount(home?.directInvitedUsers ?? 0)}</small></div><b>{walletCopy.goInvite}</b></a>
+                <a href="/account"><span className="is-pink"><LinkSimple weight="bold" /></span><div><strong>{walletCopy.bindAction}</strong><small>{walletCopy.bindHint}</small></div><b>{walletCopy.goBind}</b></a>
+                <button type="button" onClick={() => setTeamDetailsOpen(true)}><span className="is-green"><UsersThree weight="fill" /></span><div><strong>{walletCopy.followAction}</strong><small>{walletCopy.effectiveCount(effectiveUsersThisView)}</small></div><b>{walletCopy.viewTeam}</b></button>
+                <button type="button" onClick={() => setRewardDetailsOpen(true)}><span className="is-purple"><Sparkle weight="fill" /></span><div><strong>{walletCopy.records}</strong><small>{walletCopy.recordsCount(wallet?.totalRecords ?? 0)}</small></div><b>{walletCopy.viewRecords}</b></button>
               </div>
             </section>
 
             <section className="consumer-activity-section">
               <div className="consumer-section-head">
                 <h2>{walletCopy.records}</h2>
-                <button type="button" onClick={() => setRewardDetailsOpen(true)}>{locale === 'zh' ? '全部记录' : copy.rewardRecords}<CaretRight weight="bold" aria-hidden="true" /></button>
+                <button type="button" onClick={() => setRewardDetailsOpen(true)}>{walletCopy.allRecords}<CaretRight weight="bold" aria-hidden="true" /></button>
               </div>
 
               {loading ? (
@@ -6792,7 +6892,7 @@ function EarningsPage() {
                           <span>{item.platformCode} · {walletCopy.sourceUser} #{item.sourceUserId}</span>
                         </div>
                         <div className={`consumer-activity-amount ${isAvailable ? 'is-available' : 'is-frozen'}`}>
-                          <strong>{amount > 0 ? '+' : ''}{formatMoney(amount)} {locale === 'zh' ? '积分' : 'points'}</strong>
+                          <strong>{amount > 0 ? '+' : ''}{formatMoney(amount, locale)} {walletCopy.unit}</strong>
                           <span>{item.type === 'UNFREEZE' ? walletCopy.available : item.type === 'MCN_REVISION' ? walletCopy.revision : walletCopy.frozen} · {formatRewardDate(item.recordedAt)}</span>
                         </div>
                       </article>
@@ -6810,27 +6910,27 @@ function EarningsPage() {
 
             <section className="consumer-details" id="team-details">
               <details open={teamDetailsOpen} onToggle={(event) => setTeamDetailsOpen(event.currentTarget.open)}>
-                <summary><span>团队概览</span><strong>{home?.totalTeamUsers ?? 0} 人</strong></summary>
+                <summary><span>{walletCopy.teamOverview}</span><strong>{walletCopy.peopleCount(home?.totalTeamUsers ?? 0)}</strong></summary>
                 <div className="consumer-detail-grid">
-                  <div><span>一级用户</span><strong>{home?.directInvitedUsers ?? 0}</strong></div>
-                  <div><span>二级用户</span><strong>{home?.secondLevelInvitedUsers ?? 0}</strong></div>
-                  <div><span>三级用户</span><strong>{home?.thirdLevelInvitedUsers ?? 0}</strong></div>
-                  <div><span>团队本周收入</span><strong>{formatMoney(teamWeeklyIncome?.currentWeekTeamIncome)}</strong></div>
+                  <div><span>{walletCopy.firstLevel}</span><strong>{home?.directInvitedUsers ?? 0}</strong></div>
+                  <div><span>{walletCopy.secondLevel}</span><strong>{home?.secondLevelInvitedUsers ?? 0}</strong></div>
+                  <div><span>{walletCopy.thirdLevel}</span><strong>{home?.thirdLevelInvitedUsers ?? 0}</strong></div>
+                  <div><span>{walletCopy.weeklyTeamIncome}</span><strong>{formatMoney(teamWeeklyIncome?.currentWeekTeamIncome, locale)}</strong></div>
                 </div>
               </details>
               <details id="all-rewards" open={rewardDetailsOpen} onToggle={(event) => setRewardDetailsOpen(event.currentTarget.open)}>
-                <summary><span>{walletCopy.records}</span><strong>{wallet?.totalRecords ?? 0} 条</strong></summary>
+                <summary><span>{walletCopy.records}</span><strong>{walletCopy.recordsCount(wallet?.totalRecords ?? 0)}</strong></summary>
                 <div className="consumer-detail-grid">
-                  <div><span>{walletCopy.income}</span><strong>{formatMoney(wallet?.cumulativeIncomePoints)} {locale === 'zh' ? '积分' : 'points'}</strong></div>
-                  <div><span>{walletCopy.direct}</span><strong>{formatMoney(wallet?.directIncomePoints)} {locale === 'zh' ? '积分' : 'points'}</strong></div>
-                  <div><span>{walletCopy.indirect}</span><strong>{formatMoney(wallet?.indirectIncomePoints)} {locale === 'zh' ? '积分' : 'points'}</strong></div>
-                  <div><span>{walletCopy.frozen}</span><strong>{formatMoney(frozenReward)} {locale === 'zh' ? '积分' : 'points'}</strong></div>
-                  <div><span>{walletCopy.available}</span><strong>{formatMoney(availableReward)} {locale === 'zh' ? '积分' : 'points'}</strong></div>
+                  <div><span>{walletCopy.income}</span><strong>{formatMoney(wallet?.cumulativeIncomePoints, locale)} {walletCopy.unit}</strong></div>
+                  <div><span>{walletCopy.direct}</span><strong>{formatMoney(wallet?.directIncomePoints, locale)} {walletCopy.unit}</strong></div>
+                  <div><span>{walletCopy.indirect}</span><strong>{formatMoney(wallet?.indirectIncomePoints, locale)} {walletCopy.unit}</strong></div>
+                  <div><span>{walletCopy.frozen}</span><strong>{formatMoney(frozenReward, locale)} {walletCopy.unit}</strong></div>
+                  <div><span>{walletCopy.available}</span><strong>{formatMoney(availableReward, locale)} {walletCopy.unit}</strong></div>
                 </div>
                 {rewardItems.length ? <div className="consumer-withdraw-list">
-                  {rewardItems.map((item) => <div key={item.id}><span>{item.type === 'UNFREEZE' ? walletCopy.release : item.type === 'MCN_REVISION' ? walletCopy.revision : getRewardActivityTitle(item.rewardLevel)}<small>{item.platformCode} · {item.rewardDiamonds} {item.platformCode === 'TIMO' ? 'Timo' : 'Linky'} Diamond · {formatRewardDate(item.recordedAt)}</small></span><strong>{item.type === 'UNFREEZE' ? item.availableDelta : item.frozenDelta + item.availableDelta} {locale === 'zh' ? '积分' : 'points'}</strong></div>)}
+                  {rewardItems.map((item) => <div key={item.id}><span>{item.type === 'UNFREEZE' ? walletCopy.release : item.type === 'MCN_REVISION' ? walletCopy.revision : getRewardActivityTitle(item.rewardLevel)}<small>{item.platformCode} · {formatMoney(item.rewardDiamonds, locale)} {walletCopy.diamondUnit} · {formatRewardDate(item.recordedAt)}</small></span><strong>{formatMoney(item.type === 'UNFREEZE' ? item.availableDelta : item.frozenDelta + item.availableDelta, locale)} {walletCopy.unit}</strong></div>)}
                 </div> : null}
-                {wallet && wallet.items.length < wallet.totalRecords ? <button className="consumer-hero-withdraw" type="button" onClick={() => void loadMoreWallet()} disabled={loading}>{loading ? copy.loading : locale === 'zh' ? '加载更多流水' : 'Load more'}</button> : null}
+                {wallet && wallet.items.length < wallet.totalRecords ? <button className="consumer-hero-withdraw" type="button" onClick={() => void loadMoreWallet()} disabled={loading}>{loading ? copy.loading : walletCopy.loadMore}</button> : null}
               </details>
             </section>
           </>
