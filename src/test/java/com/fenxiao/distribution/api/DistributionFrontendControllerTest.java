@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,6 +52,9 @@ class DistributionFrontendControllerTest {
 
     @Autowired
     private UserSessionService userSessionService;
+
+    @Autowired
+    private JdbcTemplate jdbc;
 
     @Test
     void shouldReturnDistributionHomeSummary() throws Exception {
@@ -91,6 +95,27 @@ class DistributionFrontendControllerTest {
                 .andExpect(jsonPath("$.total").value(2))
                 .andExpect(jsonPath("$.items[0].userId").exists())
                 .andExpect(jsonPath("$.items[0].lockStatus").value("UNLOCKED"));
+    }
+
+    @Test
+    void shouldListOnlyQualifiedEffectiveUsersAcrossInvitationLevels() throws Exception {
+        jdbc.execute("create table if not exists effective_user_qualification_fact (id bigint auto_increment primary key,user_id bigint not null,platform_code varchar(32) not null,qualification_status varchar(32) not null,evaluated_at timestamp not null)");
+        UserDistributionProfile root = distributionBindingService.createProfile(21201L, "BR", "pt-br", null);
+        UserDistributionProfile direct = distributionBindingService.createProfile(21202L, "BR", "pt-br", root.getInviteCode());
+        distributionBindingService.createProfile(21204L, "BR", "pt-br", root.getInviteCode());
+        distributionBindingService.createProfile(21203L, "BR", "pt-br", direct.getInviteCode());
+        jdbc.update("insert into effective_user_qualification_fact(user_id,platform_code,qualification_status,evaluated_at) values(21202,'TIMO','QUALIFIED',current_timestamp)");
+        jdbc.update("insert into effective_user_qualification_fact(user_id,platform_code,qualification_status,evaluated_at) values(21203,'LINKY','QUALIFIED',current_timestamp)");
+        jdbc.update("insert into effective_user_qualification_fact(user_id,platform_code,qualification_status,evaluated_at) values(21204,'TIMO','OBSERVING',current_timestamp)");
+
+        mockMvc.perform(get("/api/distribution/team/21201/effective")
+                        .header("X-Distribution-Token", root.getApiAccessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(2))
+                .andExpect(jsonPath("$.items[0].userId").value(21202))
+                .andExpect(jsonPath("$.items[0].level").value(1))
+                .andExpect(jsonPath("$.items[1].userId").value(21203))
+                .andExpect(jsonPath("$.items[1].level").value(2));
     }
 
     @Test

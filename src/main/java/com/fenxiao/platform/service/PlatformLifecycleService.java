@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -22,7 +21,6 @@ import java.util.*;
 @Service
 @Transactional
 public class PlatformLifecycleService {
-    private static final Duration MAX_BINDING_JOIN_TIME_GAP = Duration.ofHours(24);
     private final PlatformAccountBindingRepository bindingRepository;
     private final PlatformBindingHistoryRepository historyRepository;
     private final PlatformBusinessFactRepository factRepository;
@@ -78,10 +76,6 @@ public class PlatformLifecycleService {
         } else if (!request.joinedTargetGuild()) {
             rejectionCode = "NOT_IN_TARGET_GUILD";
             rejectionReason = "platform id is not in the target guild";
-        } else if (Duration.between(binding.getSubmittedAt(), request.officialJoinedAt()).abs()
-                .compareTo(MAX_BINDING_JOIN_TIME_GAP) > 0) {
-            rejectionCode = "JOIN_TIME_WINDOW_EXCEEDED";
-            rejectionReason = "official guild join time is more than 24 hours from the binding submission time";
         }
         LocalDateTime now = LocalDateTime.now(clock);
         if (rejectionCode != null) {

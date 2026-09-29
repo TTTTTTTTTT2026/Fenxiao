@@ -32,6 +32,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.Collections;
 
 @Service
 @Transactional(readOnly = true)
@@ -150,6 +153,31 @@ public class DistributionFrontendService {
         return new TeamListResponse(items, items.size());
     }
 
+    public com.fenxiao.distribution.api.dto.EffectiveTeamResponse getEffectiveTeam(Long userId) {
+        userDistributionProfileRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("distribution profile not found"));
+        List<DistributionRelation> direct = distributionRelationRepository.findByLevel1InviterIdOrderByIdDesc(userId);
+        List<DistributionRelation> second = distributionRelationRepository.findByLevel2InviterIdOrderByIdDesc(userId);
+        List<DistributionRelation> third = distributionRelationRepository.findByLevel3InviterIdOrderByIdDesc(userId);
+        List<DistributionRelation> all = new ArrayList<>(direct);
+        all.addAll(second);
+        all.addAll(third);
+        Map<Long, UserDistributionProfile> users = loadProfileMap(all);
+        Set<Long> qualified = qualifiedUserIds(all);
+        List<com.fenxiao.distribution.api.dto.EffectiveTeamResponse.Item> items = new ArrayList<>();
+        for (int level = 1; level <= 3; level++) {
+            List<DistributionRelation> relations = level == 1 ? direct : level == 2 ? second : third;
+            for (DistributionRelation relation : relations) {
+                UserDistributionProfile member = users.get(relation.getUserId());
+                if (member != null && qualified.contains(member.getUserId())) {
+                    items.add(new com.fenxiao.distribution.api.dto.EffectiveTeamResponse.Item(
+                            member.getUserId(), member.getCountryCode(), level));
+                }
+            }
+        }
+        return new com.fenxiao.distribution.api.dto.EffectiveTeamResponse(items, items.size());
+    }
+
     public TeamWeeklyIncomeResponse getTeamWeeklyIncome(Long userId) {
         List<DistributionRelation> directRelations = distributionRelationRepository.findByLevel1InviterIdOrderByIdDesc(userId);
         Map<Long, UserDistributionProfile> profileMap = loadProfileMap(directRelations);
@@ -246,6 +274,14 @@ public class DistributionFrontendService {
                 .map(profileMap::get)
                 .filter(UserDistributionProfile::isEffectiveUser)
                 .count();
+    }
+
+    private Set<Long> qualifiedUserIds(List<DistributionRelation> relations) {
+        if (relations.isEmpty()) return Set.of();
+        List<Long> ids = relations.stream().map(DistributionRelation::getUserId).distinct().toList();
+        String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
+        return new HashSet<>(jdbc.query("select distinct user_id from effective_user_qualification_fact where qualification_status='QUALIFIED' and user_id in (" + placeholders + ")",
+                (rs, row) -> rs.getLong(1), ids.toArray()));
     }
 
     private Map<Long, UserDistributionProfile> loadProfileMap(List<DistributionRelation> relations) {

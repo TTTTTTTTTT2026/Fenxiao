@@ -174,7 +174,7 @@ describe('Timo binding feedback', () => {
 })
 
 describe('consumer locale coverage', () => {
-  const paths = ['/earnings', '/invite', '/account', '/account/linky', '/account/timo']
+  const paths = ['/earnings', '/earnings/effective-users', '/earnings/activity', '/invite', '/account', '/account/profile', '/account/linky', '/account/timo']
   const locales = ['en', 'es', 'id', 'pt'] as const
 
   for (const locale of locales) {
@@ -211,7 +211,7 @@ describe('consumer locale coverage', () => {
     expect(markup).toContain('Visão geral dos convites (esta semana)')
     expect(markup).toContain('Como aumentar seus ganhos hoje')
     expect(markup).toContain('0,00 pontos')
-    expect(markup).toContain('Visão geral da equipe')
+    expect(markup).toContain('href="/earnings/effective-users"')
   })
 })
 
@@ -543,7 +543,7 @@ describe('Earnings landing page', () => {
     const markup = renderToStaticMarkup(<App />)
 
     expect(markup).toContain('我的收益')
-    expect(markup).toContain('提现暂未开放')
+    expect(markup).toContain('管理收益提现')
     expect(markup).toContain('全部记录')
     expect(markup).toContain('主要导航')
     expect(markup).not.toContain('控制台')
@@ -668,22 +668,19 @@ describe('Earnings landing page', () => {
     expect(markup).toContain('平台接入')
   })
 
-  it('keeps team income available in a compact disclosure', () => {
+  it('opens effective users on a dedicated page', () => {
     const markup = renderToStaticMarkup(<App />)
 
-    expect(markup).toContain('团队概览')
-    expect(markup).toContain('团队本周收入')
-    expect(markup).not.toContain('每个直属下级的本周和上周钻石收入会显示在这里。')
+    expect(markup).toContain('href="/earnings/effective-users"')
+    expect(markup).not.toContain('consumer-details')
   })
 
-  it('keeps deep team size and reward tiers without exposing them as top-level cards', () => {
+  it('moves deep team and reward details off the overview', () => {
     const markup = renderToStaticMarkup(<App />)
 
-    expect(markup).toContain('一级用户')
-    expect(markup).toContain('二级用户')
-    expect(markup).toContain('三级用户')
-    expect(markup).toContain('直接邀请奖励')
-    expect(markup).toContain('间接邀请奖励')
+    expect(markup).toContain('href="/earnings/effective-users"')
+    expect(markup).toContain('href="/earnings/activity"')
+    expect(markup).not.toContain('团队本周收入')
     expect(markup).not.toContain('历史三级佣金（只读）')
     expect(markup).not.toContain('三层裂变人数')
   })
@@ -693,7 +690,7 @@ describe('Earnings landing page', () => {
 
     expect(markup).toContain('已解冻积分')
     expect(markup).toContain('冻结中')
-    expect(markup).toContain('提现暂未开放')
+    expect(markup).toContain('管理收益提现')
     expect(markup).not.toContain('申请提现')
     expect(markup).toContain('还没有收益记录')
     expect(markup).toContain('先去生成邀请码并完成绑定，后续有收益会自动显示在这里。')
@@ -727,12 +724,13 @@ describe('Earnings landing page', () => {
     expect(markup).not.toContain('来自你的下线成员累计确认收益。')
   })
 
-  it('moves secondary detail into progressive disclosure', () => {
+  it('moves secondary detail to dedicated routes', () => {
     const markup = renderToStaticMarkup(<App />)
 
-    expect(markup).toContain('<details>')
-    expect(markup).toContain('团队概览')
+    expect(markup).toContain('href="/earnings/effective-users"')
+    expect(markup).toContain('href="/earnings/activity"')
     expect(markup).toContain('账户流水')
+    expect(markup).not.toContain('<details>')
     expect(markup).not.toContain('提现记录')
     expect(markup).not.toContain('冻结中 → 可结算 → 风险冻结')
   })

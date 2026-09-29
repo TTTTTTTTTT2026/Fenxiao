@@ -103,17 +103,31 @@ class PlatformLifecycleServiceTest {
     }
 
     @Test
-    void shouldRejectAnOfficialJoinTimeMoreThanTwentyFourHoursFromSubmission() {
+    void shouldAcceptAnEstablishedGuildMemberRegardlessOfBindingSubmissionTime() {
         var root = bindingService.createProfile(71500L, "BR", "pt-br", null);
         var user = bindingService.createProfile(71501L, "BR", "pt-br", root.getInviteCode());
         var submitted = lifecycleService.submit(user.getUserId(), "TIMO", "123456789014");
 
+        var verified = lifecycleService.verify(new VerifyPlatformBindingRequest(
+                "TIMO", "123456789014", false, true, "TIMO_BR", submitted.getSubmittedAt().minusDays(90),
+                "MCN_TIMO", "verification-established-member"));
+
+        assertThat(verified.getBindingStatus()).isEqualTo(PlatformBindingStatus.VERIFIED);
+        assertThat(verified.getOfficialJoinedAt()).isEqualTo(submitted.getSubmittedAt().minusDays(90));
+    }
+
+    @Test
+    void shouldStillRejectAnEstablishedMemberOutsideTheTargetGuild() {
+        var root = bindingService.createProfile(71510L, "BR", "pt-br", null);
+        var user = bindingService.createProfile(71511L, "BR", "pt-br", root.getInviteCode());
+        var submitted = lifecycleService.submit(user.getUserId(), "TIMO", "123456789016");
+
         var rejected = lifecycleService.verify(new VerifyPlatformBindingRequest(
-                "TIMO", "123456789014", false, true, "TIMO_BR", submitted.getSubmittedAt().plusHours(24).plusSeconds(1),
-                "MCN_TOOL", "verification-outside-24-hours"));
+                "TIMO", "123456789016", false, false, "OTHER_GUILD", submitted.getSubmittedAt().minusDays(90),
+                "MCN_TIMO", "verification-other-guild"));
 
         assertThat(rejected.getBindingStatus()).isEqualTo(PlatformBindingStatus.REJECTED);
-        assertThat(rejected.getRejectionCode()).isEqualTo("JOIN_TIME_WINDOW_EXCEEDED");
+        assertThat(rejected.getRejectionCode()).isEqualTo("NOT_IN_TARGET_GUILD");
     }
 
     @Test

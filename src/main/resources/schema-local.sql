@@ -206,3 +206,34 @@ CREATE TABLE IF NOT EXISTS mcn_income_data_quality_review (
 
 CREATE INDEX IF NOT EXISTS idx_mcn_income_quality_review_lookup
     ON mcn_income_data_quality_review(platform_code, source_event_id);
+
+-- The client effective-user page reads the same qualified facts as production.
+-- Local H2 runs without Flyway, so this table must be present for acceptance.
+CREATE TABLE IF NOT EXISTS effective_user_qualification_fact (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    platform_code VARCHAR(32) NOT NULL,
+    qualification_status VARCHAR(32) NOT NULL,
+    first_income_at TIMESTAMP NULL,
+    observation_ends_at TIMESTAMP NULL,
+    qualifying_income_date_count INT NOT NULL DEFAULT 0,
+    qualifying_income_dates VARCHAR(255) NULL,
+    latest_income_at TIMESTAMP NULL,
+    source_evidence_snapshot VARCHAR(1024) NULL,
+    qualified_at TIMESTAMP NULL,
+    evidence_revoked_at TIMESTAMP NULL,
+    manual_correction_reason VARCHAR(32) NULL,
+    manual_correction_note VARCHAR(255) NULL,
+    corrected_by BIGINT NULL,
+    corrected_at TIMESTAMP NULL,
+    evaluated_at TIMESTAMP NOT NULL,
+    qualification_window_start DATE NULL,
+    qualification_window_end DATE NULL,
+    current_activity_status VARCHAR(32) NOT NULL DEFAULT 'NOT_ACTIVE',
+    current_activity_window_start DATE NULL,
+    current_activity_window_end DATE NULL,
+    CONSTRAINT uk_local_effective_user_qualification UNIQUE (user_id, platform_code)
+);
+
+CREATE INDEX IF NOT EXISTS idx_local_effective_user_qualification
+    ON effective_user_qualification_fact(user_id, qualification_status);
