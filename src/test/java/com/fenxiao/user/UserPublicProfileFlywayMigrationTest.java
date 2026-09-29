@@ -1,5 +1,7 @@
 package com.fenxiao.user;
 
+import com.fenxiao.user.entity.UserPublicProfile;
+import jakarta.persistence.Column;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 
@@ -8,6 +10,12 @@ import java.sql.DriverManager;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class UserPublicProfileFlywayMigrationTest {
+    @Test
+    void avatarEntityUsesTheSameLongblobTypeAsTheProductionMigration() throws Exception {
+        Column avatarColumn = UserPublicProfile.class.getDeclaredField("avatarData").getAnnotation(Column.class);
+        assertThat(avatarColumn.columnDefinition()).isEqualTo("LONGBLOB");
+    }
+
     @Test
     void createsTheProfileStorageAfterVersion67() throws Exception {
         String url = "jdbc:h2:mem:public_profile_migration;MODE=MySQL;DB_CLOSE_DELAY=-1";
