@@ -4467,7 +4467,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               {phoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names.zh}</option>)}
             </select>
           </label>
-          <InlineHint text="仅调整用户当前归属国家和邀请关系中的国家标记，供后续业务规则使用；不会改动手机号、界面语言、邀请码、平台公会或既有收入与奖励记录。操作会留下修改前后和操作人的审计记录。" />
+          <InlineHint text="仅调整用户当前归属国家和邀请关系中的国家标记，供后续业务规则使用；不会改动手机号、界面语言、邀请码、平台公会或既有收入与奖励记录。用户重新登录后，客户端才会显示新的国家。操作会留下修改前后和操作人的审计记录。" />
         </ConfirmDialog>
       ) : null}
 
