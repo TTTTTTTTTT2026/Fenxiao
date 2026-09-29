@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
-import App, { ConsoleApp, formatBusinessRewardLevel, isLinkyGuildMismatch, localizeInviteOperationError, localizeLinkyBindingError } from './App'
+import App, { ConsoleApp, formatBusinessRewardLevel, isLinkyGuildMismatch, localizeInviteOperationError, localizeLinkyBindingError, localizeTimoBindingError } from './App'
 
 type FakeStorage = {
   getItem: (key: string) => string | null
@@ -155,6 +155,63 @@ describe('Linky guild mismatch feedback', () => {
     const sourceError = 'Linky account is not in the expected guild Royal ID. Please join using invite code null.'
     expect(localizeLinkyBindingError(sourceError, 'zh')).toBe('当前账号与被邀请人不属于同一个公会，绑定失败')
     expect(localizeLinkyBindingError(sourceError, 'pt')).toBe('Esta conta e quem fez o convite não pertencem à mesma guilda. A vinculação falhou.')
+  })
+
+  it('explains a missing MCN guild in the selected language without exposing the raw server error', () => {
+    const sourceError = 'Linky MCN verification cannot be enabled until this invitation route is mapped to an active MCN guild.'
+    expect(localizeLinkyBindingError(sourceError, 'pt')).toContain('guilda Linky válida')
+    expect(localizeLinkyBindingError(sourceError, 'id')).toContain('guild Linky')
+    expect(localizeLinkyBindingError('unexpected internal detail', 'es')).not.toContain('internal detail')
+  })
+})
+
+describe('Timo binding feedback', () => {
+  it('translates unsupported countries and authoritative rejection codes', () => {
+    expect(localizeTimoBindingError('no MCN Timo country mapping exists for CN', 'pt')).toContain('país de cadastro')
+    expect(localizeTimoBindingError('NOT_IN_TARGET_GUILD', 'es')).toContain('gremio esperado')
+    expect(localizeTimoBindingError('unexpected internal detail', 'en')).not.toContain('internal detail')
+  })
+})
+
+describe('consumer locale coverage', () => {
+  const paths = ['/earnings', '/invite', '/account', '/account/linky', '/account/timo']
+  const locales = ['en', 'es', 'id', 'pt'] as const
+
+  for (const locale of locales) {
+    for (const pathname of paths) {
+      it(`does not mix Chinese interface copy into ${locale} on ${pathname}`, () => {
+        const localStorage = createStorage()
+        localStorage.setItem('fenxiao-external-locale', locale)
+        localStorage.setItem('fenxiao-web-session', JSON.stringify({
+          userId: 10001, inviteCode: 'ABCD1234', countryCode: 'BR', languageCode: 'pt-br', accessToken: 'test-token',
+        }))
+        Object.defineProperty(globalThis, 'window', {
+          configurable: true,
+          value: { location: { pathname, search: '', origin: 'http://127.0.0.1:4173' }, localStorage },
+        })
+
+        const markup = renderToStaticMarkup(<App />).replace(/<option[^>]*value="zh"[^>]*>.*?<\/option>/g, '')
+        expect(markup).not.toMatch(/[\u3400-\u9fff]/)
+      })
+    }
+  }
+
+  it('uses Portuguese labels and number formatting on the earnings page', () => {
+    const localStorage = createStorage()
+    localStorage.setItem('fenxiao-external-locale', 'pt')
+    localStorage.setItem('fenxiao-web-session', JSON.stringify({
+      userId: 10001, inviteCode: 'ABCD1234', countryCode: 'BR', languageCode: 'pt-br', accessToken: 'test-token',
+    }))
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: { location: { pathname: '/earnings', search: '', origin: 'http://127.0.0.1:4173' }, localStorage },
+    })
+
+    const markup = renderToStaticMarkup(<App />)
+    expect(markup).toContain('Visão geral dos convites (esta semana)')
+    expect(markup).toContain('Como aumentar seus ganhos hoje')
+    expect(markup).toContain('0,00 pontos')
+    expect(markup).toContain('Visão geral da equipe')
   })
 })
 
