@@ -18,12 +18,9 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
-import java.util.Arrays;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
 @Component
 @ConditionalOnProperty(name = "app.sms.provider", havingValue = "CHUANGLAN")
@@ -35,7 +32,6 @@ public class ChuanglanSmsSender implements SmsSender {
     private final HttpClient http;
     private final Clock clock;
     private final URI endpoint;
-    private final Set<String> testNumbers;
     private final AtomicLong lastNonce = new AtomicLong();
 
     @Autowired
@@ -56,16 +52,11 @@ public class ChuanglanSmsSender implements SmsSender {
                 || !"/send/sms".equals(endpoint.getPath())) {
             throw new IllegalStateException("Chuanglan SMS endpoint must be the Singapore sign/nonce HTTPS endpoint");
         }
-        testNumbers = Arrays.stream((properties.getTestNumbers() == null ? "" : properties.getTestNumbers()).split(","))
-                .map(String::trim).filter(value -> !value.isEmpty()).map(ChuanglanSmsSender::normalizeMobile)
-                .collect(Collectors.toUnmodifiableSet());
-        if (testNumbers.isEmpty()) throw new IllegalStateException("Chuanglan SMS requires a nonempty test-number allowlist");
     }
 
     @Override
     public void sendVerificationCode(String phoneNumber, String verificationCode, int ttlMinutes) {
         String mobile = normalizeMobile(phoneNumber);
-        if (!testNumbers.contains(mobile)) throw new IllegalStateException("SMS recipient is not allowed in this test phase");
         if (verificationCode == null || !verificationCode.matches("^[0-9]{6}$")) {
             throw new IllegalArgumentException("verification code must be six digits");
         }
