@@ -28,6 +28,16 @@ import {
   Wallet,
 } from '@phosphor-icons/react'
 import './App.css'
+import loginHeroZh800 from './assets/login-hero/login-hero-zh-v1-800.webp'
+import loginHeroZh1600 from './assets/login-hero/login-hero-zh-v1-1600.webp'
+import loginHeroEn800 from './assets/login-hero/login-hero-en-v1-800.webp'
+import loginHeroEn1600 from './assets/login-hero/login-hero-en-v1-1600.webp'
+import loginHeroEs800 from './assets/login-hero/login-hero-es-v1-800.webp'
+import loginHeroEs1600 from './assets/login-hero/login-hero-es-v1-1600.webp'
+import loginHeroId800 from './assets/login-hero/login-hero-id-v1-800.webp'
+import loginHeroId1600 from './assets/login-hero/login-hero-id-v1-1600.webp'
+import loginHeroPt800 from './assets/login-hero/login-hero-pt-BR-v1-800.webp'
+import loginHeroPt1600 from './assets/login-hero/login-hero-pt-BR-v1-1600.webp'
 import {
   adjustAdminRelation,
   applyAdminRiskEventAction,
@@ -409,7 +419,7 @@ const ADMIN_ROLE_OPTIONS = [
 
 function loadExternalLocale(): 'zh' | 'en' | 'es' | 'id' | 'pt' {
   if (typeof window === 'undefined') return 'zh'
-  const value = window.localStorage.getItem(EXTERNAL_LOCALE_KEY)
+  const value = window.localStorage.getItem(EXTERNAL_LOCALE_KEY)?.trim().toLowerCase().split(/[-_]/)[0]
   if (value === 'zh' || value === 'en' || value === 'es' || value === 'id' || value === 'pt') return value
   return 'zh'
 }
@@ -6072,6 +6082,14 @@ function normalizeLocalPhoneNumber(value: string, callingCode: string) {
 }
 
 type ConsumerLocale = 'zh' | 'en' | 'es' | 'id' | 'pt'
+
+const consumerLoginHero: Record<ConsumerLocale, { small: string; large: string; alt: string }> = {
+  zh: { small: loginHeroZh800, large: loginHeroZh1600, alt: '恭喜你！🎉 从女用户成长为长期收益的管理者。' },
+  en: { small: loginHeroEn800, large: loginHeroEn1600, alt: 'Congratulations! 🎉 From female user to manager with long-term earnings.' },
+  es: { small: loginHeroEs800, large: loginHeroEs1600, alt: '¡Felicidades! 🎉 De usuaria a gestora con ingresos a largo plazo.' },
+  id: { small: loginHeroId800, large: loginHeroId1600, alt: 'Selamat! 🎉 Dari pengguna wanita menjadi pengelola dengan penghasilan jangka panjang.' },
+  pt: { small: loginHeroPt800, large: loginHeroPt1600, alt: 'Parabéns! 🎉 De usuária a gestora com ganhos a longo prazo.' },
+}
 type ConsumerNavigationKey = 'earnings' | 'invite' | 'account'
 
 const consumerUserGradeLabel: Record<ConsumerLocale, string> = {
@@ -6242,8 +6260,10 @@ function InviteCodePage() {
   const [phoneAuthLoading, setPhoneAuthLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [failedHeroLocale, setFailedHeroLocale] = useState<ConsumerLocale | null>(null)
   const copy = externalPageCopyByLocale[locale]
   const inviteCopy = invitePageCopyByLocale[locale]
+  const loginHero = consumerLoginHero[locale]
   const selectedPhoneCountry = phoneCountries.find((country) => country.countryCode === phoneForm.countryCode) ?? phoneCountries[0]
   const phoneNumberForSubmission = formatPhoneNumber(selectedPhoneCountry.callingCode, phoneForm.phoneNumber)
 
@@ -6350,6 +6370,22 @@ function InviteCodePage() {
             {session ? <ConsumerAccountLink locale={locale} /> : null}
           </div>
         </header>
+
+        {!session ? <section className="consumer-login-hero">
+          {failedHeroLocale === locale ? <p className="consumer-login-hero-fallback">{loginHero.alt}</p> : <img
+            key={locale}
+            src={loginHero.small}
+            srcSet={`${loginHero.small} 800w, ${loginHero.large} 1600w`}
+            sizes="(max-width: 720px) calc(100vw - 40px), 640px"
+            width="1720"
+            height="914"
+            alt={loginHero.alt}
+            loading="eager"
+            fetchPriority="high"
+            decoding="async"
+            onError={() => setFailedHeroLocale(locale)}
+          />}
+        </section> : null}
 
         {session ? <section className="consumer-commercial-heading">
           <p><Diamond weight="fill" aria-hidden="true" /> BANDEIRA REWARDS</p>
