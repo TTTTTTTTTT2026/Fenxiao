@@ -34,6 +34,9 @@ public class ChuanglanSmsSender implements SmsSender {
     private final URI endpoint;
     private final AtomicLong lastNonce = new AtomicLong();
 
+    @Override
+    public String deliveryChannel() { return "CHUANGLAN"; }
+
     @Autowired
     public ChuanglanSmsSender(ChuanglanSmsProperties properties, ObjectMapper json) {
         this(properties, json, HttpClient.newBuilder().connectTimeout(properties.getConnectTimeout()).build(), Clock.systemUTC());
@@ -77,19 +80,19 @@ public class ChuanglanSmsSender implements SmsSender {
             HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             if (response.statusCode() != 200) {
                 log.warn("Chuanglan SMS submission returned HTTP {}", response.statusCode());
-                throw new IllegalStateException("verification SMS is temporarily unavailable");
+                throw new SmsSubmissionException("HTTP_" + response.statusCode(), "verification SMS is temporarily unavailable");
             }
             JsonNode result = json.readTree(response.body());
             if (!"0".equals(result.path("code").asText())) {
                 String safeCode = result.path("code").asText().matches("^[0-9]{1,6}$") ? result.path("code").asText() : "unknown";
                 log.warn("Chuanglan SMS submission rejected with code {}", safeCode);
-                throw new IllegalStateException("verification SMS is temporarily unavailable");
+                throw new SmsSubmissionException("PROVIDER_" + safeCode, "verification SMS is temporarily unavailable");
             }
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("verification SMS submission interrupted", exception);
+            throw new SmsSubmissionException("INTERRUPTED", "verification SMS submission interrupted", exception);
         } catch (IOException exception) {
-            throw new IllegalStateException("verification SMS could not be submitted", exception);
+            throw new SmsSubmissionException("NETWORK_ERROR", "verification SMS could not be submitted", exception);
         }
     }
 

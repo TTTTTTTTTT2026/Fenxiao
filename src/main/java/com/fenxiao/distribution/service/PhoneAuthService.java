@@ -17,7 +17,6 @@ import java.security.SecureRandom;
 import java.util.Locale;
 
 @Service
-@Transactional
 public class PhoneAuthService {
     private static final String PURPOSE = "LOGIN";
     private static final int MAX_ATTEMPTS = 5;
@@ -72,11 +71,26 @@ public class PhoneAuthService {
                     codeRepository.save(existing);
                 });
         String code = String.format("%06d", random.nextInt(1_000_000));
-        codeRepository.save(PhoneVerificationCode.issue(normalizedPhone, code, PURPOSE, now.plusMinutes(TTL_MINUTES)));
-        smsSender.sendVerificationCode(normalizedPhone, code, TTL_MINUTES);
+        // Persist before the external call. A rejected SMS must remain reviewable in the admin console,
+        // and its code stays valid for assisted sign-in until the normal expiration time.
+        PhoneVerificationCode issued = PhoneVerificationCode.issue(normalizedPhone, code, PURPOSE, now.plusMinutes(TTL_MINUTES));
+        issued.setDeliveryChannel(smsSender.deliveryChannel());
+        issued = codeRepository.save(issued);
+        try {
+            smsSender.sendVerificationCode(normalizedPhone, code, TTL_MINUTES);
+            issued.markSubmissionAccepted();
+            codeRepository.save(issued);
+        } catch (RuntimeException exception) {
+            String failureCode = exception instanceof SmsSubmissionException submission
+                    ? submission.getErrorCode() : "SUBMISSION_ERROR";
+            issued.markSubmissionFailed(failureCode);
+            codeRepository.save(issued);
+            throw exception;
+        }
         return code;
     }
 
+    @Transactional
     public LoginResult login(PhoneLoginRequest request) {
         String normalizedPhone = normalizePhone(request.phoneNumber());
         boolean existingUser = profileRepository.findByPhoneNumber(normalizedPhone).isPresent();

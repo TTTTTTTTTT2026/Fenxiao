@@ -72,7 +72,8 @@ class ChuanglanSmsSenderTest {
         var sender = new ChuanglanSmsSender(properties(), new ObjectMapper(), http, FIXED_CLOCK);
 
         assertThatThrownBy(() -> sender.sendVerificationCode("+85250000001", "123456", 10))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("temporarily unavailable");
+                .isInstanceOf(SmsSubmissionException.class).hasMessageContaining("temporarily unavailable")
+                .satisfies(error -> assertThat(((SmsSubmissionException) error).getErrorCode()).isEqualTo("PROVIDER_114"));
     }
 
     private ChuanglanSmsProperties properties() {

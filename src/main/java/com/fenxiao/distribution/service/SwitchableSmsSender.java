@@ -19,6 +19,9 @@ public class SwitchableSmsSender implements SmsSender {
     }
 
     @Override
+    public String deliveryChannel() { return controls.isLiveSendingEnabled() ? "CHUANGLAN" : "INTERNAL"; }
+
+    @Override
     public void sendVerificationCode(String phoneNumber, String verificationCode, int ttlMinutes) {
         if (controls.isLiveSendingEnabled()) {
             ChuanglanSmsSender sender = liveSender.getIfAvailable();
