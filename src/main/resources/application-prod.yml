@@ -46,7 +46,7 @@ app:
     linky-signing-secret: ${LINKY_SIGNING_SECRET}
     linky-replay-window-seconds: ${LINKY_REPLAY_WINDOW_SECONDS:900}
     legacy-user-token-enabled: false
-    user-session-ttl-minutes: ${USER_SESSION_TTL_MINUTES:1440}
+    user-session-ttl-minutes: ${USER_SESSION_TTL_MINUTES:43200}
     lifecycle:
       shadow-only: ${LIFECYCLE_SHADOW_ONLY:true}
     reward-engine:

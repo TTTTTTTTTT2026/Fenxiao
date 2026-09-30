@@ -3,6 +3,7 @@ package com.fenxiao.identity;
 import com.fenxiao.common.api.ForbiddenException;
 import com.fenxiao.distribution.service.DistributionBindingService;
 import com.fenxiao.identity.domain.AccountStatus;
+import com.fenxiao.identity.repository.UserSessionRepository;
 import com.fenxiao.identity.service.AccountLifecycleService;
 import com.fenxiao.identity.service.UserSessionService;
 import com.fenxiao.relationship.domain.MentorAssignmentStatus;
@@ -18,6 +19,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.annotation.DirtiesContext;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -32,8 +36,28 @@ class IdentityRelationshipFoundationTest {
     @Autowired TeamMembershipVersionRepository teamMembershipRepository;
     @Autowired OperatingTeamRepository teamRepository;
     @Autowired UserSessionService sessionService;
+    @Autowired UserSessionRepository sessionRepository;
     @Autowired AccountLifecycleService accountLifecycleService;
     @Autowired UserDistributionProfileRepository profileRepository;
+
+    @Test
+    void shouldKeepNewUserSessionValidForThirtyDaysWithoutActivity() {
+        var user = bindingService.createProfile(70400L, "BR", "pt-br", null);
+        LocalDateTime beforeIssue = LocalDateTime.now(Clock.systemUTC());
+        var session = sessionService.issue(user.getUserId());
+        LocalDateTime afterIssue = LocalDateTime.now(Clock.systemUTC());
+
+        assertThat(session.expiresAt()).isBetween(beforeIssue.plusDays(30), afterIssue.plusDays(30));
+        var persisted = sessionRepository.findByUserIdAndRevokedAtIsNull(user.getUserId());
+        assertThat(persisted).hasSize(1);
+        assertThat(persisted.get(0).getExpiresAt()).isBetween(
+                beforeIssue.plusDays(30).minusSeconds(1), afterIssue.plusDays(30).plusSeconds(1));
+        assertThat(sessionService.assertAccess(user.getUserId(), session.accessToken())).isEqualTo(user.getUserId());
+        assertThat(session.expiresAt()).isBetween(beforeIssue.plusDays(30), afterIssue.plusDays(30));
+        sessionService.revoke(session.accessToken());
+        assertThatThrownBy(() -> sessionService.assertAccess(user.getUserId(), session.accessToken()))
+                .isInstanceOf(ForbiddenException.class);
+    }
 
     @Test
     void shouldInitializeIndependentInvitationMentorAndTeamRelationships() {
