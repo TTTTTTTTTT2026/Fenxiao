@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { applyAdminRiskEventBatchAction, applyAdminWithdrawBatchAction, approveAdminWithdrawRequest, approveWithdrawForPayment, correctAdminOwnership, createAdminPlatformGuildOperatingShareRate, createAdminSession, createExperiment, createWithdrawRequest, getAdminGuildConfigs, getAdminGuildWeeklyReport, getAdminMentorAssignedStudents, getAdminOwnership, getAdminPlatformGuildDirectory, getAdminPlatformGuildDirectorySyncRuns, getAdminPlatformIntegrations, getAdminSeedInviters, getAdminSmsDeliveryStatus, getAdminWithdrawRequests, getDistributionRewardSummary, getDistributionTeamWeeklyIncome, getExperimentDashboard, getWithdrawHistory, issuePhoneCode, logoutUserSession, phoneLogin, recordWithdrawPayment, refreshAdminLinkyEligibility, refreshAdminLinkyEligibilityBatch, rejectAdminWithdrawRequest, reverseWithdrawPayment, saveAdminGuildConfig, updateAdminSmsDeliveryStatus, updateAdminUserCountry } from './api'
+import { addAdminSmsDailyWhitelistNumber, applyAdminRiskEventBatchAction, applyAdminWithdrawBatchAction, approveAdminWithdrawRequest, approveWithdrawForPayment, correctAdminOwnership, createAdminPlatformGuildOperatingShareRate, createAdminSession, createExperiment, createWithdrawRequest, getAdminGuildConfigs, getAdminGuildWeeklyReport, getAdminMentorAssignedStudents, getAdminOwnership, getAdminPlatformGuildDirectory, getAdminPlatformGuildDirectorySyncRuns, getAdminPlatformIntegrations, getAdminSeedInviters, getAdminSmsDailyWhitelist, getAdminSmsDeliveryStatus, getAdminWithdrawRequests, getDistributionRewardSummary, getDistributionTeamWeeklyIncome, getExperimentDashboard, getWithdrawHistory, issuePhoneCode, logoutUserSession, phoneLogin, recordWithdrawPayment, refreshAdminLinkyEligibility, refreshAdminLinkyEligibilityBatch, rejectAdminWithdrawRequest, removeAdminSmsDailyWhitelistNumber, reverseWithdrawPayment, saveAdminGuildConfig, updateAdminSmsDeliveryStatus, updateAdminUserCountry } from './api'
 
 describe('ownership admin api', () => {
   afterEach(() => {
@@ -510,6 +510,32 @@ describe('SMS delivery admin api', () => {
       method: 'POST',
       headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
       body: JSON.stringify({ enabled: true }),
+    }))
+  })
+})
+
+describe('SMS daily whitelist admin api', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('lists, adds and removes numbers with an admin session', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204, text: async () => '' })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await getAdminSmsDailyWhitelist('session-token', 2)
+    await addAdminSmsDailyWhitelistNumber('session-token', '+85290000001')
+    await removeAdminSmsDailyWhitelistNumber('session-token', 17)
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/admin/sms-daily-whitelist?page=2&size=20', expect.objectContaining({
+      headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
+    }))
+    expect(fetchMock).toHaveBeenNthCalledWith(2, '/admin/sms-daily-whitelist', expect.objectContaining({
+      method: 'POST',
+      headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
+      body: JSON.stringify({ phoneNumber: '+85290000001' }),
+    }))
+    expect(fetchMock).toHaveBeenNthCalledWith(3, '/admin/sms-daily-whitelist/17', expect.objectContaining({
+      method: 'DELETE',
+      headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
     }))
   })
 })

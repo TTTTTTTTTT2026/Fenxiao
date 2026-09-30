@@ -27,6 +27,7 @@ public class PhoneAuthService {
     private final UserDistributionProfileRepository profileRepository;
     private final DistributionBindingService bindingService;
     private final SmsSender smsSender;
+    private final SmsDailyWhitelistService dailyWhitelist;
     private final UserSessionService userSessionService;
     private final Clock clock;
     private final SecureRandom random = new SecureRandom();
@@ -36,20 +37,23 @@ public class PhoneAuthService {
                             UserDistributionProfileRepository profileRepository,
                             DistributionBindingService bindingService,
                             SmsSender smsSender,
+                            SmsDailyWhitelistService dailyWhitelist,
                             UserSessionService userSessionService) {
-        this(codeRepository, profileRepository, bindingService, smsSender, userSessionService, Clock.systemUTC());
+        this(codeRepository, profileRepository, bindingService, smsSender, dailyWhitelist, userSessionService, Clock.systemUTC());
     }
 
     PhoneAuthService(PhoneVerificationCodeRepository codeRepository,
                      UserDistributionProfileRepository profileRepository,
                      DistributionBindingService bindingService,
                      SmsSender smsSender,
+                     SmsDailyWhitelistService dailyWhitelist,
                      UserSessionService userSessionService,
                      Clock clock) {
         this.codeRepository = codeRepository;
         this.profileRepository = profileRepository;
         this.bindingService = bindingService;
         this.smsSender = smsSender;
+        this.dailyWhitelist = dailyWhitelist;
         this.userSessionService = userSessionService;
         this.clock = clock;
     }
@@ -58,7 +62,8 @@ public class PhoneAuthService {
         String normalizedPhone = normalizePhone(phoneNumber);
         LocalDateTime now = LocalDateTime.now(clock);
         if (codeRepository.countByPhoneNumberAndPurposeAndCreatedAtGreaterThanEqual(
-                normalizedPhone, PURPOSE, now.toLocalDate().atStartOfDay()) >= MAX_CODES_PER_UTC_DAY) {
+                normalizedPhone, PURPOSE, now.toLocalDate().atStartOfDay()) >= MAX_CODES_PER_UTC_DAY
+                && !dailyWhitelist.isExempt(normalizedPhone)) {
             throw new TooManyRequestsException("daily phone verification code limit exceeded");
         }
         codeRepository.findTopByPhoneNumberAndPurposeAndConsumedFalseAndExpiresAtAfterOrderByIdDesc(normalizedPhone, PURPOSE, now)

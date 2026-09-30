@@ -1354,6 +1354,41 @@ export type SmsDeliveryStatus = {
   updatedBy: number | null
 }
 
+export type SmsDailyWhitelistItem = {
+  id: number
+  phoneNumber: string
+  createdAt: string
+  createdBy: number
+}
+
+export type SmsDailyWhitelistPage = {
+  items: SmsDailyWhitelistItem[]
+  total: number
+  page: number
+  size: number
+}
+
+export function getAdminSmsDailyWhitelist(adminSessionToken: string, page = 0, size = 20) {
+  return request<SmsDailyWhitelistPage>(`/admin/sms-daily-whitelist?page=${page}&size=${size}`, {
+    headers: { 'X-Admin-Session': adminSessionToken },
+  })
+}
+
+export function addAdminSmsDailyWhitelistNumber(adminSessionToken: string, phoneNumber: string) {
+  return request<SmsDailyWhitelistItem>('/admin/sms-daily-whitelist', {
+    method: 'POST',
+    headers: { 'X-Admin-Session': adminSessionToken },
+    body: JSON.stringify({ phoneNumber }),
+  })
+}
+
+export function removeAdminSmsDailyWhitelistNumber(adminSessionToken: string, id: number) {
+  return request<void>(`/admin/sms-daily-whitelist/${id}`, {
+    method: 'DELETE',
+    headers: { 'X-Admin-Session': adminSessionToken },
+  })
+}
+
 export function getAdminSmsDeliveryStatus(adminSessionToken: string) {
   return request<SmsDeliveryStatus>('/admin/sms-delivery', {
     headers: { 'X-Admin-Session': adminSessionToken },
