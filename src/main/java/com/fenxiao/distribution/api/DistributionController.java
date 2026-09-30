@@ -10,6 +10,7 @@ import com.fenxiao.distribution.api.dto.IssueInviteCodeResponse;
 import com.fenxiao.distribution.api.dto.LinkyAccountBindingResponse;
 import com.fenxiao.distribution.api.dto.PhoneCodeRequest;
 import com.fenxiao.distribution.api.dto.PhoneLoginRequest;
+import com.fenxiao.distribution.api.dto.PasswordLoginRequest;
 import com.fenxiao.distribution.api.dto.ProfileResponse;
 import com.fenxiao.distribution.api.dto.RegisterLinkyAccountRequest;
 import com.fenxiao.distribution.api.dto.TeamListResponse;
@@ -25,6 +26,7 @@ import com.fenxiao.distribution.service.InviteBindingRegistrationService;
 import com.fenxiao.distribution.service.InviteCodeIssueService;
 import com.fenxiao.distribution.service.LinkyRegistrationEligibilityService;
 import com.fenxiao.distribution.service.PhoneAuthService;
+import com.fenxiao.distribution.service.UserPasswordLoginService;
 import com.fenxiao.distribution.service.WithdrawRequestService;
 import com.fenxiao.reward.api.dto.RewardListResponse;
 import com.fenxiao.reward.api.dto.RewardSummaryResponse;
@@ -54,6 +56,7 @@ public class DistributionController {
     private final InviteCodeIssueService inviteCodeIssueService;
     private final WithdrawRequestService withdrawRequestService;
     private final PhoneAuthService phoneAuthService;
+    private final UserPasswordLoginService userPasswordLoginService;
     private final DistributionAccessGuard distributionAccessGuard;
     private final UserSessionService userSessionService;
 
@@ -64,6 +67,7 @@ public class DistributionController {
                                   InviteCodeIssueService inviteCodeIssueService,
                                   WithdrawRequestService withdrawRequestService,
                                   PhoneAuthService phoneAuthService,
+                                  UserPasswordLoginService userPasswordLoginService,
                                   DistributionAccessGuard distributionAccessGuard,
                                   UserSessionService userSessionService) {
         this.distributionBindingService = distributionBindingService;
@@ -73,6 +77,7 @@ public class DistributionController {
         this.inviteCodeIssueService = inviteCodeIssueService;
         this.withdrawRequestService = withdrawRequestService;
         this.phoneAuthService = phoneAuthService;
+        this.userPasswordLoginService = userPasswordLoginService;
         this.distributionAccessGuard = distributionAccessGuard;
         this.userSessionService = userSessionService;
     }
@@ -160,6 +165,14 @@ public class DistributionController {
         PhoneAuthService.LoginResult result = phoneAuthService.login(request);
         UserDistributionProfile profile = result.profile();
         return new ProfileResponse(profile.getUserId(), profile.getInviteCode(), profile.getCountryCode(), profile.getLanguageCode(), result.session().accessToken());
+    }
+
+    @PostMapping("/auth/password-login")
+    public ProfileResponse passwordLogin(@Valid @RequestBody PasswordLoginRequest request) {
+        UserPasswordLoginService.LoginResult result = userPasswordLoginService.login(request.phoneNumber(), request.password());
+        UserDistributionProfile profile = result.profile();
+        return new ProfileResponse(profile.getUserId(), profile.getInviteCode(), profile.getCountryCode(),
+                profile.getLanguageCode(), result.session().accessToken());
     }
 
     @PostMapping("/auth/session/refresh")

@@ -274,6 +274,39 @@ describe('signed-out login hero', () => {
   })
 })
 
+describe('client password sign-in', () => {
+  it('keeps the existing SMS registration form as the default and adds a discreet password entry', () => {
+    const localStorage = createStorage()
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: { location: { pathname: '/invite', search: '', hash: '#phone-login', origin: 'http://127.0.0.1:4173' }, localStorage },
+    })
+
+    const markup = renderToStaticMarkup(<App />)
+    expect(markup).toContain('id="phone-login"')
+    expect(markup).toContain('账号密码登录')
+    expect(markup).toContain('consumer-login-switch')
+    expect(markup).not.toContain('id="password-login"')
+  })
+
+  it('shows phone and password only when the password route is selected', () => {
+    const localStorage = createStorage()
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: { location: { pathname: '/invite', search: '', hash: '#password-login', origin: 'http://127.0.0.1:4173' }, localStorage },
+    })
+
+    const markup = renderToStaticMarkup(<App />)
+    expect(markup).toContain('id="password-login"')
+    expect(markup).toContain('type="password"')
+    expect(markup).toContain('手机号码登录')
+    expect(markup).not.toContain('id="phone-login"')
+    expect(markup).not.toContain('name="verificationCode"')
+    expect(markup).not.toContain('输入验证码')
+    expect(markup).not.toContain('输入邀请码')
+  })
+})
+
 describe('signed-out login hero', () => {
   const assets = {
     zh: { file: 'login-hero-zh-v1', alt: '恭喜你！' },

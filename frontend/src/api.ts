@@ -561,6 +561,7 @@ export type UserPlatformProfileItem = {
   directInviterUserId: number | null
   directInviterNickname: string | null
   userGradeCode: string
+  passwordLoginEnabled: boolean
   linky: UserPlatformProfileBinding | null
   timo: UserPlatformProfileBinding | null
   invitationGuild: UserPlatformProfileInvitationGuild | null
@@ -911,6 +912,13 @@ export function issuePhoneCode(phoneNumber: string) {
 
 export function phoneLogin(payload: PhoneLoginRequest) {
   return request<ProfileResponse>('/api/distribution/auth/phone-login', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function passwordLogin(payload: { phoneNumber: string; password: string }) {
+  return request<ProfileResponse>('/api/distribution/auth/password-login', {
     method: 'POST',
     body: JSON.stringify(payload),
   })
@@ -1449,6 +1457,21 @@ export function updateAdminUserCountry(adminSessionToken: string, userId: number
     method: 'POST',
     headers: { 'X-Admin-Session': adminSessionToken },
     body: JSON.stringify({ countryCode }),
+  })
+}
+
+export function setAdminUserPasswordLogin(adminSessionToken: string, userId: number, password: string) {
+  return request<{ userId: number; enabled: boolean }>(`/admin/distribution/user-password-logins/${userId}`, {
+    method: 'POST',
+    headers: { 'X-Admin-Session': adminSessionToken },
+    body: JSON.stringify({ password }),
+  })
+}
+
+export function disableAdminUserPasswordLogin(adminSessionToken: string, userId: number) {
+  return request<{ userId: number; enabled: boolean }>(`/admin/distribution/user-password-logins/${userId}`, {
+    method: 'DELETE',
+    headers: { 'X-Admin-Session': adminSessionToken },
   })
 }
 

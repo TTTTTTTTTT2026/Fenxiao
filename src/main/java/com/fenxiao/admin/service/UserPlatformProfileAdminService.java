@@ -12,6 +12,8 @@ import com.fenxiao.distribution.repository.LinkyInvitationGuildAttributionReposi
 import com.fenxiao.distribution.repository.LinkyVerificationAttemptRepository;
 import com.fenxiao.platform.entity.PlatformAccountBinding;
 import com.fenxiao.platform.repository.PlatformAccountBindingRepository;
+import com.fenxiao.identity.entity.UserPasswordCredential;
+import com.fenxiao.identity.repository.UserPasswordCredentialRepository;
 import com.fenxiao.user.entity.UserDistributionProfile;
 import com.fenxiao.user.repository.UserDistributionProfileRepository;
 import com.fenxiao.user.repository.UserPublicProfileRepository;
@@ -37,6 +39,7 @@ import java.util.stream.Collectors;
 public class UserPlatformProfileAdminService {
     private final UserDistributionProfileRepository users;
     private final UserPublicProfileRepository publicProfiles;
+    private final UserPasswordCredentialRepository passwordCredentials;
     private final DistributionRelationRepository relations;
     private final LinkyAccountBindingRepository linkyBindings;
     private final PlatformAccountBindingRepository platformBindings;
@@ -47,6 +50,7 @@ public class UserPlatformProfileAdminService {
 
     public UserPlatformProfileAdminService(UserDistributionProfileRepository users,
                                            UserPublicProfileRepository publicProfiles,
+                                           UserPasswordCredentialRepository passwordCredentials,
                                            DistributionRelationRepository relations,
                                            LinkyAccountBindingRepository linkyBindings,
                                            PlatformAccountBindingRepository platformBindings,
@@ -56,6 +60,7 @@ public class UserPlatformProfileAdminService {
                                            JdbcTemplate jdbc) {
         this.users = users;
         this.publicProfiles = publicProfiles;
+        this.passwordCredentials = passwordCredentials;
         this.relations = relations;
         this.linkyBindings = linkyBindings;
         this.platformBindings = platformBindings;
@@ -78,6 +83,7 @@ public class UserPlatformProfileAdminService {
         Map<Long, GuildAccountConfig> legacyGuildByUser = index(
                 legacyGuildConfigs.findByProductCodeAndInviterUserIdInAndEnabledTrue("LINKY", ids), GuildAccountConfig::getInviterUserId);
         Map<Long, String> gradesByUser = gradesByUser(ids);
+        Map<Long, UserPasswordCredential> passwordsByUser = index(passwordCredentials.findByUserIdIn(ids), UserPasswordCredential::getUserId);
         Map<Long, Long> inviterByUser = new HashMap<>();
         for (Long id : ids) {
             relations.findByUserId(id).ifPresent(relation -> inviterByUser.put(id, relation.getLevel1InviterId()));
@@ -95,6 +101,7 @@ public class UserPlatformProfileAdminService {
                     profile.getInviteCode(), profile.getCountryCode(), profile.getPhoneNumber(), profile.getRegisteredAt(),
                     inviterId, inviterId == null ? null : nicknamesByUser.get(inviterId),
                     gradesByUser.getOrDefault(profile.getUserId(), "NORMAL_MEMBER"),
+                    passwordsByUser.containsKey(profile.getUserId()) && passwordsByUser.get(profile.getUserId()).isEnabled(),
                     linky(linkyByUser.get(profile.getUserId())), timo(timoByUser.get(profile.getUserId())),
                     invitationGuild(guildByUser.get(profile.getUserId()), legacyGuildByUser.get(profile.getUserId())));
         }).toList();

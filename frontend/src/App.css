@@ -4936,6 +4936,24 @@ code {
   padding-bottom: max(42px, calc(24px + env(safe-area-inset-bottom)));
 }
 
+.consumer-login-switch {
+  display: block;
+  margin: 14px auto 0;
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  color: #718096;
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.consumer-login-switch:hover,
+.consumer-login-switch:focus-visible {
+  color: #f45b25;
+}
+
 .consumer-login-hero {
   width: 100%;
   aspect-ratio: 1720 / 914;
