@@ -29,7 +29,7 @@ public class UserSessionService {
 
     public UserSessionService(UserSessionRepository sessionRepository,
                               UserDistributionProfileRepository profileRepository,
-                              @Value("${app.distribution.user-session-ttl-minutes:1440}") long ttlMinutes,
+                              @Value("${app.distribution.user-session-ttl-minutes:43200}") long ttlMinutes,
                               Clock clock) {
         this.sessionRepository = sessionRepository;
         this.profileRepository = profileRepository;
