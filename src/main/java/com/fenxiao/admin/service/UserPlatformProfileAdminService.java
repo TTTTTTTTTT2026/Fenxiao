@@ -14,6 +14,7 @@ import com.fenxiao.platform.entity.PlatformAccountBinding;
 import com.fenxiao.platform.repository.PlatformAccountBindingRepository;
 import com.fenxiao.user.entity.UserDistributionProfile;
 import com.fenxiao.user.repository.UserDistributionProfileRepository;
+import com.fenxiao.user.repository.UserPublicProfileRepository;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -23,8 +24,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -32,6 +36,7 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class UserPlatformProfileAdminService {
     private final UserDistributionProfileRepository users;
+    private final UserPublicProfileRepository publicProfiles;
     private final DistributionRelationRepository relations;
     private final LinkyAccountBindingRepository linkyBindings;
     private final PlatformAccountBindingRepository platformBindings;
@@ -41,6 +46,7 @@ public class UserPlatformProfileAdminService {
     private final JdbcTemplate jdbc;
 
     public UserPlatformProfileAdminService(UserDistributionProfileRepository users,
+                                           UserPublicProfileRepository publicProfiles,
                                            DistributionRelationRepository relations,
                                            LinkyAccountBindingRepository linkyBindings,
                                            PlatformAccountBindingRepository platformBindings,
@@ -49,6 +55,7 @@ public class UserPlatformProfileAdminService {
                                            LinkyVerificationAttemptRepository linkyVerificationAttempts,
                                            JdbcTemplate jdbc) {
         this.users = users;
+        this.publicProfiles = publicProfiles;
         this.relations = relations;
         this.linkyBindings = linkyBindings;
         this.platformBindings = platformBindings;
@@ -71,10 +78,22 @@ public class UserPlatformProfileAdminService {
         Map<Long, GuildAccountConfig> legacyGuildByUser = index(
                 legacyGuildConfigs.findByProductCodeAndInviterUserIdInAndEnabledTrue("LINKY", ids), GuildAccountConfig::getInviterUserId);
         Map<Long, String> gradesByUser = gradesByUser(ids);
+        Map<Long, Long> inviterByUser = new HashMap<>();
+        for (Long id : ids) {
+            relations.findByUserId(id).ifPresent(relation -> inviterByUser.put(id, relation.getLevel1InviterId()));
+        }
+        Set<Long> nicknameIds = new HashSet<>(ids);
+        inviterByUser.values().stream().filter(Objects::nonNull).forEach(nicknameIds::add);
+        Map<Long, String> nicknamesByUser = new HashMap<>();
+        if (!nicknameIds.isEmpty()) {
+            publicProfiles.findNicknamesByUserIds(nicknameIds)
+                    .forEach(row -> nicknamesByUser.put((Long) row[0], (String) row[1]));
+        }
         List<UserPlatformProfileListResponse.Item> items = result.getContent().stream().map(profile -> {
-            var relation = relations.findByUserId(profile.getUserId()).orElse(null);
-            return new UserPlatformProfileListResponse.Item(profile.getUserId(), profile.getInviteCode(), profile.getCountryCode(), profile.getPhoneNumber(), profile.getRegisteredAt(),
-                    relation == null ? null : relation.getLevel1InviterId(),
+            Long inviterId = inviterByUser.get(profile.getUserId());
+            return new UserPlatformProfileListResponse.Item(profile.getUserId(), nicknamesByUser.get(profile.getUserId()),
+                    profile.getInviteCode(), profile.getCountryCode(), profile.getPhoneNumber(), profile.getRegisteredAt(),
+                    inviterId, inviterId == null ? null : nicknamesByUser.get(inviterId),
                     gradesByUser.getOrDefault(profile.getUserId(), "NORMAL_MEMBER"),
                     linky(linkyByUser.get(profile.getUserId())), timo(timoByUser.get(profile.getUserId())),
                     invitationGuild(guildByUser.get(profile.getUserId()), legacyGuildByUser.get(profile.getUserId())));

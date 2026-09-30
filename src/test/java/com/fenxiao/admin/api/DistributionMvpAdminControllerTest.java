@@ -15,6 +15,7 @@ import com.fenxiao.rule.entity.RewardRule;
 import com.fenxiao.rule.repository.RewardRuleRepository;
 import com.fenxiao.user.entity.UserDistributionProfile;
 import com.fenxiao.user.repository.UserDistributionProfileRepository;
+import com.fenxiao.user.service.UserPublicProfileService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -63,6 +64,9 @@ class DistributionMvpAdminControllerTest {
 
     @Autowired
     private UserDistributionProfileRepository userDistributionProfileRepository;
+
+    @Autowired
+    private UserPublicProfileService userPublicProfileService;
 
     @Autowired
     private DistributionRelationRepository distributionRelationRepository;
@@ -116,6 +120,23 @@ class DistributionMvpAdminControllerTest {
                 .andExpect(jsonPath("$.items[0].linky").isEmpty())
                 .andExpect(jsonPath("$.items[0].timo").isEmpty())
                 .andExpect(jsonPath("$.items[0].invitationGuild").isEmpty());
+    }
+
+    @Test
+    void shouldIncludeUserAndDirectInviterNicknamesWithoutAvatarData() throws Exception {
+        String inviterCode = distributionBindingService.createProfile(10031L, "BR", "pt-br", null).getInviteCode();
+        distributionBindingService.createProfile(10032L, "BR", "pt-br", inviterCode);
+        userPublicProfileService.updateNickname(10031L, "Mentora");
+        userPublicProfileService.updateNickname(10032L, "Sofia");
+
+        mockMvc.perform(get("/admin/distribution/user-platform-profiles")
+                        .header("X-Admin-Session", loginAsAdmin())
+                        .param("userId", "10032"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].nickname").value("Sofia"))
+                .andExpect(jsonPath("$.items[0].directInviterUserId").value(10031))
+                .andExpect(jsonPath("$.items[0].directInviterNickname").value("Mentora"))
+                .andExpect(jsonPath("$.items[0].avatarDataUrl").doesNotExist());
     }
 
     @Test
