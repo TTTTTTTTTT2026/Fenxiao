@@ -167,6 +167,42 @@ class AdminIdentityManagementTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test void onlySuperAdminCanManageAuditedSmsDailyWhitelist() throws Exception {
+        String root = login("root_admin", "Root-Secure-Password-2026!", true);
+        accounts.save(AdminAccount.create("whitelist_operator", "Whitelist Operator", "operator",
+                hasher.hash("Operator-Password-2026!"), true));
+        String operator = login("whitelist_operator", "Operator-Password-2026!", false);
+
+        mvc.perform(get("/admin/sms-daily-whitelist").header("X-Admin-Session", operator))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/admin/sms-daily-whitelist").header("X-Admin-Session", operator)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"phoneNumber\":\"+85250000010\"}"))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/admin/sms-daily-whitelist").header("X-Admin-Session", root)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"phoneNumber\":\"50000010\"}"))
+                .andExpect(status().isBadRequest());
+
+        String created = mvc.perform(post("/admin/sms-daily-whitelist").header("X-Admin-Session", root)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"phoneNumber\":\"+852 5000 0010\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.phoneNumber").value("+85250000010"))
+                .andReturn().getResponse().getContentAsString();
+        long id = json.readTree(created).path("id").asLong();
+        mvc.perform(post("/admin/sms-daily-whitelist").header("X-Admin-Session", root)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"phoneNumber\":\"+85250000010\"}"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/admin/sms-daily-whitelist").header("X-Admin-Session", root))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(id));
+        mvc.perform(delete("/admin/sms-daily-whitelist/{id}", id).header("X-Admin-Session", operator))
+                .andExpect(status().isForbidden());
+        mvc.perform(delete("/admin/sms-daily-whitelist/{id}", id).header("X-Admin-Session", root))
+                .andExpect(status().isOk());
+        assertThat(jdbc.queryForObject("select count(*) from sms_daily_whitelist where id=?", Integer.class, id)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from operation_audit_log where module_name='sms_daily_whitelist' and target_id=?", Integer.class, id))
+                .isEqualTo(2);
+    }
+
     private String sha(String value) throws Exception {return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8)));}
 
     private String login(String username,String password,boolean remember) throws Exception {

@@ -65,6 +65,9 @@ import {
   getAdminPhoneVerificationCodeAudit,
   getAdminPhoneVerificationCodes,
   getAdminSmsDeliveryStatus,
+  getAdminSmsDailyWhitelist,
+  addAdminSmsDailyWhitelistNumber,
+  removeAdminSmsDailyWhitelistNumber,
   getAdminPlatformIntegrations,
   createAdminPlatformGuildOperatingShareRate,
   getAdminPlatformGuildCompanyShareRules,
@@ -199,6 +202,7 @@ import {
   type OwnershipDetailResponse,
   type PhoneVerificationCodeListResponse,
   type SmsDeliveryStatus,
+  type SmsDailyWhitelistPage,
   type PlatformIntegrationResponse,
   type PlatformGuildCompanyShareRuleResponse,
   type PlatformGuildDirectoryItem,
@@ -263,9 +267,9 @@ type AdminAuthState = {
 }
 
 type AdminProductKey = 'ALL' | 'LINKY' | 'TIMO'
-type AdminSettingsView = 'experiment' | 'guilds' | 'platforms' | 'incomeControlled' | 'incomeShadow' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification'
+type AdminSettingsView = 'experiment' | 'guilds' | 'platforms' | 'incomeControlled' | 'incomeShadow' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification' | 'smsWhitelist'
 type AdminAccountView = 'security' | 'staff' | 'audit'
-type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'riskQueue' | 'users' | 'platformGuildDirectory' | 'rewards' | 'userAccounts' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'teams' | 'operatingDividends' | 'userGrades' | 'userGradeList' | 'advancedGradeAcceptance' | 'userGradeFacts' | 'tokenPointConversions' | 'accounts' | 'accountManagement' | 'mySecurity' | 'securityRecords' | 'settings' | 'systemExperiment' | 'systemGuilds' | 'systemPlatforms' | 'systemIncomeControlled' | 'systemIncomeShadow' | 'systemMockVerification' | 'systemAdvanced' | 'systemSeedInviter' | 'systemPhoneVerification'
+type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'riskQueue' | 'users' | 'platformGuildDirectory' | 'rewards' | 'userAccounts' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'teams' | 'operatingDividends' | 'userGrades' | 'userGradeList' | 'advancedGradeAcceptance' | 'userGradeFacts' | 'tokenPointConversions' | 'accounts' | 'accountManagement' | 'mySecurity' | 'securityRecords' | 'settings' | 'systemExperiment' | 'systemGuilds' | 'systemPlatforms' | 'systemIncomeControlled' | 'systemIncomeShadow' | 'systemMockVerification' | 'systemAdvanced' | 'systemSeedInviter' | 'systemPhoneVerification' | 'systemSmsWhitelist'
 type RiskActionName = 'HANDLE' | 'IGNORE' | 'FREEZE_USER' | 'UNFREEZE_USER'
 type WithdrawActionName = 'approve' | 'reject' | 'paid' | 'failed' | 'reverse'
 type WithdrawQuery = { userId: string; status: string; page: string; size: string }
@@ -307,6 +311,7 @@ const ADMIN_SECTION_HASHES: Record<AdminSectionKey, string> = {
   systemAdvanced: '#admin-system-advanced',
   systemSeedInviter: '#admin-system-seed-inviter',
   systemPhoneVerification: '#admin-system-phone-verification',
+  systemSmsWhitelist: '#admin-system-sms-whitelist',
 }
 
 const USER_GRADE_CATALOG = [
@@ -329,6 +334,7 @@ const SYSTEM_CONFIG_SECTION_VIEWS: Partial<Record<AdminSectionKey, AdminSettings
   systemAdvanced: 'advanced',
   systemSeedInviter: 'seedInviter',
   systemPhoneVerification: 'phoneVerification',
+  systemSmsWhitelist: 'smsWhitelist',
 }
 
 function getVisibleFinanceSections(role?: string): AdminSectionKey[] {
@@ -487,7 +493,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [isUserGradeNavOpen, setIsUserGradeNavOpen] = useState(() => ['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [isUserManagementNavOpen, setIsUserManagementNavOpen] = useState(() => ['users', 'bindings', 'riskQueue'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [isFinanceManagementNavOpen, setIsFinanceManagementNavOpen] = useState(() => ['rewards', 'commissionPolicies', 'tokenPointConversions'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
-  const [isSystemConfigNavOpen, setIsSystemConfigNavOpen] = useState(() => ['settings', 'systemExperiment', 'systemGuilds', 'systemPlatforms', 'systemIncomeControlled', 'systemIncomeShadow', 'systemMockVerification', 'systemAdvanced', 'systemSeedInviter', 'systemPhoneVerification'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
+  const [isSystemConfigNavOpen, setIsSystemConfigNavOpen] = useState(() => ['settings', 'systemExperiment', 'systemGuilds', 'systemPlatforms', 'systemIncomeControlled', 'systemIncomeShadow', 'systemMockVerification', 'systemAdvanced', 'systemSeedInviter', 'systemPhoneVerification', 'systemSmsWhitelist'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [isSystemManagementNavOpen, setIsSystemManagementNavOpen] = useState(() => ['accounts', 'accountManagement', 'mySecurity', 'securityRecords'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [showAdvancedOps, setShowAdvancedOps] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -500,6 +506,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [auditLogs, setAuditLogs] = useState<AuditLogListResponse | null>(null)
   const [phoneVerificationCodes, setPhoneVerificationCodes] = useState<PhoneVerificationCodeListResponse | null>(null)
   const [smsDeliveryStatus, setSmsDeliveryStatus] = useState<SmsDeliveryStatus | null>(null)
+  const [smsDailyWhitelist, setSmsDailyWhitelist] = useState<SmsDailyWhitelistPage | null>(null)
+  const [smsDailyWhitelistPhone, setSmsDailyWhitelistPhone] = useState('')
   const [phoneVerificationAuditLogs, setPhoneVerificationAuditLogs] = useState<AuditLogListResponse | null>(null)
   const [revealedPhoneVerificationCodes, setRevealedPhoneVerificationCodes] = useState<Record<number, string>>({})
   const [adminOwnership, setAdminOwnership] = useState<OwnershipDetailResponse | null>(null)
@@ -794,6 +802,12 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     void loadPhoneVerificationCodes()
     void loadSmsDeliveryStatus()
     // The list is deliberately refreshed whenever this sensitive review tab is entered.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSettingsView, adminSession?.sessionToken, canAuditPhoneVerification])
+
+  useEffect(() => {
+    if (currentSettingsView !== 'smsWhitelist' || !adminSession || !canAuditPhoneVerification) return
+    void loadSmsDailyWhitelist(0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSettingsView, adminSession?.sessionToken, canAuditPhoneVerification])
 
@@ -1245,6 +1259,50 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
       setSmsDeliveryStatus(await getAdminSmsDeliveryStatus(adminSession.sessionToken))
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载短信接口状态失败')
+    }
+  }
+
+  async function loadSmsDailyWhitelist(page = 0) {
+    if (!adminSession || !canAuditPhoneVerification) return
+    setLoading(true)
+    setError('')
+    try {
+      setSmsDailyWhitelist(await getAdminSmsDailyWhitelist(adminSession.sessionToken, page))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '加载短信白名单失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleAddSmsDailyWhitelistNumber() {
+    if (!adminSession || !canAuditPhoneVerification) return
+    setLoading(true)
+    setError('')
+    try {
+      await addAdminSmsDailyWhitelistNumber(adminSession.sessionToken, smsDailyWhitelistPhone.trim())
+      setSmsDailyWhitelistPhone('')
+      setSuccessMessage('号码已加入短信白名单；仅豁免每日发送次数上限。')
+      await loadSmsDailyWhitelist(0)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '添加短信白名单失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleRemoveSmsDailyWhitelistNumber(id: number, phoneNumber: string) {
+    if (!adminSession || !canAuditPhoneVerification || !window.confirm(`确认将 ${phoneNumber} 移出短信白名单？移除后立即恢复每日发送次数限制。`)) return
+    setLoading(true)
+    setError('')
+    try {
+      await removeAdminSmsDailyWhitelistNumber(adminSession.sessionToken, id)
+      setSuccessMessage('号码已移出短信白名单。')
+      await loadSmsDailyWhitelist(0)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '移除短信白名单失败')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -2974,6 +3032,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                 <a className={`admin-nav-subitem ${activeAdminSection === 'systemAdvanced' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemAdvanced}>高级接入</a>
                 {canManageSeedInviters ? <a className={`admin-nav-subitem ${activeAdminSection === 'systemSeedInviter' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemSeedInviter} onClick={() => { if (!seedInviters) void loadSeedInviters() }}>种子邀请人</a> : null}
                 {canAuditPhoneVerification ? <a className={`admin-nav-subitem ${activeAdminSection === 'systemPhoneVerification' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemPhoneVerification}>验证码审查</a> : null}
+                {canAuditPhoneVerification ? <a className={`admin-nav-subitem ${activeAdminSection === 'systemSmsWhitelist' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemSmsWhitelist}>白名单</a> : null}
               </div> : null}
             </div>
           ) : (
@@ -3614,6 +3673,44 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   />
                   <InlineHint text="若出现“MCN 已缺失”或失败批次，请先核对 MCN 目录事实；系统不会自动删除本地历史记录。" />
                 </InfoCard>
+              </div>
+            </PanelSection>
+          ) : null}
+
+          {isSystemConfigSection && canAuditPhoneVerification && currentSettingsView === 'smsWhitelist' ? (
+            <PanelSection
+              sectionId="admin-sms-daily-whitelist"
+              eyebrow="SMS Daily Limit"
+              title="白名单"
+              description="仅最高管理员可维护。名单中的完整国际手机号不受每 UTC 日 5 次验证码申请上限限制；60 秒重发间隔、验证码有效期及短信通道开关均不变。"
+              action={<button className="primary-btn" type="button" onClick={() => void loadSmsDailyWhitelist(smsDailyWhitelist?.page ?? 0)} disabled={loading}>{loading ? '刷新中…' : '刷新名单'}</button>}
+            >
+              <div className="stack-gap">
+                <form className="grid-form compact-form" onSubmit={(event) => { event.preventDefault(); void handleAddSmsDailyWhitelistNumber() }}>
+                  <label>
+                    添加手机号
+                    <input type="tel" required value={smsDailyWhitelistPhone} onChange={(event) => setSmsDailyWhitelistPhone(event.target.value)} placeholder="例如 +852 9000 0001" autoComplete="off" />
+                  </label>
+                  <div className="action-row"><button className="primary-btn" type="submit" disabled={loading || !smsDailyWhitelistPhone.trim()}>加入白名单</button></div>
+                </form>
+                <InlineHint text="请填写包含国家／地区区号的完整手机号。添加或移除会留存后台操作日志；白名单不会让已关闭的创蓝短信通道自动开启。" />
+                <DataTable
+                  headers={['手机号', '添加时间', '操作人 ID', '操作']}
+                  rows={(smsDailyWhitelist?.items ?? []).map((item) => [
+                    item.phoneNumber,
+                    formatUtcDateTime(item.createdAt),
+                    item.createdBy,
+                    <button type="button" className="ghost-btn small-btn" disabled={loading} onClick={() => void handleRemoveSmsDailyWhitelistNumber(item.id, item.phoneNumber)}>移除</button>,
+                  ])}
+                  emptyText={loading ? '正在加载短信白名单…' : '暂无白名单号码。'}
+                />
+                {smsDailyWhitelist ? <div className="admin-pagination">
+                  <span className="admin-page-note" role="status">共 {smsDailyWhitelist.total} 个号码 · 当前第 {smsDailyWhitelist.page + 1} 页</span>
+                  <div>
+                    <button className="ghost-btn small-btn" type="button" disabled={loading || smsDailyWhitelist.page === 0} onClick={() => void loadSmsDailyWhitelist(smsDailyWhitelist.page - 1)}>上一页</button>
+                    <button className="ghost-btn small-btn" type="button" disabled={loading || (smsDailyWhitelist.page + 1) * smsDailyWhitelist.size >= smsDailyWhitelist.total} onClick={() => void loadSmsDailyWhitelist(smsDailyWhitelist.page + 1)}>下一页</button>
+                  </div>
+                </div> : null}
               </div>
             </PanelSection>
           ) : null}

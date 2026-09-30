@@ -512,9 +512,30 @@ describe('ConsoleApp admin core distribution workspace', () => {
 
     expect(operatorMarkup).not.toContain('种子邀请人')
     expect(operatorMarkup).not.toContain('验证码审查')
+    expect(operatorMarkup).not.toContain('href="#admin-system-sms-whitelist"')
     expect(superAdminMarkup).toContain('种子邀请人')
     expect(superAdminMarkup).toContain('验证码审查')
+    expect(superAdminMarkup).toContain('href="#admin-system-sms-whitelist"')
     expect(operatorMarkup).not.toContain('创蓝短信接口开关')
+  })
+
+  it('shows a separate SMS daily-limit whitelist page only to the super administrator', () => {
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: {
+        location: { pathname: '/', search: '', hash: '#admin-system-sms-whitelist', origin: 'http://127.0.0.1:4173' },
+        localStorage: createStorage(),
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      },
+    })
+
+    const markup = renderToStaticMarkup(<ConsoleApp initialViewMode="admin" initialAdminSession={superAdminTestSession} />)
+    expect(markup).toContain('id="admin-sms-daily-whitelist"')
+    expect(markup).toContain('每 UTC 日 5 次验证码申请上限')
+    expect(markup).toContain('60 秒重发间隔')
+    expect(markup).toContain('加入白名单')
+    expect(markup).not.toContain('id="admin-phone-verification"')
   })
 })
 
