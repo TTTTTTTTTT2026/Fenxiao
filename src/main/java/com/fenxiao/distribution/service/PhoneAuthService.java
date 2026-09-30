@@ -137,7 +137,7 @@ public class PhoneAuthService {
         return new LoginResult(profile, session);
     }
 
-    private String normalizePhone(String phoneNumber) {
+    static String normalizePhone(String phoneNumber) {
         String normalized = phoneNumber == null ? "" : phoneNumber.replaceAll("[\\s()-]", "").trim();
         if (!normalized.matches("^\\+?[0-9]{6,20}$")) throw new IllegalArgumentException("phone number is invalid");
         return normalized;

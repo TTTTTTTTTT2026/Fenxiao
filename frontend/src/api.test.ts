@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { addAdminSmsDailyWhitelistNumber, applyAdminRiskEventBatchAction, applyAdminWithdrawBatchAction, approveAdminWithdrawRequest, approveWithdrawForPayment, correctAdminOwnership, createAdminPlatformGuildOperatingShareRate, createAdminSession, createExperiment, createWithdrawRequest, getAdminGuildConfigs, getAdminGuildWeeklyReport, getAdminMentorAssignedStudents, getAdminOwnership, getAdminPlatformGuildDirectory, getAdminPlatformGuildDirectorySyncRuns, getAdminPlatformIntegrations, getAdminSeedInviters, getAdminSmsDailyWhitelist, getAdminSmsDeliveryStatus, getAdminWithdrawRequests, getDistributionRewardSummary, getDistributionTeamWeeklyIncome, getExperimentDashboard, getWithdrawHistory, issuePhoneCode, logoutUserSession, phoneLogin, recordWithdrawPayment, refreshAdminLinkyEligibility, refreshAdminLinkyEligibilityBatch, rejectAdminWithdrawRequest, removeAdminSmsDailyWhitelistNumber, reverseWithdrawPayment, saveAdminGuildConfig, updateAdminSmsDeliveryStatus, updateAdminUserCountry } from './api'
+import { addAdminSmsDailyWhitelistNumber, applyAdminRiskEventBatchAction, applyAdminWithdrawBatchAction, approveAdminWithdrawRequest, approveWithdrawForPayment, correctAdminOwnership, createAdminPlatformGuildOperatingShareRate, createAdminSession, createExperiment, createWithdrawRequest, disableAdminUserPasswordLogin, getAdminGuildConfigs, getAdminGuildWeeklyReport, getAdminMentorAssignedStudents, getAdminOwnership, getAdminPlatformGuildDirectory, getAdminPlatformGuildDirectorySyncRuns, getAdminPlatformIntegrations, getAdminSeedInviters, getAdminSmsDailyWhitelist, getAdminSmsDeliveryStatus, getAdminWithdrawRequests, getDistributionRewardSummary, getDistributionTeamWeeklyIncome, getExperimentDashboard, getWithdrawHistory, issuePhoneCode, logoutUserSession, passwordLogin, phoneLogin, recordWithdrawPayment, refreshAdminLinkyEligibility, refreshAdminLinkyEligibilityBatch, rejectAdminWithdrawRequest, removeAdminSmsDailyWhitelistNumber, reverseWithdrawPayment, saveAdminGuildConfig, setAdminUserPasswordLogin, updateAdminSmsDeliveryStatus, updateAdminUserCountry } from './api'
 
 describe('ownership admin api', () => {
   afterEach(() => {
@@ -19,6 +19,24 @@ describe('ownership admin api', () => {
       method: 'POST',
       headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
       body: JSON.stringify({ countryCode: 'BR' }),
+    }))
+  })
+
+  it('grants and disables password sign-in through authenticated admin requests', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ userId: 1001, enabled: true }) })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await setAdminUserPasswordLogin('session-token', 1001, 'Example-Password-2026!')
+    await disableAdminUserPasswordLogin('session-token', 1001)
+
+    expect(fetchMock).toHaveBeenCalledWith('/admin/distribution/user-password-logins/1001', expect.objectContaining({
+      method: 'POST',
+      headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
+      body: JSON.stringify({ password: 'Example-Password-2026!' }),
+    }))
+    expect(fetchMock).toHaveBeenCalledWith('/admin/distribution/user-password-logins/1001', expect.objectContaining({
+      method: 'DELETE',
+      headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
     }))
   })
 
@@ -281,6 +299,21 @@ describe('ownership admin api', () => {
         countryCode: 'ID',
         languageCode: 'id',
       }),
+    }))
+  })
+
+  it('logs in an existing account with phone and password without registration fields', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ userId: 1001, inviteCode: 'ABCD1234', accessToken: 'user-token' }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await passwordLogin({ phoneNumber: '+6281234567890', password: 'Example-Password-2026!' })
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/distribution/auth/password-login', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ phoneNumber: '+6281234567890', password: 'Example-Password-2026!' }),
     }))
   })
 

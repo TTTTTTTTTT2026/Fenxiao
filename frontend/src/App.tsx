@@ -78,6 +78,8 @@ import {
   getAdminPlatformVerificationRuntime,
   getAdminSeedInviters,
   getAdminUserPlatformProfiles,
+  setAdminUserPasswordLogin,
+  disableAdminUserPasswordLogin,
   getAdminOwnership,
   getAdminRelation,
   getAdminRewards,
@@ -98,6 +100,7 @@ import {
   logoutAllAdminSessions,
   logoutUserSession,
   phoneLogin,
+  passwordLogin,
   refreshAdminLinkyEligibility,
   refreshAdminLinkyEligibilityBatch,
   registerLinkyAccount,
@@ -675,6 +678,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [userPlatformProfiles, setUserPlatformProfiles] = useState<UserPlatformProfileListResponse | null>(null)
   const [userPlatformQuery, setUserPlatformQuery] = useState({ userId: '', page: '0', size: '20' })
   const [userCountryDraft, setUserCountryDraft] = useState<{ userId: number; currentCountryCode: string; targetCountryCode: string } | null>(null)
+  const [userPasswordDraft, setUserPasswordDraft] = useState<{ userId: number; nickname: string | null; phoneNumber: string; mode: 'set' | 'disable'; alreadyEnabled: boolean; password: string; confirmPassword: string } | null>(null)
   const [platformGuildDirectoryPlatform, setPlatformGuildDirectoryPlatform] = useState<'LINKY' | 'TIMO'>('LINKY')
   const [platformGuildDirectory, setPlatformGuildDirectory] = useState<PlatformGuildDirectoryItem[] | null>(null)
   const [platformGuildDirectorySyncRuns, setPlatformGuildDirectorySyncRuns] = useState<PlatformGuildDirectorySyncRun[] | null>(null)
@@ -750,6 +754,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const canManageTeams = ['super_admin', 'admin', 'operations'].includes(adminSession?.role?.toLowerCase() ?? '')
   const canManageLinkyInvitationGuild = ['super_admin', 'admin'].includes(adminSession?.role?.toLowerCase() ?? '')
   const canManageUserCountry = ['super_admin', 'admin', 'operations'].includes(adminSession?.role?.toLowerCase() ?? '')
+  const canManageUserPasswordLogin = adminSession?.role?.toLowerCase() === 'super_admin'
   const linkyGuildOptions = useMemo(() => {
     return (linkyInvitationGuildOptions ?? [])
       .filter((item) => item.directoryStatus === 'NORMAL' && ['ACTIVE', 'ENABLED'].includes(item.guildStatus.toUpperCase()))
@@ -1426,6 +1431,35 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
       currentCountryCode: item.countryCode,
       targetCountryCode: phoneCountries.some((country) => country.countryCode === item.countryCode) ? item.countryCode : '',
     })
+  }
+
+  function openUserPasswordDialog(item: UserPlatformProfileListResponse['items'][number], mode: 'set' | 'disable') {
+    if (!item.phoneNumber) return
+    setUserPasswordDraft({ userId: item.userId, nickname: item.nickname, phoneNumber: item.phoneNumber,
+      mode, alreadyEnabled: item.passwordLoginEnabled, password: '', confirmPassword: '' })
+  }
+
+  async function saveUserPasswordLogin() {
+    if (!adminSession || !canManageUserPasswordLogin || !userPasswordDraft) return
+    const draft = userPasswordDraft
+    if (draft.mode === 'set' && (draft.password.length < 8 || draft.password !== draft.confirmPassword)) return
+    setLoading(true)
+    setError('')
+    setSuccessMessage('')
+    try {
+      if (draft.mode === 'disable') {
+        await disableAdminUserPasswordLogin(adminSession.sessionToken, draft.userId)
+      } else {
+        await setAdminUserPasswordLogin(adminSession.sessionToken, draft.userId, draft.password)
+      }
+      setUserPasswordDraft(null)
+      await loadUserPlatformProfiles()
+      setSuccessMessage(`用户 #${draft.userId} 的密码登录已${draft.mode === 'disable' ? '关闭' : draft.alreadyEnabled ? '重设' : '开通'}。`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '保存密码登录设置失败')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -3601,19 +3635,20 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                 </InfoCard>
                 <InfoCard title="用户与平台核验信息" tone="neutral">
                   <DataTable
-                    headers={['用户', '邀请码', '归属国家', '用户等级', '手机号', '注册时间', '直接邀请人', 'Linky 实际绑定', 'Timo 实际绑定', 'Linky 邀请链归属', '操作']}
+                    headers={['用户', '邀请码', '归属国家', '用户等级', '手机号', '密码登录', '注册时间', '直接邀请人', 'Linky 实际绑定', 'Timo 实际绑定', 'Linky 邀请链归属', '操作']}
                     rows={(userPlatformProfiles?.items ?? []).map((item) => [
                       <div className="stack-gap small"><strong>#{item.userId}</strong>{item.nickname ? <span>{item.nickname}</span> : null}</div>,
                       item.inviteCode ? <div className="invite-code-cell"><span>{item.inviteCode}</span><button className="ghost-btn small-btn invite-code-copy-btn" type="button" onClick={() => void handleCopyInviteCode(item.inviteCode)} aria-label={`复制邀请码 ${item.inviteCode}`} title="复制邀请码"><Copy size={15} weight="bold" aria-hidden="true" /></button></div> : '-',
                       formatCountryNameZh(item.countryCode),
                       formatConsumerUserGrade(item.userGradeCode, 'zh'),
                       item.phoneNumber || '-',
+                      item.passwordLoginEnabled ? '已开通' : '未开通',
                       formatDateTime(item.registeredAt),
                       item.directInviterUserId == null ? '根节点' : <div className="stack-gap small"><strong>#{item.directInviterUserId}</strong>{item.directInviterNickname ? <span>{item.directInviterNickname}</span> : null}</div>,
                       item.linky ? <div className="stack-gap small"><strong>{item.linky.accountId}</strong><span>{item.linky.status} · {item.linky.guildName || item.linky.guildId || '未返回公会'}{item.linky.expectedGuildSource ? ` · 目标来源 ${item.linky.expectedGuildSource}` : ''}</span></div> : '-',
                       item.timo ? <div className="stack-gap small"><strong>{item.timo.accountId}</strong><span>{item.timo.status} · {item.timo.guildId || '未返回公会'}</span></div> : '-',
                       item.invitationGuild ? <div className="stack-gap small"><strong>{item.invitationGuild.guildName} · {item.invitationGuild.guildId}</strong><span>{item.invitationGuild.source}{item.invitationGuild.inheritedFromUserId ? ` · 继承自 #${item.invitationGuild.inheritedFromUserId}` : ''}</span></div> : '-',
-                      canManageUserCountry || canManageLinkyInvitationGuild ? <div className="action-row">{canManageUserCountry ? <button className="ghost-btn small-btn" onClick={() => openUserCountryDialog(item)}>调整国家</button> : null}{canManageLinkyInvitationGuild ? <button className="ghost-btn small-btn" onClick={() => openLinkyInvitationGuildOverride(item)}>调整 Linky 归属</button> : null}</div> : '只读',
+                      canManageUserCountry || canManageLinkyInvitationGuild || canManageUserPasswordLogin ? <div className="action-row">{canManageUserCountry ? <button className="ghost-btn small-btn" onClick={() => openUserCountryDialog(item)}>调整国家</button> : null}{canManageLinkyInvitationGuild ? <button className="ghost-btn small-btn" onClick={() => openLinkyInvitationGuildOverride(item)}>调整 Linky 归属</button> : null}{canManageUserPasswordLogin && item.phoneNumber ? <button className="ghost-btn small-btn" onClick={() => openUserPasswordDialog(item, 'set')}>{item.passwordLoginEnabled ? '重设登录密码' : '开通密码登录'}</button> : null}{canManageUserPasswordLogin && item.passwordLoginEnabled ? <button className="ghost-btn small-btn" onClick={() => openUserPasswordDialog(item, 'disable')}>关闭密码登录</button> : null}</div> : '只读',
                     ])}
                     emptyText="输入用户 ID 后查询，或直接查询查看近期用户。"
                   />
@@ -4572,6 +4607,26 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </select>
           </label>
           <InlineHint text="仅调整用户当前归属国家和邀请关系中的国家标记，供后续业务规则使用；不会改动手机号、界面语言、邀请码、平台公会或既有收入与奖励记录。用户重新登录后，客户端才会显示新的国家。操作会留下修改前后和操作人的审计记录。" />
+        </ConfirmDialog>
+      ) : null}
+
+      {userPasswordDraft ? (
+        <ConfirmDialog
+          title={`${userPasswordDraft.mode === 'disable' ? '关闭密码登录' : userPasswordDraft.alreadyEnabled ? '重设登录密码' : '开通密码登录'} · 用户 #${userPasswordDraft.userId}`}
+          tone={userPasswordDraft.mode === 'disable' ? 'warning' : 'success'}
+          confirmText={userPasswordDraft.mode === 'disable' ? '确认关闭' : userPasswordDraft.alreadyEnabled ? '保存新密码' : '保存并开通'}
+          loading={loading}
+          confirmDisabled={userPasswordDraft.mode === 'set' && (userPasswordDraft.password.length < 8 || userPasswordDraft.password !== userPasswordDraft.confirmPassword)}
+          onCancel={() => setUserPasswordDraft(null)}
+          onConfirm={() => void saveUserPasswordLogin()}
+        >
+          <InfoRow label="用户" value={`#${userPasswordDraft.userId}${userPasswordDraft.nickname ? ` · ${userPasswordDraft.nickname}` : ''}`} />
+          <InfoRow label="已绑定手机" value={userPasswordDraft.phoneNumber} />
+          {userPasswordDraft.mode === 'set' ? <>
+            <label className="dialog-field">登录密码<input type="password" autoComplete="new-password" value={userPasswordDraft.password} onChange={(event) => setUserPasswordDraft({ ...userPasswordDraft, password: event.target.value })} /></label>
+            <label className="dialog-field">确认密码<input type="password" autoComplete="new-password" value={userPasswordDraft.confirmPassword} onChange={(event) => setUserPasswordDraft({ ...userPasswordDraft, confirmPassword: event.target.value })} /></label>
+            <InlineHint text="仅限已有用户。密码需 8–128 位且同时包含英文字母和数字；不会在列表或审计日志中显示。重设后该用户现有登录会话会退出。" />
+          </> : <InlineHint text="关闭后该手机号不能再通过密码登录，该用户现有登录会话也会退出；手机号验证码登录仍可使用。" />}
         </ConfirmDialog>
       ) : null}
 
@@ -6165,6 +6220,17 @@ const invitePageCopyByLocale = {
   },
 } as const
 
+const passwordLoginCopyByLocale: Record<ConsumerLocale, {
+  switchToPassword: string; switchToPhone: string; title: string; hint: string; passwordLabel: string
+  passwordPlaceholder: string; submit: string; failure: string
+}> = {
+  zh: { switchToPassword: '账号密码登录', switchToPhone: '手机号码登录', title: '账号密码登录', hint: '仅限运营后台已开通密码登录的现有账号，无需短信验证码。', passwordLabel: '密码', passwordPlaceholder: '输入登录密码', submit: '登录', failure: '手机号或密码不正确，或尚未开通密码登录；请联系运营人员。' },
+  en: { switchToPassword: 'Sign in with password', switchToPhone: 'Back to phone sign-in and registration', title: 'Sign in with password', hint: 'For existing accounts enabled by operations only. No SMS code is needed.', passwordLabel: 'Password', passwordPlaceholder: 'Enter your password', submit: 'Sign in', failure: 'Phone or password is incorrect, or password sign-in is not enabled. Contact support.' },
+  es: { switchToPassword: 'Entrar con contraseña', switchToPhone: 'Volver al acceso y registro por teléfono', title: 'Entrar con contraseña', hint: 'Solo para cuentas existentes habilitadas por el equipo. No necesitas un código SMS.', passwordLabel: 'Contraseña', passwordPlaceholder: 'Ingresa tu contraseña', submit: 'Iniciar sesión', failure: 'Teléfono o contraseña incorrectos, o acceso no habilitado. Contacta a soporte.' },
+  id: { switchToPassword: 'Masuk dengan kata sandi', switchToPhone: 'Kembali ke masuk dan daftar lewat ponsel', title: 'Masuk dengan kata sandi', hint: 'Hanya untuk akun lama yang sudah diaktifkan oleh tim. Tidak perlu kode SMS.', passwordLabel: 'Kata sandi', passwordPlaceholder: 'Masukkan kata sandi', submit: 'Masuk', failure: 'Nomor atau kata sandi salah, atau akses belum diaktifkan. Hubungi tim dukungan.' },
+  pt: { switchToPassword: 'Entrar com senha', switchToPhone: 'Voltar ao acesso e cadastro por telefone', title: 'Entrar com senha', hint: 'Somente para contas existentes habilitadas pela equipe. Não precisa de código SMS.', passwordLabel: 'Senha', passwordPlaceholder: 'Digite sua senha', submit: 'Entrar', failure: 'Telefone ou senha incorretos, ou acesso não habilitado. Contate o suporte.' },
+}
+
 const phoneCountries = [
   { countryCode: 'BR', callingCode: '+55', names: { zh: '巴西', en: 'Brazil', es: 'Brasil', id: 'Brasil', pt: 'Brasil' } },
   { countryCode: 'ID', callingCode: '+62', names: { zh: '印度尼西亚', en: 'Indonesia', es: 'Indonesia', id: 'Indonesia', pt: 'Indonésia' } },
@@ -6404,6 +6470,8 @@ export function localizeInviteOperationError(error: unknown, locale: keyof typeo
 function InviteCodePage() {
   const [session, setSession] = useState<SessionState | null>(() => loadJsonState<SessionState>(STORAGE_KEY))
   const [locale, setLocale] = useState<keyof typeof externalPageCopyByLocale>(() => loadExternalLocale())
+  const [loginMode, setLoginMode] = useState<'phone' | 'password'>(() => typeof window !== 'undefined' && window.location.hash === '#password-login' ? 'password' : 'phone')
+  const [loginPassword, setLoginPassword] = useState('')
   const incomingInviteCode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('inviteCode')?.trim().toUpperCase() ?? '' : ''
   const [phoneForm, setPhoneForm] = useState({
     phoneNumber: '',
@@ -6420,6 +6488,7 @@ function InviteCodePage() {
   const [failedHeroLocale, setFailedHeroLocale] = useState<ConsumerLocale | null>(null)
   const copy = externalPageCopyByLocale[locale]
   const inviteCopy = invitePageCopyByLocale[locale]
+  const passwordCopy = passwordLoginCopyByLocale[locale]
   const loginHero = consumerLoginHero[locale]
   const selectedPhoneCountry = clientPhoneCountries.find((country) => country.countryCode === phoneForm.countryCode) ?? clientPhoneCountries[0]
   const phoneNumberForSubmission = formatPhoneNumber(selectedPhoneCountry.callingCode, phoneForm.phoneNumber)
@@ -6513,6 +6582,29 @@ function InviteCodePage() {
     }
   }
 
+  function switchLoginMode(mode: 'phone' | 'password') {
+    setLoginMode(mode)
+    setLoginPassword('')
+    setError('')
+    setSuccess('')
+    window.history.replaceState(null, '', `#${mode}-login`)
+  }
+
+  async function handlePasswordLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setPhoneAuthLoading(true)
+    setError('')
+    try {
+      const profile = await passwordLogin({ phoneNumber: phoneNumberForSubmission, password: loginPassword })
+      setSession(saveUserSession(profile))
+      setLoginPassword('')
+    } catch {
+      setError(passwordCopy.failure)
+    } finally {
+      setPhoneAuthLoading(false)
+    }
+  }
+
   return (
     <div className="consumer-app-page">
       <main className={`consumer-shell consumer-form-shell${session ? '' : ' consumer-login-shell'}`}>
@@ -6564,8 +6656,8 @@ function InviteCodePage() {
               <button type="button" onClick={handleShareInviteCode}><ShareNetwork size={21} />{inviteCopy.shareInviteLink}</button>
             </div>
           </section>
-        ) : (
-          <form id="phone-login" className="consumer-form-card" onSubmit={handlePhoneLogin}>
+        ) : <>
+          {loginMode === 'phone' ? <form id="phone-login" className="consumer-form-card" onSubmit={handlePhoneLogin}>
             <div className="consumer-form-card-heading"><div><h2>{inviteCopy.loginTitle}</h2><p>{inviteCopy.loginHint}</p></div><ShieldCheck size={28} weight="duotone" /></div>
             <label className="consumer-field">
               <span>{inviteCopy.phoneLabel}</span>
@@ -6591,8 +6683,23 @@ function InviteCodePage() {
             <label className="consumer-field"><span>{inviteCopy.inviteCodeRequiredLabel}</span><input value={phoneForm.inviteCode} onChange={(e) => setPhoneForm({ ...phoneForm, inviteCode: e.target.value.trim().toUpperCase() })} placeholder={inviteCopy.inviteCodePlaceholder} /></label>
             {phoneCodeHint ? <p className="consumer-form-note">{phoneCodeHint}</p> : null}
             <button className="consumer-form-submit" type="submit" disabled={phoneAuthLoading || !phoneNumberForSubmission || phoneForm.verificationCode.length < 6}><SignIn size={21} />{inviteCopy.signInWithPhone}</button>
-          </form>
-        )}
+          </form> : <form id="password-login" className="consumer-form-card" onSubmit={handlePasswordLogin}>
+            <div className="consumer-form-card-heading"><div><h2>{passwordCopy.title}</h2><p>{passwordCopy.hint}</p></div><LockSimple size={28} weight="duotone" /></div>
+            <label className="consumer-field">
+              <span>{inviteCopy.phoneLabel}</span>
+              <div className="consumer-phone-input">
+                <select aria-label={inviteCopy.countryCallingCodeLabel} value={selectedPhoneCountry.countryCode} onChange={(event) => setPhoneForm({ ...phoneForm, countryCode: event.target.value })}>
+                  {clientPhoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names[locale]} {country.callingCode}</option>)}
+                </select>
+                <input value={phoneForm.phoneNumber} onChange={(event) => setPhoneForm({ ...phoneForm, phoneNumber: normalizeLocalPhoneNumber(event.target.value, selectedPhoneCountry.callingCode) })} placeholder={inviteCopy.phonePlaceholder} inputMode="tel" autoComplete="username" />
+              </div>
+              <small className="consumer-phone-input-hint">{inviteCopy.phoneInputHint}</small>
+            </label>
+            <label className="consumer-field"><span>{passwordCopy.passwordLabel}</span><input type="password" value={loginPassword} onChange={(event) => setLoginPassword(event.target.value)} placeholder={passwordCopy.passwordPlaceholder} autoComplete="current-password" /></label>
+            <button className="consumer-form-submit" type="submit" disabled={phoneAuthLoading || !phoneNumberForSubmission || !loginPassword}><SignIn size={21} />{passwordCopy.submit}</button>
+          </form>}
+          <button type="button" className="consumer-login-switch" onClick={() => switchLoginMode(loginMode === 'phone' ? 'password' : 'phone')}>{loginMode === 'phone' ? passwordCopy.switchToPassword : passwordCopy.switchToPhone}</button>
+        </>}
 
         {session ? <ConsumerBottomNavigation locale={locale} active="invite" /> : null}
       </main>
