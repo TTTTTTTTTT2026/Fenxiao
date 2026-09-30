@@ -3623,7 +3623,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               sectionId="admin-phone-verification"
               eyebrow="Restricted Access"
               title="验证码发送记录"
-              description="进入页面会自动加载最近记录。仅最高管理员可查询与显示验证码；每次查询和显示都会进入后台审计记录。"
+              description="进入页面会自动加载最近记录，包括短信通道提交失败的验证码。失败记录的验证码仍可由最高管理员审查，用于有效期内的人工协助登录；查询和显示均留有审计记录。"
               action={<button className="primary-btn" onClick={() => void loadPhoneVerificationCodes()} disabled={loading}>{loading ? '刷新中…' : '刷新记录'}</button>}
             >
               <div className="stack-gap">
@@ -3655,11 +3655,13 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                 </div>
                 <InlineHint text="“显示验证码”属于敏感操作，系统会记录操作账号、角色、网络地址和时间。" />
                 <DataTable
-                  headers={['手机号', '用途', '状态', '验证码', '尝试次数', '发出时间', '失效时间', '操作']}
+                  headers={['手机号', '用途', '验证码状态', '短信通道', '提交结果', '验证码', '尝试次数', '申请时间', '失效时间', '操作']}
                   rows={(phoneVerificationCodes?.items ?? []).map((item) => [
                     item.phoneNumber,
                     item.purpose,
                     item.status,
+                    item.deliveryChannel === 'CHUANGLAN' ? '创蓝' : item.deliveryChannel === 'INTERNAL' ? '内部审查' : '历史未记录',
+                    item.deliveryStatus === 'FAILED' ? `提交失败${item.deliveryErrorCode ? ` · ${item.deliveryErrorCode}` : ''}` : item.deliveryStatus === 'ACCEPTED' ? (item.deliveryChannel === 'INTERNAL' ? '内部记录' : '通道已受理（非送达确认）') : item.deliveryStatus === 'PENDING' ? '提交中' : '历史未记录',
                     revealedPhoneVerificationCodes[item.id] ?? '已隐藏',
                     item.attempts,
                     formatDateTime(item.issuedAt),
@@ -6069,6 +6071,7 @@ const phoneCountries = [
   { countryCode: 'BR', callingCode: '+55', names: { zh: '巴西', en: 'Brazil', es: 'Brasil', id: 'Brasil', pt: 'Brasil' } },
   { countryCode: 'ID', callingCode: '+62', names: { zh: '印度尼西亚', en: 'Indonesia', es: 'Indonesia', id: 'Indonesia', pt: 'Indonésia' } },
   { countryCode: 'CN', callingCode: '+86', names: { zh: '中国', en: 'China', es: 'China', id: 'Tiongkok', pt: 'China' } },
+  { countryCode: 'HK', callingCode: '+852', names: { zh: '香港', en: 'Hong Kong', es: 'Hong Kong', id: 'Hong Kong', pt: 'Hong Kong' } },
   { countryCode: 'US', callingCode: '+1', names: { zh: '美国', en: 'United States', es: 'Estados Unidos', id: 'Amerika Serikat', pt: 'Estados Unidos' } },
   { countryCode: 'CA', callingCode: '+1', names: { zh: '加拿大', en: 'Canada', es: 'Canadá', id: 'Kanada', pt: 'Canadá' } },
   { countryCode: 'MX', callingCode: '+52', names: { zh: '墨西哥', en: 'Mexico', es: 'México', id: 'Meksiko', pt: 'México' } },
@@ -6081,6 +6084,8 @@ const phoneCountries = [
   { countryCode: 'VN', callingCode: '+84', names: { zh: '越南', en: 'Vietnam', es: 'Vietnam', id: 'Vietnam', pt: 'Vietnã' } },
   { countryCode: 'MY', callingCode: '+60', names: { zh: '马来西亚', en: 'Malaysia', es: 'Malasia', id: 'Malaysia', pt: 'Malásia' } },
 ] as const
+
+const clientPhoneCountries = (['CN', 'ID', 'MX', 'BR', 'HK'] as const).map((code) => phoneCountries.find((country) => country.countryCode === code)!)
 
 function consumerCountryName(countryCode: string, locale: ConsumerLocale) {
   return phoneCountries.find((country) => country.countryCode === countryCode.toUpperCase())?.names[locale] ?? countryCode
@@ -6306,7 +6311,7 @@ function InviteCodePage() {
     phoneNumber: '',
     verificationCode: '',
     inviteCode: incomingInviteCode || session?.inviteCode || '',
-    countryCode: session?.countryCode ?? 'BR',
+    countryCode: clientPhoneCountries.some((country) => country.countryCode === session?.countryCode) ? session!.countryCode : 'BR',
     languageCode: session?.languageCode ?? 'pt-br',
   })
   const [phoneCodeHint, setPhoneCodeHint] = useState('')
@@ -6318,7 +6323,7 @@ function InviteCodePage() {
   const copy = externalPageCopyByLocale[locale]
   const inviteCopy = invitePageCopyByLocale[locale]
   const loginHero = consumerLoginHero[locale]
-  const selectedPhoneCountry = phoneCountries.find((country) => country.countryCode === phoneForm.countryCode) ?? phoneCountries[0]
+  const selectedPhoneCountry = clientPhoneCountries.find((country) => country.countryCode === phoneForm.countryCode) ?? clientPhoneCountries[0]
   const phoneNumberForSubmission = formatPhoneNumber(selectedPhoneCountry.callingCode, phoneForm.phoneNumber)
 
   useEffect(() => {
@@ -6472,7 +6477,7 @@ function InviteCodePage() {
                   value={selectedPhoneCountry.countryCode}
                   onChange={(event) => setPhoneForm({ ...phoneForm, countryCode: event.target.value })}
                 >
-                  {phoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names[locale]} {country.callingCode}</option>)}
+                  {clientPhoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names[locale]} {country.callingCode}</option>)}
                 </select>
                 <input
                   value={phoneForm.phoneNumber}

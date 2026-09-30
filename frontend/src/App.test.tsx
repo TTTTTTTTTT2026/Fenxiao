@@ -593,6 +593,13 @@ describe('Earnings landing page', () => {
     expect(markup).toContain('Country / calling code')
     expect(markup).toContain('Brazil +55')
     expect(markup).toContain('Indonesia +62')
+    const callingCodeSelector = markup.match(/aria-label="Country \/ calling code"[^>]*>(.*?)<\/select>/)?.[1]
+    expect(callingCodeSelector).toBeDefined()
+    expect(callingCodeSelector?.match(/<option /g)).toHaveLength(5)
+    expect(callingCodeSelector).toContain('China +86')
+    expect(callingCodeSelector).toContain('Mexico +52')
+    expect(callingCodeSelector).toContain('Hong Kong +852')
+    expect(callingCodeSelector).not.toContain('United States +1')
     expect(markup).toContain('Enter local number')
     expect(markup).not.toContain('邀请好友')
     expect(markup).not.toContain('class="consumer-bottom-nav"')

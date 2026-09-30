@@ -482,6 +482,9 @@ export type PhoneVerificationCodeListItem = {
   phoneNumber: string
   purpose: string
   status: 'ACTIVE' | 'CONSUMED' | 'EXPIRED' | string
+  deliveryChannel: string
+  deliveryStatus: string
+  deliveryErrorCode: string | null
   attempts: number
   consumed: boolean
   issuedAt: string

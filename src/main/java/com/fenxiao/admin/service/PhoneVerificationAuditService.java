@@ -69,6 +69,7 @@ public class PhoneVerificationAuditService {
 
     private PhoneVerificationCodeListItem item(PhoneVerificationCode code) {
         return new PhoneVerificationCodeListItem(code.getId(), code.getPhoneNumber(), code.getPurpose(), status(code),
+                code.getDeliveryChannel(), code.getDeliveryStatus(), code.getDeliveryErrorCode(),
                 code.getAttempts(), code.isConsumed(), code.getCreatedAt(), code.getExpiresAt(), code.getUpdatedAt());
     }
 

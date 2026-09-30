@@ -274,16 +274,21 @@ class DistributionControllerTest {
 
     @Test
     void shouldNotExposePhoneVerificationCodeInApiResponse() throws Exception {
+        String phone = "+628123450001";
         mockMvc.perform(post("/api/distribution/auth/phone-codes")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
-                                "phoneNumber", "+628123450001"
+                                "phoneNumber", phone
                         ))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.phoneNumber").value("+628123450001"))
+                .andExpect(jsonPath("$.phoneNumber").value(phone))
                 .andExpect(jsonPath("$.ttlMinutes").value(10))
                 .andExpect(jsonPath("$.resendCooldownSeconds").value(60))
                 .andExpect(jsonPath("$.verificationCode").doesNotExist());
+        var stored = phoneVerificationCodeRepository
+                .findTopByPhoneNumberAndPurposeAndConsumedFalseOrderByIdDesc(phone, "LOGIN").orElseThrow();
+        org.assertj.core.api.Assertions.assertThat(stored.getDeliveryChannel()).isEqualTo("INTERNAL");
+        org.assertj.core.api.Assertions.assertThat(stored.getDeliveryStatus()).isEqualTo("ACCEPTED");
     }
 
     @Test

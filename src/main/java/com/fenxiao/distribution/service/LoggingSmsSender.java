@@ -9,6 +9,9 @@ public class LoggingSmsSender implements SmsSender {
     private static final Logger log = LoggerFactory.getLogger(LoggingSmsSender.class);
 
     @Override
+    public String deliveryChannel() { return "INTERNAL"; }
+
+    @Override
     public void sendVerificationCode(String phoneNumber, String verificationCode, int ttlMinutes) {
         log.info("phone verification code issued for phone={} ttlMinutes={}", maskPhone(phoneNumber), ttlMinutes);
     }
