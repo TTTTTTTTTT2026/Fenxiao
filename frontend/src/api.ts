@@ -553,11 +553,13 @@ export type UserPlatformProfileInvitationGuild = {
 
 export type UserPlatformProfileItem = {
   userId: number
+  nickname: string | null
   inviteCode: string
   countryCode: string
   phoneNumber: string | null
   registeredAt: string
   directInviterUserId: number | null
+  directInviterNickname: string | null
   userGradeCode: string
   linky: UserPlatformProfileBinding | null
   timo: UserPlatformProfileBinding | null

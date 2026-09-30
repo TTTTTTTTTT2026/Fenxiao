@@ -38,6 +38,7 @@ import loginHeroId800 from './assets/login-hero/login-hero-id-v1-800.webp'
 import loginHeroId1600 from './assets/login-hero/login-hero-id-v1-1600.webp'
 import loginHeroPt800 from './assets/login-hero/login-hero-pt-BR-v1-800.webp'
 import loginHeroPt1600 from './assets/login-hero/login-hero-pt-BR-v1-1600.webp'
+import { isAvatarValidationError, prepareAvatarDataUrl } from './avatarUpload'
 import {
   adjustAdminRelation,
   applyAdminRiskEventAction,
@@ -3602,13 +3603,13 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   <DataTable
                     headers={['用户', '邀请码', '归属国家', '用户等级', '手机号', '注册时间', '直接邀请人', 'Linky 实际绑定', 'Timo 实际绑定', 'Linky 邀请链归属', '操作']}
                     rows={(userPlatformProfiles?.items ?? []).map((item) => [
-                      <strong>#{item.userId}</strong>,
+                      <div className="stack-gap small"><strong>#{item.userId}</strong>{item.nickname ? <span>{item.nickname}</span> : null}</div>,
                       item.inviteCode ? <div className="invite-code-cell"><span>{item.inviteCode}</span><button className="ghost-btn small-btn invite-code-copy-btn" type="button" onClick={() => void handleCopyInviteCode(item.inviteCode)} aria-label={`复制邀请码 ${item.inviteCode}`} title="复制邀请码"><Copy size={15} weight="bold" aria-hidden="true" /></button></div> : '-',
                       formatCountryNameZh(item.countryCode),
                       formatConsumerUserGrade(item.userGradeCode, 'zh'),
                       item.phoneNumber || '-',
                       formatDateTime(item.registeredAt),
-                      item.directInviterUserId == null ? '根节点' : `#${item.directInviterUserId}`,
+                      item.directInviterUserId == null ? '根节点' : <div className="stack-gap small"><strong>#{item.directInviterUserId}</strong>{item.directInviterNickname ? <span>{item.directInviterNickname}</span> : null}</div>,
                       item.linky ? <div className="stack-gap small"><strong>{item.linky.accountId}</strong><span>{item.linky.status} · {item.linky.guildName || item.linky.guildId || '未返回公会'}{item.linky.expectedGuildSource ? ` · 目标来源 ${item.linky.expectedGuildSource}` : ''}</span></div> : '-',
                       item.timo ? <div className="stack-gap small"><strong>{item.timo.accountId}</strong><span>{item.timo.status} · {item.timo.guildId || '未返回公会'}</span></div> : '-',
                       item.invitationGuild ? <div className="stack-gap small"><strong>{item.invitationGuild.guildName} · {item.invitationGuild.guildId}</strong><span>{item.invitationGuild.source}{item.invitationGuild.inheritedFromUserId ? ` · 继承自 #${item.invitationGuild.inheritedFromUserId}` : ''}</span></div> : '-',
@@ -6707,11 +6708,11 @@ function AccountPage() {
 }
 
 const consumerProfileCopy = {
-  zh: { title: '个人资料', back: '返回收益', nickname: '昵称', avatar: '头像', avatarHint: '上传 PNG 或 JPG 图片，文件不超过 1 MB，宽高不超过 2048 像素。', save: '保存昵称', saving: '保存中…', saved: '已保存，无需审核', upload: '上传头像', loading: '读取中…', failed: '保存失败，请稍后重试。', invalid: '请选择不超过 1 MB 的 PNG 或 JPG 图片。' },
-  en: { title: 'My profile', back: 'Back to earnings', nickname: 'Nickname', avatar: 'Avatar', avatarHint: 'Upload a PNG or JPG image up to 1 MB and 2048 × 2048 pixels.', save: 'Save nickname', saving: 'Saving…', saved: 'Saved without review', upload: 'Upload avatar', loading: 'Loading…', failed: 'Could not save. Try again.', invalid: 'Choose a PNG or JPG image up to 1 MB.' },
-  es: { title: 'Mi perfil', back: 'Volver a ganancias', nickname: 'Apodo', avatar: 'Foto de perfil', avatarHint: 'Sube una imagen PNG o JPG de hasta 1 MB y 2048 × 2048 píxeles.', save: 'Guardar apodo', saving: 'Guardando…', saved: 'Guardado sin revisión', upload: 'Subir foto', loading: 'Cargando…', failed: 'No se pudo guardar. Inténtalo otra vez.', invalid: 'Elige una imagen PNG o JPG de hasta 1 MB.' },
-  id: { title: 'Profil saya', back: 'Kembali ke penghasilan', nickname: 'Nama panggilan', avatar: 'Foto profil', avatarHint: 'Unggah gambar PNG atau JPG maksimal 1 MB dan 2048 × 2048 piksel.', save: 'Simpan nama', saving: 'Menyimpan…', saved: 'Tersimpan tanpa peninjauan', upload: 'Unggah foto', loading: 'Memuat…', failed: 'Gagal menyimpan. Coba lagi.', invalid: 'Pilih gambar PNG atau JPG maksimal 1 MB.' },
-  pt: { title: 'Meu perfil', back: 'Voltar aos ganhos', nickname: 'Apelido', avatar: 'Foto de perfil', avatarHint: 'Envie uma imagem PNG ou JPG de até 1 MB e 2048 × 2048 pixels.', save: 'Salvar apelido', saving: 'Salvando…', saved: 'Salvo sem revisão', upload: 'Enviar foto', loading: 'Carregando…', failed: 'Não foi possível salvar. Tente novamente.', invalid: 'Escolha uma imagem PNG ou JPG de até 1 MB.' },
+  zh: { title: '个人资料', back: '返回收益', nickname: '昵称', avatar: '头像', avatarHint: '请选择 PNG 或 JPG 图片；较大的照片会自动缩小并压缩至头像要求。', save: '保存昵称', saving: '保存中…', saved: '已保存，无需审核', upload: '上传头像', loading: '读取中…', failed: '保存失败，请稍后重试。', invalid: '无法处理这张图片。请选择可正常打开的 PNG 或 JPG 照片后重试。' },
+  en: { title: 'My profile', back: 'Back to earnings', nickname: 'Nickname', avatar: 'Avatar', avatarHint: 'Choose a PNG or JPG image. Larger photos are resized and compressed automatically.', save: 'Save nickname', saving: 'Saving…', saved: 'Saved without review', upload: 'Upload avatar', loading: 'Loading…', failed: 'Could not save. Try again.', invalid: 'This image could not be processed. Choose a readable PNG or JPG photo and try again.' },
+  es: { title: 'Mi perfil', back: 'Volver a ganancias', nickname: 'Apodo', avatar: 'Foto de perfil', avatarHint: 'Elige una imagen PNG o JPG. Las fotos grandes se reducen y comprimen automáticamente.', save: 'Guardar apodo', saving: 'Guardando…', saved: 'Guardado sin revisión', upload: 'Subir foto', loading: 'Cargando…', failed: 'No se pudo guardar. Inténtalo otra vez.', invalid: 'No se pudo procesar esta imagen. Elige una foto PNG o JPG válida e inténtalo de nuevo.' },
+  id: { title: 'Profil saya', back: 'Kembali ke penghasilan', nickname: 'Nama panggilan', avatar: 'Foto profil', avatarHint: 'Pilih gambar PNG atau JPG. Foto besar akan diperkecil dan dikompresi otomatis.', save: 'Simpan nama', saving: 'Menyimpan…', saved: 'Tersimpan tanpa peninjauan', upload: 'Unggah foto', loading: 'Memuat…', failed: 'Gagal menyimpan. Coba lagi.', invalid: 'Gambar ini tidak dapat diproses. Pilih foto PNG atau JPG yang dapat dibuka lalu coba lagi.' },
+  pt: { title: 'Meu perfil', back: 'Voltar aos ganhos', nickname: 'Apelido', avatar: 'Foto de perfil', avatarHint: 'Escolha uma imagem PNG ou JPG. Fotos grandes são redimensionadas e comprimidas automaticamente.', save: 'Salvar apelido', saving: 'Salvando…', saved: 'Salvo sem revisão', upload: 'Enviar foto', loading: 'Carregando…', failed: 'Não foi possível salvar. Tente novamente.', invalid: 'Não foi possível processar esta imagem. Escolha uma foto PNG ou JPG válida e tente novamente.' },
 } as const
 
 function PublicProfilePage() {
@@ -6744,18 +6745,12 @@ function PublicProfilePage() {
 
   async function uploadAvatar(file?: File) {
     if (!session || !file) return
-    if (!['image/png', 'image/jpeg'].includes(file.type) || file.size > 1024 * 1024 || file.size === 0) { setError(copy.invalid); return }
     setBusy(true); setError(''); setMessage('')
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = () => resolve(String(reader.result))
-        reader.onerror = reject
-        reader.readAsDataURL(file)
-      })
+      const dataUrl = await prepareAvatarDataUrl(file)
       setProfile(await updateUserAvatar(session.userId, session.accessToken, dataUrl))
       setMessage(copy.saved)
-    } catch { setError(copy.failed) }
+    } catch (error) { setError(isAvatarValidationError(error) ? copy.invalid : copy.failed) }
     finally { setBusy(false) }
   }
 
