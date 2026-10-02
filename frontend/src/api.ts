@@ -924,6 +924,13 @@ export function passwordLogin(payload: { phoneNumber: string; password: string }
   })
 }
 
+export function refreshUserSession(accessToken: string) {
+  return request<{ accessToken: string; expiresAt: string }>('/api/distribution/auth/session/refresh', {
+    method: 'POST',
+    headers: { 'X-Distribution-Token': accessToken },
+  })
+}
+
 export function logoutUserSession(accessToken: string) {
   return request<void>('/api/distribution/auth/session/logout', {
     method: 'POST',

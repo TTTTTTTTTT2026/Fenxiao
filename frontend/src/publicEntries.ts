@@ -14,6 +14,13 @@ export type ChannelEntryInput = {
 }
 
 const DEFAULT_ORIGIN = 'http://127.0.0.1:4173'
+export const CONSUMER_ORIGIN = 'https://app.bandeira.fandodo.online'
+const LEGACY_ORIGIN = 'https://bandeira.fandodo.online'
+
+export function consumerEntryOrigin(origin?: string): string {
+  const normalized = normalizeOrigin(origin)
+  return normalized === LEGACY_ORIGIN || normalized === CONSUMER_ORIGIN ? CONSUMER_ORIGIN : normalized
+}
 
 function normalizeOrigin(origin?: string): string {
   return origin && origin.trim() ? origin.trim().replace(/\/$/, '') : DEFAULT_ORIGIN
@@ -38,7 +45,7 @@ function buildTrackedUrl(origin: string, path: PublicEntryLink['path'], input: C
 }
 
 export function buildPublicEntryLinks(origin?: string): PublicEntryLink[] {
-  const safeOrigin = normalizeOrigin(origin)
+  const safeOrigin = consumerEntryOrigin(origin)
   return [
     { key: 'invite', label: '生成邀请码', path: '/invite', url: `${safeOrigin}/invite` },
     { key: 'bind', label: '绑定关系', path: '/bind', url: `${safeOrigin}/bind` },
@@ -47,7 +54,7 @@ export function buildPublicEntryLinks(origin?: string): PublicEntryLink[] {
 }
 
 export function buildChannelEntryLinks(origin: string | undefined, input: ChannelEntryInput): PublicEntryLink[] {
-  const safeOrigin = normalizeOrigin(origin)
+  const safeOrigin = consumerEntryOrigin(origin)
   return [
     { key: 'invite', label: '邀请注册入口', path: '/invite', url: buildTrackedUrl(safeOrigin, '/invite', input) },
     { key: 'bind', label: 'Linky 绑定入口', path: '/bind', url: buildTrackedUrl(safeOrigin, '/bind', input) },
