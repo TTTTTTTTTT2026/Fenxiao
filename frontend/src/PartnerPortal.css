@@ -10,7 +10,11 @@
 .partner-card form { display: grid; gap: 12px; }
 .partner-card label { margin-top: 8px; font-weight: 700; }
 .partner-card input { box-sizing: border-box; width: 100%; padding: 13px 14px; border: 1px solid #ddcfc4; border-radius: 12px; font: inherit; }
-.partner-card input:focus-visible, .partner-topbar select:focus-visible, .partner-card button:focus-visible { outline: 3px solid #ffae86; outline-offset: 2px; }
+.partner-phone-input { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 8px; }
+.partner-phone-input select { box-sizing: border-box; width: 100%; min-width: 0; padding: 13px 10px; border: 1px solid #ddcfc4; border-radius: 12px; background: white; color: inherit; font: inherit; }
+.partner-phone-input input { min-width: 0; }
+.partner-phone-hint { color: #6e625a; line-height: 1.4; }
+.partner-card input:focus-visible, .partner-page select:focus-visible, .partner-card button:focus-visible { outline: 3px solid #ffae86; outline-offset: 2px; }
 .partner-card button { padding: 13px 18px; border-radius: 12px; font: inherit; font-weight: 700; cursor: pointer; }
 .partner-primary { margin-top: 14px; border: 0; background: #f05a22; color: white; }
 .partner-primary:disabled { opacity: .65; cursor: wait; }
@@ -19,4 +23,4 @@
 .partner-empty-state { margin: 12px 0 24px; padding: 26px; border-radius: 18px; background: #fff7f1; }
 .partner-empty-state h2 { margin: 0 0 8px; font-size: 19px; }
 .partner-empty-state p { margin: 0; color: #6e625a; line-height: 1.6; }
-@media (max-width: 520px) { .partner-page { padding: 18px; } .partner-card { margin-top: 50px; padding: 25px; } }
+@media (max-width: 520px) { .partner-page { padding: 18px; } .partner-card { margin-top: 50px; padding: 25px; } .partner-phone-input { grid-template-columns: 1fr; } }
