@@ -6,7 +6,7 @@
 
 1. 代码 PR 合并到 `main`，CI 通过；按 [生产发布 Runbook](production-deployment-runbook.md) 记录 SHA、备份校验和回滚入口。不能从未合并分支发布。
 2. 两条新 A 记录均指向当前生产主机，并从服务器与公网分别核对解析。DNS 正确不代表 HTTPS 已可用。
-3. 复核线上现有 Nginx 站点文件路径、证书名称、Certbot 安装方式和证书到期时间，备份实际生效的 Nginx 配置；若与仓库模板不一致，应先修订方案，不直接覆盖。
+3. 复核线上现有 Nginx 站点文件路径、证书名称、Certbot 安装方式和证书到期时间，备份实际生效的 Nginx 配置；若与仓库模板不一致，应先修订方案，不直接覆盖。2026-10-02 只读检查确认现网使用 `/etc/nginx/conf.d/bandeira.fandodo.online.conf`，且有 `/internal/distribution/` 专用回调路由，两个新模板已保留该路由。
 
 ## HTTPS 与反向代理顺序
 
