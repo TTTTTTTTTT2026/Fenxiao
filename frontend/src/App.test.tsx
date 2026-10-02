@@ -54,6 +54,22 @@ describe('App external landing pages', () => {
     })
   })
 
+  it('renders the password-only partner entry instead of admin or consumer features', () => {
+    Object.assign(window.location, { pathname: '/', hostname: 'partner.bandeira.fandodo.online' })
+    const markup = renderToStaticMarkup(<App />)
+    expect(markup).toContain('伙伴工作台')
+    expect(markup).toContain('type="password"')
+    expect(markup).not.toContain('运营中心')
+    expect(markup).not.toContain('短信验证码')
+  })
+
+  it('does not render the admin console at the new consumer root', () => {
+    Object.assign(window.location, { pathname: '/', hostname: 'app.bandeira.fandodo.online' })
+    const markup = renderToStaticMarkup(<App />)
+    expect(markup).toContain('consumer-app-page')
+    expect(markup).not.toContain('运营中心')
+  })
+
   it('keeps the language selector accessible without rendering a visible language label in the bind topbar', () => {
     const markup = renderToStaticMarkup(<App />)
 

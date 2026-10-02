@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { buildChannelEntryLinks, buildPublicEntryLinks } from './publicEntries'
+import { buildChannelEntryLinks, buildPublicEntryLinks, consumerEntryOrigin, CONSUMER_ORIGIN } from './publicEntries'
+
+describe('consumer domain migration', () => {
+  it('moves the legacy production origin to the dedicated consumer host', () => {
+    expect(consumerEntryOrigin('https://bandeira.fandodo.online/')).toBe(CONSUMER_ORIGIN)
+    expect(buildPublicEntryLinks('https://bandeira.fandodo.online')[0].url).toBe(`${CONSUMER_ORIGIN}/invite`)
+    expect(buildChannelEntryLinks('https://bandeira.fandodo.online', { inviteCode: 'ABC123' })[1].url)
+      .toBe(`${CONSUMER_ORIGIN}/bind?inviteCode=ABC123`)
+  })
+
+  it('keeps local development origins unchanged', () => {
+    expect(consumerEntryOrigin('http://127.0.0.1:4173')).toBe('http://127.0.0.1:4173')
+  })
+})
 
 describe('buildPublicEntryLinks', () => {
   it('builds the three public landing pages from the current origin', () => {

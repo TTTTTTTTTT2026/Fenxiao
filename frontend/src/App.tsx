@@ -246,7 +246,8 @@ import {
   saveNamedFilterView,
   type NamedFilterView,
 } from './opsConsole'
-import { buildChannelEntryLinks } from './publicEntries'
+import { buildChannelEntryLinks, consumerEntryOrigin, CONSUMER_ORIGIN } from './publicEntries'
+import PartnerPortal from './PartnerPortal'
 
 type SessionState = {
   userId: number
@@ -729,7 +730,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [relationAdjustLoading, setRelationAdjustLoading] = useState(false)
   const [profileCreateToken, setProfileCreateToken] = useState(() => loadPlainState(PROFILE_CREATE_TOKEN_KEY))
   const [channelEntryForm, setChannelEntryForm] = useState({
-    origin: typeof window !== 'undefined' ? window.location.origin : '',
+    origin: typeof window !== 'undefined' ? consumerEntryOrigin(window.location.origin) : CONSUMER_ORIGIN,
     country: form.countryCode || 'ID',
     language: form.languageCode || 'id',
     channel: 'whatsapp-main',
@@ -3865,7 +3866,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   <div className="grid-form compact-form exception-filter-grid">
                     <label>
                       入口域名
-                      <input value={channelEntryForm.origin} onChange={(e) => setChannelEntryForm({ ...channelEntryForm, origin: e.target.value })} placeholder="https://your-domain.com" />
+                      <input value={channelEntryForm.origin} onChange={(e) => setChannelEntryForm({ ...channelEntryForm, origin: e.target.value })} placeholder={CONSUMER_ORIGIN} readOnly={window.location.hostname === 'bandeira.fandodo.online'} />
                     </label>
                     <label>
                       国家
@@ -6525,7 +6526,7 @@ function InviteCodePage() {
 
   async function handleShareInviteCode() {
     if (!session?.inviteCode) return
-    const shareUrl = `${window.location.origin}/invite?inviteCode=${encodeURIComponent(session.inviteCode)}`
+    const shareUrl = `${consumerEntryOrigin(window.location.origin)}/invite?inviteCode=${encodeURIComponent(session.inviteCode)}`
     try {
       if (navigator.share) {
         await navigator.share({ title: inviteCopy.shareTitle, text: inviteCopy.shareText(session.inviteCode), url: shareUrl })
@@ -7360,6 +7361,9 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
 
 function App() {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '/'
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : ''
+  if (hostname === 'partner.bandeira.fandodo.online') return <PartnerPortal />
+  if (hostname === 'app.bandeira.fandodo.online' && (pathname === '/' || pathname.startsWith('/admin'))) return <InviteCodePage />
   if (pathname.startsWith('/account/profile')) return <PublicProfilePage />
   if (pathname.startsWith('/account/timo')) return <TimoBindingPage />
   if (pathname.startsWith('/account/linky') || pathname.startsWith('/bind')) return <BindLandingPage />
@@ -7368,6 +7372,7 @@ function App() {
   if (pathname.startsWith('/earnings/effective-users')) return <EarningsPage view="effective" />
   if (pathname.startsWith('/earnings/activity')) return <EarningsPage view="activity" />
   if (pathname.startsWith('/earnings')) return <EarningsPage />
+  if (hostname === 'app.bandeira.fandodo.online') return <InviteCodePage />
   const designPreview = import.meta.env.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('adminPreview') === '1'
   return <ConsoleApp initialAdminSession={designPreview ? {
     sessionToken: 'local-design-preview',
