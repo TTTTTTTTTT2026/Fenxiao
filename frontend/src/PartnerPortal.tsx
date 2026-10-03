@@ -1,16 +1,16 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { logoutUserSession, passwordLogin, refreshUserSession, type ProfileResponse } from './api'
+import { ApiRequestError, logoutUserSession, passwordLogin, refreshUserSession, type ProfileResponse } from './api'
 import { formatPartnerPhone, normalizePartnerLocalPhone, partnerPhoneCountries, type PartnerLanguage } from './partnerPhone'
 import './PartnerPortal.css'
 
 const STORAGE_KEY = 'bandeira-partner-session'
 
 const copy = {
-  zh: { title: '伙伴工作台', subtitle: '使用已开通密码登录的现有分销账号。', country: '国家／地区', chooseCountry: '选择国家／地区', phone: '手机号码', phoneHint: '仅输入本地手机号码，无需输入国家区号', password: '密码', login: '登录', failure: '登录失败，请核对手机号、密码及开通状态。', welcome: '已登录', pending: '工作台功能正在准备中', pendingDetail: '目前不展示业务数据，也不提供管理操作。', logout: '退出登录', loading: '正在验证登录状态…' },
-  en: { title: 'Partner workspace', subtitle: 'Use an existing distribution account with password sign-in enabled.', country: 'Country / region', chooseCountry: 'Select country / region', phone: 'Phone number', phoneHint: 'Enter your local number only; no calling code', password: 'Password', login: 'Sign in', failure: 'Sign-in failed. Check the number, password and access status.', welcome: 'Signed in', pending: 'Workspace features are coming', pendingDetail: 'No business data or management actions are available yet.', logout: 'Sign out', loading: 'Checking your session…' },
-  id: { title: 'Ruang kerja mitra', subtitle: 'Gunakan akun distribusi yang sudah diaktifkan untuk masuk dengan kata sandi.', country: 'Negara / wilayah', chooseCountry: 'Pilih negara / wilayah', phone: 'Nomor ponsel', phoneHint: 'Masukkan nomor lokal saja, tanpa kode negara', password: 'Kata sandi', login: 'Masuk', failure: 'Gagal masuk. Periksa nomor, kata sandi, dan status akses.', welcome: 'Sudah masuk', pending: 'Fitur ruang kerja sedang disiapkan', pendingDetail: 'Data bisnis dan tindakan pengelolaan belum tersedia.', logout: 'Keluar', loading: 'Memeriksa sesi…' },
-  pt: { title: 'Área de parceiros', subtitle: 'Use uma conta existente habilitada para acesso com senha.', country: 'País / região', chooseCountry: 'Selecione o país / região', phone: 'Número de telefone', phoneHint: 'Digite apenas o número local, sem código do país', password: 'Senha', login: 'Entrar', failure: 'Falha no acesso. Confira o número, a senha e a permissão.', welcome: 'Conectado', pending: 'A área de trabalho está em preparação', pendingDetail: 'Ainda não há dados de negócios nem ações de gerenciamento.', logout: 'Sair', loading: 'Verificando sessão…' },
-  es: { title: 'Espacio de socios', subtitle: 'Usa una cuenta existente habilitada para iniciar sesión con contraseña.', country: 'País / región', chooseCountry: 'Selecciona país / región', phone: 'Número de teléfono', phoneHint: 'Ingresa solo tu número local, sin prefijo internacional', password: 'Contraseña', login: 'Iniciar sesión', failure: 'No se pudo iniciar sesión. Revisa el número, la contraseña y el acceso.', welcome: 'Sesión iniciada', pending: 'El espacio de trabajo está en preparación', pendingDetail: 'Aún no hay datos comerciales ni funciones de gestión.', logout: 'Cerrar sesión', loading: 'Verificando la sesión…' },
+  zh: { title: '伙伴工作台', subtitle: '使用已开通密码登录的现有分销账号。', country: '国家／地区', chooseCountry: '选择国家／地区', phone: '手机号码', phoneHint: '仅输入本地手机号码，无需输入国家区号', password: '密码', login: '登录', failure: '登录失败，请核对手机号、密码及开通状态。', reference: '排查编号', welcome: '已登录', pending: '工作台功能正在准备中', pendingDetail: '目前不展示业务数据，也不提供管理操作。', logout: '退出登录', loading: '正在验证登录状态…' },
+  en: { title: 'Partner workspace', subtitle: 'Use an existing distribution account with password sign-in enabled.', country: 'Country / region', chooseCountry: 'Select country / region', phone: 'Phone number', phoneHint: 'Enter your local number only; no calling code', password: 'Password', login: 'Sign in', failure: 'Sign-in failed. Check the number, password and access status.', reference: 'Support reference', welcome: 'Signed in', pending: 'Workspace features are coming', pendingDetail: 'No business data or management actions are available yet.', logout: 'Sign out', loading: 'Checking your session…' },
+  id: { title: 'Ruang kerja mitra', subtitle: 'Gunakan akun distribusi yang sudah diaktifkan untuk masuk dengan kata sandi.', country: 'Negara / wilayah', chooseCountry: 'Pilih negara / wilayah', phone: 'Nomor ponsel', phoneHint: 'Masukkan nomor lokal saja, tanpa kode negara', password: 'Kata sandi', login: 'Masuk', failure: 'Gagal masuk. Periksa nomor, kata sandi, dan status akses.', reference: 'Kode penelusuran', welcome: 'Sudah masuk', pending: 'Fitur ruang kerja sedang disiapkan', pendingDetail: 'Data bisnis dan tindakan pengelolaan belum tersedia.', logout: 'Keluar', loading: 'Memeriksa sesi…' },
+  pt: { title: 'Área de parceiros', subtitle: 'Use uma conta existente habilitada para acesso com senha.', country: 'País / região', chooseCountry: 'Selecione o país / região', phone: 'Número de telefone', phoneHint: 'Digite apenas o número local, sem código do país', password: 'Senha', login: 'Entrar', failure: 'Falha no acesso. Confira o número, a senha e a permissão.', reference: 'Código de suporte', welcome: 'Conectado', pending: 'A área de trabalho está em preparação', pendingDetail: 'Ainda não há dados de negócios nem ações de gerenciamento.', logout: 'Sair', loading: 'Verificando sessão…' },
+  es: { title: 'Espacio de socios', subtitle: 'Usa una cuenta existente habilitada para iniciar sesión con contraseña.', country: 'País / región', chooseCountry: 'Selecciona país / región', phone: 'Número de teléfono', phoneHint: 'Ingresa solo tu número local, sin prefijo internacional', password: 'Contraseña', login: 'Iniciar sesión', failure: 'No se pudo iniciar sesión. Revisa el número, la contraseña y el acceso.', reference: 'Código de soporte', welcome: 'Sesión iniciada', pending: 'El espacio de trabajo está en preparación', pendingDetail: 'Aún no hay datos comerciales ni funciones de gestión.', logout: 'Cerrar sesión', loading: 'Verificando la sesión…' },
 } satisfies Record<PartnerLanguage, Record<string, string>>
 
 function storedSession(): ProfileResponse | null {
@@ -64,8 +64,9 @@ export default function PartnerPortal() {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
       setSession(next)
       setPassword('')
-    } catch {
-      setError(t.failure)
+    } catch (failure) {
+      const requestId = failure instanceof ApiRequestError ? failure.requestId : undefined
+      setError(requestId ? `${t.failure} ${t.reference}: ${requestId}` : t.failure)
     } finally {
       setBusy(false)
     }
