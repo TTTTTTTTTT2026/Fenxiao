@@ -22,6 +22,7 @@ import com.fenxiao.distribution.entity.InviteBindingRegistration;
 import com.fenxiao.distribution.entity.WithdrawRequest;
 import com.fenxiao.distribution.service.DistributionBindingService;
 import com.fenxiao.distribution.service.DistributionFrontendService;
+import com.fenxiao.distribution.service.ConsumerWorkspaceService;
 import com.fenxiao.distribution.service.InviteBindingRegistrationService;
 import com.fenxiao.distribution.service.InviteCodeIssueService;
 import com.fenxiao.distribution.service.LinkyRegistrationEligibilityService;
@@ -59,6 +60,7 @@ public class DistributionController {
     private final UserPasswordLoginService userPasswordLoginService;
     private final DistributionAccessGuard distributionAccessGuard;
     private final UserSessionService userSessionService;
+    private final ConsumerWorkspaceService workspaces;
 
     public DistributionController(DistributionBindingService distributionBindingService,
                                   DistributionFrontendService distributionFrontendService,
@@ -69,7 +71,8 @@ public class DistributionController {
                                   PhoneAuthService phoneAuthService,
                                   UserPasswordLoginService userPasswordLoginService,
                                   DistributionAccessGuard distributionAccessGuard,
-                                  UserSessionService userSessionService) {
+                                  UserSessionService userSessionService,
+                                  ConsumerWorkspaceService workspaces) {
         this.distributionBindingService = distributionBindingService;
         this.distributionFrontendService = distributionFrontendService;
         this.inviteBindingRegistrationService = inviteBindingRegistrationService;
@@ -80,6 +83,7 @@ public class DistributionController {
         this.userPasswordLoginService = userPasswordLoginService;
         this.distributionAccessGuard = distributionAccessGuard;
         this.userSessionService = userSessionService;
+        this.workspaces = workspaces;
     }
 
     @GetMapping("/health")
@@ -189,16 +193,18 @@ public class DistributionController {
 
     @GetMapping("/home/{userId}")
     public DistributionHomeResponse home(@RequestHeader("X-Distribution-Token") String accessToken,
-                                         @PathVariable Long userId) {
+                                         @PathVariable Long userId,
+                                         @RequestParam(required = false) String platformCode) {
         distributionAccessGuard.assertUserAccess(userId, accessToken);
-        return distributionFrontendService.getHome(userId);
+        return distributionFrontendService.getHome(userId, platformCode == null ? null : workspaces.requireVerified(userId, platformCode));
     }
 
     @GetMapping("/team/{userId}/effective")
     public EffectiveTeamResponse effectiveTeam(@RequestHeader("X-Distribution-Token") String accessToken,
-                                                @PathVariable Long userId) {
+                                                @PathVariable Long userId,
+                                                @RequestParam(required = false) String platformCode) {
         distributionAccessGuard.assertUserAccess(userId, accessToken);
-        return distributionFrontendService.getEffectiveTeam(userId);
+        return distributionFrontendService.getEffectiveTeam(userId, platformCode == null ? null : workspaces.requireVerified(userId, platformCode));
     }
 
     @GetMapping("/team/{userId}")

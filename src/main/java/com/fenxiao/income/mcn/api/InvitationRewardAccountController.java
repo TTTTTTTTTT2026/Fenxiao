@@ -5,6 +5,7 @@ import com.fenxiao.audit.entity.OperationAuditLog;
 import com.fenxiao.audit.repository.OperationAuditLogRepository;
 import com.fenxiao.income.mcn.api.dto.InvitationRewardAccountResponse;
 import com.fenxiao.income.mcn.service.InvitationRewardAccountQueryService;
+import com.fenxiao.distribution.service.ConsumerWorkspaceService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -22,21 +23,24 @@ public class InvitationRewardAccountController {
     private final InvitationRewardAccountQueryService accounts;
     private final OperationAuditLogRepository auditLogs;
     private final Clock clock;
+    private final ConsumerWorkspaceService workspaces;
 
     public InvitationRewardAccountController(DistributionAccessGuard access, InvitationRewardAccountQueryService accounts,
-            OperationAuditLogRepository auditLogs, Clock clock) {
+            OperationAuditLogRepository auditLogs, Clock clock, ConsumerWorkspaceService workspaces) {
         this.access = access;
         this.accounts = accounts;
         this.auditLogs = auditLogs;
         this.clock = clock;
+        this.workspaces = workspaces;
     }
 
     @GetMapping("/api/distribution/accounts/{userId}")
     public InvitationRewardAccountResponse consumer(@RequestHeader("X-Distribution-Token") String token,
             @PathVariable long userId, @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String platformCode) {
         access.assertUserAccess(userId, token);
-        return accounts.get(userId, page, size);
+        return accounts.get(userId, page, size, platformCode == null ? null : workspaces.requireVerified(userId, platformCode));
     }
 
     @GetMapping("/admin/invitation-accounts/{userId}")
