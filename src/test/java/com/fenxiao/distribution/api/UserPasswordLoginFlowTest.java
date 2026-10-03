@@ -10,14 +10,19 @@ import com.fenxiao.distribution.service.PhoneAuthService;
 import com.fenxiao.identity.repository.UserPasswordCredentialRepository;
 import com.fenxiao.user.repository.UserDistributionProfileRepository;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -30,6 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @SpringBootTest
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@ExtendWith(OutputCaptureExtension.class)
 class UserPasswordLoginFlowTest {
     private static final long USER_ID = 71500L;
     private static final String PHONE = "+5511999991500";
@@ -48,7 +54,7 @@ class UserPasswordLoginFlowTest {
     @Autowired JdbcTemplate jdbc;
 
     @Test
-    void onlyAuthorizedExistingUsersCanSignInWithoutSmsAndChangesAreAudited() throws Exception {
+    void onlyAuthorizedExistingUsersCanSignInWithoutSmsAndChangesAreAudited(CapturedOutput output) throws Exception {
         var user = bindings.createProfile(USER_ID, "BR", "pt-br", null);
         user.bindPhoneNumber(PHONE);
         users.save(user);
@@ -58,7 +64,10 @@ class UserPasswordLoginFlowTest {
 
         mvc.perform(post("/api/distribution/auth/password-login").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"phoneNumber\":\"+5511999991599\",\"password\":\"Wrong-Password-2026!\"}"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("phone or password invalid"))
+                .andExpect(jsonPath("$.requestId").isNotEmpty())
+                .andExpect(jsonPath("$.reason").doesNotExist());
         mvc.perform(post("/api/distribution/auth/password-login").contentType(MediaType.APPLICATION_JSON)
                 .content(loginBody(FIRST_PASSWORD))).andExpect(status().isForbidden());
         assertThat(users.count()).isEqualTo(userCount);
@@ -86,7 +95,9 @@ class UserPasswordLoginFlowTest {
                 .andExpect(status().isOk());
         for (int attempt = 0; attempt < 5; attempt++) {
             mvc.perform(post("/api/distribution/auth/password-login").contentType(MediaType.APPLICATION_JSON)
-                    .content(loginBody("Wrong-Password-2026!"))).andExpect(status().isForbidden());
+                    .content(loginBody("Wrong-Password-2026!"))).andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.requestId").isNotEmpty())
+                    .andExpect(jsonPath("$.reason").doesNotExist());
         }
         assertThat(credentials.findById(USER_ID).orElseThrow().getLockedUntil()).isNotNull();
         mvc.perform(post("/api/distribution/auth/password-login").contentType(MediaType.APPLICATION_JSON)
@@ -121,6 +132,13 @@ class UserPasswordLoginFlowTest {
         mvc.perform(post("/api/distribution/auth/phone-login").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"phoneNumber\":\"" + PHONE + "\",\"verificationCode\":\"" + code + "\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.userId").value(USER_ID));
+
+        String denialLogs = output.getOut().lines()
+                .filter(line -> line.contains("auth=password_login outcome=denied"))
+                .collect(Collectors.joining("\n"));
+        assertThat(denialLogs).contains("requestId=", "reason=USER_NOT_FOUND", "reason=PASSWORD_LOGIN_NOT_ENABLED",
+                "reason=PASSWORD_MISMATCH", "reason=ACCOUNT_TEMPORARILY_LOCKED");
+        assertThat(denialLogs).doesNotContain(PHONE, FIRST_PASSWORD, SECOND_PASSWORD, "userId=");
     }
 
     private String adminToken(String username, String role) {

@@ -21,6 +21,16 @@ public class GlobalExceptionHandler {
     }
 
     @ResponseStatus(HttpStatus.FORBIDDEN)
+    @ExceptionHandler(PasswordLoginRejectedException.class)
+    public Map<String, Object> handlePasswordLoginRejected(PasswordLoginRejectedException exception) {
+        return Map.of(
+                "code", "FORBIDDEN",
+                "message", exception.getMessage(),
+                "requestId", exception.getRequestId()
+        );
+    }
+
+    @ResponseStatus(HttpStatus.FORBIDDEN)
     @ExceptionHandler(ForbiddenException.class)
     public Map<String, Object> handleForbiddenException(ForbiddenException exception) {
         return Map.of(

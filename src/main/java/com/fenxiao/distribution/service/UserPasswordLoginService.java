@@ -5,6 +5,7 @@ import com.fenxiao.admin.service.AdminPasswordPolicy;
 import com.fenxiao.audit.entity.OperationAuditLog;
 import com.fenxiao.audit.repository.OperationAuditLogRepository;
 import com.fenxiao.common.api.ForbiddenException;
+import com.fenxiao.common.api.PasswordLoginRejectedException;
 import com.fenxiao.identity.domain.AccountStatus;
 import com.fenxiao.identity.entity.UserPasswordCredential;
 import com.fenxiao.identity.repository.UserPasswordCredentialRepository;
@@ -13,12 +14,16 @@ import com.fenxiao.user.entity.UserDistributionProfile;
 import com.fenxiao.user.repository.UserDistributionProfileRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 public class UserPasswordLoginService {
+    private static final Logger log = LoggerFactory.getLogger(UserPasswordLoginService.class);
     private static final String INVALID_LOGIN = "phone or password invalid";
 
     private final UserDistributionProfileRepository users;
@@ -53,23 +58,32 @@ public class UserPasswordLoginService {
         try {
             phone = PhoneAuthService.normalizePhone(phoneNumber);
         } catch (IllegalArgumentException exception) {
-            throw new ForbiddenException(INVALID_LOGIN);
+            throw reject("INVALID_PHONE_FORMAT");
         }
         UserDistributionProfile user = users.findByPhoneNumber(phone).orElse(null);
         UserPasswordCredential credential = user == null ? null : credentials.findForLogin(user.getUserId()).orElse(null);
         if (user == null || user.getAccountStatus() != AccountStatus.ACTIVE || credential == null || !credential.isEnabled()) {
             hasher.matches(password, dummyHash);
-            throw new ForbiddenException(INVALID_LOGIN);
+            if (user == null) throw reject("USER_NOT_FOUND");
+            if (user.getAccountStatus() != AccountStatus.ACTIVE) throw reject("ACCOUNT_INACTIVE");
+            throw reject("PASSWORD_LOGIN_NOT_ENABLED");
         }
         LocalDateTime now = LocalDateTime.now(clock);
-        if (credential.isLockedAt(now)) throw new ForbiddenException(INVALID_LOGIN);
+        if (credential.isLockedAt(now)) throw reject("ACCOUNT_TEMPORARILY_LOCKED");
         if (!hasher.matches(password, credential.getPasswordHash())) {
             credential.recordFailure(now);
-            throw new ForbiddenException(INVALID_LOGIN);
+            throw reject("PASSWORD_MISMATCH");
         }
         credential.clearFailures();
         UserSessionService.IssuedSession session = sessions.issue(user.getUserId());
         return new LoginResult(user, session);
+    }
+
+    private PasswordLoginRejectedException reject(String reason) {
+        String requestId = UUID.randomUUID().toString();
+        // Never log the supplied number, password, user ID, or session token.
+        log.info("auth=password_login outcome=denied requestId={} reason={}", requestId, reason);
+        return new PasswordLoginRejectedException(INVALID_LOGIN, requestId);
     }
 
     @Transactional

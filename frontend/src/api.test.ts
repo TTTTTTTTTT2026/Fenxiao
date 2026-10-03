@@ -1,9 +1,22 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { ApiRequestError } from './api'
 import { addAdminSmsDailyWhitelistNumber, applyAdminRiskEventBatchAction, applyAdminWithdrawBatchAction, approveAdminWithdrawRequest, approveWithdrawForPayment, correctAdminOwnership, createAdminPlatformGuildOperatingShareRate, createAdminSession, createExperiment, createWithdrawRequest, disableAdminUserPasswordLogin, getAdminGuildConfigs, getAdminGuildWeeklyReport, getAdminMentorAssignedStudents, getAdminOwnership, getAdminPlatformGuildDirectory, getAdminPlatformGuildDirectorySyncRuns, getAdminPlatformIntegrations, getAdminSeedInviters, getAdminSmsDailyWhitelist, getAdminSmsDeliveryStatus, getAdminWithdrawRequests, getDistributionRewardSummary, getDistributionTeamWeeklyIncome, getExperimentDashboard, getWithdrawHistory, issuePhoneCode, logoutUserSession, passwordLogin, phoneLogin, recordWithdrawPayment, refreshAdminLinkyEligibility, refreshAdminLinkyEligibilityBatch, rejectAdminWithdrawRequest, removeAdminSmsDailyWhitelistNumber, reverseWithdrawPayment, saveAdminGuildConfig, setAdminUserPasswordLogin, updateAdminSmsDeliveryStatus, updateAdminUserCountry } from './api'
 
 describe('ownership admin api', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
+  })
+
+  it('keeps password-login denial generic while preserving its support reference', async () => {
+    const requestId = '123e4567-e89b-42d3-a456-426614174000'
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      text: async () => JSON.stringify({ code: 'FORBIDDEN', message: 'phone or password invalid', requestId }),
+    }))
+
+    await expect(passwordLogin({ phoneNumber: '+5511999991500', password: 'incorrect' }))
+      .rejects.toMatchObject({ name: 'ApiRequestError', message: 'phone or password invalid', requestId } satisfies Partial<ApiRequestError>)
   })
 
   it('saves user country with the admin session', async () => {
