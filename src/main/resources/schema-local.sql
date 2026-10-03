@@ -237,3 +237,11 @@ CREATE TABLE IF NOT EXISTS effective_user_qualification_fact (
 
 CREATE INDEX IF NOT EXISTS idx_local_effective_user_qualification
     ON effective_user_qualification_fact(user_id, qualification_status);
+
+-- Local H2 does not run Flyway V73. Hibernate creates user profiles after SQL init,
+-- so keep the local acceptance table without the production foreign key.
+CREATE TABLE IF NOT EXISTS consumer_workspace_preference (
+    user_id BIGINT NOT NULL PRIMARY KEY,
+    platform_code VARCHAR(32) NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
