@@ -1,5 +1,31 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiRequestError } from './api'
+import { getConsumerWorkspace, selectConsumerWorkspace, getDistributionHome, getDistributionEffectiveTeam, getDistributionInvitationAccount } from './api'
+
+describe('consumer app workspace api', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('sends authenticated workspace selection and scopes all earnings reads', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ selected: 'TIMO', apps: [] }) })
+    vi.stubGlobal('fetch', fetchMock)
+    await getConsumerWorkspace(42, 'token')
+    await selectConsumerWorkspace(42, 'token', 'TIMO')
+    await getDistributionHome(42, 'token', 'TIMO')
+    await getDistributionEffectiveTeam(42, 'token', 'TIMO')
+    await getDistributionInvitationAccount(42, 'token', 1, 20, 'TIMO')
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      '/api/distribution/workspaces/42',
+      '/api/distribution/workspaces/42',
+      '/api/distribution/home/42?platformCode=TIMO',
+      '/api/distribution/team/42/effective?platformCode=TIMO',
+      '/api/distribution/accounts/42?page=1&size=20&platformCode=TIMO',
+    ])
+    expect(fetchMock.mock.calls[1][1]).toEqual(expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ platformCode: 'TIMO' }),
+      headers: expect.objectContaining({ 'X-Distribution-Token': 'token' }),
+    }))
+  })
+})
 import { addAdminSmsDailyWhitelistNumber, applyAdminRiskEventBatchAction, applyAdminWithdrawBatchAction, approveAdminWithdrawRequest, approveWithdrawForPayment, correctAdminOwnership, createAdminPlatformGuildOperatingShareRate, createAdminSession, createExperiment, createWithdrawRequest, disableAdminUserPasswordLogin, getAdminGuildConfigs, getAdminGuildWeeklyReport, getAdminMentorAssignedStudents, getAdminOwnership, getAdminPlatformGuildDirectory, getAdminPlatformGuildDirectorySyncRuns, getAdminPlatformIntegrations, getAdminSeedInviters, getAdminSmsDailyWhitelist, getAdminSmsDeliveryStatus, getAdminWithdrawRequests, getDistributionRewardSummary, getDistributionTeamWeeklyIncome, getExperimentDashboard, getWithdrawHistory, issuePhoneCode, logoutUserSession, passwordLogin, phoneLogin, recordWithdrawPayment, refreshAdminLinkyEligibility, refreshAdminLinkyEligibilityBatch, rejectAdminWithdrawRequest, removeAdminSmsDailyWhitelistNumber, reverseWithdrawPayment, saveAdminGuildConfig, setAdminUserPasswordLogin, updateAdminSmsDeliveryStatus, updateAdminUserCountry } from './api'
 
 describe('ownership admin api', () => {

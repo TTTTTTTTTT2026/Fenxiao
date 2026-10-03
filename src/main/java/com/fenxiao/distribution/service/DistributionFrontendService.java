@@ -61,23 +61,31 @@ public class DistributionFrontendService {
     }
 
     public DistributionHomeResponse getHome(Long userId) {
+        return getHome(userId, null);
+    }
+
+    public DistributionHomeResponse getHome(Long userId, String platformCode) {
         UserDistributionProfile profile = userDistributionProfileRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("distribution profile not found"));
         DistributionRelation relation = distributionRelationRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("distribution relation not found"));
-        List<DistributionRelation> directRelations = distributionRelationRepository.findByLevel1InviterIdOrderByIdDesc(userId);
-        List<DistributionRelation> secondLevelRelations = distributionRelationRepository.findByLevel2InviterIdOrderByIdDesc(userId);
-        List<DistributionRelation> thirdLevelRelations = distributionRelationRepository.findByLevel3InviterIdOrderByIdDesc(userId);
+        List<DistributionRelation> directRelations = scopedRelations(distributionRelationRepository.findByLevel1InviterIdOrderByIdDesc(userId), platformCode);
+        List<DistributionRelation> secondLevelRelations = scopedRelations(distributionRelationRepository.findByLevel2InviterIdOrderByIdDesc(userId), platformCode);
+        List<DistributionRelation> thirdLevelRelations = scopedRelations(distributionRelationRepository.findByLevel3InviterIdOrderByIdDesc(userId), platformCode);
 
-        long directEffectiveUsers = resolveEffectiveUsers(directRelations);
-        long secondLevelEffectiveUsers = resolveEffectiveUsers(secondLevelRelations);
-        long thirdLevelEffectiveUsers = resolveEffectiveUsers(thirdLevelRelations);
+        long directEffectiveUsers = platformCode == null ? resolveEffectiveUsers(directRelations) : qualifiedUserIds(directRelations, platformCode).size();
+        long secondLevelEffectiveUsers = platformCode == null ? resolveEffectiveUsers(secondLevelRelations) : qualifiedUserIds(secondLevelRelations, platformCode).size();
+        long thirdLevelEffectiveUsers = platformCode == null ? resolveEffectiveUsers(thirdLevelRelations) : qualifiedUserIds(thirdLevelRelations, platformCode).size();
         long totalTeamUsers = directRelations.size() + secondLevelRelations.size() + thirdLevelRelations.size();
         long totalEffectiveUsers = directEffectiveUsers + secondLevelEffectiveUsers + thirdLevelEffectiveUsers;
-        BigDecimal totalReward = rewardRecordRepository.sumRewardAmountByBeneficiaryUserId(userId);
-        BigDecimal frozenReward = rewardRecordRepository.sumRewardAmountByBeneficiaryUserIdAndStatus(userId, RewardStatus.FROZEN);
-        BigDecimal availableReward = rewardRecordRepository.sumWithdrawableRewardAmountByBeneficiaryUserId(userId);
-        BigDecimal riskHoldReward = rewardRecordRepository.sumRewardAmountByBeneficiaryUserIdAndStatus(userId, RewardStatus.RISK_HOLD);
+        BigDecimal totalReward = platformCode == null ? rewardRecordRepository.sumRewardAmountByBeneficiaryUserId(userId)
+                : scopedLedgerSum(userId, platformCode, "frozen_delta+available_delta");
+        BigDecimal frozenReward = platformCode == null ? rewardRecordRepository.sumRewardAmountByBeneficiaryUserIdAndStatus(userId, RewardStatus.FROZEN)
+                : scopedLedgerSum(userId, platformCode, "frozen_delta");
+        BigDecimal availableReward = platformCode == null ? rewardRecordRepository.sumWithdrawableRewardAmountByBeneficiaryUserId(userId)
+                : scopedLedgerSum(userId, platformCode, "available_delta");
+        BigDecimal riskHoldReward = platformCode == null ? rewardRecordRepository.sumRewardAmountByBeneficiaryUserIdAndStatus(userId, RewardStatus.RISK_HOLD)
+                : BigDecimal.ZERO;
 
         return new DistributionHomeResponse(
                 userId,
@@ -97,19 +105,23 @@ public class DistributionFrontendService {
                 secondLevelEffectiveUsers,
                 thirdLevelEffectiveUsers,
                 totalEffectiveUsers,
-                userGradeCode(userId)
+                userGradeCode(userId, platformCode)
         );
     }
 
-    private String userGradeCode(Long userId) {
+    private String userGradeCode(Long userId, String platformCode) {
         try {
-            List<String> grades = jdbc.query("""
+            String scope = platformCode == null ? "" : " and platform_code=?";
+            String query = """
                     select grade_code from user_grade_evaluation
-                    where user_id=? and qualification_status='QUALIFIED'
+                    where user_id=? and qualification_status='QUALIFIED' %s
                     union all
                     select target_grade_code from user_grade_advancement_review
-                    where user_id=? and promotion_confirmed_at is not null
-                    """, (rs, rowNum) -> rs.getString(1), userId, userId);
+                    where user_id=? and promotion_confirmed_at is not null %s
+                    """.formatted(scope, scope);
+            List<String> grades = platformCode == null
+                    ? jdbc.query(query, (rs, rowNum) -> rs.getString(1), userId, userId)
+                    : jdbc.query(query, (rs, rowNum) -> rs.getString(1), userId, platformCode, userId, platformCode);
             return grades.stream()
                     .max(java.util.Comparator.comparingInt(this::gradeRank))
                     .orElse("NORMAL_MEMBER");
@@ -154,16 +166,20 @@ public class DistributionFrontendService {
     }
 
     public com.fenxiao.distribution.api.dto.EffectiveTeamResponse getEffectiveTeam(Long userId) {
+        return getEffectiveTeam(userId, null);
+    }
+
+    public com.fenxiao.distribution.api.dto.EffectiveTeamResponse getEffectiveTeam(Long userId, String platformCode) {
         userDistributionProfileRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("distribution profile not found"));
-        List<DistributionRelation> direct = distributionRelationRepository.findByLevel1InviterIdOrderByIdDesc(userId);
-        List<DistributionRelation> second = distributionRelationRepository.findByLevel2InviterIdOrderByIdDesc(userId);
-        List<DistributionRelation> third = distributionRelationRepository.findByLevel3InviterIdOrderByIdDesc(userId);
+        List<DistributionRelation> direct = scopedRelations(distributionRelationRepository.findByLevel1InviterIdOrderByIdDesc(userId), platformCode);
+        List<DistributionRelation> second = scopedRelations(distributionRelationRepository.findByLevel2InviterIdOrderByIdDesc(userId), platformCode);
+        List<DistributionRelation> third = scopedRelations(distributionRelationRepository.findByLevel3InviterIdOrderByIdDesc(userId), platformCode);
         List<DistributionRelation> all = new ArrayList<>(direct);
         all.addAll(second);
         all.addAll(third);
         Map<Long, UserDistributionProfile> users = loadProfileMap(all);
-        Set<Long> qualified = qualifiedUserIds(all);
+        Set<Long> qualified = qualifiedUserIds(all, platformCode);
         List<com.fenxiao.distribution.api.dto.EffectiveTeamResponse.Item> items = new ArrayList<>();
         for (int level = 1; level <= 3; level++) {
             List<DistributionRelation> relations = level == 1 ? direct : level == 2 ? second : third;
@@ -276,12 +292,31 @@ public class DistributionFrontendService {
                 .count();
     }
 
-    private Set<Long> qualifiedUserIds(List<DistributionRelation> relations) {
+    private Set<Long> qualifiedUserIds(List<DistributionRelation> relations, String platformCode) {
         if (relations.isEmpty()) return Set.of();
         List<Long> ids = relations.stream().map(DistributionRelation::getUserId).distinct().toList();
         String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
-        return new HashSet<>(jdbc.query("select distinct user_id from effective_user_qualification_fact where qualification_status='QUALIFIED' and user_id in (" + placeholders + ")",
-                (rs, row) -> rs.getLong(1), ids.toArray()));
+        String query = "select distinct user_id from effective_user_qualification_fact where qualification_status='QUALIFIED' and user_id in (" + placeholders + ")";
+        List<Object> args = new ArrayList<>(ids);
+        if (platformCode != null) { query += " and platform_code=?"; args.add(platformCode); }
+        return new HashSet<>(jdbc.query(query, (rs, row) -> rs.getLong(1), args.toArray()));
+    }
+
+    private List<DistributionRelation> scopedRelations(List<DistributionRelation> relations, String platformCode) {
+        if (platformCode == null || relations.isEmpty()) return relations;
+        List<Long> ids = relations.stream().map(DistributionRelation::getUserId).distinct().toList();
+        String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
+        String query = platformCode.equals("TIMO")
+                ? "select user_id from platform_account_binding where platform_code='TIMO' and binding_status='VERIFIED' and user_id in (" + placeholders + ")"
+                : "select user_id from linky_account_binding where registration_eligibility='ELIGIBLE' and guild_check_status='MATCHED_OURS' and user_id in (" + placeholders + ")";
+        Set<Long> bound = new HashSet<>(jdbc.query(query, (rs, row) -> rs.getLong(1), ids.toArray()));
+        return relations.stream().filter(relation -> bound.contains(relation.getUserId())).toList();
+    }
+
+    private BigDecimal scopedLedgerSum(Long userId, String platformCode, String expression) {
+        BigDecimal sum = jdbc.queryForObject("select coalesce(sum(" + expression + "),0) from invitation_reward_account_ledger where user_id=? and platform_code=?",
+                BigDecimal.class, userId, platformCode);
+        return sum == null ? BigDecimal.ZERO : sum;
     }
 
     private Map<Long, UserDistributionProfile> loadProfileMap(List<DistributionRelation> relations) {
