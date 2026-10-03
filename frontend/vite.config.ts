@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 const allowedHosts = ['localhost', '127.0.0.1', '.trycloudflare.com']
+const apiProxyTarget = process.env.API_PROXY_TARGET || 'http://127.0.0.1:8080'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -9,9 +10,9 @@ export default defineConfig({
   server: {
     allowedHosts,
     proxy: {
-      '/api': 'http://127.0.0.1:8080',
+      '/api': apiProxyTarget,
       // `/admin` is the React admin page. Only `/admin/...` is a backend API prefix.
-      '^/admin/.+': 'http://127.0.0.1:8080',
+      '^/admin/.+': apiProxyTarget,
     },
   },
   preview: {
