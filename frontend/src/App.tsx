@@ -39,6 +39,7 @@ import loginHeroId1600 from './assets/login-hero/login-hero-id-v1-1600.webp'
 import loginHeroPt800 from './assets/login-hero/login-hero-pt-BR-v1-800.webp'
 import loginHeroPt1600 from './assets/login-hero/login-hero-pt-BR-v1-1600.webp'
 import { isAvatarValidationError, prepareAvatarDataUrl } from './avatarUpload'
+import { resolveConsumerAccountWorkspace } from './consumerWorkspaceView'
 import {
   adjustAdminRelation,
   applyAdminRiskEventAction,
@@ -88,6 +89,8 @@ import {
   getAdminWithdrawRequests,
   getExperimentDashboard,
   getDistributionHome,
+  getConsumerWorkspace,
+  selectConsumerWorkspace,
   getDistributionEffectiveTeam,
   getDistributionInvitationAccount,
   getUserPublicProfile,
@@ -169,6 +172,7 @@ import {
   type AdminSecurityEventResponse,
   type AuditLogListResponse,
   type DistributionHomeResponse,
+  type ConsumerWorkspaceResponse,
   type InvitationRewardAccountResponse,
   type ExperimentDashboardResponse,
   type GuildConfigRequest,
@@ -6307,6 +6311,18 @@ function normalizeLocalPhoneNumber(value: string, callingCode: string) {
 
 type ConsumerLocale = 'zh' | 'en' | 'es' | 'id' | 'pt'
 
+const workspaceCopy: Record<ConsumerLocale, { title: string; dialogTitle: string; hint: string; choose: string; current: string; enter: string; bind: string; close: string; loading: string; error: string; emptyTitle: (app: string) => string; emptyHint: (app: string) => string; appSummary: (app: string) => string; bannerDescription: (app: string) => string; switchOtherApp: string }> = {
+  zh: { title: '切换应用工作区', dialogTitle: '切换工作区', hint: '只切换查看的数据；邀请关系和账户归属不变。', choose: '选择应用', current: '当前工作区', enter: '切换工作区', bind: '去绑定', close: '关闭', loading: '读取应用状态中…', error: '应用状态暂不可用，请稍后重试。', emptyTitle: (app) => `${app} 账号尚未绑定`, emptyHint: (app) => `当前仅显示${app}的相关数据。绑定并通过核验后，才能查看该应用的收益与邀请数据。`, appSummary: (app) => `当前查看 ${app} 的用户和邀请收入`, bannerDescription: (app) => `当前仅显示${app}的相关数据。`, switchOtherApp: '切换其他应用' },
+  en: { title: 'Switch app workspace', dialogTitle: 'Switch workspace', hint: 'Only your view changes; invitation relationships and account ownership stay the same.', choose: 'Choose an app', current: 'Current workspace', enter: 'Switch workspace', bind: 'Bind account', close: 'Close', loading: 'Loading app status…', error: 'App status is unavailable. Try again later.', emptyTitle: (app) => `${app} is not bound yet`, emptyHint: (app) => `Only ${app} data is shown here. Bind and verify this account to view its earnings and invitation data.`, appSummary: (app) => `Viewing ${app} users and invitation income`, bannerDescription: (app) => `Showing only data related to ${app}.`, switchOtherApp: 'Switch to another app' },
+  es: { title: 'Cambiar espacio de aplicación', dialogTitle: 'Cambiar espacio', hint: 'Solo cambia la vista; tus invitaciones y tu cuenta no cambian.', choose: 'Elegir aplicación', current: 'Espacio actual', enter: 'Cambiar espacio', bind: 'Vincular', close: 'Cerrar', loading: 'Cargando estados…', error: 'Los estados no están disponibles. Inténtalo más tarde.', emptyTitle: (app) => `${app} aún no está vinculado`, emptyHint: (app) => `Aquí solo se muestran los datos de ${app}. Vincula y verifica la cuenta para ver sus ganancias e invitaciones.`, appSummary: (app) => `Viendo usuarios e ingresos por invitación de ${app}`, bannerDescription: (app) => `Solo se muestran los datos relacionados con ${app}.`, switchOtherApp: 'Cambiar a otra aplicación' },
+  id: { title: 'Ganti ruang kerja aplikasi', dialogTitle: 'Ganti ruang kerja', hint: 'Hanya tampilan yang berubah; relasi undangan dan kepemilikan akun tetap sama.', choose: 'Pilih aplikasi', current: 'Ruang kerja saat ini', enter: 'Ganti ruang kerja', bind: 'Hubungkan', close: 'Tutup', loading: 'Memuat status aplikasi…', error: 'Status aplikasi tidak tersedia. Coba lagi nanti.', emptyTitle: (app) => `Akun ${app} belum terhubung`, emptyHint: (app) => `Hanya data ${app} yang ditampilkan. Hubungkan dan verifikasi akun untuk melihat penghasilan dan undangannya.`, appSummary: (app) => `Melihat pengguna dan penghasilan undangan ${app}`, bannerDescription: (app) => `Hanya menampilkan data terkait ${app}.`, switchOtherApp: 'Beralih ke aplikasi lain' },
+  pt: { title: 'Trocar área do aplicativo', dialogTitle: 'Trocar área', hint: 'Apenas a visualização muda; convites e titularidade da conta permanecem iguais.', choose: 'Escolher aplicativo', current: 'Área atual', enter: 'Trocar área', bind: 'Vincular', close: 'Fechar', loading: 'Carregando status…', error: 'Status indisponível. Tente novamente.', emptyTitle: (app) => `${app} ainda não está vinculado`, emptyHint: (app) => `Somente os dados do ${app} aparecem aqui. Vincule e valide a conta para ver os ganhos e convites.`, appSummary: (app) => `Visualizando usuários e ganhos por convite do ${app}`, bannerDescription: (app) => `Exibindo apenas dados relacionados ao ${app}.`, switchOtherApp: 'Trocar para outro aplicativo' },
+}
+
+function consumerAppName(code: 'TIMO' | 'LINKY') {
+  return code === 'TIMO' ? 'Timo' : 'Linky'
+}
+
 const consumerLoginHero: Record<ConsumerLocale, { small: string; large: string; alt: string }> = {
   zh: { small: loginHeroZh800, large: loginHeroZh1600, alt: '恭喜你！🎉 从女用户成长为长期收益的管理者。' },
   en: { small: loginHeroEn800, large: loginHeroEn1600, alt: 'Congratulations! 🎉 From female user to manager with long-term earnings.' },
@@ -6576,6 +6592,7 @@ function InviteCodePage() {
       const nextSession = saveUserSession(profile)
       setSession(nextSession)
       setPhoneForm({ ...phoneForm, inviteCode: profile.inviteCode, countryCode: profile.countryCode, languageCode: profile.languageCode })
+      window.location.assign('/app')
     } catch (err) {
       setError(localizeInviteOperationError(err, locale, 'signIn'))
     } finally {
@@ -6599,6 +6616,7 @@ function InviteCodePage() {
       const profile = await passwordLogin({ phoneNumber: phoneNumberForSubmission, password: loginPassword })
       setSession(saveUserSession(profile))
       setLoginPassword('')
+      window.location.assign('/app')
     } catch {
       setError(passwordCopy.failure)
     } finally {
@@ -6711,6 +6729,10 @@ function InviteCodePage() {
 function AccountPage() {
   const [session, setSession] = useState<SessionState | null>(() => loadJsonState<SessionState>(STORAGE_KEY))
   const [locale, setLocale] = useState<ConsumerLocale>(() => loadExternalLocale())
+  const [workspace, setWorkspace] = useState<ConsumerWorkspaceResponse | null>(null)
+  const [workspaceError, setWorkspaceError] = useState(false)
+  const [workspaceDialogOpen, setWorkspaceDialogOpen] = useState(false)
+  const [switchingWorkspace, setSwitchingWorkspace] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
   const [linkyBinding, setLinkyBinding] = useState<LinkyAccountBindingResponse | null>(null)
   const [timoBinding, setTimoBinding] = useState<PlatformBindingResponse | null>(null)
@@ -6721,6 +6743,8 @@ function AccountPage() {
   const [userGradeCode, setUserGradeCode] = useState('NORMAL_MEMBER')
   const copy = consumerAccountCopy[locale]
   const timoCopy = timoBindingCopy[locale]
+  const workCopy = workspaceCopy[locale]
+  const accountWorkspace = resolveConsumerAccountWorkspace(workspace)
 
   useEffect(() => {
     if (typeof window !== 'undefined') window.localStorage.setItem(EXTERNAL_LOCALE_KEY, locale)
@@ -6729,6 +6753,9 @@ function AccountPage() {
   useEffect(() => {
     if (!session) return
     let active = true
+    void getConsumerWorkspace(session.userId, session.accessToken)
+      .then((value) => { if (active) setWorkspace(value) })
+      .catch(() => { if (active) setWorkspaceError(true) })
     void getVerifiedLinkyAccountBinding(session.userId, session.accessToken)
       .then((value) => { if (active) setLinkyBinding(value) })
       .catch((error) => { if (active) { setLinkyBinding(null); setLinkyStatusError(!String(error).includes('verified Linky binding not found')) } })
@@ -6757,6 +6784,20 @@ function AccountPage() {
           : timoBinding?.status === 'REJECTED' ? statusCopy.rejected : statusCopy.unbound
   const linkyStatus = linkyStatusLoading ? statusCopy.loading : linkyStatusError ? statusCopy.error
     : linkyBinding?.status === 'VERIFIED' ? statusCopy.verified : statusCopy.unbound
+
+  async function handleSwitchWorkspace(platformCode: 'TIMO' | 'LINKY') {
+    if (!session || switchingWorkspace) return
+    setSwitchingWorkspace(true)
+    setWorkspaceError(false)
+    try {
+      const next = await selectConsumerWorkspace(session.userId, session.accessToken, platformCode)
+      setWorkspace(next)
+      window.location.assign('/earnings')
+    } catch {
+      setWorkspaceError(true)
+      setSwitchingWorkspace(false)
+    }
+  }
 
   async function handleSignOut() {
     if (!session || signingOut) return
@@ -6797,14 +6838,30 @@ function AccountPage() {
             <section className="consumer-settings-card consumer-platform-card">
               <div className="consumer-platform-card-head"><span className="consumer-platform-icon"><LinkSimple weight="bold" aria-hidden="true" /></span><div><h2>{copy.platform}</h2></div></div>
               <div className="consumer-platform-account-list">
-                <div className="consumer-platform-account-row"><div><strong>{copy.linkyTitle}</strong><span className="consumer-platform-status" role="status">{linkyStatus}{linkyBinding?.status === 'VERIFIED' ? ` · ${linkyBinding.linkyAccount}` : ''}</span></div>{linkyBinding?.status === 'VERIFIED' ? <CheckCircle weight="fill" className="consumer-status-check" aria-hidden="true" /> : <a className="consumer-secondary-link" href="/account/linky">{linkyStatusLoading ? statusCopy.loading : copy.bindLinky}<ArrowRight weight="bold" aria-hidden="true" /></a>}</div>
-                <div className="consumer-platform-account-row"><div><strong>{timoCopy.open}</strong><span className="consumer-platform-status" role="status">{timoStatus}{timoBinding?.platformUserId ? ` · ${timoBinding.platformUserId}` : ''}</span></div>{timoBinding?.status === 'VERIFIED' ? <CheckCircle weight="fill" className="consumer-status-check" aria-hidden="true" /> : <a className="consumer-secondary-link" href="/account/timo">{timoBinding ? statusCopy.view : timoStatusLoading ? statusCopy.loading : timoCopy.open}<ArrowRight weight="bold" aria-hidden="true" /></a>}</div>
+                {accountWorkspace.visibleBindings.includes('LINKY') ? <div className="consumer-platform-account-row"><div><strong>{copy.linkyTitle}</strong><span className="consumer-platform-status" role="status">{linkyStatus}{linkyBinding?.status === 'VERIFIED' ? ` · ${linkyBinding.linkyAccount}` : ''}</span></div>{linkyBinding?.status === 'VERIFIED' ? <CheckCircle weight="fill" className="consumer-status-check" aria-hidden="true" /> : <a className="consumer-secondary-link" href="/account/linky">{linkyStatusLoading ? statusCopy.loading : copy.bindLinky}<ArrowRight weight="bold" aria-hidden="true" /></a>}</div> : null}
+                {accountWorkspace.visibleBindings.includes('TIMO') ? <div className="consumer-platform-account-row"><div><strong>{timoCopy.open}</strong><span className="consumer-platform-status" role="status">{timoStatus}{timoBinding?.platformUserId ? ` · ${timoBinding.platformUserId}` : ''}</span></div>{timoBinding?.status === 'VERIFIED' ? <CheckCircle weight="fill" className="consumer-status-check" aria-hidden="true" /> : <a className="consumer-secondary-link" href="/account/timo">{timoBinding ? statusCopy.view : timoStatusLoading ? statusCopy.loading : timoCopy.open}<ArrowRight weight="bold" aria-hidden="true" /></a>}</div> : null}
+                {!workspace ? <p>{workspaceError ? workCopy.error : workCopy.loading}</p> : null}
               </div>
             </section>
+            {accountWorkspace.canSwitch ? <section className="consumer-settings-card consumer-workspace-card">
+              <button className="consumer-workspace-trigger" type="button" onClick={() => setWorkspaceDialogOpen(true)} aria-haspopup="dialog"><span>{workCopy.title}</span><strong>{consumerAppName(accountWorkspace.selected!)}</strong><CaretRight weight="bold" aria-hidden="true" /></button>
+              {workspaceError ? <p className="consumer-workspace-error" role="alert">{workCopy.error}</p> : null}
+            </section> : null}
             <section className="consumer-settings-card consumer-security-card">
               <div className="consumer-security-copy"><span className="consumer-security-icon"><ShieldCheck weight="duotone" aria-hidden="true" /></span><div><h2>{copy.security}</h2><p>{copy.signOutHint}</p></div></div>
               <button className="consumer-sign-out-button" type="button" onClick={() => void handleSignOut()} disabled={signingOut}><SignOut weight="bold" aria-hidden="true" />{signingOut ? copy.signingOut : copy.signOut}</button>
             </section>
+            {workspaceDialogOpen && accountWorkspace.canSwitch ? <div className="consumer-modal-backdrop" onClick={() => setWorkspaceDialogOpen(false)}>
+              <section className="consumer-workspace-dialog" role="dialog" aria-modal="true" aria-label={workCopy.dialogTitle} onClick={(event) => event.stopPropagation()}>
+                <h2>{workCopy.dialogTitle}</h2>
+                {workspace ? (['TIMO', 'LINKY'] as const).map((code) => {
+                  const status = code === 'TIMO' ? timoStatus : linkyStatus
+                  return <div className="consumer-workspace-option" key={code}><div><strong>{consumerAppName(code)}</strong><small>{status}{workspace.selected === code ? ` · ${workCopy.current}` : ''}</small></div>
+                    <button type="button" disabled={switchingWorkspace || workspace.selected === code} onClick={() => void handleSwitchWorkspace(code)}>{workspace.selected === code ? workCopy.current : workCopy.enter}</button></div>
+                }) : <p>{workspaceError ? workCopy.error : workCopy.loading}</p>}
+                <button className="consumer-workspace-close" type="button" onClick={() => setWorkspaceDialogOpen(false)}>{workCopy.close}</button>
+              </section>
+            </div> : null}
           </>
         ) : (
           <section className="consumer-auth-gate"><div className="consumer-auth-icon"><LockSimple weight="duotone" aria-hidden="true" /></div><h1>{copy.signInTitle}</h1><p>{copy.signInHint}</p><a className="consumer-primary-link" href="/invite#phone-login">{copy.signIn}<ArrowRight weight="bold" aria-hidden="true" /></a></section>
@@ -7018,6 +7075,8 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   const [team, setTeam] = useState<EffectiveTeamResponse | null>(null)
   const [wallet, setWallet] = useState<InvitationRewardAccountResponse | null>(null)
   const [profile, setProfile] = useState<UserPublicProfileResponse | null>(null)
+  const [selectedPlatform, setSelectedPlatform] = useState<'TIMO' | 'LINKY' | null>(null)
+  const [selectedPlatformVerified, setSelectedPlatformVerified] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showBalance, setShowBalance] = useState(true)
@@ -7026,7 +7085,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   const copy = externalPageCopyByLocale[locale]
   const walletCopy = {
     zh: {
-      available: '已解冻积分', frozen: '冻结中', total: '账户净额', withdraw: '管理收益提现', income: '邀请奖励', direct: '直接邀请奖励', indirect: '间接邀请奖励', release: '到期解冻', revision: '收入修订', records: '账户流水', sourceUser: '来自用户', unit: '积分', diamondUnit: '钻石',
+      available: '本应用已解冻积分', frozen: '本应用冻结中', total: '本应用奖励净额', withdraw: '管理收益提现', income: '邀请奖励', direct: '直接邀请奖励', indirect: '间接邀请奖励', release: '到期解冻', revision: '收入修订', records: '应用奖励流水', sourceUser: '来自用户', unit: '积分', diamondUnit: '钻石',
       signIn: '登录', greeting: '早上好，伙伴！', greetingSubtitle: '每一次有效邀请，都在积累你的收入。', notificationLabel: '查看奖励记录', hideBalance: '隐藏余额', showBalance: '显示余额',
       growthTitle: '新星邀请人', growthBefore: '再邀请 ', growthAfter: ' 位有效用户，即可完成本阶段目标', growthDone: '本阶段目标已完成，继续保持增长',
       inviteOverview: '邀请概览（本周）', invitedUsers: '已邀请用户', actionsTitle: '今天怎么推进收益', actionsCount: '4 个关键动作',
@@ -7036,7 +7095,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
       loadFailure: '收益加载失败，请稍后重试。', sessionExpired: '登录状态已过期，请重新登录。', activityLoadFailure: '账户流水加载失败，请稍后重试。',
     },
     en: {
-      available: 'Unlocked points', frozen: 'Frozen', total: 'Account balance', withdraw: 'Manage earnings withdrawals', income: 'Invitation income', direct: 'Direct invitation income', indirect: 'Indirect invitation income', release: 'Unlocked', revision: 'Income adjustment', records: 'Account activity', sourceUser: 'From user', unit: 'points', diamondUnit: 'diamonds',
+      available: 'App unlocked points', frozen: 'App frozen points', total: 'App reward balance', withdraw: 'Manage earnings withdrawals', income: 'Invitation income', direct: 'Direct invitation income', indirect: 'Indirect invitation income', release: 'Unlocked', revision: 'Income adjustment', records: 'App reward activity', sourceUser: 'From user', unit: 'points', diamondUnit: 'diamonds',
       signIn: 'Sign in', greeting: 'Good morning, partner!', greetingSubtitle: 'Every eligible invitation helps your earnings grow.', notificationLabel: 'View reward activity', hideBalance: 'Hide balance', showBalance: 'Show balance',
       growthTitle: 'Rising Star inviter', growthBefore: 'Invite ', growthAfter: ' more eligible users to reach this stage’s goal', growthDone: 'Stage goal reached. Keep growing!',
       inviteOverview: 'Invitation overview (this week)', invitedUsers: 'Users invited', actionsTitle: 'Grow your earnings today', actionsCount: '4 key actions',
@@ -7046,7 +7105,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
       loadFailure: 'Could not load earnings. Try again later.', sessionExpired: 'Your session has expired. Sign in again.', activityLoadFailure: 'Could not load account activity. Try again later.',
     },
     es: {
-      available: 'Puntos liberados', frozen: 'Congelados', total: 'Saldo de cuenta', withdraw: 'Gestionar retiros', income: 'Ingreso por invitación', direct: 'Invitación directa', indirect: 'Invitación indirecta', release: 'Liberados', revision: 'Ajuste de ingresos', records: 'Movimientos', sourceUser: 'Del usuario', unit: 'puntos', diamondUnit: 'diamantes',
+      available: 'Puntos liberados de la app', frozen: 'Congelados de la app', total: 'Saldo de recompensas de la app', withdraw: 'Gestionar retiros', income: 'Ingreso por invitación', direct: 'Invitación directa', indirect: 'Invitación indirecta', release: 'Liberados', revision: 'Ajuste de ingresos', records: 'Movimientos de la app', sourceUser: 'Del usuario', unit: 'puntos', diamondUnit: 'diamantes',
       signIn: 'Iniciar sesión', greeting: '¡Buenos días!', greetingSubtitle: 'Cada invitación válida ayuda a aumentar tus ingresos.', notificationLabel: 'Ver movimientos de recompensas', hideBalance: 'Ocultar saldo', showBalance: 'Mostrar saldo',
       growthTitle: 'Invitador Nueva Estrella', growthBefore: 'Invita a ', growthAfter: ' usuarios válidos más para alcanzar la meta de esta etapa', growthDone: '¡Meta alcanzada! Sigue creciendo.',
       inviteOverview: 'Resumen de invitaciones (esta semana)', invitedUsers: 'Usuarios invitados', actionsTitle: 'Impulsa tus ingresos hoy', actionsCount: '4 acciones clave',
@@ -7056,7 +7115,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
       loadFailure: 'No se pudieron cargar los ingresos. Inténtalo más tarde.', sessionExpired: 'Tu sesión caducó. Inicia sesión de nuevo.', activityLoadFailure: 'No se pudieron cargar los movimientos. Inténtalo más tarde.',
     },
     id: {
-      available: 'Poin tersedia', frozen: 'Dibekukan', total: 'Saldo akun', withdraw: 'Kelola penarikan', income: 'Pendapatan undangan', direct: 'Undangan langsung', indirect: 'Undangan tidak langsung', release: 'Dibuka', revision: 'Penyesuaian pendapatan', records: 'Riwayat akun', sourceUser: 'Dari pengguna', unit: 'poin', diamondUnit: 'berlian',
+      available: 'Poin tersedia aplikasi', frozen: 'Poin dibekukan aplikasi', total: 'Saldo imbalan aplikasi', withdraw: 'Kelola penarikan', income: 'Pendapatan undangan', direct: 'Undangan langsung', indirect: 'Undangan tidak langsung', release: 'Dibuka', revision: 'Penyesuaian pendapatan', records: 'Riwayat imbalan aplikasi', sourceUser: 'Dari pengguna', unit: 'poin', diamondUnit: 'berlian',
       signIn: 'Masuk', greeting: 'Selamat pagi!', greetingSubtitle: 'Setiap undangan yang valid membantu meningkatkan penghasilanmu.', notificationLabel: 'Lihat riwayat imbalan', hideBalance: 'Sembunyikan saldo', showBalance: 'Tampilkan saldo',
       growthTitle: 'Pengundang Bintang Baru', growthBefore: 'Undang ', growthAfter: ' pengguna valid lagi untuk mencapai target tahap ini', growthDone: 'Target tahap ini tercapai. Terus berkembang!',
       inviteOverview: 'Ringkasan undangan (minggu ini)', invitedUsers: 'Pengguna yang diundang', actionsTitle: 'Tingkatkan penghasilan hari ini', actionsCount: '4 tindakan utama',
@@ -7066,7 +7125,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
       loadFailure: 'Penghasilan tidak dapat dimuat. Coba lagi nanti.', sessionExpired: 'Sesi kamu sudah berakhir. Masuk lagi.', activityLoadFailure: 'Riwayat akun tidak dapat dimuat. Coba lagi nanti.',
     },
     pt: {
-      available: 'Pontos liberados', frozen: 'Congelados', total: 'Saldo da conta', withdraw: 'Gerenciar saques', income: 'Receita por convite', direct: 'Convite direto', indirect: 'Convite indireto', release: 'Liberados', revision: 'Ajuste de receita', records: 'Movimentações', sourceUser: 'Do usuário', unit: 'pontos', diamondUnit: 'diamantes',
+      available: 'Pontos liberados do app', frozen: 'Congelados do app', total: 'Saldo de recompensas do app', withdraw: 'Gerenciar saques', income: 'Receita por convite', direct: 'Convite direto', indirect: 'Convite indireto', release: 'Liberados', revision: 'Ajuste de receita', records: 'Movimentações do app', sourceUser: 'Do usuário', unit: 'pontos', diamondUnit: 'diamantes',
       signIn: 'Entrar', greeting: 'Bom dia!', greetingSubtitle: 'Cada convite válido ajuda a aumentar seus ganhos.', notificationLabel: 'Ver movimentações de recompensas', hideBalance: 'Ocultar saldo', showBalance: 'Mostrar saldo',
       growthTitle: 'Convidador Nova Estrela', growthBefore: 'Convide mais ', growthAfter: ' usuários válidos para atingir a meta desta etapa', growthDone: 'Meta desta etapa atingida. Continue crescendo!',
       inviteOverview: 'Visão geral dos convites (esta semana)', invitedUsers: 'Usuários convidados', actionsTitle: 'Como aumentar seus ganhos hoje', actionsCount: '4 ações importantes',
@@ -7096,10 +7155,17 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
       setLoading(true)
       setError('')
       try {
+        const workspace = await getConsumerWorkspace(session.userId, session.accessToken)
+        if (!workspace.selected) { window.location.assign('/account'); return }
+        const platformCode = workspace.selected
+        setSelectedPlatform(platformCode)
+        const verified = workspace.apps.some((app) => app.code === platformCode && app.verified)
+        setSelectedPlatformVerified(verified)
+        if (!verified) return
         const [homeData, teamData, walletData, profileData] = await Promise.all([
-          getDistributionHome(session.userId, session.accessToken),
-          getDistributionEffectiveTeam(session.userId, session.accessToken).catch(() => null),
-          getDistributionInvitationAccount(session.userId, session.accessToken),
+          getDistributionHome(session.userId, session.accessToken, platformCode),
+          getDistributionEffectiveTeam(session.userId, session.accessToken, platformCode).catch(() => null),
+          getDistributionInvitationAccount(session.userId, session.accessToken, 0, 20, platformCode),
           getUserPublicProfile(session.userId, session.accessToken).catch(() => null),
         ])
         setHome(homeData)
@@ -7124,11 +7190,11 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   }, [session, view, walletCopy.loadFailure, walletCopy.sessionExpired])
 
   async function loadMoreWallet() {
-    if (!session || !wallet || wallet.items.length >= wallet.totalRecords) return
+    if (!session || !selectedPlatform || !wallet || wallet.items.length >= wallet.totalRecords) return
     setLoading(true)
     setError('')
     try {
-      const next = await getDistributionInvitationAccount(session.userId, session.accessToken, wallet.page + 1, wallet.size)
+      const next = await getDistributionInvitationAccount(session.userId, session.accessToken, wallet.page + 1, wallet.size, selectedPlatform)
       setWallet({ ...next, items: [...wallet.items, ...next.items] })
     } catch {
       setError(walletCopy.activityLoadFailure)
@@ -7161,12 +7227,23 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   const growthProgress = Math.min(100, Math.round((effectiveUsersThisView / growthTarget) * 100))
   const growthRemaining = Math.max(0, growthTarget - effectiveUsersThisView)
 
+  if (session && selectedPlatform && !selectedPlatformVerified) {
+    const appName = consumerAppName(selectedPlatform)
+    return <div className="consumer-app-page"><main className="consumer-shell consumer-detail-page">
+      <header className="consumer-topbar"><a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />BANDEIRA</a><ConsumerAccountLink locale={locale} /></header>
+      <div className="consumer-workspace-banner"><strong>{appName}</strong><span>{workspaceCopy[locale].bannerDescription(appName)}</span><a href="/account">{workspaceCopy[locale].switchOtherApp}</a></div>
+      <section className="consumer-auth-gate"><div className="consumer-auth-icon"><LinkSimple weight="duotone" aria-hidden="true" /></div><h1>{workspaceCopy[locale].emptyTitle(appName)}</h1><p>{workspaceCopy[locale].emptyHint(appName)}</p><a className="consumer-primary-link" href={selectedPlatform === 'TIMO' ? '/account/timo' : '/account/linky'}>{workspaceCopy[locale].bind}<ArrowRight weight="bold" aria-hidden="true" /></a></section>
+      <ConsumerBottomNavigation locale={locale} active="earnings" />
+    </main></div>
+  }
+
   if (view !== 'overview') {
     const detailTitle = view === 'effective' ? walletCopy.followAction : walletCopy.records
     return <div className="consumer-app-page"><main className="consumer-shell consumer-detail-page">
       <header className="consumer-topbar"><a className="consumer-brand" href="/earnings">BANDEIRA</a></header>
       <a className="consumer-detail-back" href="/earnings">← {consumerNavigationCopy[locale].earnings}</a>
       <section className="consumer-commercial-heading"><h1>{detailTitle}</h1></section>
+      {selectedPlatform ? <p className="consumer-workspace-banner">{workspaceCopy[locale].appSummary(consumerAppName(selectedPlatform))}</p> : null}
       {error ? <div className="consumer-banner is-error" role="alert">{error}</div> : null}
       {!session ? <a className="consumer-primary-link" href="/invite#phone-login">{walletCopy.signIn}</a> :
         view === 'effective' ? <section className="consumer-settings-card">
@@ -7212,6 +7289,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
         </header>
 
         {error ? <div className="consumer-banner is-error" role="alert">{error}</div> : null}
+        {selectedPlatform ? <div className="consumer-workspace-banner"><strong>{consumerAppName(selectedPlatform)}</strong><span>{workspaceCopy[locale].bannerDescription(consumerAppName(selectedPlatform))}</span><a href="/account">{workspaceCopy[locale].switchOtherApp}</a></div> : null}
 
         {!session ? (
           <section className="consumer-auth-gate">
@@ -7359,11 +7437,37 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   )
 }
 
+function ConsumerLandingPage() {
+  const [session] = useState<SessionState | null>(() => loadJsonState<SessionState>(STORAGE_KEY))
+  const [error, setError] = useState(false)
+  const locale = loadExternalLocale()
+  useEffect(() => {
+    if (!session) return
+    let active = true
+    void getConsumerWorkspace(session.userId, session.accessToken)
+      .then((workspace) => { if (active) window.location.replace(workspace.selected ? '/earnings' : '/account') })
+      .catch((error) => {
+        if (!active) return
+        if (/access denied|unauthorized|session/i.test(String(error))) {
+          window.localStorage.removeItem(STORAGE_KEY)
+          window.location.replace('/invite#phone-login')
+        } else setError(true)
+      })
+    return () => { active = false }
+  }, [session])
+  if (!session) return <InviteCodePage />
+  return <div className="consumer-app-page"><main className="consumer-shell consumer-form-shell"><section className="consumer-settings-card">
+    <h1>{error ? workspaceCopy[locale].error : workspaceCopy[locale].loading}</h1>
+    {error ? <a href="/app">{workspaceCopy[locale].choose}</a> : null}
+  </section></main></div>
+}
+
 function App() {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '/'
   const hostname = typeof window !== 'undefined' ? window.location.hostname : ''
   if (hostname === 'partner.bandeira.fandodo.online') return <PartnerPortal />
-  if (hostname === 'app.bandeira.fandodo.online' && (pathname === '/' || pathname.startsWith('/admin'))) return <InviteCodePage />
+  if (hostname === 'app.bandeira.fandodo.online' && (pathname === '/' || pathname.startsWith('/admin'))) return <ConsumerLandingPage />
+  if (pathname === '/app') return <ConsumerLandingPage />
   if (pathname.startsWith('/account/profile')) return <PublicProfilePage />
   if (pathname.startsWith('/account/timo')) return <TimoBindingPage />
   if (pathname.startsWith('/account/linky') || pathname.startsWith('/bind')) return <BindLandingPage />

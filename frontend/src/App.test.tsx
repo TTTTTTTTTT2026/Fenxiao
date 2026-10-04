@@ -1,6 +1,31 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import App, { ConsoleApp, formatBusinessRewardLevel, isLinkyGuildMismatch, localizeInviteOperationError, localizeLinkyBindingError, localizeTimoBindingError } from './App'
+import type { ConsumerWorkspaceResponse } from './api'
+import { resolveConsumerAccountWorkspace } from './consumerWorkspaceView'
+
+describe('consumer account workspace visibility', () => {
+  const apps: ConsumerWorkspaceResponse['apps'] = [
+    { code: 'TIMO', verified: false, verifiedAt: null },
+    { code: 'LINKY', verified: false, verifiedAt: null },
+  ]
+
+  it('shows both binding entrances and no switch when neither app is verified', () => {
+    expect(resolveConsumerAccountWorkspace({ selected: null, preferred: null, apps })).toEqual({
+      selected: null, visibleBindings: ['LINKY', 'TIMO'], canSwitch: false,
+    })
+  })
+
+  it('shows only the active app when a verified app exists', () => {
+    const boundApps = apps.map((app) => app.code === 'TIMO' ? { ...app, verified: true } : app)
+    expect(resolveConsumerAccountWorkspace({ selected: 'TIMO', preferred: null, apps: boundApps })).toEqual({
+      selected: 'TIMO', visibleBindings: ['TIMO'], canSwitch: true,
+    })
+    expect(resolveConsumerAccountWorkspace({ selected: 'LINKY', preferred: 'LINKY', apps: boundApps })).toEqual({
+      selected: 'LINKY', visibleBindings: ['LINKY'], canSwitch: true,
+    })
+  })
+})
 
 type FakeStorage = {
   getItem: (key: string) => string | null
@@ -111,13 +136,10 @@ describe('App external landing pages', () => {
     expect(markup).toContain('退出登录')
     expect(markup).toContain('consumer-sign-out-button')
     expect(markup).toContain('绑定平台账号')
-    expect(markup).toContain('绑定 Linky 账号')
-    expect(markup).toContain('绑定 Timo 账号')
+    expect(markup).toContain('读取应用状态中…')
+    expect(markup).not.toContain('切换应用工作区')
     expect(markup).not.toContain('绑定后，平台数据才能归入当前账户并进入奖励计算。')
     expect(markup).not.toContain('使用官方 12 位 Timo ID 完成归属核验。')
-    expect(markup).toContain('href="/account/timo"')
-    expect(markup).toContain('<a class="consumer-secondary-link" href="/account/timo"')
-    expect(markup).not.toContain('<a class="consumer-primary-link" href="/account/timo"')
   })
 
   it('renders a dedicated Timo binding page with a twelve-digit ID contract', () => {
@@ -845,7 +867,7 @@ describe('Earnings landing page', () => {
   it('renders reward activity without a permanent status tutorial', () => {
     const markup = renderToStaticMarkup(<App />)
 
-    expect(markup).toContain('账户流水')
+    expect(markup).toContain('应用奖励流水')
     expect(markup).toContain('全部记录')
     expect(markup).not.toContain('状态说明')
     expect(markup).not.toContain('冻结中：奖励正在等待结算')
@@ -856,7 +878,7 @@ describe('Earnings landing page', () => {
 
     expect(markup).toContain('已解冻积分')
     expect(markup).toContain('冻结中')
-    expect(markup).toContain('账户净额')
+    expect(markup).toContain('本应用奖励净额')
     expect(markup).not.toContain('来自你的下线成员累计确认收益。')
   })
 
@@ -865,7 +887,7 @@ describe('Earnings landing page', () => {
 
     expect(markup).toContain('href="/earnings/effective-users"')
     expect(markup).toContain('href="/earnings/activity"')
-    expect(markup).toContain('账户流水')
+    expect(markup).toContain('应用奖励流水')
     expect(markup).not.toContain('<details>')
     expect(markup).not.toContain('提现记录')
     expect(markup).not.toContain('冻结中 → 可结算 → 风险冻结')

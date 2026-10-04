@@ -371,6 +371,12 @@ export type DistributionHomeResponse = {
   userGradeCode: string
 }
 
+export type ConsumerWorkspaceResponse = {
+  selected: 'TIMO' | 'LINKY' | null
+  preferred: 'TIMO' | 'LINKY' | null
+  apps: Array<{ code: 'TIMO' | 'LINKY'; verified: boolean; verifiedAt: string | null }>
+}
+
 export type InvitationRewardAccountResponse = {
   userId: number
   unit: 'POINT'
@@ -1114,8 +1120,20 @@ export function getAdminDeviceSessions() { return request<AdminDeviceSessionResp
 export function revokeAdminDeviceSession(id: number) { return request<{ revoked: boolean }>(`/admin/accounts/me/sessions/${id}`, { method: 'DELETE' }) }
 export function getMyAdminSecurityEvents() { return request<AdminSecurityEventResponse[]>('/admin/accounts/me/security-events') }
 
-export function getDistributionHome(userId: number, accessToken: string) {
-  return request<DistributionHomeResponse>(`/api/distribution/home/${userId}`, {
+export function getConsumerWorkspace(userId: number, accessToken: string) {
+  return request<ConsumerWorkspaceResponse>(`/api/distribution/workspaces/${userId}`, {
+    headers: { 'X-Distribution-Token': accessToken },
+  })
+}
+
+export function selectConsumerWorkspace(userId: number, accessToken: string, platformCode: 'TIMO' | 'LINKY') {
+  return request<ConsumerWorkspaceResponse>(`/api/distribution/workspaces/${userId}`, {
+    method: 'POST', headers: { 'X-Distribution-Token': accessToken }, body: JSON.stringify({ platformCode }),
+  })
+}
+
+export function getDistributionHome(userId: number, accessToken: string, platformCode?: 'TIMO' | 'LINKY') {
+  return request<DistributionHomeResponse>(`/api/distribution/home/${userId}${platformCode ? `?platformCode=${platformCode}` : ''}`, {
     headers: {
       'X-Distribution-Token': accessToken,
     },
@@ -1140,8 +1158,8 @@ export function updateUserAvatar(userId: number, accessToken: string, dataUrl: s
   })
 }
 
-export function getDistributionInvitationAccount(userId: number, accessToken: string, page = 0, size = 20) {
-  return request<InvitationRewardAccountResponse>(`/api/distribution/accounts/${userId}?page=${page}&size=${size}`, {
+export function getDistributionInvitationAccount(userId: number, accessToken: string, page = 0, size = 20, platformCode?: 'TIMO' | 'LINKY') {
+  return request<InvitationRewardAccountResponse>(`/api/distribution/accounts/${userId}?page=${page}&size=${size}${platformCode ? `&platformCode=${platformCode}` : ''}`, {
     headers: { 'X-Distribution-Token': accessToken },
   })
 }
@@ -1160,8 +1178,8 @@ export function getDistributionTeam(userId: number, accessToken: string) {
   })
 }
 
-export function getDistributionEffectiveTeam(userId: number, accessToken: string) {
-  return request<EffectiveTeamResponse>(`/api/distribution/team/${userId}/effective`, {
+export function getDistributionEffectiveTeam(userId: number, accessToken: string, platformCode?: 'TIMO' | 'LINKY') {
+  return request<EffectiveTeamResponse>(`/api/distribution/team/${userId}/effective${platformCode ? `?platformCode=${platformCode}` : ''}`, {
     headers: { 'X-Distribution-Token': accessToken },
   })
 }
