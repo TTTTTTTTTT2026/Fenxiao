@@ -6310,12 +6310,16 @@ function normalizeLocalPhoneNumber(value: string, callingCode: string) {
 
 type ConsumerLocale = 'zh' | 'en' | 'es' | 'id' | 'pt'
 
-const workspaceCopy: Record<ConsumerLocale, { title: string; hint: string; choose: string; current: string; enter: string; bind: string; close: string; loading: string; error: string; appSummary: (app: string) => string; allAccount: string }> = {
-  zh: { title: '切换应用工作区', hint: '只切换查看的数据；邀请关系和账户归属不变。', choose: '选择应用', current: '当前工作区', enter: '进入工作区', bind: '去绑定', close: '关闭', loading: '读取应用状态中…', error: '应用状态暂不可用，请稍后重试。', appSummary: (app) => `当前查看 ${app} 的用户和邀请收入`, allAccount: '积分按用户统一入账；此处仅展示当前应用对应的记录。' },
-  en: { title: 'Switch app workspace', hint: 'Only your view changes; invitation relationships and account ownership stay the same.', choose: 'Choose an app', current: 'Current workspace', enter: 'Enter workspace', bind: 'Bind account', close: 'Close', loading: 'Loading app status…', error: 'App status is unavailable. Try again later.', appSummary: (app) => `Viewing ${app} users and invitation income`, allAccount: 'Points belong to one user account; only records for this app are shown here.' },
-  es: { title: 'Cambiar espacio de aplicación', hint: 'Solo cambia la vista; tus invitaciones y tu cuenta no cambian.', choose: 'Elegir aplicación', current: 'Espacio actual', enter: 'Abrir espacio', bind: 'Vincular', close: 'Cerrar', loading: 'Cargando estados…', error: 'Los estados no están disponibles. Inténtalo más tarde.', appSummary: (app) => `Viendo usuarios e ingresos por invitación de ${app}`, allAccount: 'Los puntos pertenecen a una sola cuenta; aquí solo se muestran registros de esta aplicación.' },
-  id: { title: 'Ganti ruang kerja aplikasi', hint: 'Hanya tampilan yang berubah; relasi undangan dan kepemilikan akun tetap sama.', choose: 'Pilih aplikasi', current: 'Ruang kerja saat ini', enter: 'Buka ruang kerja', bind: 'Hubungkan', close: 'Tutup', loading: 'Memuat status aplikasi…', error: 'Status aplikasi tidak tersedia. Coba lagi nanti.', appSummary: (app) => `Melihat pengguna dan penghasilan undangan ${app}`, allAccount: 'Poin tetap milik satu akun pengguna; di sini hanya catatan aplikasi ini yang ditampilkan.' },
-  pt: { title: 'Trocar área do aplicativo', hint: 'Apenas a visualização muda; convites e titularidade da conta permanecem iguais.', choose: 'Escolher aplicativo', current: 'Área atual', enter: 'Abrir área', bind: 'Vincular', close: 'Fechar', loading: 'Carregando status…', error: 'Status indisponível. Tente novamente.', appSummary: (app) => `Visualizando usuários e ganhos por convite do ${app}`, allAccount: 'Os pontos pertencem a uma única conta; aqui aparecem apenas os registros deste aplicativo.' },
+const workspaceCopy: Record<ConsumerLocale, { title: string; hint: string; choose: string; current: string; enter: string; bind: string; close: string; loading: string; error: string; appSummary: (app: string) => string; bannerDescription: (app: string) => string; switchOtherApp: string }> = {
+  zh: { title: '切换应用工作区', hint: '只切换查看的数据；邀请关系和账户归属不变。', choose: '选择应用', current: '当前工作区', enter: '进入工作区', bind: '去绑定', close: '关闭', loading: '读取应用状态中…', error: '应用状态暂不可用，请稍后重试。', appSummary: (app) => `当前查看 ${app} 的用户和邀请收入`, bannerDescription: (app) => `当前仅显示${app}的相关数据。`, switchOtherApp: '切换其他应用' },
+  en: { title: 'Switch app workspace', hint: 'Only your view changes; invitation relationships and account ownership stay the same.', choose: 'Choose an app', current: 'Current workspace', enter: 'Enter workspace', bind: 'Bind account', close: 'Close', loading: 'Loading app status…', error: 'App status is unavailable. Try again later.', appSummary: (app) => `Viewing ${app} users and invitation income`, bannerDescription: (app) => `Showing only data related to ${app}.`, switchOtherApp: 'Switch to another app' },
+  es: { title: 'Cambiar espacio de aplicación', hint: 'Solo cambia la vista; tus invitaciones y tu cuenta no cambian.', choose: 'Elegir aplicación', current: 'Espacio actual', enter: 'Abrir espacio', bind: 'Vincular', close: 'Cerrar', loading: 'Cargando estados…', error: 'Los estados no están disponibles. Inténtalo más tarde.', appSummary: (app) => `Viendo usuarios e ingresos por invitación de ${app}`, bannerDescription: (app) => `Solo se muestran los datos relacionados con ${app}.`, switchOtherApp: 'Cambiar a otra aplicación' },
+  id: { title: 'Ganti ruang kerja aplikasi', hint: 'Hanya tampilan yang berubah; relasi undangan dan kepemilikan akun tetap sama.', choose: 'Pilih aplikasi', current: 'Ruang kerja saat ini', enter: 'Buka ruang kerja', bind: 'Hubungkan', close: 'Tutup', loading: 'Memuat status aplikasi…', error: 'Status aplikasi tidak tersedia. Coba lagi nanti.', appSummary: (app) => `Melihat pengguna dan penghasilan undangan ${app}`, bannerDescription: (app) => `Hanya menampilkan data terkait ${app}.`, switchOtherApp: 'Beralih ke aplikasi lain' },
+  pt: { title: 'Trocar área do aplicativo', hint: 'Apenas a visualização muda; convites e titularidade da conta permanecem iguais.', choose: 'Escolher aplicativo', current: 'Área atual', enter: 'Abrir área', bind: 'Vincular', close: 'Fechar', loading: 'Carregando status…', error: 'Status indisponível. Tente novamente.', appSummary: (app) => `Visualizando usuários e ganhos por convite do ${app}`, bannerDescription: (app) => `Exibindo apenas dados relacionados ao ${app}.`, switchOtherApp: 'Trocar para outro aplicativo' },
+}
+
+function consumerAppName(code: 'TIMO' | 'LINKY') {
+  return code === 'TIMO' ? 'Timo' : 'Linky'
 }
 
 const consumerLoginHero: Record<ConsumerLocale, { small: string; large: string; alt: string }> = {
@@ -6838,7 +6842,7 @@ function AccountPage() {
             </section>
             <section className="consumer-settings-card consumer-workspace-card">
               <h2>{workCopy.title}</h2>
-              <p>{workspace?.selected ? workCopy.appSummary(workspace.selected) : workCopy.hint}</p>
+              <p>{workspace?.selected ? workCopy.appSummary(consumerAppName(workspace.selected)) : workCopy.hint}</p>
               <button className="consumer-secondary-link" type="button" onClick={() => setWorkspaceDialogOpen(true)}>{workCopy.choose}<CaretRight weight="bold" aria-hidden="true" /></button>
               {workspaceError ? <p className="consumer-workspace-error" role="alert">{workCopy.error}</p> : null}
             </section>
@@ -6852,7 +6856,7 @@ function AccountPage() {
                 {workspace ? (['TIMO', 'LINKY'] as const).map((code) => {
                   const verified = workspace.apps.some((app) => app.code === code && app.verified)
                   const status = code === 'TIMO' ? timoStatus : linkyStatus
-                  return <div className="consumer-workspace-option" key={code}><div><strong>{code}</strong><small>{status}{workspace.selected === code ? ` · ${workCopy.current}` : ''}</small></div>
+                  return <div className="consumer-workspace-option" key={code}><div><strong>{consumerAppName(code)}</strong><small>{status}{workspace.selected === code ? ` · ${workCopy.current}` : ''}</small></div>
                     {verified ? <button type="button" disabled={switchingWorkspace} onClick={() => void handleSwitchWorkspace(code)}>{workCopy.enter}</button>
                       : <a href={code === 'TIMO' ? '/account/timo' : '/account/linky'}>{workCopy.bind}</a>}</div>
                 }) : <p>{workspaceError ? workCopy.error : workCopy.loading}</p>}
@@ -7226,7 +7230,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
       <header className="consumer-topbar"><a className="consumer-brand" href="/earnings">BANDEIRA</a></header>
       <a className="consumer-detail-back" href="/earnings">← {consumerNavigationCopy[locale].earnings}</a>
       <section className="consumer-commercial-heading"><h1>{detailTitle}</h1></section>
-      {selectedPlatform ? <p className="consumer-workspace-banner">{workspaceCopy[locale].appSummary(selectedPlatform)}</p> : null}
+      {selectedPlatform ? <p className="consumer-workspace-banner">{workspaceCopy[locale].appSummary(consumerAppName(selectedPlatform))}</p> : null}
       {error ? <div className="consumer-banner is-error" role="alert">{error}</div> : null}
       {!session ? <a className="consumer-primary-link" href="/invite#phone-login">{walletCopy.signIn}</a> :
         view === 'effective' ? <section className="consumer-settings-card">
@@ -7272,7 +7276,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
         </header>
 
         {error ? <div className="consumer-banner is-error" role="alert">{error}</div> : null}
-        {selectedPlatform ? <div className="consumer-workspace-banner"><strong>{selectedPlatform}</strong><span>{workspaceCopy[locale].allAccount}</span><a href="/account">{workspaceCopy[locale].title}</a></div> : null}
+        {selectedPlatform ? <div className="consumer-workspace-banner"><strong>{consumerAppName(selectedPlatform)}</strong><span>{workspaceCopy[locale].bannerDescription(consumerAppName(selectedPlatform))}</span><a href="/account">{workspaceCopy[locale].switchOtherApp}</a></div> : null}
 
         {!session ? (
           <section className="consumer-auth-gate">
