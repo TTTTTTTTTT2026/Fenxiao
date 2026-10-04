@@ -50,7 +50,7 @@ class ConsumerWorkspaceServiceTest {
     }
 
     @Test
-    void onlyVerifiedAppsCanBeSelectedAndPreferenceSurvivesUntilBindingIsLost() {
+    void boundAppIsDefaultAndAnUnboundWorkspaceCanBeSelectedWithoutUnlockingItsData() {
         long userId = 997001L;
         profiles.createProfile(userId, "BR", "pt-br", null);
         assertNull(workspaces.get(userId).selected());
@@ -71,8 +71,11 @@ class ConsumerWorkspaceServiceTest {
         assertEquals("TIMO", workspaces.select(userId, "TIMO").selected());
         assertEquals("TIMO", workspaces.get(userId).preferred());
         jdbc.update("UPDATE platform_account_binding SET binding_status='REJECTED' WHERE user_id=?", userId);
-        assertEquals("LINKY", workspaces.get(userId).selected());
+        assertEquals("TIMO", workspaces.get(userId).selected());
         assertThrows(IllegalArgumentException.class, () -> workspaces.requireVerified(userId, "TIMO"));
+        assertEquals("LINKY", workspaces.select(userId, "LINKY").selected());
+        jdbc.update("UPDATE linky_account_binding SET guild_check_status='NOT_MATCHED' WHERE user_id=?", userId);
+        assertNull(workspaces.get(userId).selected());
     }
 
     @Test
@@ -140,7 +143,7 @@ class ConsumerWorkspaceServiceTest {
     }
 
     @Test
-    void workspaceEndpointRequiresOwnerSessionAndVerifiedBinding() throws Exception {
+    void workspaceEndpointRequiresOwnerSessionAndAtLeastOneVerifiedBinding() throws Exception {
         var owner = profiles.createProfile(997030L, "BR", "pt-br", null);
         var other = profiles.createProfile(997031L, "BR", "pt-br", null);
         mockMvc.perform(get("/api/distribution/workspaces/997030")
@@ -161,5 +164,11 @@ class ConsumerWorkspaceServiceTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"platformCode\":\"TIMO\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.selected").value("TIMO"));
+        mockMvc.perform(post("/api/distribution/workspaces/997030")
+                .header("X-Distribution-Token", owner.getApiAccessToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"platformCode\":\"LINKY\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.selected").value("LINKY"));
+        assertThrows(IllegalArgumentException.class, () -> workspaces.requireVerified(owner.getUserId(), "LINKY"));
     }
 }

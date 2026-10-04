@@ -25,7 +25,8 @@ public class ConsumerWorkspaceService {
         List<App> apps = List.of(status(userId, "TIMO"), status(userId, "LINKY"));
         String preferred = jdbc.query("SELECT platform_code FROM consumer_workspace_preference WHERE user_id=?",
                 (rs, row) -> rs.getString(1), userId).stream().findFirst().orElse(null);
-        String selected = apps.stream().anyMatch(app -> app.code().equals(preferred) && app.verified())
+        boolean hasVerifiedApp = apps.stream().anyMatch(App::verified);
+        String selected = hasVerifiedApp && apps.stream().anyMatch(app -> app.code().equals(preferred))
                 ? preferred : apps.stream().filter(App::verified)
                 .sorted((a, b) -> {
                     if (a.verifiedAt() == null) return b.verifiedAt() == null ? a.code().compareTo(b.code()) : 1;
@@ -39,7 +40,9 @@ public class ConsumerWorkspaceService {
     @Transactional
     public Workspace select(long userId, String code) {
         String platform = requirePlatform(code);
-        if (!status(userId, platform).verified()) throw new IllegalArgumentException("platform binding is not verified");
+        Workspace current = get(userId);
+        if (current.apps().stream().noneMatch(App::verified))
+            throw new IllegalArgumentException("no verified platform binding");
         jdbc.update("""
                 INSERT INTO consumer_workspace_preference(user_id,platform_code,updated_at)
                 VALUES (?,?,CURRENT_TIMESTAMP)

@@ -39,6 +39,7 @@ import loginHeroId1600 from './assets/login-hero/login-hero-id-v1-1600.webp'
 import loginHeroPt800 from './assets/login-hero/login-hero-pt-BR-v1-800.webp'
 import loginHeroPt1600 from './assets/login-hero/login-hero-pt-BR-v1-1600.webp'
 import { isAvatarValidationError, prepareAvatarDataUrl } from './avatarUpload'
+import { resolveConsumerAccountWorkspace } from './consumerWorkspaceView'
 import {
   adjustAdminRelation,
   applyAdminRiskEventAction,
@@ -6310,12 +6311,12 @@ function normalizeLocalPhoneNumber(value: string, callingCode: string) {
 
 type ConsumerLocale = 'zh' | 'en' | 'es' | 'id' | 'pt'
 
-const workspaceCopy: Record<ConsumerLocale, { title: string; hint: string; choose: string; current: string; enter: string; bind: string; close: string; loading: string; error: string; appSummary: (app: string) => string; bannerDescription: (app: string) => string; switchOtherApp: string }> = {
-  zh: { title: '切换应用工作区', hint: '只切换查看的数据；邀请关系和账户归属不变。', choose: '选择应用', current: '当前工作区', enter: '进入工作区', bind: '去绑定', close: '关闭', loading: '读取应用状态中…', error: '应用状态暂不可用，请稍后重试。', appSummary: (app) => `当前查看 ${app} 的用户和邀请收入`, bannerDescription: (app) => `当前仅显示${app}的相关数据。`, switchOtherApp: '切换其他应用' },
-  en: { title: 'Switch app workspace', hint: 'Only your view changes; invitation relationships and account ownership stay the same.', choose: 'Choose an app', current: 'Current workspace', enter: 'Enter workspace', bind: 'Bind account', close: 'Close', loading: 'Loading app status…', error: 'App status is unavailable. Try again later.', appSummary: (app) => `Viewing ${app} users and invitation income`, bannerDescription: (app) => `Showing only data related to ${app}.`, switchOtherApp: 'Switch to another app' },
-  es: { title: 'Cambiar espacio de aplicación', hint: 'Solo cambia la vista; tus invitaciones y tu cuenta no cambian.', choose: 'Elegir aplicación', current: 'Espacio actual', enter: 'Abrir espacio', bind: 'Vincular', close: 'Cerrar', loading: 'Cargando estados…', error: 'Los estados no están disponibles. Inténtalo más tarde.', appSummary: (app) => `Viendo usuarios e ingresos por invitación de ${app}`, bannerDescription: (app) => `Solo se muestran los datos relacionados con ${app}.`, switchOtherApp: 'Cambiar a otra aplicación' },
-  id: { title: 'Ganti ruang kerja aplikasi', hint: 'Hanya tampilan yang berubah; relasi undangan dan kepemilikan akun tetap sama.', choose: 'Pilih aplikasi', current: 'Ruang kerja saat ini', enter: 'Buka ruang kerja', bind: 'Hubungkan', close: 'Tutup', loading: 'Memuat status aplikasi…', error: 'Status aplikasi tidak tersedia. Coba lagi nanti.', appSummary: (app) => `Melihat pengguna dan penghasilan undangan ${app}`, bannerDescription: (app) => `Hanya menampilkan data terkait ${app}.`, switchOtherApp: 'Beralih ke aplikasi lain' },
-  pt: { title: 'Trocar área do aplicativo', hint: 'Apenas a visualização muda; convites e titularidade da conta permanecem iguais.', choose: 'Escolher aplicativo', current: 'Área atual', enter: 'Abrir área', bind: 'Vincular', close: 'Fechar', loading: 'Carregando status…', error: 'Status indisponível. Tente novamente.', appSummary: (app) => `Visualizando usuários e ganhos por convite do ${app}`, bannerDescription: (app) => `Exibindo apenas dados relacionados ao ${app}.`, switchOtherApp: 'Trocar para outro aplicativo' },
+const workspaceCopy: Record<ConsumerLocale, { title: string; dialogTitle: string; hint: string; choose: string; current: string; enter: string; bind: string; close: string; loading: string; error: string; emptyTitle: (app: string) => string; emptyHint: (app: string) => string; appSummary: (app: string) => string; bannerDescription: (app: string) => string; switchOtherApp: string }> = {
+  zh: { title: '切换应用工作区', dialogTitle: '切换工作区', hint: '只切换查看的数据；邀请关系和账户归属不变。', choose: '选择应用', current: '当前工作区', enter: '切换工作区', bind: '去绑定', close: '关闭', loading: '读取应用状态中…', error: '应用状态暂不可用，请稍后重试。', emptyTitle: (app) => `${app} 账号尚未绑定`, emptyHint: (app) => `当前仅显示${app}的相关数据。绑定并通过核验后，才能查看该应用的收益与邀请数据。`, appSummary: (app) => `当前查看 ${app} 的用户和邀请收入`, bannerDescription: (app) => `当前仅显示${app}的相关数据。`, switchOtherApp: '切换其他应用' },
+  en: { title: 'Switch app workspace', dialogTitle: 'Switch workspace', hint: 'Only your view changes; invitation relationships and account ownership stay the same.', choose: 'Choose an app', current: 'Current workspace', enter: 'Switch workspace', bind: 'Bind account', close: 'Close', loading: 'Loading app status…', error: 'App status is unavailable. Try again later.', emptyTitle: (app) => `${app} is not bound yet`, emptyHint: (app) => `Only ${app} data is shown here. Bind and verify this account to view its earnings and invitation data.`, appSummary: (app) => `Viewing ${app} users and invitation income`, bannerDescription: (app) => `Showing only data related to ${app}.`, switchOtherApp: 'Switch to another app' },
+  es: { title: 'Cambiar espacio de aplicación', dialogTitle: 'Cambiar espacio', hint: 'Solo cambia la vista; tus invitaciones y tu cuenta no cambian.', choose: 'Elegir aplicación', current: 'Espacio actual', enter: 'Cambiar espacio', bind: 'Vincular', close: 'Cerrar', loading: 'Cargando estados…', error: 'Los estados no están disponibles. Inténtalo más tarde.', emptyTitle: (app) => `${app} aún no está vinculado`, emptyHint: (app) => `Aquí solo se muestran los datos de ${app}. Vincula y verifica la cuenta para ver sus ganancias e invitaciones.`, appSummary: (app) => `Viendo usuarios e ingresos por invitación de ${app}`, bannerDescription: (app) => `Solo se muestran los datos relacionados con ${app}.`, switchOtherApp: 'Cambiar a otra aplicación' },
+  id: { title: 'Ganti ruang kerja aplikasi', dialogTitle: 'Ganti ruang kerja', hint: 'Hanya tampilan yang berubah; relasi undangan dan kepemilikan akun tetap sama.', choose: 'Pilih aplikasi', current: 'Ruang kerja saat ini', enter: 'Ganti ruang kerja', bind: 'Hubungkan', close: 'Tutup', loading: 'Memuat status aplikasi…', error: 'Status aplikasi tidak tersedia. Coba lagi nanti.', emptyTitle: (app) => `Akun ${app} belum terhubung`, emptyHint: (app) => `Hanya data ${app} yang ditampilkan. Hubungkan dan verifikasi akun untuk melihat penghasilan dan undangannya.`, appSummary: (app) => `Melihat pengguna dan penghasilan undangan ${app}`, bannerDescription: (app) => `Hanya menampilkan data terkait ${app}.`, switchOtherApp: 'Beralih ke aplikasi lain' },
+  pt: { title: 'Trocar área do aplicativo', dialogTitle: 'Trocar área', hint: 'Apenas a visualização muda; convites e titularidade da conta permanecem iguais.', choose: 'Escolher aplicativo', current: 'Área atual', enter: 'Trocar área', bind: 'Vincular', close: 'Fechar', loading: 'Carregando status…', error: 'Status indisponível. Tente novamente.', emptyTitle: (app) => `${app} ainda não está vinculado`, emptyHint: (app) => `Somente os dados do ${app} aparecem aqui. Vincule e valide a conta para ver os ganhos e convites.`, appSummary: (app) => `Visualizando usuários e ganhos por convite do ${app}`, bannerDescription: (app) => `Exibindo apenas dados relacionados ao ${app}.`, switchOtherApp: 'Trocar para outro aplicativo' },
 }
 
 function consumerAppName(code: 'TIMO' | 'LINKY') {
@@ -6743,6 +6744,7 @@ function AccountPage() {
   const copy = consumerAccountCopy[locale]
   const timoCopy = timoBindingCopy[locale]
   const workCopy = workspaceCopy[locale]
+  const accountWorkspace = resolveConsumerAccountWorkspace(workspace)
 
   useEffect(() => {
     if (typeof window !== 'undefined') window.localStorage.setItem(EXTERNAL_LOCALE_KEY, locale)
@@ -6836,29 +6838,26 @@ function AccountPage() {
             <section className="consumer-settings-card consumer-platform-card">
               <div className="consumer-platform-card-head"><span className="consumer-platform-icon"><LinkSimple weight="bold" aria-hidden="true" /></span><div><h2>{copy.platform}</h2></div></div>
               <div className="consumer-platform-account-list">
-                <div className="consumer-platform-account-row"><div><strong>{copy.linkyTitle}</strong><span className="consumer-platform-status" role="status">{linkyStatus}{linkyBinding?.status === 'VERIFIED' ? ` · ${linkyBinding.linkyAccount}` : ''}</span></div>{linkyBinding?.status === 'VERIFIED' ? <CheckCircle weight="fill" className="consumer-status-check" aria-hidden="true" /> : <a className="consumer-secondary-link" href="/account/linky">{linkyStatusLoading ? statusCopy.loading : copy.bindLinky}<ArrowRight weight="bold" aria-hidden="true" /></a>}</div>
-                <div className="consumer-platform-account-row"><div><strong>{timoCopy.open}</strong><span className="consumer-platform-status" role="status">{timoStatus}{timoBinding?.platformUserId ? ` · ${timoBinding.platformUserId}` : ''}</span></div>{timoBinding?.status === 'VERIFIED' ? <CheckCircle weight="fill" className="consumer-status-check" aria-hidden="true" /> : <a className="consumer-secondary-link" href="/account/timo">{timoBinding ? statusCopy.view : timoStatusLoading ? statusCopy.loading : timoCopy.open}<ArrowRight weight="bold" aria-hidden="true" /></a>}</div>
+                {accountWorkspace.visibleBindings.includes('LINKY') ? <div className="consumer-platform-account-row"><div><strong>{copy.linkyTitle}</strong><span className="consumer-platform-status" role="status">{linkyStatus}{linkyBinding?.status === 'VERIFIED' ? ` · ${linkyBinding.linkyAccount}` : ''}</span></div>{linkyBinding?.status === 'VERIFIED' ? <CheckCircle weight="fill" className="consumer-status-check" aria-hidden="true" /> : <a className="consumer-secondary-link" href="/account/linky">{linkyStatusLoading ? statusCopy.loading : copy.bindLinky}<ArrowRight weight="bold" aria-hidden="true" /></a>}</div> : null}
+                {accountWorkspace.visibleBindings.includes('TIMO') ? <div className="consumer-platform-account-row"><div><strong>{timoCopy.open}</strong><span className="consumer-platform-status" role="status">{timoStatus}{timoBinding?.platformUserId ? ` · ${timoBinding.platformUserId}` : ''}</span></div>{timoBinding?.status === 'VERIFIED' ? <CheckCircle weight="fill" className="consumer-status-check" aria-hidden="true" /> : <a className="consumer-secondary-link" href="/account/timo">{timoBinding ? statusCopy.view : timoStatusLoading ? statusCopy.loading : timoCopy.open}<ArrowRight weight="bold" aria-hidden="true" /></a>}</div> : null}
+                {!workspace ? <p>{workspaceError ? workCopy.error : workCopy.loading}</p> : null}
               </div>
             </section>
-            <section className="consumer-settings-card consumer-workspace-card">
-              <h2>{workCopy.title}</h2>
-              <p>{workspace?.selected ? workCopy.appSummary(consumerAppName(workspace.selected)) : workCopy.hint}</p>
-              <button className="consumer-secondary-link" type="button" onClick={() => setWorkspaceDialogOpen(true)}>{workCopy.choose}<CaretRight weight="bold" aria-hidden="true" /></button>
+            {accountWorkspace.canSwitch ? <section className="consumer-settings-card consumer-workspace-card">
+              <button className="consumer-workspace-trigger" type="button" onClick={() => setWorkspaceDialogOpen(true)} aria-haspopup="dialog"><span>{workCopy.title}</span><strong>{consumerAppName(accountWorkspace.selected!)}</strong><CaretRight weight="bold" aria-hidden="true" /></button>
               {workspaceError ? <p className="consumer-workspace-error" role="alert">{workCopy.error}</p> : null}
-            </section>
+            </section> : null}
             <section className="consumer-settings-card consumer-security-card">
               <div className="consumer-security-copy"><span className="consumer-security-icon"><ShieldCheck weight="duotone" aria-hidden="true" /></span><div><h2>{copy.security}</h2><p>{copy.signOutHint}</p></div></div>
               <button className="consumer-sign-out-button" type="button" onClick={() => void handleSignOut()} disabled={signingOut}><SignOut weight="bold" aria-hidden="true" />{signingOut ? copy.signingOut : copy.signOut}</button>
             </section>
-            {workspaceDialogOpen ? <div className="consumer-modal-backdrop" onClick={() => setWorkspaceDialogOpen(false)}>
-              <section className="consumer-workspace-dialog" role="dialog" aria-modal="true" aria-label={workCopy.title} onClick={(event) => event.stopPropagation()}>
-                <h2>{workCopy.title}</h2><p>{workCopy.hint}</p>
+            {workspaceDialogOpen && accountWorkspace.canSwitch ? <div className="consumer-modal-backdrop" onClick={() => setWorkspaceDialogOpen(false)}>
+              <section className="consumer-workspace-dialog" role="dialog" aria-modal="true" aria-label={workCopy.dialogTitle} onClick={(event) => event.stopPropagation()}>
+                <h2>{workCopy.dialogTitle}</h2>
                 {workspace ? (['TIMO', 'LINKY'] as const).map((code) => {
-                  const verified = workspace.apps.some((app) => app.code === code && app.verified)
                   const status = code === 'TIMO' ? timoStatus : linkyStatus
                   return <div className="consumer-workspace-option" key={code}><div><strong>{consumerAppName(code)}</strong><small>{status}{workspace.selected === code ? ` · ${workCopy.current}` : ''}</small></div>
-                    {verified ? <button type="button" disabled={switchingWorkspace} onClick={() => void handleSwitchWorkspace(code)}>{workCopy.enter}</button>
-                      : <a href={code === 'TIMO' ? '/account/timo' : '/account/linky'}>{workCopy.bind}</a>}</div>
+                    <button type="button" disabled={switchingWorkspace || workspace.selected === code} onClick={() => void handleSwitchWorkspace(code)}>{workspace.selected === code ? workCopy.current : workCopy.enter}</button></div>
                 }) : <p>{workspaceError ? workCopy.error : workCopy.loading}</p>}
                 <button className="consumer-workspace-close" type="button" onClick={() => setWorkspaceDialogOpen(false)}>{workCopy.close}</button>
               </section>
@@ -7077,6 +7076,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   const [wallet, setWallet] = useState<InvitationRewardAccountResponse | null>(null)
   const [profile, setProfile] = useState<UserPublicProfileResponse | null>(null)
   const [selectedPlatform, setSelectedPlatform] = useState<'TIMO' | 'LINKY' | null>(null)
+  const [selectedPlatformVerified, setSelectedPlatformVerified] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showBalance, setShowBalance] = useState(true)
@@ -7159,6 +7159,9 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
         if (!workspace.selected) { window.location.assign('/account'); return }
         const platformCode = workspace.selected
         setSelectedPlatform(platformCode)
+        const verified = workspace.apps.some((app) => app.code === platformCode && app.verified)
+        setSelectedPlatformVerified(verified)
+        if (!verified) return
         const [homeData, teamData, walletData, profileData] = await Promise.all([
           getDistributionHome(session.userId, session.accessToken, platformCode),
           getDistributionEffectiveTeam(session.userId, session.accessToken, platformCode).catch(() => null),
@@ -7223,6 +7226,16 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   const growthTarget = 10
   const growthProgress = Math.min(100, Math.round((effectiveUsersThisView / growthTarget) * 100))
   const growthRemaining = Math.max(0, growthTarget - effectiveUsersThisView)
+
+  if (session && selectedPlatform && !selectedPlatformVerified) {
+    const appName = consumerAppName(selectedPlatform)
+    return <div className="consumer-app-page"><main className="consumer-shell consumer-detail-page">
+      <header className="consumer-topbar"><a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />BANDEIRA</a><ConsumerAccountLink locale={locale} /></header>
+      <div className="consumer-workspace-banner"><strong>{appName}</strong><span>{workspaceCopy[locale].bannerDescription(appName)}</span><a href="/account">{workspaceCopy[locale].switchOtherApp}</a></div>
+      <section className="consumer-auth-gate"><div className="consumer-auth-icon"><LinkSimple weight="duotone" aria-hidden="true" /></div><h1>{workspaceCopy[locale].emptyTitle(appName)}</h1><p>{workspaceCopy[locale].emptyHint(appName)}</p><a className="consumer-primary-link" href={selectedPlatform === 'TIMO' ? '/account/timo' : '/account/linky'}>{workspaceCopy[locale].bind}<ArrowRight weight="bold" aria-hidden="true" /></a></section>
+      <ConsumerBottomNavigation locale={locale} active="earnings" />
+    </main></div>
+  }
 
   if (view !== 'overview') {
     const detailTitle = view === 'effective' ? walletCopy.followAction : walletCopy.records
