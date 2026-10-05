@@ -6,3 +6,7 @@ export function resolveConsumerAccountWorkspace(workspace: ConsumerWorkspaceResp
   const visibleBindings: Array<'TIMO' | 'LINKY'> = selected ? [selected] : workspace ? ['LINKY', 'TIMO'] : []
   return { selected, visibleBindings, canSwitch: hasVerifiedApp && selected !== null }
 }
+
+export function canOpenEarningsWorkspace(selected: ConsumerWorkspaceResponse['selected']) {
+  return selected !== null
+}
