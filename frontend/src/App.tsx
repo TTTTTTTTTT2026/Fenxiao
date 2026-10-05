@@ -39,6 +39,7 @@ import loginHeroId1600 from './assets/login-hero/login-hero-id-v1-1600.webp'
 import loginHeroPt800 from './assets/login-hero/login-hero-pt-BR-v1-800.webp'
 import loginHeroPt1600 from './assets/login-hero/login-hero-pt-BR-v1-1600.webp'
 import { isAvatarValidationError, prepareAvatarDataUrl } from './avatarUpload'
+import { ConsumerUnboundGuidance } from './consumerWorkspaceGuidance'
 import { resolveConsumerAccountWorkspace } from './consumerWorkspaceView'
 import {
   adjustAdminRelation,
@@ -6486,6 +6487,7 @@ export function localizeInviteOperationError(error: unknown, locale: keyof typeo
 
 function InviteCodePage() {
   const [session, setSession] = useState<SessionState | null>(() => loadJsonState<SessionState>(STORAGE_KEY))
+  const [workspace, setWorkspace] = useState<ConsumerWorkspaceResponse | null>(null)
   const [locale, setLocale] = useState<keyof typeof externalPageCopyByLocale>(() => loadExternalLocale())
   const [loginMode, setLoginMode] = useState<'phone' | 'password'>(() => typeof window !== 'undefined' && window.location.hash === '#password-login' ? 'password' : 'phone')
   const [loginPassword, setLoginPassword] = useState('')
@@ -6515,6 +6517,15 @@ function InviteCodePage() {
       window.localStorage.setItem(EXTERNAL_LOCALE_KEY, locale)
     }
   }, [locale])
+
+  useEffect(() => {
+    if (!session) return
+    let active = true
+    void getConsumerWorkspace(session.userId, session.accessToken)
+      .then((value) => { if (active) setWorkspace(value) })
+      .catch(() => { if (active) setWorkspace(null) })
+    return () => { active = false }
+  }, [session])
 
   useEffect(() => {
     if (phoneCodeCooldownSeconds <= 0) return undefined
@@ -6660,6 +6671,8 @@ function InviteCodePage() {
           <h1>{copy.inviteTitle}</h1>
           <span>{copy.inviteSubtitle}</span>
         </section> : null}
+
+        {session && workspace && !workspace.selected ? <ConsumerUnboundGuidance locale={locale} /> : null}
 
         {error ? <div className="consumer-banner is-error"><strong>{inviteCopy.errorTitle}</strong><span>{error}</span></div> : null}
         {success ? <div className="consumer-banner is-success"><CheckCircle size={20} weight="fill" /><span>{success}</span></div> : null}
@@ -6826,6 +6839,7 @@ function AccountPage() {
         {session ? (
           <>
             <section className="consumer-commercial-heading"><p><Diamond weight="fill" aria-hidden="true" /> BANDEIRA REWARDS</p><h1>{copy.title}</h1><span>{copy.subtitle}</span></section>
+            {workspace && !accountWorkspace.selected ? <ConsumerUnboundGuidance locale={locale} bindHref="#consumer-platform-bindings" /> : null}
             <section className="consumer-account-overview">
               <div className="consumer-account-overview-icon"><IdentificationCard weight="duotone" aria-hidden="true" /></div>
               <div className="consumer-account-details"><span>{copy.accountInfo}</span><strong>{copy.accountId} · {session.userId}</strong></div>
@@ -6835,7 +6849,7 @@ function AccountPage() {
               <h2>{copy.accountInfo}</h2>
               <dl><div><dt>{copy.country}</dt><dd>{consumerCountryName(session.countryCode, locale)}</dd></div><div><dt>{copy.language}</dt><dd>{consumerLanguageName(session.languageCode, locale)}</dd></div></dl>
             </section>
-            <section className="consumer-settings-card consumer-platform-card">
+            <section id="consumer-platform-bindings" className="consumer-settings-card consumer-platform-card">
               <div className="consumer-platform-card-head"><span className="consumer-platform-icon"><LinkSimple weight="bold" aria-hidden="true" /></span><div><h2>{copy.platform}</h2></div></div>
               <div className="consumer-platform-account-list">
                 {accountWorkspace.visibleBindings.includes('LINKY') ? <div className="consumer-platform-account-row"><div><strong>{copy.linkyTitle}</strong><span className="consumer-platform-status" role="status">{linkyStatus}{linkyBinding?.status === 'VERIFIED' ? ` · ${linkyBinding.linkyAccount}` : ''}</span></div>{linkyBinding?.status === 'VERIFIED' ? <CheckCircle weight="fill" className="consumer-status-check" aria-hidden="true" /> : <a className="consumer-secondary-link" href="/account/linky">{linkyStatusLoading ? statusCopy.loading : copy.bindLinky}<ArrowRight weight="bold" aria-hidden="true" /></a>}</div> : null}
@@ -7077,6 +7091,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   const [profile, setProfile] = useState<UserPublicProfileResponse | null>(null)
   const [selectedPlatform, setSelectedPlatform] = useState<'TIMO' | 'LINKY' | null>(null)
   const [selectedPlatformVerified, setSelectedPlatformVerified] = useState(false)
+  const [workspaceLoaded, setWorkspaceLoaded] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showBalance, setShowBalance] = useState(true)
@@ -7156,7 +7171,8 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
       setError('')
       try {
         const workspace = await getConsumerWorkspace(session.userId, session.accessToken)
-        if (!workspace.selected) { window.location.assign('/account'); return }
+        setWorkspaceLoaded(true)
+        if (!workspace.selected) { setSelectedPlatform(null); return }
         const platformCode = workspace.selected
         setSelectedPlatform(platformCode)
         const verified = workspace.apps.some((app) => app.code === platformCode && app.verified)
@@ -7226,6 +7242,14 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   const growthTarget = 10
   const growthProgress = Math.min(100, Math.round((effectiveUsersThisView / growthTarget) * 100))
   const growthRemaining = Math.max(0, growthTarget - effectiveUsersThisView)
+
+  if (session && workspaceLoaded && !selectedPlatform) {
+    return <div className="consumer-app-page"><main className="consumer-shell consumer-detail-page">
+      <header className="consumer-topbar"><a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />BANDEIRA</a><ConsumerAccountLink locale={locale} /></header>
+      <ConsumerUnboundGuidance locale={locale} variant="gate" />
+      <ConsumerBottomNavigation locale={locale} active="earnings" />
+    </main></div>
+  }
 
   if (session && selectedPlatform && !selectedPlatformVerified) {
     const appName = consumerAppName(selectedPlatform)
