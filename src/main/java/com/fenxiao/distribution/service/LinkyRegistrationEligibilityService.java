@@ -1,6 +1,7 @@
 package com.fenxiao.distribution.service;
 
 import com.fenxiao.distribution.entity.LinkyAccountBinding;
+import com.fenxiao.distribution.domain.LinkyVerificationSource;
 import com.fenxiao.distribution.repository.LinkyAccountBindingRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
@@ -14,11 +15,14 @@ public class LinkyRegistrationEligibilityService {
 
     private final LinkyAccountBindingRepository linkyAccountBindingRepository;
     private final LinkyGuildProbeClient linkyGuildProbeClient;
+    private final LinkyVerificationModeService verificationMode;
 
     public LinkyRegistrationEligibilityService(LinkyAccountBindingRepository linkyAccountBindingRepository,
-                                               LinkyGuildProbeClient linkyGuildProbeClient) {
+                                               LinkyGuildProbeClient linkyGuildProbeClient,
+                                               LinkyVerificationModeService verificationMode) {
         this.linkyAccountBindingRepository = linkyAccountBindingRepository;
         this.linkyGuildProbeClient = linkyGuildProbeClient;
+        this.verificationMode = verificationMode;
     }
 
     public LinkyAccountBinding markEligible(String linkyAccount, String guildId, String guildName, Long checkedBy, String remark) {
@@ -44,6 +48,7 @@ public class LinkyRegistrationEligibilityService {
     }
 
     public LinkyAccountBinding refreshEligibilityFromProbe(String linkyAccount, Long checkedBy) {
+        assertLegacyProbeMode();
         LinkyGuildProbeResult result = linkyGuildProbeClient.probe(linkyAccount);
         if (!result.available()) {
             throw new IllegalStateException(result.remark() == null || result.remark().isBlank()
@@ -88,6 +93,7 @@ public class LinkyRegistrationEligibilityService {
     }
 
     public BatchRefreshResult refreshAllEligibility(Long checkedBy) {
+        assertLegacyProbeMode();
         long success = 0;
         long failure = 0;
         List<BatchRefreshFailure> failures = new ArrayList<>();
@@ -132,6 +138,12 @@ public class LinkyRegistrationEligibilityService {
             return "batch refresh failed";
         }
         return message.length() > 255 ? message.substring(0, 255) : message;
+    }
+
+    private void assertLegacyProbeMode() {
+        if (verificationMode.source() != LinkyVerificationSource.LEGACY) {
+            throw new IllegalStateException("Legacy Linky probe refresh is disabled for " + verificationMode.source());
+        }
     }
 
     private LinkyAccountBinding findOrCreate(String linkyAccount) {

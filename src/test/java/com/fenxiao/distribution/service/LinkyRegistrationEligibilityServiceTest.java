@@ -1,6 +1,7 @@
 package com.fenxiao.distribution.service;
 
 import com.fenxiao.distribution.entity.LinkyAccountBinding;
+import com.fenxiao.distribution.domain.LinkyVerificationSource;
 import com.fenxiao.distribution.repository.LinkyAccountBindingRepository;
 import org.junit.jupiter.api.Test;
 
@@ -25,7 +26,7 @@ class LinkyRegistrationEligibilityServiceTest {
         when(repository.save(any(LinkyAccountBinding.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(probeClient.probe("12345678")).thenReturn(LinkyGuildProbeResult.matchedOurs("12345678", "413", "Permata", "probe matched"));
 
-        LinkyRegistrationEligibilityService service = new LinkyRegistrationEligibilityService(repository, probeClient);
+        LinkyRegistrationEligibilityService service = new LinkyRegistrationEligibilityService(repository, probeClient, legacyMode());
 
         LinkyAccountBinding binding = service.assertEligibleForRegistration("12345678");
 
@@ -43,7 +44,7 @@ class LinkyRegistrationEligibilityServiceTest {
         when(repository.save(any(LinkyAccountBinding.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(probeClient.probe("34567890")).thenReturn(LinkyGuildProbeResult.joinedOtherGuild("34567890", "999", "Other Guild", "probe found other guild"));
 
-        LinkyRegistrationEligibilityService service = new LinkyRegistrationEligibilityService(repository, probeClient);
+        LinkyRegistrationEligibilityService service = new LinkyRegistrationEligibilityService(repository, probeClient, legacyMode());
 
         assertThatThrownBy(() -> service.assertEligibleForRegistration("34567890"))
                 .isInstanceOf(IllegalStateException.class)
@@ -61,7 +62,7 @@ class LinkyRegistrationEligibilityServiceTest {
         when(repository.save(any(LinkyAccountBinding.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(probeClient.probe("failed-linky")).thenThrow(new IllegalStateException("guild backend timeout"));
 
-        LinkyRegistrationEligibilityService service = new LinkyRegistrationEligibilityService(repository, probeClient);
+        LinkyRegistrationEligibilityService service = new LinkyRegistrationEligibilityService(repository, probeClient, legacyMode());
 
         LinkyRegistrationEligibilityService.BatchRefreshResult result = service.refreshAllEligibility();
 
@@ -79,12 +80,38 @@ class LinkyRegistrationEligibilityServiceTest {
         LinkyAccountBindingRepository repository = mock(LinkyAccountBindingRepository.class);
         LinkyGuildProbeClient probeClient = mock(LinkyGuildProbeClient.class);
         when(repository.findAll()).thenReturn(List.of());
-        LinkyRegistrationEligibilityService service = new LinkyRegistrationEligibilityService(repository, probeClient);
-        LinkyEligibilityRefreshScheduler scheduler = new LinkyEligibilityRefreshScheduler(service);
+        LinkyVerificationModeService mode = legacyMode();
+        LinkyRegistrationEligibilityService service = new LinkyRegistrationEligibilityService(repository, probeClient, mode);
+        LinkyEligibilityRefreshScheduler scheduler = new LinkyEligibilityRefreshScheduler(service, mode);
 
         scheduler.refreshAllLinkyEligibility();
 
         verify(repository).findAll();
         verifyNoMoreInteractions(probeClient);
+    }
+
+    @Test
+    void mcnModeDoesNotRunLegacyScheduledRefreshOrDowngradeBindings() {
+        LinkyAccountBindingRepository repository = mock(LinkyAccountBindingRepository.class);
+        LinkyGuildProbeClient probeClient = mock(LinkyGuildProbeClient.class);
+        LinkyVerificationModeService mode = mock(LinkyVerificationModeService.class);
+        when(mode.source()).thenReturn(LinkyVerificationSource.MCN);
+        LinkyRegistrationEligibilityService service = new LinkyRegistrationEligibilityService(repository, probeClient, mode);
+        LinkyEligibilityRefreshScheduler scheduler = new LinkyEligibilityRefreshScheduler(service, mode);
+
+        scheduler.refreshAllLinkyEligibility();
+        assertThatThrownBy(service::refreshAllEligibility)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Legacy Linky probe refresh is disabled");
+        assertThatThrownBy(() -> service.refreshEligibilityFromProbe("12345678"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Legacy Linky probe refresh is disabled");
+        verifyNoMoreInteractions(repository, probeClient);
+    }
+
+    private LinkyVerificationModeService legacyMode() {
+        LinkyVerificationModeService mode = mock(LinkyVerificationModeService.class);
+        when(mode.source()).thenReturn(LinkyVerificationSource.LEGACY);
+        return mode;
     }
 }
