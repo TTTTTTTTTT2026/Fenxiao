@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent as ReactMouseEvent } from 'react'
 import {
   ArrowRight,
   Bell,
@@ -39,8 +39,8 @@ import loginHeroId1600 from './assets/login-hero/login-hero-id-v1-1600.webp'
 import loginHeroPt800 from './assets/login-hero/login-hero-pt-BR-v1-800.webp'
 import loginHeroPt1600 from './assets/login-hero/login-hero-pt-BR-v1-1600.webp'
 import { isAvatarValidationError, prepareAvatarDataUrl } from './avatarUpload'
-import { ConsumerUnboundGuidance } from './consumerWorkspaceGuidance'
-import { resolveConsumerAccountWorkspace } from './consumerWorkspaceView'
+import { ConsumerUnboundDialog, ConsumerUnboundGuidance } from './consumerWorkspaceGuidance'
+import { canOpenEarningsWorkspace, resolveConsumerAccountWorkspace } from './consumerWorkspaceView'
 import {
   adjustAdminRelation,
   applyAdminRiskEventAction,
@@ -6381,12 +6381,64 @@ function ConsumerAccountLink({ locale }: { locale: ConsumerLocale }) {
 
 function ConsumerBottomNavigation({ locale, active }: { locale: ConsumerLocale; active: ConsumerNavigationKey }) {
   const labels = consumerNavigationCopy[locale]
+  const [earningsDialog, setEarningsDialog] = useState<'unbound' | 'error' | null>(null)
+  const [checkingEarnings, setCheckingEarnings] = useState(false)
+  const earningsClickInFlight = useRef(false)
+  const earningsLink = useRef<HTMLAnchorElement>(null)
+  const mounted = useRef(true)
+
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
+
+  useEffect(() => {
+    if (!earningsDialog) return
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setEarningsDialog(null)
+        earningsLink.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [earningsDialog])
+
+  async function handleEarningsClick(event: ReactMouseEvent<HTMLAnchorElement>) {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+    event.preventDefault()
+    if (active === 'earnings' || earningsClickInFlight.current) return
+    const session = loadJsonState<SessionState>(STORAGE_KEY)
+    if (!session) { window.location.assign('/invite#phone-login'); return }
+    earningsClickInFlight.current = true
+    setCheckingEarnings(true)
+    try {
+      const workspace = await getConsumerWorkspace(session.userId, session.accessToken)
+      if (!mounted.current) return
+      if (canOpenEarningsWorkspace(workspace.selected)) window.location.assign('/earnings')
+      else setEarningsDialog('unbound')
+    } catch {
+      if (mounted.current) setEarningsDialog('error')
+    } finally {
+      earningsClickInFlight.current = false
+      if (mounted.current) setCheckingEarnings(false)
+    }
+  }
+
+  function closeEarningsDialog() {
+    setEarningsDialog(null)
+    earningsLink.current?.focus()
+  }
+
   return (
-    <nav className="consumer-bottom-nav" aria-label={consumerAccountCopy[locale].navigationLabel}>
-      <a className={active === 'earnings' ? 'is-active' : undefined} href="/earnings" aria-current={active === 'earnings' ? 'page' : undefined}><Wallet weight={active === 'earnings' ? 'fill' : 'regular'} aria-hidden="true" /><span>{labels.earnings}</span></a>
-      <a className={active === 'invite' ? 'is-active' : undefined} href="/invite" aria-current={active === 'invite' ? 'page' : undefined}><UserPlus weight={active === 'invite' ? 'fill' : 'regular'} aria-hidden="true" /><span>{labels.invite}</span></a>
-      <a className={active === 'account' ? 'is-active' : undefined} href="/account" aria-current={active === 'account' ? 'page' : undefined}><User weight={active === 'account' ? 'fill' : 'regular'} aria-hidden="true" /><span>{labels.account}</span></a>
-    </nav>
+    <>
+      <nav className="consumer-bottom-nav" aria-label={consumerAccountCopy[locale].navigationLabel}>
+        <a ref={earningsLink} className={active === 'earnings' ? 'is-active' : undefined} href="/earnings" aria-current={active === 'earnings' ? 'page' : undefined} aria-busy={checkingEarnings || undefined} onClick={(event) => void handleEarningsClick(event)}><Wallet weight={active === 'earnings' ? 'fill' : 'regular'} aria-hidden="true" /><span>{labels.earnings}</span></a>
+        <a className={active === 'invite' ? 'is-active' : undefined} href="/invite" aria-current={active === 'invite' ? 'page' : undefined}><UserPlus weight={active === 'invite' ? 'fill' : 'regular'} aria-hidden="true" /><span>{labels.invite}</span></a>
+        <a className={active === 'account' ? 'is-active' : undefined} href="/account" aria-current={active === 'account' ? 'page' : undefined}><User weight={active === 'account' ? 'fill' : 'regular'} aria-hidden="true" /><span>{labels.account}</span></a>
+      </nav>
+      {earningsDialog ? <ConsumerUnboundDialog locale={locale} error={earningsDialog === 'error'} onClose={closeEarningsDialog} /> : null}
+    </>
   )
 }
 
