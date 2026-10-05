@@ -7708,6 +7708,17 @@ code {
 .consumer-workspace-banner span { flex: 1; min-width: 180px; }
 .consumer-workspace-banner a { color: #df4d1c; font-weight: 700; }
 
+.consumer-unbound-notice { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 20px; margin: 0 0 18px; padding: 16px 18px; border: 1px solid #ffdfcb; border-radius: 16px; background: #fff7f0; color: #503a30; }
+.consumer-unbound-notice > div { flex: 1 1 260px; }
+.consumer-unbound-notice strong { color: #d94b18; font-size: 15px; }
+.consumer-unbound-notice p { margin: 5px 0 0; line-height: 1.55; }
+.consumer-unbound-notice a { display: inline-flex; align-items: center; gap: 5px; color: #d94b18; font-weight: 700; text-decoration: none; }
+.consumer-unbound-notice a svg { width: 16px; height: 16px; }
+.consumer-unbound-gate .consumer-auth-icon { background: #fff0e5; color: #ed5b20; }
+.consumer-unbound-actions { display: grid; gap: 10px; max-width: 340px; margin: 0 auto; }
+.consumer-unbound-actions .consumer-primary-link { background: #f45b1d; }
+.consumer-unbound-actions .consumer-secondary-link { margin-top: 0; border: 1px solid #ffd9c2; color: #d94b18; }
+
 @media (max-width: 600px) {
   .admin-console-v3 .hero-select-field > select { min-width: 104px; max-width: 118px; }
   .admin-console-v3 .hero-select-field { font-size: 0; gap: 0; }
