@@ -230,6 +230,9 @@ describe('consumer locale coverage', () => {
 
         const markup = renderToStaticMarkup(<App />).replace(/<option[^>]*value="zh"[^>]*>.*?<\/option>/g, '')
         expect(markup).not.toMatch(/[\u3400-\u9fff]/)
+        if (pathname.startsWith('/earnings/commission')) {
+          expect(markup).toMatch(new RegExp(`<main[^>]*lang="${locale === 'pt' ? 'pt-BR' : locale}"`))
+        }
       })
     }
   }
