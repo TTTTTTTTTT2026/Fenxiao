@@ -314,3 +314,32 @@ CREATE TABLE IF NOT EXISTS invitation_reward_account_ledger (
 
 CREATE INDEX IF NOT EXISTS idx_local_invitation_reward_ledger_user
     ON invitation_reward_account_ledger(user_id, id);
+
+-- Local acceptance skips Flyway, so mirror the V74 report projection tables.
+CREATE TABLE IF NOT EXISTS invitation_commission_report_event (
+    ledger_id BIGINT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    platform_code VARCHAR(32) NOT NULL,
+    report_date DATE NOT NULL,
+    direct_invitee_user_id BIGINT NOT NULL,
+    source_user_id BIGINT NOT NULL,
+    reward_level INT NOT NULL,
+    points_delta DECIMAL(24,6) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_local_commission_event_owner_day
+    ON invitation_commission_report_event(user_id, platform_code, report_date);
+
+CREATE TABLE IF NOT EXISTS invitation_commission_report_daily (
+    user_id BIGINT NOT NULL,
+    platform_code VARCHAR(32) NOT NULL,
+    report_date DATE NOT NULL,
+    direct_invitee_user_id BIGINT NOT NULL,
+    source_user_id BIGINT NOT NULL,
+    reward_level INT NOT NULL,
+    points_delta DECIMAL(24,6) NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, platform_code, report_date, direct_invitee_user_id, source_user_id, reward_level)
+);
+
+CREATE INDEX IF NOT EXISTS idx_local_commission_daily_drill
+    ON invitation_commission_report_daily(user_id, platform_code, direct_invitee_user_id, report_date);
