@@ -24,7 +24,7 @@ class InvitationRewardAccountServiceTest {
     void postsOnlyInvitationShareOfCompanyIncomeAndReconcilesSevenDayFreezeAndRevisions() {
         JdbcTemplate jdbc = database("account_flow");
         MutableClock clock = new MutableClock(Instant.parse("2026-09-24T12:00:00Z"));
-        InvitationRewardAccountService service = new InvitationRewardAccountService(jdbc, clock, 7);
+        InvitationRewardAccountService service = new InvitationRewardAccountService(jdbc, clock, 7, new InvitationCommissionReportProjector(jdbc));
         LocalDate date = LocalDate.of(2026, 9, 24);
         jdbc.update("INSERT INTO token_point_conversion_version(id,platform_code,token_unit,points_per_token,rule_status,effective_from) VALUES (1,'TIMO','TIMO_DIAMOND',2,'ACTIVE',?)",
                 Timestamp.from(clock.instant().minusSeconds(60)));
@@ -72,7 +72,7 @@ class InvitationRewardAccountServiceTest {
     void doesNotPostUntilThePlatformPointConversionIsConfigured() {
         JdbcTemplate jdbc = database("conversion_gate");
         MutableClock clock = new MutableClock(Instant.parse("2026-09-24T12:00:00Z"));
-        InvitationRewardAccountService service = new InvitationRewardAccountService(jdbc, clock, 7);
+        InvitationRewardAccountService service = new InvitationRewardAccountService(jdbc, clock, 7, new InvitationCommissionReportProjector(jdbc));
         candidate(jdbc, "v1", "25.000000", "2.500000");
         service.reconcile("TIMO", LocalDate.of(2026, 9, 24));
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM invitation_reward_entry", Integer.class)).isZero();
@@ -96,7 +96,7 @@ class InvitationRewardAccountServiceTest {
                 VALUES ('MCN','LINKY','event-linky',2,2,'v1','2026-09-24','2026-09-24 10:00:00',1,'guild',100,0.25,25,
                 0.03,0.75,'LINKY_DIAMOND','CANDIDATE','INVITATION_COMPANY_INCOME_V2')
                 """);
-        new InvitationRewardAccountService(jdbc, clock, 7).reconcile("LINKY", LocalDate.of(2026, 9, 24));
+        new InvitationRewardAccountService(jdbc, clock, 7, new InvitationCommissionReportProjector(jdbc)).reconcile("LINKY", LocalDate.of(2026, 9, 24));
         assertThat(balance(jdbc, "frozen_points")).isEqualByComparingTo("3.000000");
         UserDistributionProfileRepository users = mock(UserDistributionProfileRepository.class);
         when(users.existsById(2L)).thenReturn(true);
@@ -113,7 +113,7 @@ class InvitationRewardAccountServiceTest {
         jdbc.update("INSERT INTO token_point_conversion_version(id,platform_code,token_unit,points_per_token,rule_status,effective_from) VALUES (1,'TIMO','TIMO_DIAMOND',2,'ACTIVE',?)",
                 Timestamp.from(clock.instant().minusSeconds(60)));
         candidate(jdbc, "v1", "25.000000", "2.500000");
-        new InvitationRewardAccountService(jdbc, clock, 7).reconcile("TIMO", LocalDate.of(2026, 9, 24));
+        new InvitationRewardAccountService(jdbc, clock, 7, new InvitationCommissionReportProjector(jdbc)).reconcile("TIMO", LocalDate.of(2026, 9, 24));
         UserDistributionProfileRepository users = mock(UserDistributionProfileRepository.class);
         when(users.existsById(2L)).thenReturn(true);
         InvitationRewardAccountQueryService query = new InvitationRewardAccountQueryService(jdbc, users);
@@ -141,6 +141,100 @@ class InvitationRewardAccountServiceTest {
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("does not reconcile");
     }
 
+    @Test
+    void commissionReportSeparatesDirectAndIndirectSourcesWithoutCountingUnlocks() {
+        JdbcTemplate jdbc = database("commission_report");
+        MutableClock clock = new MutableClock(Instant.parse("2026-09-24T12:00:00Z"));
+        jdbc.update("INSERT INTO token_point_conversion_version(id,platform_code,token_unit,points_per_token,rule_status,effective_from) VALUES (1,'TIMO','TIMO_DIAMOND',2,'ACTIVE',?)",
+                Timestamp.from(clock.instant().minusSeconds(60)));
+        jdbc.update("INSERT INTO invitation_relation_version VALUES (1,2,1,'2026-09-01 00:00:00',NULL)");
+        jdbc.update("INSERT INTO invitation_relation_version VALUES (3,1,1,'2026-09-01 00:00:00',NULL)");
+        jdbc.update("INSERT INTO invitation_relation_version VALUES (4,1,1,'2026-09-01 00:00:00',NULL)");
+        jdbc.update("INSERT INTO user_public_profile VALUES (1,'B')");
+        jdbc.update("INSERT INTO user_public_profile VALUES (3,'C')");
+        candidate(jdbc, "v1", "25.000000", "2.500000");
+        jdbc.update("""
+                INSERT INTO mcn_income_reward_candidate_projection
+                (source_system,platform_code,source_event_id,reward_level,recipient_user_id,source_revision,business_date,
+                occurred_at,source_user_id,source_guild_id,base_amount,company_share_rate,company_income_base_amount,
+                rule_rate,candidate_amount,amount_unit,candidate_status,calculation_version)
+                VALUES ('MCN','TIMO','event-c',2,2,'v1','2026-09-24','2026-09-24 10:00:00',3,'guild',100,0.25,25,
+                0.03,0.75,'TIMO_DIAMOND','CANDIDATE','INVITATION_COMPANY_INCOME_V2')
+                """);
+        InvitationRewardAccountService account = new InvitationRewardAccountService(jdbc, clock, 7, new InvitationCommissionReportProjector(jdbc));
+        InvitationCommissionReportService report = new InvitationCommissionReportService(jdbc, clock);
+        LocalDate date = LocalDate.of(2026, 9, 24);
+        account.reconcile("TIMO", date);
+        var first = report.report(2, "TIMO", date, date, 0, 20);
+        assertThat(first.directPoints()).isEqualByComparingTo("5.000000");
+        assertThat(first.indirectPoints()).isEqualByComparingTo("1.500000");
+        assertThat(first.totalPoints()).isEqualByComparingTo("6.500000");
+        Long existingLedgerId = jdbc.queryForObject("SELECT MIN(id) FROM invitation_reward_account_ledger", Long.class);
+        new InvitationCommissionReportProjector(jdbc).recordLedger(existingLedgerId);
+        assertThat(report.report(2, "TIMO", date, date, 0, 20).totalPoints()).isEqualByComparingTo("6.500000");
+        assertThat(first.items()).hasSize(1);
+        assertThat(first.items().getFirst().userId()).isEqualTo(1);
+        assertThat(first.items().getFirst().nickname()).isEqualTo("B");
+        assertThat(report.sources(2, "TIMO", 1, date, date, 0, 20).items().getFirst().userId()).isEqualTo(3);
+        assertThat(report.sources(2, "TIMO", 1, date, date, 0, 20).items()).hasSize(2);
+        assertThat(report.sources(2, "TIMO", 1, date, date, 0, 20).items().get(1).points()).isZero();
+        assertThat(report.sources(2, "TIMO", 1, date, date, 0, 20).indirectPoints()).isEqualByComparingTo("1.500000");
+        assertThat(report.report(2, "LINKY", date, date, 0, 20).totalPoints()).isZero();
+        assertThatThrownBy(() -> report.sources(2, "TIMO", 99, date, date, 0, 20))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> report.report(2, "TIMO", date.minusDays(60), date, 0, 20))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        clock.advanceDays(7);
+        assertThat(account.releaseDue()).isEqualTo(2);
+        assertThat(report.report(2, "TIMO", date, date, 0, 20).totalPoints()).isEqualByComparingTo("6.500000");
+        jdbc.update("UPDATE mcn_income_reward_candidate_projection SET candidate_status='BLOCKED_SOURCE_REVOKED' WHERE source_event_id='event-c'");
+        account.reconcile("TIMO", date);
+        LocalDate correctionDay = LocalDate.of(2026, 10, 1);
+        assertThat(report.report(2, "TIMO", correctionDay, correctionDay, 0, 20).indirectPoints())
+                .isEqualByComparingTo("-1.500000");
+    }
+
+    @Test
+    void migrationBackfillsHistoricalCommissionWithoutReplayingUnlocks() {
+        var source = new DriverManagerDataSource("jdbc:h2:mem:commission_backfill;MODE=MySQL;DB_CLOSE_DELAY=-1", "sa", "");
+        JdbcTemplate jdbc = new JdbcTemplate(source);
+        jdbc.execute("CREATE TABLE token_point_conversion_version(id BIGINT PRIMARY KEY)");
+        jdbc.update("INSERT INTO token_point_conversion_version VALUES (1)");
+        new ResourceDatabasePopulator(new ClassPathResource("db/migration/V66__add_invitation_reward_account.sql")).execute(source);
+        jdbc.execute("CREATE TABLE invitation_relation_version(user_id BIGINT,inviter_user_id BIGINT,version_no INT,effective_from TIMESTAMP,effective_to TIMESTAMP)");
+        jdbc.update("INSERT INTO invitation_relation_version VALUES (3,1,1,'2026-09-01 00:00:00',NULL)");
+        jdbc.update("""
+                INSERT INTO invitation_reward_entry
+                (id,user_id,platform_code,source_event_id,reward_level,source_revision,business_date,occurred_at,
+                source_user_id,source_guild_id,raw_diamonds,company_share_rate,company_income_diamonds,
+                invitation_rate,reward_diamonds,conversion_id,points_per_diamond,reward_points,recorded_at)
+                VALUES (1,2,'TIMO','historical',2,'v1','2026-09-24','2026-09-24 10:00:00',3,'guild',100,
+                0.25,25,0.03,0.75,1,2,1.5,'2026-09-24 12:00:00')
+                """);
+        jdbc.update("""
+                INSERT INTO invitation_reward_account_ledger
+                (id,user_id,entry_id,event_type,frozen_delta,available_delta,reason,platform_code,source_event_id,
+                source_revision,reward_level,source_user_id,raw_diamonds,company_share_rate,company_income_diamonds,
+                invitation_rate,reward_diamonds,points_per_diamond,conversion_id,created_at)
+                VALUES (1,2,1,'INVITATION_REWARD',1.5,0,'INVITATION_REWARD','TIMO','historical',
+                'v1',2,3,100,0.25,25,0.03,0.75,2,1,'2026-09-24 12:00:00')
+                """);
+        jdbc.update("""
+                INSERT INTO invitation_reward_account_ledger
+                (id,user_id,entry_id,event_type,frozen_delta,available_delta,reason,platform_code,source_event_id,
+                source_revision,reward_level,source_user_id,raw_diamonds,company_share_rate,company_income_diamonds,
+                invitation_rate,reward_diamonds,points_per_diamond,conversion_id,created_at)
+                VALUES (2,2,1,'UNFREEZE',-1.5,1.5,'UNFREEZE','TIMO','historical',
+                'v1',2,3,100,0.25,25,0.03,0.75,2,1,'2026-10-01 12:00:00')
+                """);
+        new ResourceDatabasePopulator(new ClassPathResource("db/migration/V74__add_invitation_commission_report_projection.sql")).execute(source);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM invitation_commission_report_event", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT direct_invitee_user_id FROM invitation_commission_report_daily", Long.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT points_delta FROM invitation_commission_report_daily", BigDecimal.class))
+                .isEqualByComparingTo("1.500000");
+    }
+
     private static JdbcTemplate database(String name) {
         var source = new DriverManagerDataSource("jdbc:h2:mem:" + name + ";MODE=MySQL;DB_CLOSE_DELAY=-1", "sa", "");
         JdbcTemplate jdbc = new JdbcTemplate(source);
@@ -158,6 +252,9 @@ class InvitationRewardAccountServiceTest {
                 effective_from TIMESTAMP,effective_to TIMESTAMP)
                 """);
         new ResourceDatabasePopulator(new ClassPathResource("db/migration/V66__add_invitation_reward_account.sql")).execute(source);
+        jdbc.execute("CREATE TABLE invitation_relation_version(user_id BIGINT,inviter_user_id BIGINT,version_no INT,effective_from TIMESTAMP,effective_to TIMESTAMP)");
+        jdbc.execute("CREATE TABLE user_public_profile(user_id BIGINT PRIMARY KEY,nickname VARCHAR(40))");
+        new ResourceDatabasePopulator(new ClassPathResource("db/migration/V74__add_invitation_commission_report_projection.sql")).execute(source);
         return jdbc;
     }
 

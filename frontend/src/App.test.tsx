@@ -212,7 +212,7 @@ describe('Timo binding feedback', () => {
 })
 
 describe('consumer locale coverage', () => {
-  const paths = ['/earnings', '/earnings/effective-users', '/earnings/activity', '/invite', '/account', '/account/profile', '/account/linky', '/account/timo']
+  const paths = ['/earnings', '/earnings/effective-users', '/earnings/activity', '/earnings/commission', '/earnings/commission/invitees/42', '/invite', '/account', '/account/profile', '/account/linky', '/account/timo']
   const locales = ['en', 'es', 'id', 'pt'] as const
 
   for (const locale of locales) {
@@ -831,6 +831,15 @@ describe('Earnings landing page', () => {
 
     expect(markup).toContain('href="/earnings/effective-users"')
     expect(markup).not.toContain('consumer-details')
+  })
+
+  it('links to a separate commission report and supports its drill-down route', () => {
+    const overview = renderToStaticMarkup(<App />)
+    expect(overview).toContain('href="/earnings/commission"')
+    window.location.pathname = '/earnings/commission'
+    expect(renderToStaticMarkup(<App />)).toContain('分佣收益明细')
+    window.location.pathname = '/earnings/commission/invitees/42'
+    expect(renderToStaticMarkup(<App />)).toContain('分佣收益明细')
   })
 
   it('moves deep team and reward details off the overview', () => {

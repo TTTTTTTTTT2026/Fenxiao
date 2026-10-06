@@ -26,13 +26,16 @@ public class InvitationRewardAccountService {
     private final JdbcTemplate jdbc;
     private final Clock clock;
     private final int freezeDays;
+    private final InvitationCommissionReportProjector commissionReports;
 
     public InvitationRewardAccountService(JdbcTemplate jdbc, Clock clock,
-            @Value("${app.invitation-reward.freeze-days:7}") int freezeDays) {
+            @Value("${app.invitation-reward.freeze-days:7}") int freezeDays,
+            InvitationCommissionReportProjector commissionReports) {
         if (freezeDays < 1 || freezeDays > 365) throw new IllegalArgumentException("invitation reward freeze days out of range");
         this.jdbc = jdbc;
         this.clock = clock;
         this.freezeDays = freezeDays;
+        this.commissionReports = commissionReports;
     }
 
     /** Reconcile the latest accepted candidate facts, including voided and re-attributed facts. */
@@ -237,7 +240,9 @@ public class InvitationRewardAccountService {
     }
 
     private void ledger(long userId, long entryId, String type, BigDecimal frozen, BigDecimal available, String reason) {
-        jdbc.update("""
+        KeyHolder holder = new GeneratedKeyHolder();
+        jdbc.update(connection -> {
+            PreparedStatement statement = connection.prepareStatement("""
                 INSERT INTO invitation_reward_account_ledger
                 (user_id,entry_id,event_type,frozen_delta,available_delta,reason,platform_code,source_event_id,
                  source_revision,reward_level,source_user_id,raw_diamonds,company_share_rate,company_income_diamonds,
@@ -246,7 +251,17 @@ public class InvitationRewardAccountService {
                        e.source_user_id,e.raw_diamonds,e.company_share_rate,e.company_income_diamonds,
                        e.invitation_rate,e.reward_diamonds,e.points_per_diamond,e.conversion_id,?
                 FROM invitation_reward_entry e WHERE e.id=?
-                """, userId, type, frozen, available, reason, Timestamp.from(clock.instant()), entryId);
+                """, new String[]{"id"});
+            statement.setLong(1, userId);
+            statement.setString(2, type);
+            statement.setBigDecimal(3, frozen);
+            statement.setBigDecimal(4, available);
+            statement.setString(5, reason);
+            statement.setTimestamp(6, Timestamp.from(clock.instant()));
+            statement.setLong(7, entryId);
+            return statement;
+        }, holder);
+        if (!"UNFREEZE".equals(type)) commissionReports.recordLedger(Objects.requireNonNull(holder.getKey()).longValue());
     }
 
     private record Key(String platform, String sourceEventId, int level, long userId) { }

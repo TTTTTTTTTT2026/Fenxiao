@@ -5998,6 +5998,30 @@ code {
 
 .consumer-activity-section .consumer-section-head a { display: inline-flex; align-items: center; gap: 4px; color: #ed5c22; font-weight: 700; text-decoration: none; }
 
+.consumer-commission-entry { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 18px 0 max(132px, calc(112px + env(safe-area-inset-bottom))); padding: 18px 20px; color: #202b3d; text-decoration: none; background: #fff; border: 1px solid #f7e1d5; border-radius: 22px; box-shadow: 0 10px 28px #7d442114; }
+.consumer-commission-entry span { display: grid; gap: 5px; }
+.consumer-commission-entry strong { font-size: 17px; }
+.consumer-commission-entry small { color: #746b65; line-height: 1.45; }
+.consumer-commission-entry > svg { color: #ed5c22; flex: none; }
+.consumer-commission-filters { margin-bottom: 16px; }
+.consumer-commission-quick { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+.consumer-commission-quick button { border: 1px solid #efd9cd; border-radius: 99px; background: #fffaf6; padding: 8px 12px; color: #704832; font: inherit; cursor: pointer; }
+.consumer-commission-quick button.is-selected { color: #fff; background: #f15c22; border-color: #f15c22; }
+.consumer-commission-dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.consumer-commission-dates label { display: grid; gap: 6px; color: #56504a; font-size: 13px; }
+.consumer-commission-dates input { min-width: 0; width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #e7dcd4; border-radius: 12px; background: #fff; color: #262525; font: inherit; }
+.consumer-commission-filters > small { display: block; margin-top: 8px; color: #756f68; }
+.consumer-commission-warning { color: #a23628; background: #fff4f1; border-radius: 12px; padding: 10px 12px; }
+.consumer-commission-summary { margin: 8px 0 18px; }
+.consumer-commission-list { display: grid; }
+.consumer-commission-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 0; border-top: 1px solid #f0e9e3; color: #2a2928; text-decoration: none; }
+.consumer-commission-row > span { display: grid; gap: 4px; min-width: 0; }
+.consumer-commission-row > span:nth-child(2) { text-align: right; }
+.consumer-commission-row small { font-size: 12px; color: #77716d; }
+.consumer-commission-row strong { overflow-wrap: anywhere; }
+.consumer-commission-row svg { flex: none; color: #eb5a21; }
+@media (max-width: 480px) { .consumer-commission-dates { grid-template-columns: 1fr 1fr; } .consumer-commission-row { align-items: flex-start; } .consumer-commission-row > span:nth-child(2) { max-width: 45%; } }
+
 .consumer-task-list > :last-child {
   border-bottom: 0;
 }

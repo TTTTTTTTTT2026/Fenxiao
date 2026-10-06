@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiRequestError } from './api'
-import { getConsumerWorkspace, selectConsumerWorkspace, getDistributionHome, getDistributionEffectiveTeam, getDistributionInvitationAccount } from './api'
+import { getConsumerWorkspace, selectConsumerWorkspace, getDistributionHome, getDistributionEffectiveTeam, getDistributionInvitationAccount, getInvitationCommissionReport, getInvitationCommissionSources } from './api'
 
 describe('consumer app workspace api', () => {
   afterEach(() => vi.unstubAllGlobals())
@@ -13,12 +13,16 @@ describe('consumer app workspace api', () => {
     await getDistributionHome(42, 'token', 'TIMO')
     await getDistributionEffectiveTeam(42, 'token', 'TIMO')
     await getDistributionInvitationAccount(42, 'token', 1, 20, 'TIMO')
+    await getInvitationCommissionReport(42, 'token', 'TIMO', '2026-10-01', '2026-10-06')
+    await getInvitationCommissionSources(42, 'token', 'TIMO', 7, '2026-10-01', '2026-10-06')
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
       '/api/distribution/workspaces/42',
       '/api/distribution/workspaces/42',
       '/api/distribution/home/42?platformCode=TIMO',
       '/api/distribution/team/42/effective?platformCode=TIMO',
       '/api/distribution/accounts/42?page=1&size=20&platformCode=TIMO',
+      '/api/distribution/commission-reports/42?platformCode=TIMO&startDate=2026-10-01&endDate=2026-10-06&page=0&size=20',
+      '/api/distribution/commission-reports/42/invitees/7?platformCode=TIMO&startDate=2026-10-01&endDate=2026-10-06&page=0&size=20',
     ])
     expect(fetchMock.mock.calls[1][1]).toEqual(expect.objectContaining({
       method: 'POST', body: JSON.stringify({ platformCode: 'TIMO' }),

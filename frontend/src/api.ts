@@ -411,6 +411,33 @@ export type InvitationRewardAccountResponse = {
   }>
 }
 
+export type InvitationCommissionReportResponse = {
+  platformCode: 'TIMO' | 'LINKY'
+  startDate: string
+  endDate: string
+  directPoints: number
+  indirectPoints: number
+  totalPoints: number
+  unattributedPoints: number
+  page: number
+  size: number
+  hasMore: boolean
+  items: Array<{ userId: number; nickname: string | null; directPoints: number; indirectPoints: number; totalPoints: number }>
+}
+
+export type InvitationCommissionSourceResponse = {
+  platformCode: 'TIMO' | 'LINKY'
+  startDate: string
+  endDate: string
+  directInviteeUserId: number
+  directInviteeNickname: string | null
+  indirectPoints: number
+  page: number
+  size: number
+  hasMore: boolean
+  items: Array<{ userId: number; nickname: string | null; points: number }>
+}
+
 export type TeamMemberItem = {
   userId: number
   inviteCode: string
@@ -1162,6 +1189,23 @@ export function getDistributionInvitationAccount(userId: number, accessToken: st
   return request<InvitationRewardAccountResponse>(`/api/distribution/accounts/${userId}?page=${page}&size=${size}${platformCode ? `&platformCode=${platformCode}` : ''}`, {
     headers: { 'X-Distribution-Token': accessToken },
   })
+}
+
+export function getInvitationCommissionReport(userId: number, accessToken: string, platformCode: 'TIMO' | 'LINKY',
+  startDate: string, endDate: string, page = 0) {
+  const params = new URLSearchParams({ platformCode, startDate, endDate, page: String(page), size: '20' })
+  return request<InvitationCommissionReportResponse>(`/api/distribution/commission-reports/${userId}?${params}`, {
+    headers: { 'X-Distribution-Token': accessToken },
+  })
+}
+
+export function getInvitationCommissionSources(userId: number, accessToken: string, platformCode: 'TIMO' | 'LINKY',
+  directInviteeUserId: number, startDate: string, endDate: string, page = 0) {
+  const params = new URLSearchParams({ platformCode, startDate, endDate, page: String(page), size: '20' })
+  return request<InvitationCommissionSourceResponse>(
+    `/api/distribution/commission-reports/${userId}/invitees/${directInviteeUserId}?${params}`, {
+      headers: { 'X-Distribution-Token': accessToken },
+    })
 }
 
 export function getAdminInvitationAccount(adminSessionToken: string, userId: number, page = 0, size = 20) {
