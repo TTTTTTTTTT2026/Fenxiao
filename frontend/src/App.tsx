@@ -94,6 +94,8 @@ import {
   selectConsumerWorkspace,
   getDistributionEffectiveTeam,
   getDistributionInvitationAccount,
+  getInvitationCommissionReport,
+  getInvitationCommissionSources,
   getUserPublicProfile,
   updateUserNickname,
   updateUserAvatar,
@@ -175,6 +177,8 @@ import {
   type DistributionHomeResponse,
   type ConsumerWorkspaceResponse,
   type InvitationRewardAccountResponse,
+  type InvitationCommissionReportResponse,
+  type InvitationCommissionSourceResponse,
   type ExperimentDashboardResponse,
   type GuildConfigRequest,
   type GuildConfigResponse,
@@ -7496,6 +7500,11 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
               )}
             </section>
 
+            <a className="consumer-commission-entry" href="/earnings/commission">
+              <span><strong>{commissionReportCopy[locale].title}</strong><small>{commissionReportCopy[locale].entryHint}</small></span>
+              <CaretRight weight="bold" aria-hidden="true" />
+            </a>
+
             {withdrawalDialogOpen ? <div className="consumer-modal-backdrop" onClick={() => setWithdrawalDialogOpen(false)}>
               <section className="consumer-withdrawal-dialog" role="dialog" aria-modal="true" aria-label={withdrawalCopy.title} onClick={(event) => event.stopPropagation()}>
                 <h2>{withdrawalCopy.title}</h2>
@@ -7511,6 +7520,138 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
       </main>
     </div>
   )
+}
+
+const commissionReportCopy = {
+  zh: { title: '分佣收益明细', entryHint: '按直接下级查看其邀请链给你的分佣', yesterday: '昨日', recent: (days: number) => `最近${days}日`, custom: '自定义', start: '开始日期', end: '结束日期', direct: '直接分佣', indirect: '间接分佣', total: '分佣总计', source: '贡献用户', period: '统计周期（UTC0）', points: '积分', empty: '这一周期暂无分佣数据', load: '加载更多', back: '返回分佣收益明细', unresolved: '部分历史分佣的邀请归属待核对', invalid: '请选择不超过 60 天、且不晚于今天的 UTC 日期范围。', failed: '分佣报表加载失败，请稍后重试。', app: (name: string) => `当前仅显示${name}的分佣数据。`, signIn: '请先登录', unknown: '昵称未设置', details: '查看下一级贡献' },
+  en: { title: 'Commission earnings details', entryHint: 'See how each direct invitee’s chain contributes', yesterday: 'Yesterday', recent: (days: number) => `Last ${days} days`, custom: 'Custom', start: 'Start date', end: 'End date', direct: 'Direct commission', indirect: 'Indirect commission', total: 'Total commission', source: 'Contributing user', period: 'Period (UTC)', points: 'points', empty: 'No commission in this period', load: 'Load more', back: 'Back to commission details', unresolved: 'Some historical invitation routes need review', invalid: 'Select up to 60 UTC days ending no later than today.', failed: 'Could not load commission report. Try again later.', app: (name: string) => `Showing only ${name} commission data.`, signIn: 'Sign in first', unknown: 'No nickname', details: 'View next-level contributions' },
+  es: { title: 'Detalle de comisiones', entryHint: 'Consulta los aportes de cada invitado directo', yesterday: 'Ayer', recent: (days: number) => `Últimos ${days} días`, custom: 'Personalizar', start: 'Fecha inicial', end: 'Fecha final', direct: 'Comisión directa', indirect: 'Comisión indirecta', total: 'Comisión total', source: 'Usuario que aportó', period: 'Período (UTC)', points: 'puntos', empty: 'Sin comisiones en este período', load: 'Cargar más', back: 'Volver al detalle', unresolved: 'Algunas relaciones históricas requieren revisión', invalid: 'Elige hasta 60 días UTC sin fechas futuras.', failed: 'No se pudo cargar el informe.', app: (name: string) => `Solo se muestran comisiones de ${name}.`, signIn: 'Inicia sesión', unknown: 'Sin apodo', details: 'Ver aportes del siguiente nivel' },
+  id: { title: 'Rincian komisi', entryHint: 'Lihat kontribusi rantai setiap undangan langsung', yesterday: 'Kemarin', recent: (days: number) => `${days} hari terakhir`, custom: 'Kustom', start: 'Tanggal mulai', end: 'Tanggal akhir', direct: 'Komisi langsung', indirect: 'Komisi tidak langsung', total: 'Total komisi', source: 'Pengguna penyumbang', period: 'Periode (UTC)', points: 'poin', empty: 'Belum ada komisi pada periode ini', load: 'Muat lainnya', back: 'Kembali ke rincian komisi', unresolved: 'Beberapa jalur undangan lama perlu ditinjau', invalid: 'Pilih maksimal 60 hari UTC tanpa tanggal mendatang.', failed: 'Laporan komisi gagal dimuat.', app: (name: string) => `Hanya menampilkan komisi ${name}.`, signIn: 'Masuk dahulu', unknown: 'Belum ada nama panggilan', details: 'Lihat kontribusi tingkat berikutnya' },
+  pt: { title: 'Detalhes das comissões', entryHint: 'Veja a contribuição da rede de cada convidado direto', yesterday: 'Ontem', recent: (days: number) => `Últimos ${days} dias`, custom: 'Personalizar', start: 'Data inicial', end: 'Data final', direct: 'Comissão direta', indirect: 'Comissão indireta', total: 'Comissão total', source: 'Usuário de origem', period: 'Período (UTC)', points: 'pontos', empty: 'Sem comissões neste período', load: 'Carregar mais', back: 'Voltar aos detalhes', unresolved: 'Algumas relações históricas precisam de revisão', invalid: 'Selecione até 60 dias UTC sem datas futuras.', failed: 'Não foi possível carregar o relatório.', app: (name: string) => `Exibindo apenas comissões do ${name}.`, signIn: 'Entre primeiro', unknown: 'Sem apelido', details: 'Ver contribuições do próximo nível' },
+} as const
+
+function utcReportDate(offsetDays = 0) {
+  const date = new Date()
+  date.setUTCDate(date.getUTCDate() + offsetDays)
+  return date.toISOString().slice(0, 10)
+}
+
+function validCommissionPeriod(start: string, end: string) {
+  const startMs = Date.parse(`${start}T00:00:00Z`)
+  const endMs = Date.parse(`${end}T00:00:00Z`)
+  return /^\d{4}-\d{2}-\d{2}$/.test(start) && /^\d{4}-\d{2}-\d{2}$/.test(end)
+    && Number.isFinite(startMs) && Number.isFinite(endMs) && startMs <= endMs
+    && end <= utcReportDate() && (endMs - startMs) / 86400000 < 60
+}
+
+function CommissionReportPage({ directInviteeUserId }: { directInviteeUserId?: number }) {
+  const [session] = useState<SessionState | null>(() => loadJsonState<SessionState>(STORAGE_KEY))
+  const [locale] = useState<ConsumerLocale>(() => loadExternalLocale())
+  const copy = commissionReportCopy[locale]
+  const initialParams = new URLSearchParams(window.location.search)
+  const [startDate, setStartDate] = useState(() => initialParams.get('startDate') || utcReportDate(-6))
+  const [endDate, setEndDate] = useState(() => initialParams.get('endDate') || utcReportDate())
+  const [quick, setQuick] = useState<number | 'yesterday' | 'custom'>(() =>
+    initialParams.has('startDate') || initialParams.has('endDate') ? 'custom' : 7)
+  const [platform, setPlatform] = useState<'TIMO' | 'LINKY' | null>(null)
+  const [workspaceLoaded, setWorkspaceLoaded] = useState(false)
+  const [verified, setVerified] = useState(false)
+  const [report, setReport] = useState<InvitationCommissionReportResponse | null>(null)
+  const [sources, setSources] = useState<InvitationCommissionSourceResponse | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const valid = validCommissionPeriod(startDate, endDate)
+
+  useEffect(() => {
+    if (!session) return
+    let active = true
+    void getConsumerWorkspace(session.userId, session.accessToken).then((workspace) => {
+      if (!active) return
+      setPlatform(workspace.selected)
+      setVerified(workspace.apps.some((app) => app.code === workspace.selected && app.verified))
+      setWorkspaceLoaded(true)
+    }).catch(() => { if (active) { setError(copy.failed); setWorkspaceLoaded(true) } })
+    return () => { active = false }
+  }, [session, copy.failed])
+
+  useEffect(() => {
+    if (!session || !platform || !verified || !valid) return
+    let active = true
+    async function load() {
+      setLoading(true)
+      setError('')
+      setReport(null)
+      setSources(null)
+      try {
+        if (!session || !platform) return
+        if (directInviteeUserId) {
+          const result = await getInvitationCommissionSources(session.userId, session.accessToken, platform, directInviteeUserId, startDate, endDate)
+          if (active) setSources(result)
+        } else {
+          const result = await getInvitationCommissionReport(session.userId, session.accessToken, platform, startDate, endDate)
+          if (active) setReport(result)
+        }
+      } catch { if (active) setError(copy.failed) } finally { if (active) setLoading(false) }
+    }
+    void load()
+    return () => { active = false }
+  }, [session, platform, verified, valid, startDate, endDate, directInviteeUserId, copy.failed])
+
+  function chooseQuick(days: number | 'yesterday') {
+    setQuick(days)
+    setStartDate(utcReportDate(days === 'yesterday' ? -1 : 1 - days))
+    setEndDate(utcReportDate(days === 'yesterday' ? -1 : 0))
+  }
+
+  async function loadMore() {
+    if (!session || !platform || loading) return
+    const current = directInviteeUserId ? sources : report
+    if (!current?.hasMore) return
+    setLoading(true)
+    try {
+      if (directInviteeUserId && sources) {
+        const next = await getInvitationCommissionSources(session.userId, session.accessToken, platform, directInviteeUserId, startDate, endDate, sources.page + 1)
+        setSources({ ...next, items: [...sources.items, ...next.items] })
+      } else if (report) {
+        const next = await getInvitationCommissionReport(session.userId, session.accessToken, platform, startDate, endDate, report.page + 1)
+        setReport({ ...next, items: [...report.items, ...next.items] })
+      }
+    } catch { setError(copy.failed) } finally { setLoading(false) }
+  }
+
+  const reportUrl = `/earnings/commission?${new URLSearchParams({ startDate, endDate })}`
+  return <div className="consumer-app-page"><main className="consumer-shell consumer-detail-page">
+    <header className="consumer-topbar"><a className="consumer-brand" href="/earnings">BANDEIRA</a><ConsumerAccountLink locale={locale} /></header>
+    <a className="consumer-detail-back" href={directInviteeUserId ? reportUrl : '/earnings'}>← {directInviteeUserId ? copy.back : consumerNavigationCopy[locale].earnings}</a>
+    <section className="consumer-commercial-heading"><h1>{copy.title}</h1></section>
+    {!session ? <a className="consumer-primary-link" href="/invite#phone-login">{copy.signIn}</a> : !workspaceLoaded ? <p>{workspaceCopy[locale].loading}</p> : !platform || !verified ? <ConsumerUnboundGuidance locale={locale} variant="gate" /> : <>
+      <p className="consumer-workspace-banner">{copy.app(consumerAppName(platform))}</p>
+      <section className="consumer-settings-card consumer-commission-filters">
+        <h2>{copy.period}</h2>
+        <div className="consumer-commission-quick">{(['yesterday', 3, 7, 14, 30, 60] as const).map((days) =>
+          <button key={days} type="button" className={quick === days ? 'is-selected' : ''} onClick={() => chooseQuick(days)}>{days === 'yesterday' ? copy.yesterday : copy.recent(days)}</button>)}</div>
+        <div className="consumer-commission-dates"><label>{copy.start}<input type="date" value={startDate} max={utcReportDate()} onChange={(event) => { setQuick('custom'); setStartDate(event.target.value) }} /></label><label>{copy.end}<input type="date" value={endDate} max={utcReportDate()} onChange={(event) => { setQuick('custom'); setEndDate(event.target.value) }} /></label></div>
+        {quick === 'custom' ? <small>{copy.custom} · {copy.period}</small> : null}
+        {!valid ? <p className="consumer-commission-warning" role="alert">{copy.invalid}</p> : null}
+      </section>
+      {error ? <div className="consumer-banner is-error" role="alert">{error}</div> : null}
+      {valid && directInviteeUserId && sources?.platformCode === platform && sources.startDate === startDate && sources.endDate === endDate ? <section className="consumer-settings-card">
+        <h2>{sources.directInviteeNickname || copy.unknown} · #{sources.directInviteeUserId}</h2>
+        <p>{copy.indirect}：{formatMoney(sources.indirectPoints, locale)} {copy.points}</p>
+        {sources.items.length ? <div className="consumer-commission-list">{sources.items.map((item) => <div className="consumer-commission-row" key={item.userId}><span><strong>{item.nickname || copy.unknown}</strong><small>#{item.userId}</small></span><span><small>{copy.indirect}</small><strong>{formatMoney(item.points, locale)} {copy.points}</strong></span></div>)}</div> : !loading ? <p>{copy.empty}</p> : null}
+      </section> : valid && !directInviteeUserId && report?.platformCode === platform && report.startDate === startDate && report.endDate === endDate ? <section className="consumer-settings-card">
+        <div className="consumer-detail-grid consumer-commission-summary"><div><span>{copy.direct}</span><strong>{formatMoney(report.directPoints, locale)} {copy.points}</strong></div><div><span>{copy.indirect}</span><strong>{formatMoney(report.indirectPoints, locale)} {copy.points}</strong></div><div><span>{copy.total}</span><strong>{formatMoney(report.totalPoints, locale)} {copy.points}</strong></div></div>
+        {report.unattributedPoints !== 0 ? <p className="consumer-commission-warning">{copy.unresolved}：{formatMoney(report.unattributedPoints, locale)} {copy.points}</p> : null}
+        {report.items.length ? <div className="consumer-commission-list">{report.items.map((item) => item.userId > 0 ? <a className="consumer-commission-row" key={item.userId} href={`/earnings/commission/invitees/${item.userId}?${new URLSearchParams({ startDate, endDate })}`}><span><strong>{item.nickname || copy.unknown}</strong><small>#{item.userId} · {copy.details}</small></span><span><small>{copy.direct} {formatMoney(item.directPoints, locale)}</small><small>{copy.indirect} {formatMoney(item.indirectPoints, locale)}</small><strong>{copy.total} {formatMoney(item.totalPoints, locale)} {copy.points}</strong></span><CaretRight weight="bold" /></a> : <div className="consumer-commission-row" key="unresolved"><strong>{copy.unresolved}</strong><strong>{formatMoney(item.totalPoints, locale)} {copy.points}</strong></div>)}</div> : !loading ? <p>{copy.empty}</p> : null}
+      </section> : null}
+      {loading ? <p>{workspaceCopy[locale].loading}</p> : null}
+      {(directInviteeUserId
+        ? sources?.platformCode === platform && sources.startDate === startDate && sources.endDate === endDate && sources.hasMore
+        : report?.platformCode === platform && report.startDate === startDate && report.endDate === endDate && report.hasMore)
+        ? <button className="consumer-detail-load-more" type="button" disabled={loading} onClick={() => void loadMore()}>{copy.load}</button> : null}
+    </>}
+    {session ? <ConsumerBottomNavigation locale={locale} active="earnings" /> : null}
+  </main></div>
 }
 
 function ConsumerLandingPage() {
@@ -7551,6 +7692,11 @@ function App() {
   if (pathname.startsWith('/invite')) return <InviteCodePage />
   if (pathname.startsWith('/earnings/effective-users')) return <EarningsPage view="effective" />
   if (pathname.startsWith('/earnings/activity')) return <EarningsPage view="activity" />
+  if (pathname.startsWith('/earnings/commission/invitees/')) {
+    const directInviteeUserId = Number(pathname.split('/').pop())
+    return <CommissionReportPage directInviteeUserId={Number.isSafeInteger(directInviteeUserId) ? directInviteeUserId : -1} />
+  }
+  if (pathname.startsWith('/earnings/commission')) return <CommissionReportPage />
   if (pathname.startsWith('/earnings')) return <EarningsPage />
   if (hostname === 'app.bandeira.fandodo.online') return <InviteCodePage />
   const designPreview = import.meta.env.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('adminPreview') === '1'
