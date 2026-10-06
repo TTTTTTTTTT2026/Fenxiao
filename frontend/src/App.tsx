@@ -7548,6 +7548,8 @@ function CommissionReportPage({ directInviteeUserId }: { directInviteeUserId?: n
   const [session] = useState<SessionState | null>(() => loadJsonState<SessionState>(STORAGE_KEY))
   const [locale] = useState<ConsumerLocale>(() => loadExternalLocale())
   const copy = commissionReportCopy[locale]
+  const metricSeparator = locale === 'zh' ? '：' : ': '
+  const pageLanguage = { zh: 'zh-CN', en: 'en', es: 'es', id: 'id', pt: 'pt-BR' }[locale]
   const initialParams = new URLSearchParams(window.location.search)
   const [startDate, setStartDate] = useState(() => initialParams.get('startDate') || utcReportDate(-6))
   const [endDate, setEndDate] = useState(() => initialParams.get('endDate') || utcReportDate())
@@ -7620,7 +7622,7 @@ function CommissionReportPage({ directInviteeUserId }: { directInviteeUserId?: n
   }
 
   const reportUrl = `/earnings/commission?${new URLSearchParams({ startDate, endDate })}`
-  return <div className="consumer-app-page"><main className="consumer-shell consumer-detail-page">
+  return <div className="consumer-app-page"><main className="consumer-shell consumer-detail-page" lang={pageLanguage}>
     <header className="consumer-topbar"><a className="consumer-brand" href="/earnings">BANDEIRA</a><ConsumerAccountLink locale={locale} /></header>
     <a className="consumer-detail-back" href={directInviteeUserId ? reportUrl : '/earnings'}>← {directInviteeUserId ? copy.back : consumerNavigationCopy[locale].earnings}</a>
     <section className="consumer-commercial-heading"><h1>{copy.title}</h1></section>
@@ -7637,11 +7639,11 @@ function CommissionReportPage({ directInviteeUserId }: { directInviteeUserId?: n
       {error ? <div className="consumer-banner is-error" role="alert">{error}</div> : null}
       {valid && directInviteeUserId && sources?.platformCode === platform && sources.startDate === startDate && sources.endDate === endDate ? <section className="consumer-settings-card">
         <h2>{sources.directInviteeNickname || copy.unknown} · #{sources.directInviteeUserId}</h2>
-        <p>{copy.indirect}：{formatMoney(sources.indirectPoints, locale)} {copy.points}</p>
+        <p>{copy.indirect}{metricSeparator}{formatMoney(sources.indirectPoints, locale)} {copy.points}</p>
         {sources.items.length ? <div className="consumer-commission-list">{sources.items.map((item) => <div className="consumer-commission-row" key={item.userId}><span><strong>{item.nickname || copy.unknown}</strong><small>#{item.userId}</small></span><span><small>{copy.indirect}</small><strong>{formatMoney(item.points, locale)} {copy.points}</strong></span></div>)}</div> : !loading ? <p>{copy.empty}</p> : null}
       </section> : valid && !directInviteeUserId && report?.platformCode === platform && report.startDate === startDate && report.endDate === endDate ? <section className="consumer-settings-card">
         <div className="consumer-detail-grid consumer-commission-summary"><div><span>{copy.direct}</span><strong>{formatMoney(report.directPoints, locale)} {copy.points}</strong></div><div><span>{copy.indirect}</span><strong>{formatMoney(report.indirectPoints, locale)} {copy.points}</strong></div><div><span>{copy.total}</span><strong>{formatMoney(report.totalPoints, locale)} {copy.points}</strong></div></div>
-        {report.unattributedPoints !== 0 ? <p className="consumer-commission-warning">{copy.unresolved}：{formatMoney(report.unattributedPoints, locale)} {copy.points}</p> : null}
+        {report.unattributedPoints !== 0 ? <p className="consumer-commission-warning">{copy.unresolved}{metricSeparator}{formatMoney(report.unattributedPoints, locale)} {copy.points}</p> : null}
         {report.items.length ? <div className="consumer-commission-list">{report.items.map((item) => item.userId > 0 ? <a className="consumer-commission-row" key={item.userId} href={`/earnings/commission/invitees/${item.userId}?${new URLSearchParams({ startDate, endDate })}`}><span><strong>{item.nickname || copy.unknown}</strong><small>#{item.userId} · {copy.details}</small></span><span><small>{copy.direct} {formatMoney(item.directPoints, locale)}</small><small>{copy.indirect} {formatMoney(item.indirectPoints, locale)}</small><strong>{copy.total} {formatMoney(item.totalPoints, locale)} {copy.points}</strong></span><CaretRight weight="bold" /></a> : <div className="consumer-commission-row" key="unresolved"><strong>{copy.unresolved}</strong><strong>{formatMoney(item.totalPoints, locale)} {copy.points}</strong></div>)}</div> : !loading ? <p>{copy.empty}</p> : null}
       </section> : null}
       {loading ? <p>{workspaceCopy[locale].loading}</p> : null}
