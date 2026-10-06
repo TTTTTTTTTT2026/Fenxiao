@@ -5998,7 +5998,7 @@ code {
 
 .consumer-activity-section .consumer-section-head a { display: inline-flex; align-items: center; gap: 4px; color: #ed5c22; font-weight: 700; text-decoration: none; }
 
-.consumer-commission-entry { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 18px 0 28px; padding: 18px 20px; color: #202b3d; text-decoration: none; background: #fff; border: 1px solid #f7e1d5; border-radius: 22px; box-shadow: 0 10px 28px #7d442114; }
+.consumer-commission-entry { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 18px 0 max(132px, calc(112px + env(safe-area-inset-bottom))); padding: 18px 20px; color: #202b3d; text-decoration: none; background: #fff; border: 1px solid #f7e1d5; border-radius: 22px; box-shadow: 0 10px 28px #7d442114; }
 .consumer-commission-entry span { display: grid; gap: 5px; }
 .consumer-commission-entry strong { font-size: 17px; }
 .consumer-commission-entry small { color: #746b65; line-height: 1.45; }
