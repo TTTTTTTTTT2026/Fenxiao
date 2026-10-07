@@ -3633,7 +3633,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               sectionId="admin-users"
               eyebrow="User directory"
               title="用户信息与平台归属"
-              description="集中查询用户资料、邀请码关系、平台绑定事实与 Linky 邀请链归属。用户归属国家与 Linky 邀请链归属是两项独立设置。"
+              description="按注册时间从近到远展示用户，并集中查询邀请码关系、平台绑定事实与 Linky 邀请链归属。用户归属国家与 Linky 邀请链归属是两项独立设置。"
               action={<button className="primary-btn" onClick={() => void loadUserPlatformProfiles()} disabled={loading}>{loading ? '加载中…' : '刷新用户'}</button>}
             >
               <div className="stack-gap">

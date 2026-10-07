@@ -17,5 +17,5 @@ public interface UserDistributionProfileRepository extends JpaRepository<UserDis
     long countByUserIdIn(Collection<Long> userIds);
     long countByUserIdInAndEffectiveUserTrue(Collection<Long> userIds);
     List<UserDistributionProfile> findByUserIdIn(Collection<Long> userIds);
-    Page<UserDistributionProfile> findAllByOrderByUserIdAsc(Pageable pageable);
+    Page<UserDistributionProfile> findAllByOrderByRegisteredAtDescUserIdDesc(Pageable pageable);
 }
