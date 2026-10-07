@@ -77,10 +77,26 @@ class ChuanglanSmsSenderTest {
             assertThat(sent.method()).isEqualTo("POST");
         });
         ObjectMapper json = new ObjectMapper();
-        assertThat(json.readTree(requestBody(request.getAllValues().get(0))).path("msg").asText())
+        HttpRequest hongKongRequest = request.getAllValues().get(0);
+        HttpRequest indonesiaRequest = request.getAllValues().get(1);
+        var hongKongBody = json.readTree(requestBody(hongKongRequest));
+        var indonesiaBody = json.readTree(requestBody(indonesiaRequest));
+        assertThat(hongKongBody.path("msg").asText())
                 .isEqualTo("[BANDEIRA] 您的驗證碼是 123456");
-        assertThat(json.readTree(requestBody(request.getAllValues().get(1))).path("msg").asText())
+        assertThat(hongKongBody.has("senderId")).isFalse();
+        assertThat(indonesiaBody.path("msg").asText())
                 .isEqualTo("[BANDEIRA] kode verifikasi anda adalah 654321");
+        assertThat(indonesiaBody.path("senderId").asText()).isEqualTo("BANDEIRA");
+        String nonce = indonesiaRequest.headers().firstValue("nonce").orElseThrow();
+        assertThat(indonesiaRequest.headers().firstValue("sign")).contains(ChuanglanSmsSender.sign(nonce, Map.of(
+                "account", "I1234567",
+                "mobile", "628123456789",
+                "msg", "[BANDEIRA] kode verifikasi anda adalah 654321",
+                "senderId", "BANDEIRA"), "test-password"));
+        assertThat(indonesiaRequest.headers().firstValue("sign").orElseThrow()).isNotEqualTo(ChuanglanSmsSender.sign(nonce, Map.of(
+                "account", "I1234567",
+                "mobile", "628123456789",
+                "msg", "[BANDEIRA] kode verifikasi anda adalah 654321"), "test-password"));
         assertThatThrownBy(() -> sender.sendVerificationCode("001234", "123456", 10))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("country code");
         verifyNoMoreInteractions(http);

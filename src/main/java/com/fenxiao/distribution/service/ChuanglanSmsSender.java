@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicLong;
 @EnableConfigurationProperties(ChuanglanSmsProperties.class)
 public class ChuanglanSmsSender implements SmsSender {
     private static final Logger log = LoggerFactory.getLogger(ChuanglanSmsSender.class);
+    private static final String INDONESIA_SENDER_ID = "BANDEIRA";
     private final ChuanglanSmsProperties properties;
     private final ObjectMapper json;
     private final HttpClient http;
@@ -71,6 +72,9 @@ public class ChuanglanSmsSender implements SmsSender {
         body.put("account", properties.getAccount());
         body.put("mobile", mobile);
         body.put("msg", verificationMessage(mobile, verificationCode, ttlMinutes));
+        if (mobile.startsWith("62")) {
+            body.put("senderId", INDONESIA_SENDER_ID);
+        }
         String sign = sign(nonce, body, properties.getPassword());
         try {
             HttpRequest request = HttpRequest.newBuilder(endpoint)
