@@ -41,6 +41,7 @@ import loginHeroPt1600 from './assets/login-hero/login-hero-pt-BR-v1-1600.webp'
 import { isAvatarValidationError, prepareAvatarDataUrl } from './avatarUpload'
 import { ConsumerUnboundDialog, ConsumerUnboundGuidance } from './consumerWorkspaceGuidance'
 import { canOpenEarningsWorkspace, resolveConsumerAccountWorkspace } from './consumerWorkspaceView'
+import { internalPhoneCodeNotice } from './phoneCodeNotice'
 import {
   adjustAdminRelation,
   applyAdminRiskEventAction,
@@ -6630,9 +6631,12 @@ function InviteCodePage() {
     setSuccess('')
     try {
       const response = await issuePhoneCode(phoneNumberForSubmission)
-      setPhoneCodeHint(inviteCopy.phoneCodeHint(response.verificationCode, response.ttlMinutes))
+      const internalNotice = selectedPhoneCountry.countryCode === 'CN'
+        ? internalPhoneCodeNotice(locale, response.ttlMinutes)
+        : null
+      setPhoneCodeHint(internalNotice?.hint ?? inviteCopy.phoneCodeHint(response.verificationCode, response.ttlMinutes))
       setPhoneCodeCooldownSeconds(response.resendCooldownSeconds ?? 60)
-      setSuccess(inviteCopy.phoneCodeSent)
+      setSuccess(internalNotice?.success ?? inviteCopy.phoneCodeSent)
     } catch (err) {
       if (err instanceof Error && err.message.toLowerCase().includes('phone verification code already sent')) {
         setPhoneCodeCooldownSeconds(60)

@@ -3,6 +3,7 @@ package com.fenxiao.distribution.service;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
 class SwitchableSmsSenderTest {
@@ -31,6 +32,29 @@ class SwitchableSmsSenderTest {
         sender.sendVerificationCode("+85250000001", "123456", 10);
 
         verify(live).sendVerificationCode("+85250000001", "123456", 10);
+        verifyNoInteractions(fallback);
+    }
+
+    @Test
+    void chinaNumberAlwaysStaysInternalWhenLiveSwitchIsOpen() {
+        when(controls.isLiveSendingEnabled()).thenReturn(true);
+
+        assertThat(sender.deliveryChannel("+8613800000000")).isEqualTo("INTERNAL");
+        sender.sendVerificationCode("+8613800000000", "123456", 10);
+
+        verify(fallback).sendVerificationCode("+8613800000000", "123456", 10);
+        verifyNoInteractions(provider, live);
+    }
+
+    @Test
+    void otherCountryStillUsesLiveChannelWhenSwitchIsOpen() {
+        when(controls.isLiveSendingEnabled()).thenReturn(true);
+        when(provider.getIfAvailable()).thenReturn(live);
+
+        assertThat(sender.deliveryChannel("+628123456789")).isEqualTo("CHUANGLAN");
+        sender.sendVerificationCode("+628123456789", "123456", 10);
+
+        verify(live).sendVerificationCode("+628123456789", "123456", 10);
         verifyNoInteractions(fallback);
     }
 }

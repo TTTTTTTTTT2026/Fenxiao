@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicLong;
 @EnableConfigurationProperties(ChuanglanSmsProperties.class)
 public class ChuanglanSmsSender implements SmsSender {
     private static final Logger log = LoggerFactory.getLogger(ChuanglanSmsSender.class);
+    private static final String INDONESIA_SENDER_ID = "BANDEIRA";
     private final ChuanglanSmsProperties properties;
     private final ObjectMapper json;
     private final HttpClient http;
@@ -60,6 +61,9 @@ public class ChuanglanSmsSender implements SmsSender {
     @Override
     public void sendVerificationCode(String phoneNumber, String verificationCode, int ttlMinutes) {
         String mobile = normalizeMobile(phoneNumber);
+        if (mobile.startsWith("86")) {
+            throw new IllegalArgumentException("+86 verification codes must use internal audit only");
+        }
         if (verificationCode == null || !verificationCode.matches("^[0-9]{6}$")) {
             throw new IllegalArgumentException("verification code must be six digits");
         }
@@ -68,6 +72,9 @@ public class ChuanglanSmsSender implements SmsSender {
         body.put("account", properties.getAccount());
         body.put("mobile", mobile);
         body.put("msg", verificationMessage(mobile, verificationCode, ttlMinutes));
+        if (mobile.startsWith("62")) {
+            body.put("senderId", INDONESIA_SENDER_ID);
+        }
         String sign = sign(nonce, body, properties.getPassword());
         try {
             HttpRequest request = HttpRequest.newBuilder(endpoint)
@@ -125,10 +132,9 @@ public class ChuanglanSmsSender implements SmsSender {
         // Indonesia's registered wording is exact: do not append punctuation or expiry instructions.
         if (mobile.startsWith("62")) return "[BANDEIRA] kode verifikasi anda adalah " + code;
         if (mobile.startsWith("852")) return "[BANDEIRA] 您的驗證碼是 " + code;
-        if (mobile.startsWith("86")) return "[BANDEIRA] 您的验证码是 " + code;
         if (mobile.startsWith("52")) return "[BANDEIRA] Su código de verificación es " + code;
         if (mobile.startsWith("55")) return "[BANDEIRA] Seu código de verificação é " + code;
-        // Preserve the existing wording for older accounts outside the five client-supported regions.
+        // Preserve the existing wording for older accounts outside the live-SMS regions.
         return "[BANDEIRA] Your verification code is " + code + ". Valid for " + ttlMinutes + " minutes. Do not share it.";
     }
 

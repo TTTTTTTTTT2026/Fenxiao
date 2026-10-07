@@ -22,7 +22,17 @@ public class SwitchableSmsSender implements SmsSender {
     public String deliveryChannel() { return controls.isLiveSendingEnabled() ? "CHUANGLAN" : "INTERNAL"; }
 
     @Override
+    public String deliveryChannel(String phoneNumber) {
+        return isChinaNumber(phoneNumber) ? "INTERNAL" : deliveryChannel();
+    }
+
+    @Override
     public void sendVerificationCode(String phoneNumber, String verificationCode, int ttlMinutes) {
+        // +86 stays available for assisted sign-in through the admin audit, even when live SMS is enabled.
+        if (isChinaNumber(phoneNumber)) {
+            loggingSender.sendVerificationCode(phoneNumber, verificationCode, ttlMinutes);
+            return;
+        }
         if (controls.isLiveSendingEnabled()) {
             ChuanglanSmsSender sender = liveSender.getIfAvailable();
             if (sender == null) throw new IllegalStateException("verification SMS is temporarily unavailable");
@@ -30,5 +40,10 @@ public class SwitchableSmsSender implements SmsSender {
         } else {
             loggingSender.sendVerificationCode(phoneNumber, verificationCode, ttlMinutes);
         }
+    }
+
+    private boolean isChinaNumber(String phoneNumber) {
+        String normalized = PhoneAuthService.normalizePhone(phoneNumber);
+        return normalized.startsWith("+86") || normalized.startsWith("86");
     }
 }

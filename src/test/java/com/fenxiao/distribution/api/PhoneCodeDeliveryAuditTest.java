@@ -43,7 +43,7 @@ class PhoneCodeDeliveryAuditTest {
     void rejectedProviderSubmissionRemainsReviewableAndUsableForAssistedLogin() throws Exception {
         String phone = "+85253240001";
         String inviteCode = bindings.createProfile(5999901L, "HK", "zh", null).getInviteCode();
-        when(smsSender.deliveryChannel()).thenReturn("CHUANGLAN");
+        when(smsSender.deliveryChannel(phone)).thenReturn("CHUANGLAN");
         doThrow(new SmsSubmissionException("PROVIDER_114", "verification SMS is temporarily unavailable"))
                 .when(smsSender).sendVerificationCode(anyString(), anyString(), anyInt());
 
