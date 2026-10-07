@@ -42,6 +42,7 @@ import { isAvatarValidationError, prepareAvatarDataUrl } from './avatarUpload'
 import { ConsumerUnboundDialog, ConsumerUnboundGuidance } from './consumerWorkspaceGuidance'
 import { canOpenEarningsWorkspace, resolveConsumerAccountWorkspace } from './consumerWorkspaceView'
 import { internalPhoneCodeNotice } from './phoneCodeNotice'
+import { formatPhoneVerificationPurpose, formatPhoneVerificationStatus } from './phoneVerificationLabels'
 import {
   adjustAdminRelation,
   applyAdminRiskEventAction,
@@ -3802,8 +3803,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   headers={['手机号', '用途', '验证码状态', '短信通道', '提交结果', '验证码', '尝试次数', '申请时间', '失效时间', '操作']}
                   rows={(phoneVerificationCodes?.items ?? []).map((item) => [
                     item.phoneNumber,
-                    item.purpose,
-                    item.status,
+                    formatPhoneVerificationPurpose(item.purpose),
+                    formatPhoneVerificationStatus(item.status),
                     item.deliveryChannel === 'CHUANGLAN' ? '创蓝' : item.deliveryChannel === 'INTERNAL' ? '内部审查' : '历史未记录',
                     item.deliveryStatus === 'FAILED' ? `提交失败${item.deliveryErrorCode ? ` · ${item.deliveryErrorCode}` : ''}` : item.deliveryStatus === 'ACCEPTED' ? (item.deliveryChannel === 'INTERNAL' ? '内部记录' : '通道已受理（非送达确认）') : item.deliveryStatus === 'PENDING' ? '提交中' : '历史未记录',
                     revealedPhoneVerificationCodes[item.id] ?? '已隐藏',
