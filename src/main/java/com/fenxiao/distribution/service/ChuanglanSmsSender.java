@@ -67,7 +67,7 @@ public class ChuanglanSmsSender implements SmsSender {
         Map<String, String> body = new TreeMap<>();
         body.put("account", properties.getAccount());
         body.put("mobile", mobile);
-        body.put("msg", "[BANDEIRA] Your verification code is " + verificationCode + ". Valid for " + ttlMinutes + " minutes. Do not share it.");
+        body.put("msg", verificationMessage(mobile, verificationCode, ttlMinutes));
         String sign = sign(nonce, body, properties.getPassword());
         try {
             HttpRequest request = HttpRequest.newBuilder(endpoint)
@@ -118,6 +118,18 @@ public class ChuanglanSmsSender implements SmsSender {
             throw new IllegalArgumentException("SMS phone number must include a country code without 00 prefix");
         }
         return mobile;
+    }
+
+    static String verificationMessage(String mobile, String code, int ttlMinutes) {
+        // Select the SMS language from the destination calling code, not the account/profile language.
+        // Indonesia's registered wording is exact: do not append punctuation or expiry instructions.
+        if (mobile.startsWith("62")) return "[BANDEIRA] kode verifikasi anda adalah " + code;
+        if (mobile.startsWith("852")) return "[BANDEIRA] 您的驗證碼是 " + code;
+        if (mobile.startsWith("86")) return "[BANDEIRA] 您的验证码是 " + code;
+        if (mobile.startsWith("52")) return "[BANDEIRA] Su código de verificación es " + code;
+        if (mobile.startsWith("55")) return "[BANDEIRA] Seu código de verificação é " + code;
+        // Preserve the existing wording for older accounts outside the five client-supported regions.
+        return "[BANDEIRA] Your verification code is " + code + ". Valid for " + ttlMinutes + " minutes. Do not share it.";
     }
 
     private static boolean blank(String value) { return value == null || value.isBlank(); }
