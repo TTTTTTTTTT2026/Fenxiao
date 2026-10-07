@@ -79,7 +79,7 @@ public class PhoneAuthService {
         // Persist before the external call. A rejected SMS must remain reviewable in the admin console,
         // and its code stays valid for assisted sign-in until the normal expiration time.
         PhoneVerificationCode issued = PhoneVerificationCode.issue(normalizedPhone, code, PURPOSE, now.plusMinutes(TTL_MINUTES));
-        issued.setDeliveryChannel(smsSender.deliveryChannel());
+        issued.setDeliveryChannel(smsSender.deliveryChannel(normalizedPhone));
         issued = codeRepository.save(issued);
         try {
             smsSender.sendVerificationCode(normalizedPhone, code, TTL_MINUTES);

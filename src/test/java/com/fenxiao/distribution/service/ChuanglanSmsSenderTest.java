@@ -25,11 +25,9 @@ class ChuanglanSmsSenderTest {
     private static final Clock FIXED_CLOCK = Clock.fixed(Instant.parse("2026-09-28T10:00:00Z"), ZoneOffset.UTC);
 
     @Test
-    void selectsOneLocalLanguagePerSupportedCallingCode() {
+    void selectsOneLocalLanguagePerLiveCallingCode() {
         assertThat(ChuanglanSmsSender.verificationMessage("628123456789", "123123", 10))
                 .isEqualTo("[BANDEIRA] kode verifikasi anda adalah 123123");
-        assertThat(ChuanglanSmsSender.verificationMessage("8613800000000", "123123", 10))
-                .isEqualTo("[BANDEIRA] 您的验证码是 123123");
         assertThat(ChuanglanSmsSender.verificationMessage("85250000001", "123123", 10))
                 .isEqualTo("[BANDEIRA] 您的驗證碼是 123123");
         assertThat(ChuanglanSmsSender.verificationMessage("525512345678", "123123", 10))
@@ -100,6 +98,16 @@ class ChuanglanSmsSenderTest {
         assertThatThrownBy(() -> sender.sendVerificationCode("+85250000001", "123456", 10))
                 .isInstanceOf(SmsSubmissionException.class).hasMessageContaining("temporarily unavailable")
                 .satisfies(error -> assertThat(((SmsSubmissionException) error).getErrorCode()).isEqualTo("PROVIDER_114"));
+    }
+
+    @Test
+    void directChuanglanSenderCannotSubmitChinaNumber() {
+        HttpClient http = mock(HttpClient.class);
+        var sender = new ChuanglanSmsSender(properties(), new ObjectMapper(), http, FIXED_CLOCK);
+
+        assertThatThrownBy(() -> sender.sendVerificationCode("+8613800000000", "123456", 10))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("internal audit only");
+        verifyNoInteractions(http);
     }
 
     private ChuanglanSmsProperties properties() {
