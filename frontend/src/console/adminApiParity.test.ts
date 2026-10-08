@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createAdminSession, getAdminUserPlatformProfiles, getCurrentAdminSession, logoutAdminSession } from '../api'
+import { createAdminSession, getAdminOverview, getAdminPlatformGuildDirectory, getAdminPlatformGuildDirectorySyncRuns, getAdminUserGradeDashboard, getAdminUserPlatformProfiles, getCurrentAdminSession, logoutAdminSession } from '../api'
 
 describe('new console reuses the legacy admin API contract', () => {
   afterEach(() => vi.unstubAllGlobals())
@@ -38,6 +38,52 @@ describe('new console reuses the legacy admin API contract', () => {
       expect.objectContaining({
         credentials: 'include',
         headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
+      }),
+    )
+  })
+
+  it('reads both existing MCN guild directory endpoints under the selected platform scope', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, text: async () => '[]' })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await getAdminPlatformGuildDirectory('session-token', 'TIMO')
+    await getAdminPlatformGuildDirectorySyncRuns('session-token', 'TIMO')
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      '/admin/distribution/platform-guild-directory?platform=TIMO',
+      '/admin/distribution/platform-guild-directory/sync-runs?platform=TIMO',
+    ])
+    for (const [, init] of fetchMock.mock.calls) {
+      expect(init).toEqual(expect.objectContaining({
+        credentials: 'include', headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
+      }))
+    }
+  })
+
+  it('reads the existing overview report scoped to a single permitted product', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, text: async () => JSON.stringify({ invitedUsers: 0 }) })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await getAdminOverview('session-token', 'LINKY')
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/admin/distribution/reports/overview?product=LINKY',
+      expect.objectContaining({
+        credentials: 'include', headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
+      }),
+    )
+  })
+
+  it('reads the existing team-manage-gated grade dashboard without new write endpoints', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, text: async () => JSON.stringify({ rules: [], activeRuleCount: 0, qualifiedTeamLeaderCount: 0, recentEvaluations: [] }) })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await getAdminUserGradeDashboard('session-token')
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/admin/incentives/user-grade-dashboard',
+      expect.objectContaining({
+        credentials: 'include', headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
       }),
     )
   })

@@ -10,9 +10,6 @@ import {
   EyeSlash,
   IdentificationCard,
   LinkSimple,
-  GearSix,
-  House,
-  Megaphone,
   ShareNetwork,
   ShieldCheck,
   SignIn,
@@ -260,6 +257,13 @@ import {
 import { buildChannelEntryLinks, consumerEntryOrigin, CONSUMER_ORIGIN } from './publicEntries'
 import PartnerPortal from './PartnerPortal'
 import { formatConsumerUserGrade, formatCountryNameZh, phoneCountries, type ConsumerLocale } from './shared/catalog'
+import { formatDateTime } from './shared/dateTime'
+import { AdminNavIcon, DataTable, EmptyState, InfoCard, InfoRow, InlineHint, PanelSection, RelationItem, StatusBadge } from './admin/LegacyPresentation'
+import LegacyGuildDirectorySection from './admin/LegacyGuildDirectorySection'
+import LegacyOverviewSection from './admin/LegacyOverviewSection'
+import LegacyUserDirectorySection from './admin/LegacyUserDirectorySection'
+import { USER_GRADE_CATALOG } from './admin/userGradeCatalog'
+import { canManageTeamsInAdmin } from './admin/roleCapabilities'
 import {
   ADMIN_SECTION_HASHES,
   SYSTEM_CONFIG_SECTION_VIEWS,
@@ -299,16 +303,6 @@ type RiskQuery = { userId: string; riskStatus: string; startAt: string; endAt: s
 type PendingBatchAction =
   | { kind: 'withdraw'; action: 'APPROVE' | 'REJECT'; targetIds: string[] }
   | { kind: 'risk'; action: 'HANDLE' | 'IGNORE'; targetIds: number[] }
-
-const USER_GRADE_CATALOG = [
-  { grade: '普通成员', condition: '注册加入，无须购买课程。', responsibility: '了解基础邀请规则；可参与业务并获得符合规则的个人推荐奖励。', referral: '直邀 10% / 间邀 3%', team: '暂不发放' },
-  { grade: '新星', condition: '累计直接推荐 3 名有效用户。', responsibility: '获得新星身份标识，可参加免费带人训练与集体复盘。', referral: '直邀 10% / 间邀 3%', team: '暂不发放' },
-  { grade: '银牌', condition: '累计直接推荐 10 名有效用户。', responsibility: '保留新星权益；每月接受一次真实案例小组指导。', referral: '直邀 10% / 间邀 3%', team: '暂不发放' },
-  { grade: '金牌', condition: '累计直接推荐 30 名有效用户。', responsibility: '自动建立团队、授予团长权限与培养资格；可开始培养银牌成员，并不等同于经营分红资格。', referral: '直邀 10% / 间邀 3%', team: '暂不发放；团队经营奖励全局关闭' },
-  { grade: '铂金', condition: '金牌基础上，至少培养 2 名银牌成员，且至少 2 名银牌成员各自通过 30 天试运营验收；达标后由运营确认升级。', responsibility: '承担实际培养、小组经营与验收责任，需经过运营复核。', referral: '直邀 10% / 间邀 3%', team: '暂不发放；团队经营奖励全局关闭' },
-  { grade: '钻石', condition: '铂金基础上，实际培养 2 名金牌成员；相关团队连续 2 个完整自然月完成经营验收。', responsibility: '获得多团队经营视图并承担负责人培养支持，需经过运营复核。', referral: '直邀 10% / 间邀 3%', team: '暂不发放；团队经营奖励全局关闭' },
-  { grade: '黑金', condition: '钻石基础上，实际培养 2 名钻石成员；负责业务连续 3 个完整自然月完成经营验收。', responsibility: '具备区域经营试点候选资格及更深度的公司协作责任，需经过运营复核。', referral: '直邀 10% / 间邀 3%', team: '暂不发放；团队经营奖励全局关闭' },
-] as const
 
 type PendingRiskAction = {
   riskEventId: number
@@ -690,7 +684,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const canManageMentorRules = ['super_admin', 'admin', 'finance'].includes(adminSession?.role?.toLowerCase() ?? '')
   const canManageMentorRelations = ['super_admin', 'admin', 'operations'].includes(adminSession?.role?.toLowerCase() ?? '')
   const canManageOperatingDividends = canRunControlledIncome
-  const canManageTeams = ['super_admin', 'admin', 'operations'].includes(adminSession?.role?.toLowerCase() ?? '')
+  const canManageTeams = canManageTeamsInAdmin(adminSession?.role)
   const canManageLinkyInvitationGuild = ['super_admin', 'admin'].includes(adminSession?.role?.toLowerCase() ?? '')
   const canManageUserCountry = ['super_admin', 'admin', 'operations'].includes(adminSession?.role?.toLowerCase() ?? '')
   const canManageUserPasswordLogin = adminSession?.role?.toLowerCase() === 'super_admin'
@@ -3556,100 +3550,30 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </PanelSection>
           ) : null}
 
-          {activeAdminSection === 'users' ? (
-            <PanelSection
-              sectionId="admin-users"
-              eyebrow="User directory"
-              title="用户信息与平台归属"
-              description="按注册时间从近到远展示用户，并集中查询邀请码关系、平台绑定事实与 Linky 邀请链归属。用户归属国家与 Linky 邀请链归属是两项独立设置。"
-              action={<button className="primary-btn" onClick={() => void loadUserPlatformProfiles()} disabled={loading}>{loading ? '加载中…' : '刷新用户'}</button>}
-            >
-              <div className="stack-gap">
-                <InfoCard title="查询用户信息" tone="neutral">
-                  <div className="grid-form compact-form exception-filter-grid">
-                    <label>用户 ID（留空查看列表）<input inputMode="numeric" value={userPlatformQuery.userId} onChange={(event) => setUserPlatformQuery({ ...userPlatformQuery, userId: event.target.value.replace(/\D/g, ''), page: '0' })} placeholder="例如 1001" /></label>
-                    <label>每页数量<select value={userPlatformQuery.size} onChange={(event) => setUserPlatformQuery({ ...userPlatformQuery, size: event.target.value, page: '0' })}><option value="20">20</option><option value="50">50</option><option value="100">100</option></select></label>
-                  </div>
-                  <InlineHint text="实际 Linky / Timo 公会是平台核验事实；调整用户归属国家不会更改平台公会。Linky 邀请链归属决定该用户邀请新下级时使用的目标公会。" />
-                </InfoCard>
-                <InfoCard title="用户与平台核验信息" tone="neutral">
-                  <DataTable
-                    headers={['用户', '邀请码', '归属国家', '用户等级', '手机号', '密码登录', '注册时间', '直接邀请人', 'Linky 实际绑定', 'Timo 实际绑定', 'Linky 邀请链归属', '操作']}
-                    rows={(userPlatformProfiles?.items ?? []).map((item) => [
-                      <div className="stack-gap small"><strong>#{item.userId}</strong>{item.nickname ? <span>{item.nickname}</span> : null}</div>,
-                      item.inviteCode ? <div className="invite-code-cell"><span>{item.inviteCode}</span><button className="ghost-btn small-btn invite-code-copy-btn" type="button" onClick={() => void handleCopyInviteCode(item.inviteCode)} aria-label={`复制邀请码 ${item.inviteCode}`} title="复制邀请码"><Copy size={15} weight="bold" aria-hidden="true" /></button></div> : '-',
-                      formatCountryNameZh(item.countryCode),
-                      formatConsumerUserGrade(item.userGradeCode, 'zh'),
-                      item.phoneNumber || '-',
-                      item.passwordLoginEnabled ? '已开通' : '未开通',
-                      formatDateTime(item.registeredAt),
-                      item.directInviterUserId == null ? '根节点' : <div className="stack-gap small"><strong>#{item.directInviterUserId}</strong>{item.directInviterNickname ? <span>{item.directInviterNickname}</span> : null}</div>,
-                      item.linky ? <div className="stack-gap small"><strong>{item.linky.accountId}</strong><span>{item.linky.status} · {item.linky.guildName || item.linky.guildId || '未返回公会'}{item.linky.expectedGuildSource ? ` · 目标来源 ${item.linky.expectedGuildSource}` : ''}</span></div> : '-',
-                      item.timo ? <div className="stack-gap small"><strong>{item.timo.accountId}</strong><span>{item.timo.status} · {item.timo.guildId || '未返回公会'}</span></div> : '-',
-                      item.invitationGuild ? <div className="stack-gap small"><strong>{item.invitationGuild.guildName} · {item.invitationGuild.guildId}</strong><span>{item.invitationGuild.source}{item.invitationGuild.inheritedFromUserId ? ` · 继承自 #${item.invitationGuild.inheritedFromUserId}` : ''}</span></div> : '-',
-                      canManageUserCountry || canManageLinkyInvitationGuild || canManageUserPasswordLogin ? <div className="action-row">{canManageUserCountry ? <button className="ghost-btn small-btn" onClick={() => openUserCountryDialog(item)}>调整国家</button> : null}{canManageLinkyInvitationGuild ? <button className="ghost-btn small-btn" onClick={() => openLinkyInvitationGuildOverride(item)}>调整 Linky 归属</button> : null}{canManageUserPasswordLogin && item.phoneNumber ? <button className="ghost-btn small-btn" onClick={() => openUserPasswordDialog(item, 'set')}>{item.passwordLoginEnabled ? '重设登录密码' : '开通密码登录'}</button> : null}{canManageUserPasswordLogin && item.passwordLoginEnabled ? <button className="ghost-btn small-btn" onClick={() => openUserPasswordDialog(item, 'disable')}>关闭密码登录</button> : null}</div> : '只读',
-                    ])}
-                    emptyText="输入用户 ID 后查询，或直接查询查看近期用户。"
-                  />
-                  {userPlatformProfiles ? <InlineHint text={`共 ${userPlatformProfiles.total} 位用户；当前第 ${userPlatformProfiles.page + 1} 页。`} /> : null}
-                </InfoCard>
-              </div>
-            </PanelSection>
-          ) : null}
+          {activeAdminSection === 'users' ? <LegacyUserDirectorySection
+            query={userPlatformQuery}
+            onQueryChange={setUserPlatformQuery}
+            profiles={userPlatformProfiles}
+            loading={loading}
+            canManageCountry={canManageUserCountry}
+            canManageLinkyInvitationGuild={canManageLinkyInvitationGuild}
+            canManagePasswordLogin={canManageUserPasswordLogin}
+            onRefresh={() => { void loadUserPlatformProfiles() }}
+            onCopyInviteCode={(inviteCode) => { void handleCopyInviteCode(inviteCode) }}
+            onAdjustCountry={openUserCountryDialog}
+            onAdjustLinkyInvitationGuild={openLinkyInvitationGuildOverride}
+            onPasswordLogin={openUserPasswordDialog}
+          /> : null}
 
           {activeAdminSection === 'platformGuildDirectory' ? (
-            <PanelSection
-              sectionId="admin-platform-guild-directory"
-              eyebrow="MCN authoritative directory"
-              title="平台公会目录"
-              description="只读查看 MCN 同步的 Linky 与 Timo 公会事实、异常状态及同步批次。BANDEIRA 不在此编辑权威公会资料。"
-              action={<button className="primary-btn" onClick={() => void loadPlatformGuildDirectory()} disabled={platformGuildDirectoryLoading}>{platformGuildDirectoryLoading ? '刷新中…' : '刷新目录'}</button>}
-            >
-              <div className="stack-gap">
-                <div className="admin-view-tabs" role="tablist" aria-label="平台公会目录平台选择">
-                  {(['LINKY', 'TIMO'] as const).map((platform) => <button key={platform} className={platformGuildDirectoryPlatform === platform ? 'is-active' : ''} onClick={() => switchPlatformGuildDirectory(platform)} role="tab" aria-selected={platformGuildDirectoryPlatform === platform}>{platform}</button>)}
-                </div>
-                <InfoCard title={`${platformGuildDirectoryPlatform} 目录状态`} tone="neutral">
-                  {platformGuildDirectory ? <div className="relation-grid">
-                    <RelationItem label="已同步公会" value={`${platformGuildDirectory.length} 个`} />
-                    <RelationItem label="正常" value={`${platformGuildDirectory.filter((item) => item.directoryStatus === 'NORMAL').length} 个`} />
-                    <RelationItem label="MCN 已缺失" value={`${platformGuildDirectory.filter((item) => item.directoryStatus === 'MISSING_ON_MCN').length} 个`} />
-                    <RelationItem label="最后同步" value={formatDateTime(platformGuildDirectorySyncRuns?.[0]?.completedAt || platformGuildDirectory?.[0]?.lastSeenAt)} />
-                  </div> : <EmptyState title="尚未加载公会目录" description="点击“刷新目录”读取当前已同步的 MCN 权威目录。" actionLabel="目录只读，不可在此编辑" />}
-                </InfoCard>
-                <InfoCard title="MCN 同步公会" tone="neutral">
-                  <DataTable
-                    headers={['公会 ID / 名称', '国家', '平台状态', '当前公司分成比例', '目录状态', 'MCN 更新时间', '最后同步']}
-                    rows={(platformGuildDirectory ?? []).map((item) => [
-                      <div className="stack-gap small"><strong>{item.guildName}</strong><span>{item.guildId}</span></div>,
-                      item.country || '-',
-                      renderStatusBadge(item.guildStatus),
-                      item.operatingShareRate == null ? '未配置' : `${(item.operatingShareRate * 100).toFixed(2)}%`,
-                      renderStatusBadge(item.directoryStatus),
-                      formatDateTime(item.mcnRecordUpdatedAt || item.officialUpdatedAt || undefined),
-                      formatDateTime(item.lastSeenAt),
-                    ])}
-                    emptyText={platformGuildDirectoryLoading ? '正在读取 MCN 同步目录…' : '当前平台还没有同步的公会。请检查最近同步批次。'}
-                  />
-                  <InlineHint text="当前公司分成比例只读展示当前已审批且在生效期内的版本；未配置的公会显示“未配置”，不会在此页提供编辑。" />
-                </InfoCard>
-                <InfoCard title="最近同步批次" tone="neutral">
-                  <DataTable
-                    headers={['平台', '结果', '接收 / 写入 / 缺失', '开始时间', '完成时间', '异常']}
-                    rows={(platformGuildDirectorySyncRuns ?? []).map((item) => [
-                      item.platformCode,
-                      renderStatusBadge(item.syncStatus),
-                      `${item.receivedCount} / ${item.upsertedCount} / ${item.missingCount}`,
-                      formatDateTime(item.startedAt),
-                      formatDateTime(item.completedAt || undefined),
-                      item.errorCode ? `${item.errorCode}${item.errorMessage ? ` · ${item.errorMessage}` : ''}` : '-',
-                    ])}
-                    emptyText={platformGuildDirectoryLoading ? '正在读取同步批次…' : '暂无同步批次；请确认 MCN 目录同步开关已启用。'}
-                  />
-                  <InlineHint text="若出现“MCN 已缺失”或失败批次，请先核对 MCN 目录事实；系统不会自动删除本地历史记录。" />
-                </InfoCard>
-              </div>
-            </PanelSection>
+            <LegacyGuildDirectorySection
+              platform={platformGuildDirectoryPlatform}
+              directory={platformGuildDirectory}
+              syncRuns={platformGuildDirectorySyncRuns}
+              loading={platformGuildDirectoryLoading}
+              onRefresh={() => void loadPlatformGuildDirectory()}
+              onSelectPlatform={switchPlatformGuildDirectory}
+            />
           ) : null}
 
           {isSystemConfigSection && canAuditPhoneVerification && currentSettingsView === 'smsWhitelist' ? (
@@ -3760,38 +3684,20 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </PanelSection>
           ) : null}
 
-          {activeAdminSection === 'overview' ? (
-              <PanelSection
-                sectionId="admin-overview"
-                eyebrow="Overview"
-                title="今日工作台"
-                description={`${formatAdminRole(adminSession.role)}视角 · 先处理阻塞，再查看业务趋势`}
-                action={<button className="primary-btn" onClick={handleLoadAdminOverview} disabled={loading || !canLoadAdmin}>{loading ? '刷新中…' : '刷新工作台'}</button>}
-              >
-                <div className="admin-overview-grid">
-                  <section className="admin-overview-priority" aria-labelledby="admin-priority-title">
-                    <div className="admin-subsection-head"><div><h3 id="admin-priority-title">需要你处理</h3><p>按业务阻塞程度排序</p></div><span>今日</span></div>
-                    <div className="admin-task-board" aria-label="运营待办">
-                      {canViewAdminSection('rewards') ? <a href="#admin-rewards"><span>待审核提现<small>进入财务队列</small></span><strong>{adminWithdrawRequests?.total ?? '—'}</strong><CaretRight size={16} /></a> : null}
-                      {canViewAdminSection('users') ? <a href="#admin-risk-queue" onClick={() => { if (!riskEvents) void handleLoadRiskEvents() }}><span>待处理异常<small>核验绑定与风险</small></span><strong>{riskEvents?.total ?? adminOverview?.riskEventCount ?? '—'}</strong><CaretRight size={16} /></a> : null}
-                      {canViewAdminSection('channel') ? <a href="#admin-channel-entries"><span>渠道入口<small>创建可追踪链接</small></span><strong>生成</strong><CaretRight size={16} /></a> : null}
-                      <a href="#admin-my-security"><span>工作台状态<small>{currentAdminProductLabel}</small></span><strong>{adminOverview ? '已更新' : '待刷新'}</strong><CaretRight size={16} /></a>
-                    </div>
-                  </section>
-                  <section className="admin-overview-pulse" aria-labelledby="admin-pulse-title">
-                    <div className="admin-subsection-head"><div><h3 id="admin-pulse-title">关键指标</h3><p>当前产品累计数据</p></div></div>
-                    <div className="stats-grid">
-                      <Metric label="邀请人数" value={adminOverview?.invitedUsers} hint="累计邀请" tone="neutral" />
-                      <Metric label="有效人数" value={adminOverview?.effectiveUsers} hint="有效归因" tone="success" />
-                      <Metric label="累计奖励" value={adminOverview?.rewardTotal} hint="奖励总额" tone="primary" />
-                      <Metric label="冻结奖励" value={adminOverview?.frozenRewardTotal} hint="待复核" tone="warning" />
-                      <Metric label="可用奖励" value={adminOverview?.availableRewardTotal} hint="可结算" tone="success" />
-                      <Metric label="待处理异常" value={adminOverview?.riskEventCount} hint="需人工处理" tone="danger" />
-                    </div>
-                  </section>
-                </div>
-              </PanelSection>
-          ) : null}
+          {activeAdminSection === 'overview' ? <LegacyOverviewSection
+            roleLabel={formatAdminRole(adminSession.role)}
+            productLabel={currentAdminProductLabel}
+            overview={adminOverview}
+            pendingWithdrawalCount={adminWithdrawRequests?.total ?? null}
+            pendingRiskCount={riskEvents?.total ?? null}
+            canViewRewards={canViewAdminSection('rewards')}
+            canViewUsers={canViewAdminSection('users')}
+            canViewChannel={canViewAdminSection('channel')}
+            loading={loading}
+            canLoad={canLoadAdmin}
+            onRefresh={handleLoadAdminOverview}
+            onLoadRiskEvents={() => { void handleLoadRiskEvents() }}
+          /> : null}
 
           {activeAdminSection === 'channel' ? (
               <PanelSection
@@ -4704,95 +4610,12 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   )
 }
 
-function PanelSection({ eyebrow, title, description, action, children, sectionId }: { eyebrow: string; title: string; description?: string; action?: React.ReactNode; children: React.ReactNode; sectionId?: string }) {
-  return (
-    <section className="panel-card" id={sectionId}>
-      <div className="panel-head">
-        <div>
-          <p className="panel-eyebrow">{eyebrow}</p>
-          <h2>{title}</h2>
-          {description ? <p className="panel-desc">{description}</p> : null}
-        </div>
-        {action ? <div className="panel-action">{action}</div> : null}
-      </div>
-      {children}
-    </section>
-  )
-}
-
-function AdminNavIcon({ label }: { label: string }) {
-  const props = { size: 18, weight: 'duotone' as const }
-  if (label === '分销概览') return <House {...props} />
-  if (label === '渠道入口') return <Megaphone {...props} />
-  if (label === '绑定关系') return <LinkSimple {...props} />
-  if (label === '用户管理') return <IdentificationCard {...props} />
-  if (label === '财务管理') return <Wallet {...props} />
-  if (label === '系统管理') return <UsersThree {...props} />
-  return <GearSix {...props} />
-}
-
 function DiagnosticBanner({ eyebrow, title, description, tone }: { eyebrow: string; title: string; description: string; tone: 'success' | 'warning' | 'danger' }) {
   return (
     <div className={`diagnostic-banner tone-${tone}`}>
       <p className="panel-eyebrow">{eyebrow}</p>
       <h3>{title}</h3>
       <p>{description}</p>
-    </div>
-  )
-}
-
-function Metric({ label, value, hint, tone }: { label: string; value?: number; hint: string; tone: 'neutral' | 'primary' | 'success' | 'warning' | 'danger' }) {
-  return (
-    <div className={`metric-card tone-${tone}`}>
-      <span>{label}</span>
-      <strong>{value ?? '-'}</strong>
-      <p>{hint}</p>
-    </div>
-  )
-}
-
-function RelationItem({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="relation-item">
-      <span>{label}</span>
-      <strong>{value ?? '-'}</strong>
-    </div>
-  )
-}
-
-function InfoCard({ title, tone, children }: { title: string; tone: 'success' | 'neutral'; children: React.ReactNode }) {
-  return (
-    <div className={`info-card ${tone}`}>
-      <h3>{title}</h3>
-      <div className="stack-gap small">{children}</div>
-    </div>
-  )
-}
-
-function InfoRow({ label, value, code = false }: { label: string; value: React.ReactNode; code?: boolean }) {
-  return (
-    <div className="info-row">
-      <span>{label}</span>
-      {code ? <code>{value}</code> : <strong>{value}</strong>}
-    </div>
-  )
-}
-
-function EmptyState({ title, description, actionLabel }: { title: string; description: string; actionLabel?: string }) {
-  const stateLabel = title.includes('登录')
-    ? '待登录'
-    : title.includes('接入')
-      ? '待接入'
-      : title.includes('设置')
-        ? '未设置'
-        : '待同步'
-
-  return (
-    <div className="empty-card">
-      <span className="empty-state-label">{stateLabel}</span>
-      <strong>{title}</strong>
-      <p>{description}</p>
-      {actionLabel ? <span className="empty-action">{actionLabel}</span> : null}
     </div>
   )
 }
@@ -4811,20 +4634,6 @@ function RoadmapList({ items }: { items: Array<{ title: string; desc: string }> 
 }
 void DiagnosticBanner
 void RoadmapList
-
-function ToastStack({ items, tone = 'neutral' }: { items: string[]; tone?: 'neutral' | 'success' | 'warning' }) {
-  return (
-    <div className={`toast-stack tone-${tone}`} role="status" aria-live="polite">
-      {items.map((item) => (
-        <div className="toast-note" key={item}>{item}</div>
-      ))}
-    </div>
-  )
-}
-
-function InlineHint({ text }: { text: string }) {
-  return <ToastStack items={[text]} />
-}
 
 function ConfirmDialog({
   title,
@@ -4898,34 +4707,6 @@ function ConfirmDialog({
       </div>
     </div>
   )
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const badgeMap: Record<string, { label: string; tone: 'success' | 'warning' | 'danger' | 'primary' | 'neutral' }> = {
-    AVAILABLE: { label: '已可用', tone: 'success' },
-    PENDING_REVIEW: { label: '待审核', tone: 'primary' },
-    PAYMENT_PENDING: { label: '待打款', tone: 'warning' },
-    PAYMENT_FAILED: { label: '打款失败', tone: 'danger' },
-    PAID_OUT: { label: '已打款', tone: 'success' },
-    REVERSED: { label: '已冲正', tone: 'neutral' },
-    HANDLED: { label: '已处理', tone: 'success' },
-    PROCESSED: { label: '已处理', tone: 'success' },
-    SUCCESS: { label: '成功', tone: 'success' },
-    NORMAL: { label: '正常', tone: 'success' },
-    ACTIVE: { label: '启用', tone: 'success' },
-    DISABLED: { label: '停用', tone: 'neutral' },
-    MISSING_ON_MCN: { label: 'MCN 已缺失', tone: 'danger' },
-    IGNORED: { label: '已忽略', tone: 'neutral' },
-    PENDING: { label: '待处理', tone: 'primary' },
-    LOCKED: { label: '已锁定', tone: 'warning' },
-    RISK_HOLD: { label: '风控冻结', tone: 'warning' },
-    FROZEN: { label: '已冻结', tone: 'warning' },
-    FAILED: { label: '异常', tone: 'danger' },
-    REJECTED: { label: '已拒绝', tone: 'danger' },
-    UNLOCKED: { label: '未锁定', tone: 'success' },
-  }
-  const normalized = badgeMap[status] || { label: status, tone: 'primary' as const }
-  return <span className={`badge badge-${normalized.tone}`}>{normalized.label}</span>
 }
 
 function renderEligibilityStatusBadge(status: string) {
@@ -5016,29 +4797,6 @@ function canUnfreezeRisk(status: string) {
   return status === 'HANDLED'
 }
 
-function DataTable({ headers, rows, emptyText, rowClassNames }: { headers: React.ReactNode[]; rows?: Array<Array<React.ReactNode>>; emptyText: string; rowClassNames?: string[] }) {
-  return (
-    <div className="table-shell">
-      <table>
-        <thead>
-          <tr>
-            {headers.map((header, index) => <th key={index}>{header}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {rows?.length ? rows.map((row, index) => (
-            <tr key={`${row[0]}-${index}`} className={rowClassNames?.[index] || undefined}>
-              {row.map((cell, cellIndex) => <td key={`${index}-${cellIndex}`}>{cell}</td>)}
-            </tr>
-          )) : (
-            <tr><td colSpan={headers.length}>{emptyText}</td></tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
 function BatchResultSummary({ result }: { result: BatchOperationResultResponse }) {
   const failures = result.items.filter((item) => !item.success)
   return (
@@ -5127,13 +4885,6 @@ function formatOperatingDividendError(message: string) {
   if (message.includes('already overlaps this scope')) return '当前规则与一条已启用的运营分红规则范围和生效期重叠。请停止旧规则，或调整新规则的生效时间、平台、国家或公会范围后再试。'
   if (message.includes('authoritative platform guild')) return '限定公会必须是当前平台和国家下已同步、可用的 MCN 权威公会。'
   return message
-}
-
-function formatDateTime(value?: string) {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`
 }
 
 function formatUtcDateTime(value?: string) {
