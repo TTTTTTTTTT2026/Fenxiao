@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Alert, Button, Card, Result, Segmented, Skeleton, Statistic, Typography } from 'antd'
-import { getAdminOverview, type AdminSessionResponse, type OverviewReportResponse } from '../api'
+import { getAdminOverview, type OverviewReportResponse } from '../api'
+import type { AdminSessionResponse } from '../admin/authApi'
 import { allowedConsolePlatforms, type ConsolePlatform } from './navigation'
 
 const { Text, Title } = Typography
