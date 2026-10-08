@@ -3,7 +3,7 @@ import { buildAdminSectionLinks } from '../opsConsole'
 import { getVisibleFinanceSections } from '../admin/navigation'
 import { canManageTeamsInAdmin, canReadFinanceInAdmin } from '../admin/roleCapabilities'
 
-export type ConsoleRoute = 'users' | 'guilds' | 'overview' | 'grades' | 'channel' | 'commission' | 'risk' | 'userAccounts'
+export type ConsoleRoute = 'users' | 'guilds' | 'overview' | 'grades' | 'channel' | 'commission' | 'risk' | 'userAccounts' | 'rewardLedger' | 'mySecurity' | 'securityRecords'
 export type ConsolePlatform = 'LINKY' | 'TIMO'
 
 const routeDefinitions: Array<{ key: ConsoleRoute; path: string; label: string; legacyHref: string }> = [
@@ -15,11 +15,14 @@ const routeDefinitions: Array<{ key: ConsoleRoute; path: string; label: string; 
   { key: 'commission', path: '/console/commission', label: '邀请裂变分成', legacyHref: '#admin-commission-policies' },
   { key: 'risk', path: '/console/risk', label: '风险队列（只读）', legacyHref: '#admin-users' },
   { key: 'userAccounts', path: '/console/user-accounts', label: '用户账户', legacyHref: '#admin-user-accounts' },
+  { key: 'rewardLedger', path: '/console/reward-ledger', label: '奖励记录', legacyHref: '#admin-rewards' },
+  { key: 'mySecurity', path: '/console/my-security', label: '我的安全', legacyHref: '#admin-accounts' },
+  { key: 'securityRecords', path: '/console/security-records', label: '安全记录', legacyHref: '#admin-accounts' },
 ]
 
 export function availableConsoleRoutes(role: string) {
   const legacyLinks = new Set(buildAdminSectionLinks(role).map((item) => item.href))
-  return routeDefinitions.filter((item) => (item.key === 'commission' ? getVisibleFinanceSections(role).includes('commissionPolicies') : item.key === 'userAccounts' ? getVisibleFinanceSections(role).includes('userAccounts') : legacyLinks.has(item.legacyHref))
+  return routeDefinitions.filter((item) => (item.key === 'commission' ? getVisibleFinanceSections(role).includes('commissionPolicies') : item.key === 'userAccounts' ? getVisibleFinanceSections(role).includes('userAccounts') : item.key === 'rewardLedger' ? getVisibleFinanceSections(role).includes('rewards') : legacyLinks.has(item.legacyHref))
     && (item.key !== 'grades' || canManageTeamsInAdmin(role))
     && (!['commission', 'userAccounts'].includes(item.key) || canReadFinanceInAdmin(role)))
 }

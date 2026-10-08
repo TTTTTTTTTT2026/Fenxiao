@@ -1,6 +1,7 @@
 import { request } from './httpClient'
 import type { BatchOperationResultResponse } from './admin/batchOperation'
 import type { UserPlatformProfileInvitationGuild } from './admin/userDirectoryApi'
+import type { RewardListResponse, AdminWithdrawRequestItem } from './admin/financeReadApi'
 export { ApiRequestError } from './httpClient'
 export type { BatchOperationItem, BatchOperationResultResponse } from './admin/batchOperation'
 export { applyAdminRiskEventAction, applyAdminRiskEventBatchAction, getAdminRiskEvents } from './admin/riskApi'
@@ -9,6 +10,10 @@ export { getAdminUserPlatformProfiles } from './admin/userDirectoryApi'
 export type { UserPlatformProfileBinding, UserPlatformProfileInvitationGuild, UserPlatformProfileItem, UserPlatformProfileListResponse } from './admin/userDirectoryApi'
 export { changeAdminPassword, createAdminSession, getCurrentAdminSession, logoutAdminSession, logoutAllAdminSessions } from './admin/authApi'
 export type { AdminSessionResponse } from './admin/authApi'
+export { getAdminAccounts, createAdminAccount, updateAdminAccount, resetAdminPassword, unlockAdminAccount, getAdminDeviceSessions, revokeAdminDeviceSession, getMyAdminSecurityEvents } from './admin/accountSecurityApi'
+export type { AdminAccountResponse, AdminAccountCreatedResponse, AdminDeviceSessionResponse, AdminSecurityEventResponse } from './admin/accountSecurityApi'
+export { getAdminRewards, getAdminWithdrawRequests } from './admin/financeReadApi'
+export type { RewardListItem, RewardListResponse, AdminWithdrawRequestItem, AdminWithdrawRequestListResponse } from './admin/financeReadApi'
 
 export type CreateProfileRequest = {
   userId: number
@@ -71,12 +76,6 @@ export type IssueInviteCodeResponse = {
   issuedAt: string
 }
 
-export type AdminAccountResponse = {
-  id: number; username: string; displayName: string; role: string; enabled: boolean
-  platformScope: string; guildScope: string; regionScope: string; mustChangePassword: boolean
-  lastLoginAt: string | null; passwordChangedAt: string | null; passwordExpiresAt: string | null; lockedUntil: string | null; activeSessions: number
-}
-export type AdminAccountCreatedResponse = { account: AdminAccountResponse; temporaryPassword: string }
 export type McnIncomeControlledChangesResponse = {
   runId: string
   requestId: string
@@ -346,8 +345,6 @@ export type PlatformVerificationMockResponse = {
   sourceReference: string | null
   enabled: boolean
 }
-export type AdminDeviceSessionResponse = { id: number; current: boolean; rememberMe: boolean; issuedAt: string; lastSeenAt: string; expiresAt: string; ipAddress: string | null; userAgent: string | null }
-export type AdminSecurityEventResponse = { id: number; accountId: number | null; username: string | null; eventType: string; success: boolean; ipAddress: string | null; userAgent: string | null; detail: string | null; occurredAt: string }
 export type DistributionHomeResponse = {
   userId: number
   inviteCode: string
@@ -471,22 +468,6 @@ export type TeamWeeklyIncomeResponse = {
   currentWeekTeamIncome: number
   previousWeekTeamIncome: number
   items: TeamWeeklyIncomeItem[]
-}
-
-export type RewardListItem = {
-  beneficiaryUserId: number
-  sourceUserId: number
-  rewardLevel: number
-  rewardAmount: number
-  rewardStatus: string
-  calculatedAt: string
-}
-
-export type RewardListResponse = {
-  items: RewardListItem[]
-  total: number
-  page: number
-  size: number
 }
 
 export type RewardTierSummaryItem = {
@@ -691,24 +672,8 @@ export type WithdrawRequestResponse = {
   requestedAt: string
 }
 
-export type AdminWithdrawRequestItem = {
-  requestNo: string
-  userId: number
-  requestedDiamondAmount: number
-  requestStatus: string
-  requestWeek: string
-  requestedAt: string
-}
-
 export type WithdrawHistoryListResponse = {
   items: WithdrawRequestResponse[]
-  total: number
-  page: number
-  size: number
-}
-
-export type AdminWithdrawRequestListResponse = {
-  items: AdminWithdrawRequestItem[]
   total: number
   page: number
   size: number
@@ -989,14 +954,6 @@ export function getAdminUserGradeAdvancementReviews(adminSessionToken: string) {
 export function createAdminUserGradeAdvancementReview(adminSessionToken: string, payload: { userId: number; platformCode: string; guildId: string; targetGradeCode: string }) { return request<UserGradeAdvancementReviewResponse>('/admin/incentives/user-grade-advancement-reviews', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) }) }
 export function confirmAdminUserGradeAdvancementUpgrade(adminSessionToken: string, id: number, note: string) { return request<UserGradeAdvancementReviewResponse>(`/admin/incentives/user-grade-advancement-reviews/${id}/confirm-upgrade`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ note }) }) }
 export function failAdminUserGradeAdvancementReview(adminSessionToken: string, id: number, note: string) { return request<UserGradeAdvancementReviewResponse>(`/admin/incentives/user-grade-advancement-reviews/${id}/fail`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ note }) }) }
-export function getAdminAccounts() { return request<AdminAccountResponse[]>('/admin/accounts') }
-export function createAdminAccount(payload: { username: string; displayName: string; role: string; platformScope?: string; guildScope?: string; regionScope?: string }) { return request<AdminAccountCreatedResponse>('/admin/accounts', { method: 'POST', body: JSON.stringify(payload) }) }
-export function updateAdminAccount(id: number, payload: { displayName: string; role: string; enabled: boolean; platformScope?: string; guildScope?: string; regionScope?: string }) { return request<AdminAccountResponse>(`/admin/accounts/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }) }
-export function resetAdminPassword(id: number) { return request<AdminAccountCreatedResponse>(`/admin/accounts/${id}/reset-password`, { method: 'POST' }) }
-export function unlockAdminAccount(id: number) { return request<AdminAccountResponse>(`/admin/accounts/${id}/unlock`, { method: 'POST' }) }
-export function getAdminDeviceSessions() { return request<AdminDeviceSessionResponse[]>('/admin/accounts/me/sessions') }
-export function revokeAdminDeviceSession(id: number) { return request<{ revoked: boolean }>(`/admin/accounts/me/sessions/${id}`, { method: 'DELETE' }) }
-export function getMyAdminSecurityEvents() { return request<AdminSecurityEventResponse[]>('/admin/accounts/me/security-events') }
 
 export function getConsumerWorkspace(userId: number, accessToken: string) {
   return request<ConsumerWorkspaceResponse>(`/api/distribution/workspaces/${userId}`, {
@@ -1134,31 +1091,6 @@ export function getAdminOverview(adminSessionToken: string, product?: string) {
   if (product) params.set('product', product)
   const query = params.toString()
   return request<OverviewReportResponse>(`/admin/distribution/reports/overview${query ? `?${query}` : ''}`, {
-    headers: {
-      'X-Admin-Session': adminSessionToken,
-    },
-  })
-}
-
-export function getAdminRewards(adminSessionToken: string, filters?: {
-  beneficiaryUserId?: number
-  status?: string
-  product?: string
-  startAt?: string
-  endAt?: string
-  page?: number
-  size?: number
-}) {
-  const params = new URLSearchParams()
-  if (filters?.beneficiaryUserId) params.set('beneficiaryUserId', String(filters.beneficiaryUserId))
-  if (filters?.status) params.set('status', filters.status)
-  if (filters?.product) params.set('product', filters.product)
-  if (filters?.startAt) params.set('startAt', filters.startAt)
-  if (filters?.endAt) params.set('endAt', filters.endAt)
-  if (filters?.page !== undefined) params.set('page', String(filters.page))
-  if (filters?.size !== undefined) params.set('size', String(filters.size))
-  const query = params.toString()
-  return request<RewardListResponse>(`/admin/distribution/rewards${query ? `?${query}` : ''}`, {
     headers: {
       'X-Admin-Session': adminSessionToken,
     },
@@ -1440,25 +1372,6 @@ export function refreshAdminLinkyEligibility(adminSessionToken: string, linkyAcc
 export function refreshAdminLinkyEligibilityBatch(adminSessionToken: string) {
   return request<LinkyBatchRefreshResponse>('/admin/distribution/linky-eligibility-checks/batch-refresh', {
     method: 'POST',
-    headers: {
-      'X-Admin-Session': adminSessionToken,
-    },
-  })
-}
-
-export function getAdminWithdrawRequests(adminSessionToken: string, filters?: {
-  userId?: number
-  status?: string
-  page?: number
-  size?: number
-}) {
-  const params = new URLSearchParams()
-  if (filters?.userId !== undefined) params.set('userId', String(filters.userId))
-  if (filters?.status) params.set('status', filters.status)
-  if (filters?.page !== undefined) params.set('page', String(filters.page))
-  if (filters?.size !== undefined) params.set('size', String(filters.size))
-  const query = params.toString()
-  return request<AdminWithdrawRequestListResponse>(`/admin/distribution/withdraw-requests${query ? `?${query}` : ''}`, {
     headers: {
       'X-Admin-Session': adminSessionToken,
     },
