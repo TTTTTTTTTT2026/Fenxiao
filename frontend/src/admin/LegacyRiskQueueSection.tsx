@@ -1,5 +1,5 @@
 import type { Dispatch, ReactNode, SetStateAction } from 'react'
-import type { RiskEventListResponse } from '../api'
+import type { RiskEventListResponse } from './riskApi'
 import type { NamedFilterView } from '../opsConsole'
 import { formatDateTime } from '../shared/dateTime'
 import { DataTable, EmptyState, InlineHint } from './LegacyPresentation'
