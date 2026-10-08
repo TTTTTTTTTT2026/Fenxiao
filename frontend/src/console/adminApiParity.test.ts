@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createAdminSession, getAdminCommissionPolicies, getAdminOverview, getAdminPlatformGuildDirectory, getAdminPlatformGuildDirectorySyncRuns, getAdminUserGradeDashboard, getAdminUserPlatformProfiles, getCurrentAdminSession, logoutAdminSession } from '../api'
+import { createAdminSession, getAdminCommissionPolicies, getAdminInvitationAccount, getAdminOverview, getAdminPlatformGuildDirectory, getAdminPlatformGuildDirectorySyncRuns, getAdminUserGradeDashboard, getAdminUserPlatformProfiles, getCurrentAdminSession, logoutAdminSession } from '../api'
 
 describe('new console reuses the legacy admin API contract', () => {
   afterEach(() => vi.unstubAllGlobals())
@@ -100,5 +100,20 @@ describe('new console reuses the legacy admin API contract', () => {
         credentials: 'include', headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
       }),
     )
+  })
+
+  it('reads the existing audited finance account endpoint with server paging', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, text: async () => JSON.stringify({ userId: 1001, items: [], totalRecords: 0, page: 1, size: 20 }) })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await getAdminInvitationAccount('session-token', 1001, 1, 20)
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/admin/invitation-accounts/1001?page=1&size=20',
+      expect.objectContaining({
+        credentials: 'include', headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
+      }),
+    )
+    expect(fetchMock.mock.calls[0][1].method).toBeUndefined()
   })
 })

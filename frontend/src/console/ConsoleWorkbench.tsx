@@ -10,6 +10,7 @@ const OverviewPage = lazy(() => import('./OverviewPage'))
 const UserGradeRulesPage = lazy(() => import('./UserGradeRulesPage'))
 const ChannelEntriesPage = lazy(() => import('./ChannelEntriesPage'))
 const CommissionPolicyPage = lazy(() => import('./CommissionPolicyPage'))
+const UserAccountPage = lazy(() => import('./UserAccountPage'))
 
 type ConsoleWorkbenchProps = {
   session: AdminSessionResponse
@@ -35,7 +36,7 @@ export default function ConsoleWorkbench({ session, busy, logoutError, onLogout 
         <div className="new-console-account-name">当前管理员：{session.displayName || session.username}</div>
         {logoutError ? <Alert type="error" showIcon message={logoutError} className="new-console-alert" /> : null}
         {selected ? <Suspense fallback={<Card loading />}>
-          {selected.key === 'users' ? <UserDirectoryPage session={session} /> : selected.key === 'guilds' ? <GuildDirectoryPage session={session} /> : selected.key === 'overview' ? <OverviewPage session={session} /> : selected.key === 'grades' ? <UserGradeRulesPage session={session} /> : selected.key === 'channel' ? <ChannelEntriesPage session={session} /> : <CommissionPolicyPage session={session} />}
+          {selected.key === 'users' ? <UserDirectoryPage session={session} /> : selected.key === 'guilds' ? <GuildDirectoryPage session={session} /> : selected.key === 'overview' ? <OverviewPage session={session} /> : selected.key === 'grades' ? <UserGradeRulesPage session={session} /> : selected.key === 'channel' ? <ChannelEntriesPage session={session} /> : selected.key === 'commission' ? <CommissionPolicyPage session={session} /> : <UserAccountPage session={session} />}
         </Suspense> : <Result status="403" title="当前账号无权访问此页面" extra={<Button href="/admin">返回旧版后台</Button>} />}
       </div>
     </ProLayout>

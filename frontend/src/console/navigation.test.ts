@@ -7,9 +7,11 @@ describe('new console permissions and routes', () => {
     expect(availableConsoleRoutes('operations').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'grades', 'channel'])
     expect(availableConsoleRoutes('operator').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'channel'])
     expect(availableConsoleRoutes('customer_support').map((item) => item.key)).toEqual(['users', 'overview'])
-    expect(availableConsoleRoutes('finance').map((item) => item.key)).toEqual(['overview', 'commission'])
+    expect(availableConsoleRoutes('finance').map((item) => item.key)).toEqual(['overview', 'commission', 'userAccounts'])
     expect(availableConsoleRoutes('super_admin').map((item) => item.key)).toContain('commission')
+    expect(availableConsoleRoutes('super_admin').map((item) => item.key)).toContain('userAccounts')
     expect(availableConsoleRoutes('admin').map((item) => item.key)).not.toContain('commission')
+    expect(availableConsoleRoutes('admin').map((item) => item.key)).not.toContain('userAccounts')
   })
 
   it('resolves the default route and denies paths absent from the role menu', () => {
@@ -23,6 +25,9 @@ describe('new console permissions and routes', () => {
     expect(selectedConsoleRoute('/console/channel', 'finance')).toBeNull()
     expect(selectedConsoleRoute('/console/commission', 'finance')?.key).toBe('commission')
     expect(selectedConsoleRoute('/console/commission', 'admin')).toBeNull()
+    expect(selectedConsoleRoute('/console/user-accounts', 'finance')?.key).toBe('userAccounts')
+    expect(selectedConsoleRoute('/console/user-accounts', 'admin')).toBeNull()
+    expect(selectedConsoleRoute('/console/user-accounts', 'operator')).toBeNull()
     expect(selectedConsoleRoute('/console/unknown', 'admin')).toBeNull()
   })
 
