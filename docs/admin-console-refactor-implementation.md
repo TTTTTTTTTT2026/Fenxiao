@@ -14,9 +14,10 @@
 | --- | --- | --- |
 | 入口隔离 | `main.tsx` 按域名和路径动态加载新版或旧版入口；旧版 CSS 仅由旧入口加载 | `/console` 和 `/admin` 登录页均可独立呈现；路由单测 |
 | 旧端结构拆分 | 抽出 33 个管理 section 的 hash、别名和配置视图映射到 `src/admin/navigation.ts` | 旧版导航回归单测及原有测试 |
+| 共用展示口径 | 国家/地区和用户等级文案抽到 `src/shared/catalog.ts`，新旧用户列表复用 | 中英文等既有值与异常默认值单测；旧端渲染回归 |
 | 新端认证 | 沿用 `/admin/auth/session` 登录、恢复及退出接口 | API 合约单测；登录表单本地视觉检查。未连接本地后端实测登录 |
 | 新端首个只读页 | Ant Design + ProComponents 用户列表；复用 `/admin/distribution/user-platform-profiles`，用户 ID 筛选、分页与注册时间倒序由现有服务端实现 | 筛选/权限/接口合约单测；未以真实管理员会话验收数据展示 |
-| 构建 | Ant Design 5 + ProComponents 2，保留 React/Vite 现有工程；锁定已修复的 `path-to-regexp` 间接依赖 | 前端 205 项测试、lint、build 通过；生产依赖审计 0 项告警。生产构建仍有新版工作台大 chunk 警告，需性能验收 |
+| 构建 | Ant Design 5 + ProComponents 2，保留 React/Vite 现有工程；锁定已修复的 `path-to-regexp` 间接依赖 | 前端 207 项测试、lint、build 通过；生产依赖审计 0 项告警。生产构建仍有新版工作台大 chunk 警告，需性能验收 |
 
 ## 迁移顺序与验收闸门
 
