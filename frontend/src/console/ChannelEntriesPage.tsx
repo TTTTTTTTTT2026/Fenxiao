@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Alert, Button, Card, Input, Result, Select, Typography } from 'antd'
-import type { AdminSessionResponse } from '../api'
+import type { AdminSessionResponse } from '../admin/authApi'
 import { buildChannelEntryLinks, consumerEntryOrigin, CONSUMER_ORIGIN } from '../publicEntries'
 import { channelProductsForScope } from './channelProducts'
 
