@@ -2,14 +2,10 @@ import { useRef, useState } from 'react'
 import { Alert, Button, Space, Tag, Typography } from 'antd'
 import { ProLayout, ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
 import { getAdminUserPlatformProfiles, type AdminSessionResponse, type UserPlatformProfileItem } from '../api'
+import { formatConsumerUserGrade, formatCountryNameZh } from '../shared/catalog'
 import { userListFilters } from './userListModel'
 
 const { Text, Title } = Typography
-
-const gradeLabels: Record<string, string> = {
-  NORMAL_MEMBER: '普通成员', NEW_STAR: '新星', SILVER: '银牌', GOLD: '金牌',
-  PLATINUM: '铂金', DIAMOND: '钻石', BLACK_GOLD: '黑金',
-}
 
 function displayDate(value: string | null | undefined) {
   if (!value) return '-'
@@ -17,17 +13,12 @@ function displayDate(value: string | null | undefined) {
   return Number.isNaN(date.getTime()) ? value : `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`
 }
 
-function countryName(code: string) {
-  const known: Record<string, string> = { BR: '巴西', ID: '印度尼西亚', CN: '中国', HK: '香港', MX: '墨西哥' }
-  return known[code] ?? code
-}
-
 const columns: ProColumns<UserPlatformProfileItem>[] = [
   { title: '用户 ID', dataIndex: 'userId', hideInTable: true, fieldProps: { inputMode: 'numeric', placeholder: '留空查看最近注册用户' } },
   { title: '用户', key: 'user', width: 135, search: false, render: (_, item) => <Space direction="vertical" size={0}><Text strong>#{item.userId}</Text><Text type="secondary">{item.nickname || '未设置昵称'}</Text></Space> },
   { title: '邀请码', dataIndex: 'inviteCode', width: 130, search: false, renderText: (value: string) => value || '-' },
-  { title: '归属国家', dataIndex: 'countryCode', width: 105, search: false, renderText: (value: string) => countryName(value) },
-  { title: '用户等级', dataIndex: 'userGradeCode', width: 110, search: false, renderText: (value: string) => gradeLabels[value] ?? value },
+  { title: '归属国家', dataIndex: 'countryCode', width: 105, search: false, renderText: (value: string) => formatCountryNameZh(value) },
+  { title: '用户等级', dataIndex: 'userGradeCode', width: 110, search: false, renderText: (value: string) => formatConsumerUserGrade(value, 'zh') },
   { title: '手机号', dataIndex: 'phoneNumber', width: 160, search: false, renderText: (value: string | null) => value || '-' },
   { title: '密码登录', dataIndex: 'passwordLoginEnabled', width: 100, search: false, render: (_, item) => item.passwordLoginEnabled ? <Tag color="green">已开通</Tag> : <Tag>未开通</Tag> },
   { title: '注册时间', dataIndex: 'registeredAt', width: 180, search: false, renderText: (value: string) => displayDate(value) },
