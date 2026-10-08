@@ -1,12 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { Alert, Button, Card, Checkbox, ConfigProvider, Form, Input, Result, Typography } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
-import {
-  createAdminSession,
-  getCurrentAdminSession,
-  logoutAdminSession,
-  type AdminSessionResponse,
-} from '../api'
+import { createAdminSession, getCurrentAdminSession, logoutAdminSession, type AdminSessionResponse } from '../admin/authApi'
 import { availableConsoleRoutes } from './navigation'
 import './console.css'
 

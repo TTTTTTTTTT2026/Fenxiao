@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Alert, Button, Card, Empty, Result, Skeleton, Table, Tag, Typography } from 'antd'
 import { ProTable, type ProColumns } from '@ant-design/pro-components'
-import { getAdminUserGradeDashboard, type AdminSessionResponse, type UserGradeDashboardResponse, type UserGradeRuleResponse } from '../api'
+import { getAdminUserGradeDashboard, type UserGradeDashboardResponse, type UserGradeRuleResponse } from '../api'
+import type { AdminSessionResponse } from '../admin/authApi'
 import { canManageTeamsInAdmin } from '../admin/roleCapabilities'
 import { USER_GRADE_CATALOG } from '../admin/userGradeCatalog'
 
