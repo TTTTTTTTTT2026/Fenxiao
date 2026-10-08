@@ -119,3 +119,5 @@
 将 `App.css` 尾部完整的 `.admin-console-v3` 样式层及其窄屏覆盖原样迁入 `src/admin/LegacyAdminV3.css`，由 `LegacyAdminApp.tsx` 引入；原来无作用域的 `.table-subtle` 辅助规则也限定到 `.admin-console-v3`。`App.css` 从 7,773 行降至 7,157 行，新文件为 615 行；这是位置与作用域整理，不是视觉重设计，旧文件其余管理样式仍待拆分。
 
 本地 `npm test` 256 项、lint、build 通过，`git diff --check` 无问题。用开发模式的虚拟管理员预览在 1440×900 截图检查旧 `/admin` 概览页，导航、顶栏和卡片正常呈现；该预览无真实后台数据，不能代替真实管理员的行为或数值验收。390×844 截图仍有横向溢出，未做本次改动前后的对照，因此不归因于样式拆分，也不宣称移动端验收通过。构建仍提示约 920 kB 的 Table chunk，真实加载性能未测。未访问或写入生产、未部署。
+
+交付状态补充：#151 的 Backend tests、Frontend checks、Repository safeguards 三项 CI 均已通过，仍 OPEN。样式批次已推送并创建以 #151 分支为基底的 [PR #152](https://github.com/TTTTTTTTTT2026/Fenxiao/pull/152)，差异仅为上述 CSS/入口导入及本文档；截至核验为 OPEN、MERGEABLE。该非 `main` 基底 PR 暂无远端 CI，须待 #151 合并后调整基底并重跑检查，不把本地测试等同远端审阅或生产验收。
