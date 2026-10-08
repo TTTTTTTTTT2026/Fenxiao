@@ -3,10 +3,10 @@ import { allowedConsolePlatforms, availableConsoleRoutes, selectedConsoleRoute }
 
 describe('new console permissions and routes', () => {
   it('uses the existing role menu visibility, without adding a new role policy', () => {
-    expect(availableConsoleRoutes('admin').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'grades', 'channel'])
-    expect(availableConsoleRoutes('operations').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'grades', 'channel'])
-    expect(availableConsoleRoutes('operator').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'channel'])
-    expect(availableConsoleRoutes('customer_support').map((item) => item.key)).toEqual(['users', 'overview'])
+    expect(availableConsoleRoutes('admin').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'grades', 'channel', 'risk'])
+    expect(availableConsoleRoutes('operations').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'grades', 'channel', 'risk'])
+    expect(availableConsoleRoutes('operator').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'channel', 'risk'])
+    expect(availableConsoleRoutes('customer_support').map((item) => item.key)).toEqual(['users', 'overview', 'risk'])
     expect(availableConsoleRoutes('finance').map((item) => item.key)).toEqual(['overview', 'commission'])
     expect(availableConsoleRoutes('super_admin').map((item) => item.key)).toContain('commission')
     expect(availableConsoleRoutes('admin').map((item) => item.key)).not.toContain('commission')
@@ -23,6 +23,8 @@ describe('new console permissions and routes', () => {
     expect(selectedConsoleRoute('/console/channel', 'finance')).toBeNull()
     expect(selectedConsoleRoute('/console/commission', 'finance')?.key).toBe('commission')
     expect(selectedConsoleRoute('/console/commission', 'admin')).toBeNull()
+    expect(selectedConsoleRoute('/console/risk', 'operator')?.key).toBe('risk')
+    expect(selectedConsoleRoute('/console/risk', 'finance')).toBeNull()
     expect(selectedConsoleRoute('/console/unknown', 'admin')).toBeNull()
   })
 
