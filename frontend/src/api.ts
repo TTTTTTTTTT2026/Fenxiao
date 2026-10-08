@@ -3,6 +3,8 @@ import type { UserPlatformProfileInvitationGuild } from './admin/userDirectoryAp
 export { ApiRequestError } from './httpClient'
 export { getAdminUserPlatformProfiles } from './admin/userDirectoryApi'
 export type { UserPlatformProfileBinding, UserPlatformProfileInvitationGuild, UserPlatformProfileItem, UserPlatformProfileListResponse } from './admin/userDirectoryApi'
+export { changeAdminPassword, createAdminSession, getCurrentAdminSession, logoutAdminSession, logoutAllAdminSessions } from './admin/authApi'
+export type { AdminSessionResponse } from './admin/authApi'
 
 export type CreateProfileRequest = {
   userId: number
@@ -63,20 +65,6 @@ export type IssueInviteCodeResponse = {
   languageCode: string
   accessToken: string
   issuedAt: string
-}
-
-export type AdminSessionResponse = {
-  sessionToken: string
-  expiresAt: string
-  username: string
-  displayName: string
-  role: 'super_admin' | 'admin' | 'operator' | string
-  mustChangePassword: boolean
-  rememberMe: boolean
-  passwordExpiresAt: string | null
-  platformScope: string
-  guildScope: string
-  regionScope: string
 }
 
 export type AdminAccountResponse = {
@@ -895,17 +883,6 @@ export function logoutUserSession(accessToken: string) {
   })
 }
 
-export function createAdminSession(payload: { username: string; password: string; rememberMe?: boolean }) {
-  return request<AdminSessionResponse>('/admin/auth/session', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  })
-}
-
-export function getCurrentAdminSession() { return request<AdminSessionResponse>('/admin/auth/session') }
-export function logoutAdminSession() { return request<void>('/admin/auth/session/logout', { method: 'POST' }) }
-export function logoutAllAdminSessions() { return request<void>('/admin/auth/session/logout-all', { method: 'POST' }) }
-export function changeAdminPassword(payload: { currentPassword: string; newPassword: string }) { return request<void>('/admin/auth/password', { method: 'POST', body: JSON.stringify(payload) }) }
 export function runAdminIncomeControlledChanges(adminSessionToken: string, payload: { platformCode: string; cursor?: string | null; businessDateFrom: string; businessDateTo: string; pageSize: number; requestId?: string }) {
   return request<McnIncomeControlledChangesResponse>('/admin/income-facts/controlled-read-only/changes', {
     method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload),
