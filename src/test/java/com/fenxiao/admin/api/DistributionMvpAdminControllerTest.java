@@ -123,6 +123,33 @@ class DistributionMvpAdminControllerTest {
     }
 
     @Test
+    void shouldListNewestRegistrationsFirstAcrossPagesWithStableTieBreak() throws Exception {
+        UserDistributionProfile older = distributionBindingService.createProfile(991103L, "ID", "id", null);
+        UserDistributionProfile newer = distributionBindingService.createProfile(991101L, "ID", "id", null);
+        UserDistributionProfile newestTie = distributionBindingService.createProfile(991102L, "ID", "id", null);
+        org.springframework.test.util.ReflectionTestUtils.setField(older, "registeredAt", LocalDateTime.of(2030, 1, 1, 0, 0));
+        org.springframework.test.util.ReflectionTestUtils.setField(newer, "registeredAt", LocalDateTime.of(2040, 1, 1, 0, 0));
+        org.springframework.test.util.ReflectionTestUtils.setField(newestTie, "registeredAt", LocalDateTime.of(2040, 1, 1, 0, 0));
+        userDistributionProfileRepository.saveAndFlush(older);
+        userDistributionProfileRepository.saveAndFlush(newer);
+        userDistributionProfileRepository.saveAndFlush(newestTie);
+        String session = loginAsAdmin();
+
+        mockMvc.perform(get("/admin/distribution/user-platform-profiles")
+                        .header("X-Admin-Session", session).param("page", "0").param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].userId").value(991102));
+        mockMvc.perform(get("/admin/distribution/user-platform-profiles")
+                        .header("X-Admin-Session", session).param("page", "1").param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].userId").value(991101));
+        mockMvc.perform(get("/admin/distribution/user-platform-profiles")
+                        .header("X-Admin-Session", session).param("page", "2").param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].userId").value(991103));
+    }
+
+    @Test
     void shouldIncludeUserAndDirectInviterNicknamesWithoutAvatarData() throws Exception {
         String inviterCode = distributionBindingService.createProfile(10031L, "BR", "pt-br", null).getInviteCode();
         distributionBindingService.createProfile(10032L, "BR", "pt-br", inviterCode);

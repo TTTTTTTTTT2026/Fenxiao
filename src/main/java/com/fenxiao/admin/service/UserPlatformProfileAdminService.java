@@ -74,7 +74,7 @@ public class UserPlatformProfileAdminService {
         int safePage = Math.max(0, page);
         int safeSize = Math.max(1, Math.min(size, 100));
         Page<UserDistributionProfile> result = userId == null
-                ? users.findAllByOrderByUserIdAsc(PageRequest.of(safePage, safeSize))
+                ? users.findAllByOrderByRegisteredAtDescUserIdDesc(PageRequest.of(safePage, safeSize))
                 : users.findById(userId).map(value -> new SingleItemPage(value, safePage, safeSize)).orElseGet(() -> new SingleItemPage(safePage, safeSize));
         List<Long> ids = result.getContent().stream().map(UserDistributionProfile::getUserId).toList();
         Map<Long, LinkyAccountBinding> linkyByUser = index(linkyBindings.findByUserIdIn(ids), LinkyAccountBinding::getUserId);
