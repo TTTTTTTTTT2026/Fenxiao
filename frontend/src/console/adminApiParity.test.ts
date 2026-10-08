@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createAdminSession, getAdminOverview, getAdminPlatformGuildDirectory, getAdminPlatformGuildDirectorySyncRuns, getAdminUserPlatformProfiles, getCurrentAdminSession, logoutAdminSession } from '../api'
+import { createAdminSession, getAdminOverview, getAdminPlatformGuildDirectory, getAdminPlatformGuildDirectorySyncRuns, getAdminUserGradeDashboard, getAdminUserPlatformProfiles, getCurrentAdminSession, logoutAdminSession } from '../api'
 
 describe('new console reuses the legacy admin API contract', () => {
   afterEach(() => vi.unstubAllGlobals())
@@ -68,6 +68,20 @@ describe('new console reuses the legacy admin API contract', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/admin/distribution/reports/overview?product=LINKY',
+      expect.objectContaining({
+        credentials: 'include', headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
+      }),
+    )
+  })
+
+  it('reads the existing team-manage-gated grade dashboard without new write endpoints', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, text: async () => JSON.stringify({ rules: [], activeRuleCount: 0, qualifiedTeamLeaderCount: 0, recentEvaluations: [] }) })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await getAdminUserGradeDashboard('session-token')
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/admin/incentives/user-grade-dashboard',
       expect.objectContaining({
         credentials: 'include', headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
       }),
