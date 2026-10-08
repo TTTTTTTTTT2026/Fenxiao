@@ -102,7 +102,13 @@
 
 本地类型检查、lint、build 和 248 项前端测试通过；构建仍提示约 920 kB 的 Table chunk，未完成真实管理员浏览器对照。#149 已于 2026-10-08 合并到 `main`，后续增量须基于该合并提交整理为独立 PR；本批未部署生产。
 
-随后以 #149 合并后的 `main` 为基线重新整理第八至第十批增量，推送 `feat/admin-console-next-readonly-20261008` 并创建面向 `main` 的 [PR #150](https://github.com/TTTTTTTTTT2026/Fenxiao/pull/150)。前端 248 项测试、lint、build，以及该 PR 的 Backend tests、Frontend checks、Repository safeguards 均通过；PR 截至当时仍 OPEN，未作真实管理员业务验收或生产部署。
+随后以 #149 合并后的 `main` 为基线整理前述增量并创建 [PR #150](https://github.com/TTTTTTTTTT2026/Fenxiao/pull/150)；它已于 2026-10-08 09:55:59 UTC 合并到 `main`，三项 CI 成功。真实管理员数据/权限/关键操作及生产验收仍未据此完成。
+
+## 并行增量：管理员会话 API 领域边界（2026-10-08；基于已合并 #150 的 `main`）
+
+将原 `api.ts` 的 `AdminSessionResponse` 和登录、恢复会话、当前/全部设备退出、管理员改密请求原样迁到 `src/admin/authApi.ts`；`api.ts` 保留同名兼容导出。旧 `/admin` 登录状态处理与新版 `/console` 入口直接引用同一个模块，新版页面和菜单也统一引用其会话类型；仍由原 `httpClient` 负责 Cookie、JSON 和错误处理，没有创建第二套认证或服务端规则。`api.ts` 从 1,776 行降至 1,753 行，属于 API 渐进拆分。
+
+新增兼容导出身份、原登录/恢复/退出/改密路径、方法、Cookie 和请求体测试。本地前端 251 项测试、lint、build 通过；Table chunk 仍约 920 kB，真实管理员会话下的登录、权限和交互尚未验收。本批不依赖 #151–#153 风险及样式增量，可独立面向 `main` 审阅；未访问或写入生产、未部署。
 
 ## 第十一批开发增量：风险队列旧页边界与新版只读查询（2026-10-08；本地）
 
@@ -111,3 +117,5 @@
 新版 `/console/risk` 使用 Ant Design + ProComponents，仅通过原 `GET /admin/distribution/risk-events` 按现有管理员会话和单一允许产品范围查询，支持用户 ID、状态与服务端分页；无风险处置、忽略、冻结/解冻或新后端规则。新版路径沿用旧“用户管理”菜单角色可见性，并由页面二次门禁；服务端仍以 `READ` 权限和产品范围作最终校验。敏感写入继续留在旧后台。
 
 新增旧队列的筛选/操作回调及处理备注门禁、新版角色/产品范围/只读页面、原请求路径及会话头回归测试。本地前端 256 项测试、类型检查、lint、build 通过；约 920 kB Table chunk 警告仍在。真实管理员数据一致性、权限拒绝、浏览器视觉、移动端和性能尚未验收；该批尚未合并或部署生产。
+
+以上第十一批对应 [PR #151](https://github.com/TTTTTTTTTT2026/Fenxiao/pull/151)，已于 2026-10-08 合并到 `main`。合并不等于生产部署或真实管理员验收。
