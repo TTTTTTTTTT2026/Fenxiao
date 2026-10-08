@@ -7,8 +7,6 @@ activateAdminOperatingDividendPolicy,
 activateAdminUserGradeLevel,
 addAdminSmsDailyWhitelistNumber,
 adjustAdminRelation,
-applyAdminRiskEventAction,
-applyAdminRiskEventBatchAction,
 applyAdminWithdrawBatchAction,
 approveWithdrawForPayment,
 assignAdminMentor,
@@ -61,7 +59,6 @@ getAdminPlatformVerificationMocks,
 getAdminPlatformVerificationRuntime,
 getAdminRelation,
 getAdminRewards,
-getAdminRiskEvents,
 getAdminSeedInviters,
 getAdminSmsDailyWhitelist,
 getAdminSmsDeliveryStatus,
@@ -145,7 +142,6 @@ type PlatformVerificationMockResponse,
 type PlatformVerificationRuntimeResponse,
 type RelationDetailResponse,
 type RewardListResponse,
-type RiskEventListResponse,
 type SeedInviterListResponse,
 type SeedInviterResponse,
 type SmsDailyWhitelistPage,
@@ -159,6 +155,7 @@ type UserGradeDashboardResponse,
 type UserGradeLevelDashboardResponse,
 type UserPointDashboardResponse
 } from '../api'
+import { applyAdminRiskEventAction, applyAdminRiskEventBatchAction, getAdminRiskEvents, type RiskEventListResponse } from './riskApi'
 import { getAdminUserPlatformProfiles, type UserPlatformProfileListResponse } from './userDirectoryApi'
 import { changeAdminPassword, createAdminSession, getCurrentAdminSession, logoutAdminSession, logoutAllAdminSessions } from './authApi'
 import {
