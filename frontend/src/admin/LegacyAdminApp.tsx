@@ -126,6 +126,7 @@ import { applyAdminWithdrawBatchAction, approveWithdrawForPayment, recordWithdra
 import { getAdminMentorAssignedStudents, getAdminMentorIncentiveDashboard, type MentorAssignedStudentResponse, type MentorIncentiveDashboardResponse } from './mentorReadApi'
 import LegacyMentorDirectorySection from './LegacyMentorDirectorySection'
 import LegacyTeamDirectorySection from './LegacyTeamDirectorySection'
+import { LegacyAdminMySecuritySection, LegacyAdminSecurityAuditSection } from './LegacyAdminSecuritySection'
 import { getAdminTeamManagementDashboard, getAdminTeamMembers, type TeamManagementDashboardResponse, type TeamManagementItemResponse, type TeamManagementMemberResponse } from './teamReadApi'
 import {
   createAdminAccount,
@@ -2887,24 +2888,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           {isSystemManagementSection ? (
             <div className="stack-gap" id="admin-accounts">
               <PanelSection eyebrow="System management" title={currentAccountView === 'staff' ? '账号管理' : currentAccountView === 'audit' ? '安全记录' : '我的安全'} description={currentAccountView === 'staff' ? '管理运营后台账号、角色与数据范围。' : currentAccountView === 'audit' ? '查看当前账号的安全事件记录。' : '管理当前账号的密码和登录设备。'} action={<button className="primary-btn" onClick={() => void handleLoadAdminIdentityCenter()} disabled={loading}>刷新页面数据</button>}>
-                {currentAccountView === 'security' ? <div className="admin-account-section">
-                <div className="content-grid two-columns entity-grid">
-                  <InfoCard title="修改我的密码" tone="neutral">
-                    <InfoRow label="密码到期时间" value={adminSession.passwordExpiresAt ? formatDateTime(adminSession.passwordExpiresAt) : '未设置'} />
-                    <form className="grid-form compact-form" onSubmit={handleChangeAdminPassword}>
-                      <label>当前密码<input type="password" autoComplete="current-password" value={adminPasswordForm.currentPassword} onChange={(e) => setAdminPasswordForm({ ...adminPasswordForm, currentPassword: e.target.value })} /></label>
-                      <label>新密码<input type="password" autoComplete="new-password" value={adminPasswordForm.newPassword} onChange={(e) => setAdminPasswordForm({ ...adminPasswordForm, newPassword: e.target.value })} /></label>
-                      <label>确认新密码<input type="password" autoComplete="new-password" value={adminPasswordForm.confirmPassword} onChange={(e) => setAdminPasswordForm({ ...adminPasswordForm, confirmPassword: e.target.value })} /></label>
-                      <p className="inline-hint">新密码至少 8 位，且须同时包含英文字符和数字。</p>
-                      <button className="primary-btn small-btn" type="submit">修改并退出全部设备</button>
-                    </form>
-                  </InfoCard>
-                </div>
-                <InfoCard title="本机与其他登录设备" tone="neutral">
-                  <div className="table-toolbar"><button className="ghost-btn small-btn" onClick={() => void handleLogoutAllAdminDevices()}>退出全部设备</button></div>
-                  <DataTable headers={['设备', '最近使用', '到期时间', '网络地址', '状态', '操作']} rows={adminDevices.map((item) => [item.userAgent || '未知设备', formatDateTime(item.lastSeenAt), formatDateTime(item.expiresAt), item.ipAddress || '-', item.current ? '本机' : item.rememberMe ? '保持登录' : '普通会话', <button className="ghost-btn small-btn" onClick={() => void handleRevokeAdminDevice(item.id)}>退出</button>])} emptyText="刷新后查看当前登录设备" />
-                </InfoCard>
-                </div> : null}
+                {currentAccountView === 'security' ? <LegacyAdminMySecuritySection passwordExpiresAt={adminSession.passwordExpiresAt} passwordForm={adminPasswordForm} devices={adminDevices} onPasswordFormChange={setAdminPasswordForm} onChangePassword={handleChangeAdminPassword} onLogoutAllDevices={() => void handleLogoutAllAdminDevices()} onRevokeDevice={(id) => void handleRevokeAdminDevice(id)} /> : null}
                 {currentAccountView === 'staff' && adminSession.role.toLowerCase() === 'super_admin' ? (
                   <div className="admin-account-section">
                     <InfoCard title="新增员工账号" tone="success">
@@ -2931,7 +2915,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                     </InfoCard>
                   </div>
                 ) : null}
-                {currentAccountView === 'audit' ? <div className="admin-account-section"><InfoCard title="最近安全事件" tone="neutral"><DataTable headers={['时间', '事件', '结果', '网络地址', '说明']} rows={adminSecurityEvents.map((item) => [formatDateTime(item.occurredAt), item.eventType, item.success ? '成功' : '失败', item.ipAddress || '-', item.detail || '-'])} emptyText="刷新后查看最近安全事件" /></InfoCard></div> : null}
+                {currentAccountView === 'audit' ? <LegacyAdminSecurityAuditSection events={adminSecurityEvents} /> : null}
               </PanelSection>
             </div>
           ) : null}
