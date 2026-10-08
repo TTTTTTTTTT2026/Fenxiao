@@ -258,8 +258,9 @@ import { buildChannelEntryLinks, consumerEntryOrigin, CONSUMER_ORIGIN } from './
 import PartnerPortal from './PartnerPortal'
 import { formatConsumerUserGrade, formatCountryNameZh, phoneCountries, type ConsumerLocale } from './shared/catalog'
 import { formatDateTime } from './shared/dateTime'
-import { AdminNavIcon, DataTable, EmptyState, InfoCard, InfoRow, InlineHint, Metric, PanelSection, RelationItem, StatusBadge } from './admin/LegacyPresentation'
+import { AdminNavIcon, DataTable, EmptyState, InfoCard, InfoRow, InlineHint, PanelSection, RelationItem, StatusBadge } from './admin/LegacyPresentation'
 import LegacyGuildDirectorySection from './admin/LegacyGuildDirectorySection'
+import LegacyOverviewSection from './admin/LegacyOverviewSection'
 import {
   ADMIN_SECTION_HASHES,
   SYSTEM_CONFIG_SECTION_VIEWS,
@@ -3716,38 +3717,20 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             </PanelSection>
           ) : null}
 
-          {activeAdminSection === 'overview' ? (
-              <PanelSection
-                sectionId="admin-overview"
-                eyebrow="Overview"
-                title="今日工作台"
-                description={`${formatAdminRole(adminSession.role)}视角 · 先处理阻塞，再查看业务趋势`}
-                action={<button className="primary-btn" onClick={handleLoadAdminOverview} disabled={loading || !canLoadAdmin}>{loading ? '刷新中…' : '刷新工作台'}</button>}
-              >
-                <div className="admin-overview-grid">
-                  <section className="admin-overview-priority" aria-labelledby="admin-priority-title">
-                    <div className="admin-subsection-head"><div><h3 id="admin-priority-title">需要你处理</h3><p>按业务阻塞程度排序</p></div><span>今日</span></div>
-                    <div className="admin-task-board" aria-label="运营待办">
-                      {canViewAdminSection('rewards') ? <a href="#admin-rewards"><span>待审核提现<small>进入财务队列</small></span><strong>{adminWithdrawRequests?.total ?? '—'}</strong><CaretRight size={16} /></a> : null}
-                      {canViewAdminSection('users') ? <a href="#admin-risk-queue" onClick={() => { if (!riskEvents) void handleLoadRiskEvents() }}><span>待处理异常<small>核验绑定与风险</small></span><strong>{riskEvents?.total ?? adminOverview?.riskEventCount ?? '—'}</strong><CaretRight size={16} /></a> : null}
-                      {canViewAdminSection('channel') ? <a href="#admin-channel-entries"><span>渠道入口<small>创建可追踪链接</small></span><strong>生成</strong><CaretRight size={16} /></a> : null}
-                      <a href="#admin-my-security"><span>工作台状态<small>{currentAdminProductLabel}</small></span><strong>{adminOverview ? '已更新' : '待刷新'}</strong><CaretRight size={16} /></a>
-                    </div>
-                  </section>
-                  <section className="admin-overview-pulse" aria-labelledby="admin-pulse-title">
-                    <div className="admin-subsection-head"><div><h3 id="admin-pulse-title">关键指标</h3><p>当前产品累计数据</p></div></div>
-                    <div className="stats-grid">
-                      <Metric label="邀请人数" value={adminOverview?.invitedUsers} hint="累计邀请" tone="neutral" />
-                      <Metric label="有效人数" value={adminOverview?.effectiveUsers} hint="有效归因" tone="success" />
-                      <Metric label="累计奖励" value={adminOverview?.rewardTotal} hint="奖励总额" tone="primary" />
-                      <Metric label="冻结奖励" value={adminOverview?.frozenRewardTotal} hint="待复核" tone="warning" />
-                      <Metric label="可用奖励" value={adminOverview?.availableRewardTotal} hint="可结算" tone="success" />
-                      <Metric label="待处理异常" value={adminOverview?.riskEventCount} hint="需人工处理" tone="danger" />
-                    </div>
-                  </section>
-                </div>
-              </PanelSection>
-          ) : null}
+          {activeAdminSection === 'overview' ? <LegacyOverviewSection
+            roleLabel={formatAdminRole(adminSession.role)}
+            productLabel={currentAdminProductLabel}
+            overview={adminOverview}
+            pendingWithdrawalCount={adminWithdrawRequests?.total ?? null}
+            pendingRiskCount={riskEvents?.total ?? null}
+            canViewRewards={canViewAdminSection('rewards')}
+            canViewUsers={canViewAdminSection('users')}
+            canViewChannel={canViewAdminSection('channel')}
+            loading={loading}
+            canLoad={canLoadAdmin}
+            onRefresh={handleLoadAdminOverview}
+            onLoadRiskEvents={() => { void handleLoadRiskEvents() }}
+          /> : null}
 
           {activeAdminSection === 'channel' ? (
               <PanelSection

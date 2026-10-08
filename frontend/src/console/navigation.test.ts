@@ -3,16 +3,17 @@ import { allowedConsolePlatforms, availableConsoleRoutes, selectedConsoleRoute }
 
 describe('new console permissions and routes', () => {
   it('uses the existing role menu visibility, without adding a new role policy', () => {
-    expect(availableConsoleRoutes('admin').map((item) => item.key)).toEqual(['users', 'guilds'])
-    expect(availableConsoleRoutes('operator').map((item) => item.key)).toEqual(['users', 'guilds'])
-    expect(availableConsoleRoutes('customer_support').map((item) => item.key)).toEqual(['users'])
-    expect(availableConsoleRoutes('finance')).toEqual([])
+    expect(availableConsoleRoutes('admin').map((item) => item.key)).toEqual(['users', 'guilds', 'overview'])
+    expect(availableConsoleRoutes('operator').map((item) => item.key)).toEqual(['users', 'guilds', 'overview'])
+    expect(availableConsoleRoutes('customer_support').map((item) => item.key)).toEqual(['users', 'overview'])
+    expect(availableConsoleRoutes('finance').map((item) => item.key)).toEqual(['overview'])
   })
 
   it('resolves the default route and denies paths absent from the role menu', () => {
     expect(selectedConsoleRoute('/console', 'operator')?.key).toBe('users')
     expect(selectedConsoleRoute('/console/guilds', 'operator')?.key).toBe('guilds')
     expect(selectedConsoleRoute('/console/guilds', 'customer_support')).toBeNull()
+    expect(selectedConsoleRoute('/console/overview', 'finance')?.key).toBe('overview')
     expect(selectedConsoleRoute('/console/unknown', 'admin')).toBeNull()
   })
 
