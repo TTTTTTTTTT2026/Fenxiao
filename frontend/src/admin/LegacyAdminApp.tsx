@@ -209,6 +209,7 @@ type AdminSectionKey,
 } from './navigation'
 import { canManageTeamsInAdmin } from './roleCapabilities'
 import { USER_GRADE_CATALOG } from './userGradeCatalog'
+import './LegacyAdminV3.css'
 void buildLinkyReplaySummary
 void buildLinkyWebhookSummary
 
