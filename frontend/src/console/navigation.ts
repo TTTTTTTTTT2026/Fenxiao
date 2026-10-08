@@ -1,4 +1,4 @@
-import type { AdminSessionResponse } from '../api'
+import type { AdminSessionResponse } from '../admin/authApi'
 import { buildAdminSectionLinks } from '../opsConsole'
 import { getVisibleFinanceSections } from '../admin/navigation'
 import { canManageTeamsInAdmin, canReadFinanceInAdmin } from '../admin/roleCapabilities'

@@ -1,5 +1,5 @@
 import { Copy } from '@phosphor-icons/react'
-import type { UserPlatformProfileItem, UserPlatformProfileListResponse } from '../api'
+import type { UserPlatformProfileItem, UserPlatformProfileListResponse } from './userDirectoryApi'
 import { formatConsumerUserGrade, formatCountryNameZh } from '../shared/catalog'
 import { formatDateTime } from '../shared/dateTime'
 import { DataTable, InfoCard, InlineHint, PanelSection } from './LegacyPresentation'

@@ -4,10 +4,10 @@ import { ProTable, type ProColumns } from '@ant-design/pro-components'
 import {
   getAdminPlatformGuildDirectory,
   getAdminPlatformGuildDirectorySyncRuns,
-  type AdminSessionResponse,
   type PlatformGuildDirectoryItem,
   type PlatformGuildDirectorySyncRun,
 } from '../api'
+import type { AdminSessionResponse } from '../admin/authApi'
 import { formatDateTime } from '../shared/dateTime'
 import { statusPresentation } from '../shared/statusPresentation'
 import { allowedConsolePlatforms, type ConsolePlatform } from './navigation'

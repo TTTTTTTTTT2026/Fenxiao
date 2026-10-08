@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Alert, Button, Card, Result } from 'antd'
 import { ProLayout } from '@ant-design/pro-components'
-import type { AdminSessionResponse } from '../api'
+import type { AdminSessionResponse } from '../admin/authApi'
 import { availableConsoleRoutes, selectedConsoleRoute } from './navigation'
 
 const UserDirectoryPage = lazy(() => import('./UserDirectoryPage'))
