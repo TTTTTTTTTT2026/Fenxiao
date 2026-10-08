@@ -9,6 +9,7 @@ const GuildDirectoryPage = lazy(() => import('./GuildDirectoryPage'))
 const OverviewPage = lazy(() => import('./OverviewPage'))
 const UserGradeRulesPage = lazy(() => import('./UserGradeRulesPage'))
 const MentorDirectoryPage = lazy(() => import('./MentorDirectoryPage'))
+const TeamDirectoryPage = lazy(() => import('./TeamDirectoryPage'))
 const ChannelEntriesPage = lazy(() => import('./ChannelEntriesPage'))
 const CommissionPolicyPage = lazy(() => import('./CommissionPolicyPage'))
 const UserAccountPage = lazy(() => import('./UserAccountPage'))
@@ -24,6 +25,7 @@ const pages: Record<ConsoleRoute, LazyExoticComponent<ComponentType<{ session: A
   overview: OverviewPage,
   grades: UserGradeRulesPage,
   mentors: MentorDirectoryPage,
+  teams: TeamDirectoryPage,
   channel: ChannelEntriesPage,
   commission: CommissionPolicyPage,
   risk: RiskQueuePage,

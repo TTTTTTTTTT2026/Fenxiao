@@ -3,8 +3,8 @@ import { allowedConsolePlatforms, availableConsoleRoutes, selectedConsoleRoute }
 
 describe('new console permissions and routes', () => {
   it('uses the existing role menu visibility, without adding a new role policy', () => {
-    expect(availableConsoleRoutes('admin').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'grades', 'mentors', 'channel', 'risk', 'bindingRelation', 'rewardLedger', 'mySecurity', 'securityRecords'])
-    expect(availableConsoleRoutes('operations').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'grades', 'mentors', 'channel', 'risk', 'bindingRelation', 'mySecurity', 'securityRecords'])
+    expect(availableConsoleRoutes('admin').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'grades', 'mentors', 'teams', 'channel', 'risk', 'bindingRelation', 'rewardLedger', 'mySecurity', 'securityRecords'])
+    expect(availableConsoleRoutes('operations').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'grades', 'mentors', 'teams', 'channel', 'risk', 'bindingRelation', 'mySecurity', 'securityRecords'])
     expect(availableConsoleRoutes('operator').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'channel', 'risk', 'bindingRelation', 'mySecurity', 'securityRecords'])
     expect(availableConsoleRoutes('customer_support').map((item) => item.key)).toEqual(['users', 'overview', 'risk', 'bindingRelation', 'mySecurity', 'securityRecords'])
     expect(availableConsoleRoutes('finance').map((item) => item.key)).toEqual(['overview', 'mentors', 'commission', 'userAccounts', 'rewardLedger', 'mySecurity', 'securityRecords'])
@@ -23,6 +23,8 @@ describe('new console permissions and routes', () => {
     expect(selectedConsoleRoute('/console/grades', 'finance')).toBeNull()
     expect(selectedConsoleRoute('/console/mentors', 'finance')?.key).toBe('mentors')
     expect(selectedConsoleRoute('/console/mentors', 'operator')).toBeNull()
+    expect(selectedConsoleRoute('/console/teams', 'operations')?.key).toBe('teams')
+    expect(selectedConsoleRoute('/console/teams', 'finance')).toBeNull()
     expect(selectedConsoleRoute('/console/channel', 'operator')?.key).toBe('channel')
     expect(selectedConsoleRoute('/console/channel', 'finance')).toBeNull()
     expect(selectedConsoleRoute('/console/commission', 'finance')?.key).toBe('commission')

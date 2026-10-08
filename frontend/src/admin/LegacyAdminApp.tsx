@@ -50,8 +50,6 @@ getAdminPlatformVerificationRuntime,
 getAdminSeedInviters,
 getAdminSmsDailyWhitelist,
 getAdminSmsDeliveryStatus,
-getAdminTeamManagementDashboard,
-getAdminTeamMembers,
 getAdminTokenPointConversionDashboard,
 getAdminUserGradeAdvancementReviews,
 getAdminUserGradeDashboard,
@@ -116,9 +114,6 @@ type SeedInviterListResponse,
 type SeedInviterResponse,
 type SmsDailyWhitelistPage,
 type SmsDeliveryStatus,
-type TeamManagementDashboardResponse,
-type TeamManagementItemResponse,
-type TeamManagementMemberResponse,
 type TokenPointConversionDashboardResponse,
 type UserGradeAdvancementReviewResponse,
 type UserGradeDashboardResponse,
@@ -129,6 +124,7 @@ import { adjustAdminRelation, correctAdminOwnership, getAdminOwnership, getAdmin
 import { getAdminRewards, getAdminWithdrawRequests, type AdminWithdrawRequestListResponse, type RewardListResponse } from './financeReadApi'
 import { applyAdminWithdrawBatchAction, approveWithdrawForPayment, recordWithdrawPayment, rejectAdminWithdrawRequest, reverseWithdrawPayment } from './financeWriteApi'
 import { getAdminMentorAssignedStudents, getAdminMentorIncentiveDashboard, type MentorAssignedStudentResponse, type MentorIncentiveDashboardResponse } from './mentorReadApi'
+import { getAdminTeamManagementDashboard, getAdminTeamMembers, type TeamManagementDashboardResponse, type TeamManagementItemResponse, type TeamManagementMemberResponse } from './teamReadApi'
 import {
   createAdminAccount,
   getAdminAccounts,
