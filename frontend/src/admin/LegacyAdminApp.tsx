@@ -192,10 +192,11 @@ import { formatDateTime } from '../shared/dateTime'
 import { formatMoney,formatPhoneNumber,normalizeLocalPhoneNumber } from '../shared/legacyFormatting'
 import { loadJsonState,saveUserSession,STORAGE_KEY,type SessionState } from '../shared/legacySession'
 import LegacyChannelEntriesSection from './LegacyChannelEntriesSection'
+import LegacyAdminNavigation, { type LegacyNavGroup } from './LegacyAdminNavigation'
 import LegacyCommissionPolicySection from './LegacyCommissionPolicySection'
 import LegacyGuildDirectorySection from './LegacyGuildDirectorySection'
 import LegacyOverviewSection from './LegacyOverviewSection'
-import { AdminNavIcon,DataTable,EmptyState,InfoCard,InfoRow,InlineHint,PanelSection,RelationItem,StatusBadge } from './LegacyPresentation'
+import { DataTable,EmptyState,InfoCard,InfoRow,InlineHint,PanelSection,RelationItem,StatusBadge } from './LegacyPresentation'
 import LegacyUserDirectorySection from './LegacyUserDirectorySection'
 import {
 ADMIN_SECTION_HASHES,
@@ -2818,6 +2819,37 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     )
   }
 
+  function handleLegacyNavOpen(section: AdminSectionKey) {
+    if (section === 'users') void loadUserPlatformProfiles()
+    if (section === 'riskQueue' && !riskEvents) void handleLoadRiskEvents()
+    if (section === 'userGradeList' && !userGradeDashboard) void loadUserGradeDashboard()
+    if (section === 'advancedGradeAcceptance' && !userGradeAdvancementReviews.length) void loadUserGradeAdvancementReviews()
+    if (section === 'userGradeFacts') {
+      if (!userGradeDashboard) void loadUserGradeDashboard()
+      if (!userPointDashboard) void loadUserPointDashboard()
+      if (canReadEffectiveUsers) void loadEffectiveUserQualifications()
+    }
+    if (section === 'commissionPolicies' && !commissionPolicies) void loadCommissionPolicies()
+    if (section === 'tokenPointConversions' && !tokenPointConversionDashboard) void loadTokenPointConversionDashboard()
+    if (section === 'accountManagement' || section === 'mySecurity' || section === 'securityRecords') void handleLoadAdminIdentityCenter()
+    if (section === 'systemPlatforms') {
+      if (!platformIntegrations) void loadPlatformIntegrations()
+      if (!platformVerificationRuntime) void loadPlatformVerificationRuntime()
+    }
+    if (section === 'systemSeedInviter' && !seedInviters) void loadSeedInviters()
+    if (section === 'platformGuildDirectory' && !platformGuildDirectory) void loadPlatformGuildDirectory()
+    if (section === 'mentorDirectory' && !mentorIncentiveDashboard) void loadMentorIncentiveDashboard()
+    if (section === 'teams' && !teamManagementDashboard) void loadTeamManagementDashboard()
+  }
+
+  function toggleLegacyNavGroup(group: LegacyNavGroup) {
+    if (group === 'users') setIsUserManagementNavOpen((open) => !open)
+    if (group === 'grades') setIsUserGradeNavOpen((open) => !open)
+    if (group === 'finance') setIsFinanceManagementNavOpen((open) => !open)
+    if (group === 'management') setIsSystemManagementNavOpen((open) => !open)
+    if (group === 'config') setIsSystemConfigNavOpen((open) => !open)
+  }
+
   return (
     <div className="page-shell admin-console-page admin-console-v3">
       <header className="admin-topbar">
@@ -2854,89 +2886,23 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
         </section>
       ) : null}
 
-      <aside className="admin-sidebar">
-        <div className="admin-nav-strip" id="admin-modules" aria-label="后台模块导航">
-          {adminSectionLinks.map((item) => item.href === ADMIN_SECTION_HASHES.users ? (
-            <div className="admin-nav-group" key={item.label}>
-              <button type="button" className={`admin-nav-chip admin-nav-group-trigger ${['users', 'bindings', 'riskQueue'].includes(activeAdminSection) ? 'is-active' : ''}`} aria-expanded={isUserManagementNavOpen} onClick={() => setIsUserManagementNavOpen((open) => !open)}>
-                <AdminNavIcon label={item.label} />
-                <span>{item.label}</span><span className="admin-nav-group-caret">{isUserManagementNavOpen ? '⌄' : '›'}</span>
-              </button>
-              {isUserManagementNavOpen ? <div className="admin-nav-submenu" aria-label="用户管理子菜单">
-                <a className={`admin-nav-subitem ${activeAdminSection === 'users' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.users} onClick={() => void loadUserPlatformProfiles()}>用户列表</a>
-                <a className={`admin-nav-subitem ${activeAdminSection === 'bindings' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.bindings}>绑定管理</a>
-                <a className={`admin-nav-subitem ${activeAdminSection === 'riskQueue' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.riskQueue} onClick={() => { if (!riskEvents) void handleLoadRiskEvents() }}>风险队列{riskEvents?.total ? ` · ${riskEvents.total}` : ''}</a>
-              </div> : null}
-            </div>
-          ) : item.href === ADMIN_SECTION_HASHES.userGradeList ? (
-            <div className="admin-nav-group" key={item.label}>
-              <button type="button" className={`admin-nav-chip admin-nav-group-trigger ${['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) ? 'is-active' : ''}`} aria-expanded={isUserGradeNavOpen} onClick={() => setIsUserGradeNavOpen((open) => !open)}>
-                <AdminNavIcon label={item.label} />
-                <span>{item.label}</span><span className="admin-nav-group-caret">{isUserGradeNavOpen ? '⌄' : '›'}</span>
-              </button>
-              {isUserGradeNavOpen ? <div className="admin-nav-submenu" aria-label="用户等级子菜单">
-                <a className={`admin-nav-subitem ${activeAdminSection === 'userGradeList' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.userGradeList} onClick={() => { if (!userGradeDashboard) void loadUserGradeDashboard() }}>用户等级列表</a>
-                <a className={`admin-nav-subitem ${activeAdminSection === 'advancedGradeAcceptance' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.advancedGradeAcceptance} onClick={() => { if (!userGradeAdvancementReviews.length) void loadUserGradeAdvancementReviews() }}>高阶经营验收</a>
-                <a className={`admin-nav-subitem ${activeAdminSection === 'userGradeFacts' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.userGradeFacts} onClick={() => { if (!userGradeDashboard) void loadUserGradeDashboard(); if (!userPointDashboard) void loadUserPointDashboard(); if (canReadEffectiveUsers) void loadEffectiveUserQualifications() }}>资格事实与复核</a>
-              </div> : null}
-            </div>
-          ) : item.href === ADMIN_SECTION_HASHES.rewards ? (
-            <div className="admin-nav-group" key={item.label}>
-              <button type="button" className={`admin-nav-chip admin-nav-group-trigger ${isFinanceManagementSection ? 'is-active' : ''}`} aria-expanded={isFinanceManagementNavOpen} onClick={() => setIsFinanceManagementNavOpen((open) => !open)}>
-                <AdminNavIcon label={item.label} />
-                <span>{item.label}</span><span className="admin-nav-group-caret">{isFinanceManagementNavOpen ? '⌄' : '›'}</span>
-              </button>
-              {isFinanceManagementNavOpen ? <div className="admin-nav-submenu" aria-label="财务管理子菜单">
-                {visibleFinanceSections.includes('rewards') ? <a className={`admin-nav-subitem ${activeAdminSection === 'rewards' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.rewards}>收益提现</a> : null}
-                {visibleFinanceSections.includes('userAccounts') ? <a className={`admin-nav-subitem ${activeAdminSection === 'userAccounts' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.userAccounts}>用户账户</a> : null}
-                {visibleFinanceSections.includes('commissionPolicies') ? <a className={`admin-nav-subitem ${activeAdminSection === 'commissionPolicies' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.commissionPolicies} onClick={() => { if (!commissionPolicies) void loadCommissionPolicies() }}>邀请裂变分成</a> : null}
-                {visibleFinanceSections.includes('tokenPointConversions') ? <a className={`admin-nav-subitem ${activeAdminSection === 'tokenPointConversions' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.tokenPointConversions} onClick={() => { if (!tokenPointConversionDashboard) void loadTokenPointConversionDashboard() }}>代币积分兑换</a> : null}
-              </div> : null}
-            </div>
-          ) : item.href === ADMIN_SECTION_HASHES.accounts ? (
-            <div className="admin-nav-group" key={item.label}>
-              <button type="button" className={`admin-nav-chip admin-nav-group-trigger ${isSystemManagementSection ? 'is-active' : ''}`} aria-expanded={isSystemManagementNavOpen} onClick={() => setIsSystemManagementNavOpen((open) => !open)}>
-                <AdminNavIcon label={item.label} />
-                <span>{item.label}</span><span className="admin-nav-group-caret">{isSystemManagementNavOpen ? '⌄' : '›'}</span>
-              </button>
-              {isSystemManagementNavOpen ? <div className="admin-nav-submenu" aria-label="系统管理子菜单">
-                {adminSession.role.toLowerCase() === 'super_admin' ? <a className={`admin-nav-subitem ${activeAdminSection === 'accountManagement' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.accountManagement} onClick={() => void handleLoadAdminIdentityCenter()}>账号管理</a> : null}
-                <a className={`admin-nav-subitem ${activeAdminSection === 'mySecurity' || activeAdminSection === 'accounts' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.mySecurity} onClick={() => void handleLoadAdminIdentityCenter()}>我的安全</a>
-                <a className={`admin-nav-subitem ${activeAdminSection === 'securityRecords' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.securityRecords} onClick={() => void handleLoadAdminIdentityCenter()}>安全记录</a>
-              </div> : null}
-            </div>
-          ) : item.href === ADMIN_SECTION_HASHES.settings ? (
-            <div className="admin-nav-group" key={item.label}>
-              <button type="button" className={`admin-nav-chip admin-nav-group-trigger ${isSystemConfigSection ? 'is-active' : ''}`} aria-expanded={isSystemConfigNavOpen} onClick={() => setIsSystemConfigNavOpen((open) => !open)}>
-                <AdminNavIcon label={item.label} />
-                <span>{item.label}</span><span className="admin-nav-group-caret">{isSystemConfigNavOpen ? '⌄' : '›'}</span>
-              </button>
-              {isSystemConfigNavOpen ? <div className="admin-nav-submenu" aria-label="配置中心子菜单">
-                <a className={`admin-nav-subitem ${activeAdminSection === 'systemExperiment' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemExperiment}>100 人实验</a>
-                <a className={`admin-nav-subitem ${activeAdminSection === 'systemGuilds' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemGuilds}>公会配置</a>
-                <a className={`admin-nav-subitem ${activeAdminSection === 'systemPlatforms' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemPlatforms} onClick={() => { if (!platformIntegrations) void loadPlatformIntegrations(); if (!platformVerificationRuntime) void loadPlatformVerificationRuntime() }}>平台接入</a>
-                {canRunControlledIncome ? <><a className={`admin-nav-subitem ${activeAdminSection === 'systemIncomeControlled' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemIncomeControlled}>收入受控联调</a><a className={`admin-nav-subitem ${activeAdminSection === 'systemIncomeShadow' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemIncomeShadow}>收入测算与核对</a></> : null}
-                <a className={`admin-nav-subitem ${activeAdminSection === 'systemAdvanced' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemAdvanced}>高级接入</a>
-                {canManageSeedInviters ? <a className={`admin-nav-subitem ${activeAdminSection === 'systemSeedInviter' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemSeedInviter} onClick={() => { if (!seedInviters) void loadSeedInviters() }}>种子邀请人</a> : null}
-                {canAuditPhoneVerification ? <a className={`admin-nav-subitem ${activeAdminSection === 'systemPhoneVerification' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemPhoneVerification}>验证码审查</a> : null}
-                {canAuditPhoneVerification ? <a className={`admin-nav-subitem ${activeAdminSection === 'systemSmsWhitelist' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.systemSmsWhitelist}>白名单</a> : null}
-              </div> : null}
-            </div>
-          ) : (
-            <a key={item.label} className={`admin-nav-chip ${item.href === ADMIN_SECTION_HASHES[activeAdminSection] ? 'is-active' : ''}`} href={item.href} aria-current={item.href === ADMIN_SECTION_HASHES[activeAdminSection] ? 'page' : undefined} onClick={() => {
-              if (item.href === ADMIN_SECTION_HASHES.platformGuildDirectory && !platformGuildDirectory) void loadPlatformGuildDirectory()
-              if (item.href === ADMIN_SECTION_HASHES.commissionPolicies && !commissionPolicies) void loadCommissionPolicies()
-              if (item.href === ADMIN_SECTION_HASHES.mentorDirectory && !mentorIncentiveDashboard) void loadMentorIncentiveDashboard()
-              if (item.href === ADMIN_SECTION_HASHES.teams && !teamManagementDashboard) void loadTeamManagementDashboard()
-              if (item.href === ADMIN_SECTION_HASHES.tokenPointConversions && !tokenPointConversionDashboard) void loadTokenPointConversionDashboard()
-            }}>
-              <AdminNavIcon label={item.label} />
-              <span>{item.label}</span>
-            </a>
-          ))}
-        </div>
-        <div className="admin-environment"><span />{window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? '本地环境' : '生产环境'}</div>
-      </aside>
+      <LegacyAdminNavigation
+        links={adminSectionLinks}
+        activeSection={activeAdminSection}
+        visibleFinanceSections={visibleFinanceSections}
+        role={adminSession.role}
+        openGroups={{ users: isUserManagementNavOpen, grades: isUserGradeNavOpen, finance: isFinanceManagementNavOpen, management: isSystemManagementNavOpen, config: isSystemConfigNavOpen }}
+        riskEventTotal={riskEvents?.total ?? 0}
+        canRunControlledIncome={canRunControlledIncome}
+        canManageSeedInviters={canManageSeedInviters}
+        canAuditPhoneVerification={canAuditPhoneVerification}
+        isFinanceManagementSection={isFinanceManagementSection}
+        isSystemManagementSection={isSystemManagementSection}
+        isSystemConfigSection={isSystemConfigSection}
+        hostname={window.location.hostname}
+        onToggleGroup={toggleLegacyNavGroup}
+        onNavigate={handleLegacyNavOpen}
+      />
 
       <div className="console-layout admin-layout admin-workspace-shell">
         <main className="console-main">
