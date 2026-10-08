@@ -44,9 +44,7 @@ getAdminPhoneVerificationCodes,
 getAdminPlatformGuildCompanyShareRules,
 getAdminPlatformGuildDirectory,
 getAdminPlatformGuildDirectorySyncRuns,
-getAdminPlatformIntegrations,
 getAdminPlatformVerificationMocks,
-getAdminPlatformVerificationRuntime,
 getAdminSeedInviters,
 getAdminSmsDailyWhitelist,
 getAdminSmsDeliveryStatus,
@@ -107,9 +105,7 @@ type PhoneVerificationCodeListResponse,
 type PlatformGuildCompanyShareRuleResponse,
 type PlatformGuildDirectoryItem,
 type PlatformGuildDirectorySyncRun,
-type PlatformIntegrationResponse,
 type PlatformVerificationMockResponse,
-type PlatformVerificationRuntimeResponse,
 type SeedInviterListResponse,
 type SeedInviterResponse,
 type SmsDailyWhitelistPage,
@@ -124,6 +120,7 @@ import { adjustAdminRelation, correctAdminOwnership, getAdminOwnership, getAdmin
 import { getAdminRewards, getAdminWithdrawRequests, type AdminWithdrawRequestListResponse, type RewardListResponse } from './financeReadApi'
 import { applyAdminWithdrawBatchAction, approveWithdrawForPayment, recordWithdrawPayment, rejectAdminWithdrawRequest, reverseWithdrawPayment } from './financeWriteApi'
 import { getAdminMentorAssignedStudents, getAdminMentorIncentiveDashboard, type MentorAssignedStudentResponse, type MentorIncentiveDashboardResponse } from './mentorReadApi'
+import { getAdminPlatformIntegrations, getAdminPlatformVerificationRuntime, type PlatformIntegrationResponse, type PlatformVerificationRuntimeResponse } from './platformReadApi'
 import LegacyMentorDirectorySection from './LegacyMentorDirectorySection'
 import LegacyTeamDirectorySection from './LegacyTeamDirectorySection'
 import { LegacyAdminMySecuritySection, LegacyAdminSecurityAuditSection } from './LegacyAdminSecuritySection'

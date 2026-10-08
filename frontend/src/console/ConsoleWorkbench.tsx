@@ -2,7 +2,7 @@ import { lazy, Suspense, type ComponentType, type LazyExoticComponent } from 're
 import { Alert, Button, Card, Result } from 'antd'
 import { ProLayout } from '@ant-design/pro-components'
 import type { AdminSessionResponse } from '../admin/authApi'
-import { availableConsoleRoutes, selectedConsoleRoute, type ConsoleRoute } from './navigation'
+import { availableConsoleRoutesForSession, selectedConsoleRoute, type ConsoleRoute } from './navigation'
 
 const UserDirectoryPage = lazy(() => import('./UserDirectoryPage'))
 const GuildDirectoryPage = lazy(() => import('./GuildDirectoryPage'))
@@ -18,6 +18,7 @@ const MySecurityPage = lazy(() => import('./MySecurityPage'))
 const SecurityRecordsPage = lazy(() => import('./SecurityRecordsPage'))
 const RewardLedgerPage = lazy(() => import('./RewardLedgerPage'))
 const BindingRelationPage = lazy(() => import('./BindingRelationPage'))
+const PlatformIntegrationPage = lazy(() => import('./PlatformIntegrationPage'))
 
 const pages: Record<ConsoleRoute, LazyExoticComponent<ComponentType<{ session: AdminSessionResponse }>>> = {
   users: UserDirectoryPage,
@@ -34,6 +35,7 @@ const pages: Record<ConsoleRoute, LazyExoticComponent<ComponentType<{ session: A
   rewardLedger: RewardLedgerPage,
   mySecurity: MySecurityPage,
   securityRecords: SecurityRecordsPage,
+  platformIntegrations: PlatformIntegrationPage,
 }
 
 type ConsoleWorkbenchProps = {
@@ -44,8 +46,9 @@ type ConsoleWorkbenchProps = {
 }
 
 export default function ConsoleWorkbench({ session, busy, logoutError, onLogout }: ConsoleWorkbenchProps) {
-  const routes = availableConsoleRoutes(session.role)
-  const selected = selectedConsoleRoute(window.location.pathname, session.role)
+  const routes = availableConsoleRoutesForSession(session)
+  const candidate = selectedConsoleRoute(window.location.pathname, session.role)
+  const selected = candidate && routes.some((route) => route.key === candidate.key) ? candidate : null
   const Page = selected ? pages[selected.key] : null
 
   return <div className="new-console-root">
