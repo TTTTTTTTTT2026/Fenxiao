@@ -10,9 +10,6 @@ import {
   EyeSlash,
   IdentificationCard,
   LinkSimple,
-  GearSix,
-  House,
-  Megaphone,
   ShareNetwork,
   ShieldCheck,
   SignIn,
@@ -260,6 +257,9 @@ import {
 import { buildChannelEntryLinks, consumerEntryOrigin, CONSUMER_ORIGIN } from './publicEntries'
 import PartnerPortal from './PartnerPortal'
 import { formatConsumerUserGrade, formatCountryNameZh, phoneCountries, type ConsumerLocale } from './shared/catalog'
+import { formatDateTime } from './shared/dateTime'
+import { AdminNavIcon, DataTable, EmptyState, InfoCard, InfoRow, InlineHint, Metric, PanelSection, RelationItem, StatusBadge } from './admin/LegacyPresentation'
+import LegacyGuildDirectorySection from './admin/LegacyGuildDirectorySection'
 import {
   ADMIN_SECTION_HASHES,
   SYSTEM_CONFIG_SECTION_VIEWS,
@@ -3598,58 +3598,14 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           ) : null}
 
           {activeAdminSection === 'platformGuildDirectory' ? (
-            <PanelSection
-              sectionId="admin-platform-guild-directory"
-              eyebrow="MCN authoritative directory"
-              title="平台公会目录"
-              description="只读查看 MCN 同步的 Linky 与 Timo 公会事实、异常状态及同步批次。BANDEIRA 不在此编辑权威公会资料。"
-              action={<button className="primary-btn" onClick={() => void loadPlatformGuildDirectory()} disabled={platformGuildDirectoryLoading}>{platformGuildDirectoryLoading ? '刷新中…' : '刷新目录'}</button>}
-            >
-              <div className="stack-gap">
-                <div className="admin-view-tabs" role="tablist" aria-label="平台公会目录平台选择">
-                  {(['LINKY', 'TIMO'] as const).map((platform) => <button key={platform} className={platformGuildDirectoryPlatform === platform ? 'is-active' : ''} onClick={() => switchPlatformGuildDirectory(platform)} role="tab" aria-selected={platformGuildDirectoryPlatform === platform}>{platform}</button>)}
-                </div>
-                <InfoCard title={`${platformGuildDirectoryPlatform} 目录状态`} tone="neutral">
-                  {platformGuildDirectory ? <div className="relation-grid">
-                    <RelationItem label="已同步公会" value={`${platformGuildDirectory.length} 个`} />
-                    <RelationItem label="正常" value={`${platformGuildDirectory.filter((item) => item.directoryStatus === 'NORMAL').length} 个`} />
-                    <RelationItem label="MCN 已缺失" value={`${platformGuildDirectory.filter((item) => item.directoryStatus === 'MISSING_ON_MCN').length} 个`} />
-                    <RelationItem label="最后同步" value={formatDateTime(platformGuildDirectorySyncRuns?.[0]?.completedAt || platformGuildDirectory?.[0]?.lastSeenAt)} />
-                  </div> : <EmptyState title="尚未加载公会目录" description="点击“刷新目录”读取当前已同步的 MCN 权威目录。" actionLabel="目录只读，不可在此编辑" />}
-                </InfoCard>
-                <InfoCard title="MCN 同步公会" tone="neutral">
-                  <DataTable
-                    headers={['公会 ID / 名称', '国家', '平台状态', '当前公司分成比例', '目录状态', 'MCN 更新时间', '最后同步']}
-                    rows={(platformGuildDirectory ?? []).map((item) => [
-                      <div className="stack-gap small"><strong>{item.guildName}</strong><span>{item.guildId}</span></div>,
-                      item.country || '-',
-                      renderStatusBadge(item.guildStatus),
-                      item.operatingShareRate == null ? '未配置' : `${(item.operatingShareRate * 100).toFixed(2)}%`,
-                      renderStatusBadge(item.directoryStatus),
-                      formatDateTime(item.mcnRecordUpdatedAt || item.officialUpdatedAt || undefined),
-                      formatDateTime(item.lastSeenAt),
-                    ])}
-                    emptyText={platformGuildDirectoryLoading ? '正在读取 MCN 同步目录…' : '当前平台还没有同步的公会。请检查最近同步批次。'}
-                  />
-                  <InlineHint text="当前公司分成比例只读展示当前已审批且在生效期内的版本；未配置的公会显示“未配置”，不会在此页提供编辑。" />
-                </InfoCard>
-                <InfoCard title="最近同步批次" tone="neutral">
-                  <DataTable
-                    headers={['平台', '结果', '接收 / 写入 / 缺失', '开始时间', '完成时间', '异常']}
-                    rows={(platformGuildDirectorySyncRuns ?? []).map((item) => [
-                      item.platformCode,
-                      renderStatusBadge(item.syncStatus),
-                      `${item.receivedCount} / ${item.upsertedCount} / ${item.missingCount}`,
-                      formatDateTime(item.startedAt),
-                      formatDateTime(item.completedAt || undefined),
-                      item.errorCode ? `${item.errorCode}${item.errorMessage ? ` · ${item.errorMessage}` : ''}` : '-',
-                    ])}
-                    emptyText={platformGuildDirectoryLoading ? '正在读取同步批次…' : '暂无同步批次；请确认 MCN 目录同步开关已启用。'}
-                  />
-                  <InlineHint text="若出现“MCN 已缺失”或失败批次，请先核对 MCN 目录事实；系统不会自动删除本地历史记录。" />
-                </InfoCard>
-              </div>
-            </PanelSection>
+            <LegacyGuildDirectorySection
+              platform={platformGuildDirectoryPlatform}
+              directory={platformGuildDirectory}
+              syncRuns={platformGuildDirectorySyncRuns}
+              loading={platformGuildDirectoryLoading}
+              onRefresh={() => void loadPlatformGuildDirectory()}
+              onSelectPlatform={switchPlatformGuildDirectory}
+            />
           ) : null}
 
           {isSystemConfigSection && canAuditPhoneVerification && currentSettingsView === 'smsWhitelist' ? (
@@ -4704,95 +4660,12 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   )
 }
 
-function PanelSection({ eyebrow, title, description, action, children, sectionId }: { eyebrow: string; title: string; description?: string; action?: React.ReactNode; children: React.ReactNode; sectionId?: string }) {
-  return (
-    <section className="panel-card" id={sectionId}>
-      <div className="panel-head">
-        <div>
-          <p className="panel-eyebrow">{eyebrow}</p>
-          <h2>{title}</h2>
-          {description ? <p className="panel-desc">{description}</p> : null}
-        </div>
-        {action ? <div className="panel-action">{action}</div> : null}
-      </div>
-      {children}
-    </section>
-  )
-}
-
-function AdminNavIcon({ label }: { label: string }) {
-  const props = { size: 18, weight: 'duotone' as const }
-  if (label === '分销概览') return <House {...props} />
-  if (label === '渠道入口') return <Megaphone {...props} />
-  if (label === '绑定关系') return <LinkSimple {...props} />
-  if (label === '用户管理') return <IdentificationCard {...props} />
-  if (label === '财务管理') return <Wallet {...props} />
-  if (label === '系统管理') return <UsersThree {...props} />
-  return <GearSix {...props} />
-}
-
 function DiagnosticBanner({ eyebrow, title, description, tone }: { eyebrow: string; title: string; description: string; tone: 'success' | 'warning' | 'danger' }) {
   return (
     <div className={`diagnostic-banner tone-${tone}`}>
       <p className="panel-eyebrow">{eyebrow}</p>
       <h3>{title}</h3>
       <p>{description}</p>
-    </div>
-  )
-}
-
-function Metric({ label, value, hint, tone }: { label: string; value?: number; hint: string; tone: 'neutral' | 'primary' | 'success' | 'warning' | 'danger' }) {
-  return (
-    <div className={`metric-card tone-${tone}`}>
-      <span>{label}</span>
-      <strong>{value ?? '-'}</strong>
-      <p>{hint}</p>
-    </div>
-  )
-}
-
-function RelationItem({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="relation-item">
-      <span>{label}</span>
-      <strong>{value ?? '-'}</strong>
-    </div>
-  )
-}
-
-function InfoCard({ title, tone, children }: { title: string; tone: 'success' | 'neutral'; children: React.ReactNode }) {
-  return (
-    <div className={`info-card ${tone}`}>
-      <h3>{title}</h3>
-      <div className="stack-gap small">{children}</div>
-    </div>
-  )
-}
-
-function InfoRow({ label, value, code = false }: { label: string; value: React.ReactNode; code?: boolean }) {
-  return (
-    <div className="info-row">
-      <span>{label}</span>
-      {code ? <code>{value}</code> : <strong>{value}</strong>}
-    </div>
-  )
-}
-
-function EmptyState({ title, description, actionLabel }: { title: string; description: string; actionLabel?: string }) {
-  const stateLabel = title.includes('登录')
-    ? '待登录'
-    : title.includes('接入')
-      ? '待接入'
-      : title.includes('设置')
-        ? '未设置'
-        : '待同步'
-
-  return (
-    <div className="empty-card">
-      <span className="empty-state-label">{stateLabel}</span>
-      <strong>{title}</strong>
-      <p>{description}</p>
-      {actionLabel ? <span className="empty-action">{actionLabel}</span> : null}
     </div>
   )
 }
@@ -4811,20 +4684,6 @@ function RoadmapList({ items }: { items: Array<{ title: string; desc: string }> 
 }
 void DiagnosticBanner
 void RoadmapList
-
-function ToastStack({ items, tone = 'neutral' }: { items: string[]; tone?: 'neutral' | 'success' | 'warning' }) {
-  return (
-    <div className={`toast-stack tone-${tone}`} role="status" aria-live="polite">
-      {items.map((item) => (
-        <div className="toast-note" key={item}>{item}</div>
-      ))}
-    </div>
-  )
-}
-
-function InlineHint({ text }: { text: string }) {
-  return <ToastStack items={[text]} />
-}
 
 function ConfirmDialog({
   title,
@@ -4898,34 +4757,6 @@ function ConfirmDialog({
       </div>
     </div>
   )
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const badgeMap: Record<string, { label: string; tone: 'success' | 'warning' | 'danger' | 'primary' | 'neutral' }> = {
-    AVAILABLE: { label: '已可用', tone: 'success' },
-    PENDING_REVIEW: { label: '待审核', tone: 'primary' },
-    PAYMENT_PENDING: { label: '待打款', tone: 'warning' },
-    PAYMENT_FAILED: { label: '打款失败', tone: 'danger' },
-    PAID_OUT: { label: '已打款', tone: 'success' },
-    REVERSED: { label: '已冲正', tone: 'neutral' },
-    HANDLED: { label: '已处理', tone: 'success' },
-    PROCESSED: { label: '已处理', tone: 'success' },
-    SUCCESS: { label: '成功', tone: 'success' },
-    NORMAL: { label: '正常', tone: 'success' },
-    ACTIVE: { label: '启用', tone: 'success' },
-    DISABLED: { label: '停用', tone: 'neutral' },
-    MISSING_ON_MCN: { label: 'MCN 已缺失', tone: 'danger' },
-    IGNORED: { label: '已忽略', tone: 'neutral' },
-    PENDING: { label: '待处理', tone: 'primary' },
-    LOCKED: { label: '已锁定', tone: 'warning' },
-    RISK_HOLD: { label: '风控冻结', tone: 'warning' },
-    FROZEN: { label: '已冻结', tone: 'warning' },
-    FAILED: { label: '异常', tone: 'danger' },
-    REJECTED: { label: '已拒绝', tone: 'danger' },
-    UNLOCKED: { label: '未锁定', tone: 'success' },
-  }
-  const normalized = badgeMap[status] || { label: status, tone: 'primary' as const }
-  return <span className={`badge badge-${normalized.tone}`}>{normalized.label}</span>
 }
 
 function renderEligibilityStatusBadge(status: string) {
@@ -5016,29 +4847,6 @@ function canUnfreezeRisk(status: string) {
   return status === 'HANDLED'
 }
 
-function DataTable({ headers, rows, emptyText, rowClassNames }: { headers: React.ReactNode[]; rows?: Array<Array<React.ReactNode>>; emptyText: string; rowClassNames?: string[] }) {
-  return (
-    <div className="table-shell">
-      <table>
-        <thead>
-          <tr>
-            {headers.map((header, index) => <th key={index}>{header}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {rows?.length ? rows.map((row, index) => (
-            <tr key={`${row[0]}-${index}`} className={rowClassNames?.[index] || undefined}>
-              {row.map((cell, cellIndex) => <td key={`${index}-${cellIndex}`}>{cell}</td>)}
-            </tr>
-          )) : (
-            <tr><td colSpan={headers.length}>{emptyText}</td></tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
 function BatchResultSummary({ result }: { result: BatchOperationResultResponse }) {
   const failures = result.items.filter((item) => !item.success)
   return (
@@ -5127,13 +4935,6 @@ function formatOperatingDividendError(message: string) {
   if (message.includes('already overlaps this scope')) return '当前规则与一条已启用的运营分红规则范围和生效期重叠。请停止旧规则，或调整新规则的生效时间、平台、国家或公会范围后再试。'
   if (message.includes('authoritative platform guild')) return '限定公会必须是当前平台和国家下已同步、可用的 MCN 权威公会。'
   return message
-}
-
-function formatDateTime(value?: string) {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`
 }
 
 function formatUtcDateTime(value?: string) {
