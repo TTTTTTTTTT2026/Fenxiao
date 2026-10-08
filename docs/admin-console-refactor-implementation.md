@@ -104,6 +104,12 @@
 
 随后以 #149 合并后的 `main` 为基线整理前述增量并创建 [PR #150](https://github.com/TTTTTTTTTT2026/Fenxiao/pull/150)；它已于 2026-10-08 09:55:59 UTC 合并到 `main`，三项 CI 成功。真实管理员数据/权限/关键操作及生产验收仍未据此完成。
 
+## 并行增量：财务用户账户只读页与旧页展示拆分（2026-10-08；基于已合并 #150 的 `main`）
+
+旧 `/admin` 的“用户账户”查询表单、账户汇总与流水表格 JSX 抽到 `LegacyUserAccountSection.tsx`；父组件保留原查询值、请求、错误状态和分页回调，旧锚点、类名、字段与文本保持。新版 `/console/user-accounts` 采用 Ant Design + ProComponents，只在财务人员提交准确的正整数用户 ID 后查询原有 `GET /admin/invitation-accounts/{userId}`，用既有服务端分页显示账户汇总与流水，不提供提现、付款或其他写入操作。该 GET 在服务端要求 `AdminPermission.FINANCE` 并记录读取审计；新版菜单与页面只向 `super_admin` 和 `finance` 提供前端入口，服务端仍是最终权限权威。旧菜单让普通 `admin` 看到用户账户但服务端拒绝的既存不一致未在这次旧页结构拆分中改变。
+
+新增旧页字段、空态、筛选与分页回调，新页角色门禁、查询 ID 校验、原接口路径/会话头/Cookie 的回归测试。基于 `main` 的本地 254 项前端测试、lint、build 通过；旧 `LegacyAdminApp.tsx` 从 4,741 行降至 4,731 行（主要是展示组件分离，不能据此认为整体复杂度已解决）。构建仍提示约 914 kB 的 Table chunk；真实管理员会话下的新旧数据、权限拒绝、视觉与移动宽度、网络性能尚未对照。未访问/写入生产，未部署。
+
 ## 并行增量：用户列表只读 API 领域边界（2026-10-08；基于已合并 #150 的 `main`）
 
 把用户平台档案列表响应类型和 `GET /admin/distribution/user-platform-profiles` 查询函数原样迁到 `src/admin/userDirectoryApi.ts`。旧 `/admin` 与新版 `/console/users` 直接引用同一模块，`api.ts` 保留原同名导出供其他调用方兼容；国家归属、邀请链公会及密码登录权限等写入请求仍留在旧 `api.ts`，不在本批改动。筛选参数顺序、服务端分页和管理员会话头不变，注册时间倒序仍由原服务端负责。
