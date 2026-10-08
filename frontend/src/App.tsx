@@ -259,6 +259,15 @@ import {
 } from './opsConsole'
 import { buildChannelEntryLinks, consumerEntryOrigin, CONSUMER_ORIGIN } from './publicEntries'
 import PartnerPortal from './PartnerPortal'
+import { formatConsumerUserGrade, formatCountryNameZh, phoneCountries, type ConsumerLocale } from './shared/catalog'
+import {
+  ADMIN_SECTION_HASHES,
+  SYSTEM_CONFIG_SECTION_VIEWS,
+  SYSTEM_MANAGEMENT_SECTION_VIEWS,
+  getVisibleFinanceSections,
+  resolveAdminSectionFromHash,
+  type AdminSectionKey,
+} from './admin/navigation'
 
 type SessionState = {
   userId: number
@@ -283,9 +292,6 @@ type AdminAuthState = {
 }
 
 type AdminProductKey = 'ALL' | 'LINKY' | 'TIMO'
-type AdminSettingsView = 'experiment' | 'guilds' | 'platforms' | 'incomeControlled' | 'incomeShadow' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification' | 'smsWhitelist'
-type AdminAccountView = 'security' | 'staff' | 'audit'
-type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'riskQueue' | 'users' | 'platformGuildDirectory' | 'rewards' | 'userAccounts' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'teams' | 'operatingDividends' | 'userGrades' | 'userGradeList' | 'advancedGradeAcceptance' | 'userGradeFacts' | 'tokenPointConversions' | 'accounts' | 'accountManagement' | 'mySecurity' | 'securityRecords' | 'settings' | 'systemExperiment' | 'systemGuilds' | 'systemPlatforms' | 'systemIncomeControlled' | 'systemIncomeShadow' | 'systemMockVerification' | 'systemAdvanced' | 'systemSeedInviter' | 'systemPhoneVerification' | 'systemSmsWhitelist'
 type RiskActionName = 'HANDLE' | 'IGNORE' | 'FREEZE_USER' | 'UNFREEZE_USER'
 type WithdrawActionName = 'approve' | 'reject' | 'paid' | 'failed' | 'reverse'
 type WithdrawQuery = { userId: string; status: string; page: string; size: string }
@@ -293,42 +299,6 @@ type RiskQuery = { userId: string; riskStatus: string; startAt: string; endAt: s
 type PendingBatchAction =
   | { kind: 'withdraw'; action: 'APPROVE' | 'REJECT'; targetIds: string[] }
   | { kind: 'risk'; action: 'HANDLE' | 'IGNORE'; targetIds: number[] }
-
-const ADMIN_SECTION_HASHES: Record<AdminSectionKey, string> = {
-  overview: '#admin-overview',
-  channel: '#admin-channel-entries',
-  bindings: '#admin-bindings',
-  riskQueue: '#admin-risk-queue',
-  users: '#admin-users',
-  platformGuildDirectory: '#admin-platform-guild-directory',
-  rewards: '#admin-rewards',
-  userAccounts: '#admin-user-accounts',
-  commissionPolicies: '#admin-commission-policies',
-  mentorDirectory: '#admin-mentors',
-  mentorIncentives: '#admin-mentor-incentives',
-  teams: '#admin-teams',
-  operatingDividends: '#admin-operating-dividends',
-  userGrades: '#admin-user-grades',
-  userGradeList: '#admin-user-grade-list',
-  advancedGradeAcceptance: '#admin-advanced-grade-acceptance',
-  userGradeFacts: '#admin-user-grade-facts',
-  tokenPointConversions: '#admin-token-point-conversions',
-  accounts: '#admin-accounts',
-  accountManagement: '#admin-account-management',
-  mySecurity: '#admin-my-security',
-  securityRecords: '#admin-security-records',
-  settings: '#admin-settings',
-  systemExperiment: '#admin-system-experiment',
-  systemGuilds: '#admin-system-guilds',
-  systemPlatforms: '#admin-system-platforms',
-  systemIncomeControlled: '#admin-system-income-controlled',
-  systemIncomeShadow: '#admin-system-income-shadow',
-  systemMockVerification: '#admin-system-mock-verification',
-  systemAdvanced: '#admin-system-advanced',
-  systemSeedInviter: '#admin-system-seed-inviter',
-  systemPhoneVerification: '#admin-system-phone-verification',
-  systemSmsWhitelist: '#admin-system-sms-whitelist',
-}
 
 const USER_GRADE_CATALOG = [
   { grade: '普通成员', condition: '注册加入，无须购买课程。', responsibility: '了解基础邀请规则；可参与业务并获得符合规则的个人推荐奖励。', referral: '直邀 10% / 间邀 3%', team: '暂不发放' },
@@ -339,49 +309,6 @@ const USER_GRADE_CATALOG = [
   { grade: '钻石', condition: '铂金基础上，实际培养 2 名金牌成员；相关团队连续 2 个完整自然月完成经营验收。', responsibility: '获得多团队经营视图并承担负责人培养支持，需经过运营复核。', referral: '直邀 10% / 间邀 3%', team: '暂不发放；团队经营奖励全局关闭' },
   { grade: '黑金', condition: '钻石基础上，实际培养 2 名钻石成员；负责业务连续 3 个完整自然月完成经营验收。', responsibility: '具备区域经营试点候选资格及更深度的公司协作责任，需经过运营复核。', referral: '直邀 10% / 间邀 3%', team: '暂不发放；团队经营奖励全局关闭' },
 ] as const
-
-const SYSTEM_CONFIG_SECTION_VIEWS: Partial<Record<AdminSectionKey, AdminSettingsView>> = {
-  systemExperiment: 'experiment',
-  systemGuilds: 'guilds',
-  systemPlatforms: 'platforms',
-  systemIncomeControlled: 'incomeControlled',
-  systemIncomeShadow: 'incomeShadow',
-  systemMockVerification: 'mockVerification',
-  systemAdvanced: 'advanced',
-  systemSeedInviter: 'seedInviter',
-  systemPhoneVerification: 'phoneVerification',
-  systemSmsWhitelist: 'smsWhitelist',
-}
-
-function getVisibleFinanceSections(role?: string): AdminSectionKey[] {
-  const normalizedRole = role?.toLowerCase()
-  if (normalizedRole === 'super_admin' || normalizedRole === 'admin' || !normalizedRole) return ['rewards', 'userAccounts', 'commissionPolicies', 'tokenPointConversions']
-  if (normalizedRole === 'finance') return ['rewards', 'userAccounts', 'commissionPolicies']
-  if (normalizedRole === 'operations') return ['tokenPointConversions']
-  return []
-}
-
-const SYSTEM_MANAGEMENT_SECTION_VIEWS: Partial<Record<AdminSectionKey, AdminAccountView>> = {
-  accountManagement: 'staff',
-  mySecurity: 'security',
-  securityRecords: 'audit',
-}
-
-function resolveAdminSectionFromHash(hash?: string): AdminSectionKey {
-  const normalized = hash || '#admin-overview'
-  if (normalized === '#admin-mentor-incentives') return 'mentorDirectory'
-  if (normalized === '#admin-operating-dividends') return 'teams'
-  if (normalized === '#admin-system-mock-verification') return 'systemPlatforms'
-  if (normalized === '#admin-user-grades') return 'userGradeList'
-  const match = (Object.entries(ADMIN_SECTION_HASHES) as Array<[AdminSectionKey, string]>).find(([, value]) => value === normalized)
-  if (match) return match[0]
-  if (normalized === '#admin-invite-ops') return 'channel'
-  if (normalized === '#admin-withdraw-requests') return 'rewards'
-  if (normalized === '#admin-user-facts' || normalized === '#admin-user-platform-profiles') return 'users'
-  if (normalized === '#admin-risks') return 'riskQueue'
-  if (normalized === '#admin-onboarding') return 'settings'
-  return 'overview'
-}
 
 type PendingRiskAction = {
   riskEventId: number
@@ -6243,24 +6170,6 @@ const passwordLoginCopyByLocale: Record<ConsumerLocale, {
   pt: { switchToPassword: 'Entrar com senha', switchToPhone: 'Voltar ao acesso e cadastro por telefone', title: 'Entrar com senha', hint: 'Somente para contas existentes habilitadas pela equipe. Não precisa de código SMS.', passwordLabel: 'Senha', passwordPlaceholder: 'Digite sua senha', submit: 'Entrar', failure: 'Telefone ou senha incorretos, ou acesso não habilitado. Contate o suporte.' },
 }
 
-const phoneCountries = [
-  { countryCode: 'BR', callingCode: '+55', names: { zh: '巴西', en: 'Brazil', es: 'Brasil', id: 'Brasil', pt: 'Brasil' } },
-  { countryCode: 'ID', callingCode: '+62', names: { zh: '印度尼西亚', en: 'Indonesia', es: 'Indonesia', id: 'Indonesia', pt: 'Indonésia' } },
-  { countryCode: 'CN', callingCode: '+86', names: { zh: '中国', en: 'China', es: 'China', id: 'Tiongkok', pt: 'China' } },
-  { countryCode: 'HK', callingCode: '+852', names: { zh: '香港', en: 'Hong Kong', es: 'Hong Kong', id: 'Hong Kong', pt: 'Hong Kong' } },
-  { countryCode: 'US', callingCode: '+1', names: { zh: '美国', en: 'United States', es: 'Estados Unidos', id: 'Amerika Serikat', pt: 'Estados Unidos' } },
-  { countryCode: 'CA', callingCode: '+1', names: { zh: '加拿大', en: 'Canada', es: 'Canadá', id: 'Kanada', pt: 'Canadá' } },
-  { countryCode: 'MX', callingCode: '+52', names: { zh: '墨西哥', en: 'Mexico', es: 'México', id: 'Meksiko', pt: 'México' } },
-  { countryCode: 'CO', callingCode: '+57', names: { zh: '哥伦比亚', en: 'Colombia', es: 'Colombia', id: 'Kolombia', pt: 'Colômbia' } },
-  { countryCode: 'AR', callingCode: '+54', names: { zh: '阿根廷', en: 'Argentina', es: 'Argentina', id: 'Argentina', pt: 'Argentina' } },
-  { countryCode: 'CL', callingCode: '+56', names: { zh: '智利', en: 'Chile', es: 'Chile', id: 'Cile', pt: 'Chile' } },
-  { countryCode: 'PE', callingCode: '+51', names: { zh: '秘鲁', en: 'Peru', es: 'Perú', id: 'Peru', pt: 'Peru' } },
-  { countryCode: 'PH', callingCode: '+63', names: { zh: '菲律宾', en: 'Philippines', es: 'Filipinas', id: 'Filipina', pt: 'Filipinas' } },
-  { countryCode: 'TH', callingCode: '+66', names: { zh: '泰国', en: 'Thailand', es: 'Tailandia', id: 'Thailand', pt: 'Tailândia' } },
-  { countryCode: 'VN', callingCode: '+84', names: { zh: '越南', en: 'Vietnam', es: 'Vietnam', id: 'Vietnam', pt: 'Vietnã' } },
-  { countryCode: 'MY', callingCode: '+60', names: { zh: '马来西亚', en: 'Malaysia', es: 'Malasia', id: 'Malaysia', pt: 'Malásia' } },
-] as const
-
 const clientPhoneCountries = (['CN', 'ID', 'MX', 'BR', 'HK'] as const).map((code) => phoneCountries.find((country) => country.countryCode === code)!)
 
 function consumerCountryName(countryCode: string, locale: ConsumerLocale) {
@@ -6278,10 +6187,6 @@ const consumerLanguageNames: Record<ConsumerLocale, Record<ConsumerLocale, strin
 function consumerLanguageName(languageCode: string, locale: ConsumerLocale) {
   const language = languageCode.toLowerCase().split(/[-_]/)[0] as ConsumerLocale
   return consumerLanguageNames[locale][language] ?? languageCode
-}
-
-function formatCountryNameZh(countryCode: string | null | undefined) {
-  return phoneCountries.find((country) => country.countryCode === countryCode?.trim().toUpperCase())?.names.zh ?? '未识别国家'
 }
 
 const mentorQualificationLanguages: Record<string, { code: string; label: string }> = {
@@ -6316,8 +6221,6 @@ function normalizeLocalPhoneNumber(value: string, callingCode: string) {
   return normalized.startsWith(dialDigits) ? normalized.slice(dialDigits.length) : normalized
 }
 
-type ConsumerLocale = 'zh' | 'en' | 'es' | 'id' | 'pt'
-
 const workspaceCopy: Record<ConsumerLocale, { title: string; dialogTitle: string; hint: string; choose: string; current: string; enter: string; bind: string; close: string; loading: string; error: string; emptyTitle: (app: string) => string; emptyHint: (app: string) => string; appSummary: (app: string) => string; bannerDescription: (app: string) => string; switchOtherApp: string }> = {
   zh: { title: '切换应用工作区', dialogTitle: '切换工作区', hint: '只切换查看的数据；邀请关系和账户归属不变。', choose: '选择应用', current: '当前工作区', enter: '切换工作区', bind: '去绑定', close: '关闭', loading: '读取应用状态中…', error: '应用状态暂不可用，请稍后重试。', emptyTitle: (app) => `${app} 账号尚未绑定`, emptyHint: (app) => `当前仅显示${app}的相关数据。绑定并通过核验后，才能查看该应用的收益与邀请数据。`, appSummary: (app) => `当前查看 ${app} 的用户和邀请收入`, bannerDescription: (app) => `当前仅显示${app}的相关数据。`, switchOtherApp: '切换其他应用' },
   en: { title: 'Switch app workspace', dialogTitle: 'Switch workspace', hint: 'Only your view changes; invitation relationships and account ownership stay the same.', choose: 'Choose an app', current: 'Current workspace', enter: 'Switch workspace', bind: 'Bind account', close: 'Close', loading: 'Loading app status…', error: 'App status is unavailable. Try again later.', emptyTitle: (app) => `${app} is not bound yet`, emptyHint: (app) => `Only ${app} data is shown here. Bind and verify this account to view its earnings and invitation data.`, appSummary: (app) => `Viewing ${app} users and invitation income`, bannerDescription: (app) => `Showing only data related to ${app}.`, switchOtherApp: 'Switch to another app' },
@@ -6341,18 +6244,6 @@ type ConsumerNavigationKey = 'earnings' | 'invite' | 'account'
 
 const consumerUserGradeLabel: Record<ConsumerLocale, string> = {
   zh: '用户等级', en: 'Member level', es: 'Nivel de miembro', id: 'Level pengguna', pt: 'Nível do usuário',
-}
-
-const consumerUserGradeNames: Record<ConsumerLocale, Record<string, string>> = {
-  zh: { NORMAL_MEMBER: '普通成员', NEW_STAR: '新星', SILVER: '银牌', GOLD: '金牌', PLATINUM: '铂金', DIAMOND: '钻石', BLACK_GOLD: '黑金' },
-  en: { NORMAL_MEMBER: 'Member', NEW_STAR: 'Rising Star', SILVER: 'Silver', GOLD: 'Gold', PLATINUM: 'Platinum', DIAMOND: 'Diamond', BLACK_GOLD: 'Black Gold' },
-  es: { NORMAL_MEMBER: 'Miembro', NEW_STAR: 'Nueva estrella', SILVER: 'Plata', GOLD: 'Oro', PLATINUM: 'Platino', DIAMOND: 'Diamante', BLACK_GOLD: 'Oro negro' },
-  id: { NORMAL_MEMBER: 'Anggota', NEW_STAR: 'Bintang baru', SILVER: 'Perak', GOLD: 'Emas', PLATINUM: 'Platinum', DIAMOND: 'Berlian', BLACK_GOLD: 'Emas hitam' },
-  pt: { NORMAL_MEMBER: 'Membro', NEW_STAR: 'Nova estrela', SILVER: 'Prata', GOLD: 'Ouro', PLATINUM: 'Platina', DIAMOND: 'Diamante', BLACK_GOLD: 'Ouro negro' },
-}
-
-function formatConsumerUserGrade(gradeCode: string | null | undefined, locale: ConsumerLocale) {
-  return consumerUserGradeNames[locale][gradeCode ?? 'NORMAL_MEMBER'] ?? consumerUserGradeNames[locale].NORMAL_MEMBER
 }
 
 const consumerNavigationCopy: Record<ConsumerLocale, Record<ConsumerNavigationKey, string>> = {

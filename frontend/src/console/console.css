@@ -1,0 +1,49 @@
+.new-console-root {
+  min-height: 100vh;
+  color: #172033;
+  background: #f6f7fa;
+}
+
+.new-console-root *,
+.new-console-auth * {
+  box-sizing: border-box;
+}
+
+.new-console-content {
+  padding: 24px;
+}
+
+.new-console-content > .ant-typography {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.new-console-content .ant-pro-table {
+  margin-top: 24px;
+}
+
+.new-console-auth {
+  display: flex;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #fff5ef;
+}
+
+.new-console-login-card {
+  width: min(100%, 420px);
+}
+
+.new-console-login-form {
+  margin-top: 28px;
+}
+
+.new-console-login-card > .ant-card-body > a {
+  display: inline-block;
+  margin-top: 18px;
+}
+
+.new-console-alert {
+  margin-top: 18px;
+}
