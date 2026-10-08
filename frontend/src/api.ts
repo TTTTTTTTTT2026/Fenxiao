@@ -1,7 +1,7 @@
 import { request } from './httpClient'
-import type { BatchOperationResultResponse } from './admin/batchOperation'
 import type { UserPlatformProfileInvitationGuild } from './admin/userDirectoryApi'
-import type { RewardListResponse, AdminWithdrawRequestItem } from './admin/financeReadApi'
+import type { RewardListResponse } from './admin/financeReadApi'
+import type { MentorIncentiveRuleResponse } from './admin/mentorReadApi'
 export { ApiRequestError } from './httpClient'
 export type { BatchOperationItem, BatchOperationResultResponse } from './admin/batchOperation'
 export { applyAdminRiskEventAction, applyAdminRiskEventBatchAction, getAdminRiskEvents } from './admin/riskApi'
@@ -14,6 +14,10 @@ export { getAdminAccounts, createAdminAccount, updateAdminAccount, resetAdminPas
 export type { AdminAccountResponse, AdminAccountCreatedResponse, AdminDeviceSessionResponse, AdminSecurityEventResponse } from './admin/accountSecurityApi'
 export { getAdminRewards, getAdminWithdrawRequests } from './admin/financeReadApi'
 export type { RewardListItem, RewardListResponse, AdminWithdrawRequestItem, AdminWithdrawRequestListResponse } from './admin/financeReadApi'
+export { approveAdminWithdrawRequest, rejectAdminWithdrawRequest, applyAdminWithdrawBatchAction, approveWithdrawForPayment, recordWithdrawPayment, reverseWithdrawPayment } from './admin/financeWriteApi'
+export type { WithdrawAdminActionPayload } from './admin/financeWriteApi'
+export { getAdminMentorIncentiveDashboard, getAdminMentorAssignedStudents } from './admin/mentorReadApi'
+export type { MentorIncentiveRuleResponse, MentorShadowLedgerItemResponse, MentorIncentiveDashboardResponse, MentorAssignedStudentResponse } from './admin/mentorReadApi'
 export { getAdminRelation, adjustAdminRelation, getAdminOwnership, correctAdminOwnership } from './admin/bindingApi'
 export type { RelationDetailResponse, OwnershipItemResponse, OwnershipDetailResponse } from './admin/bindingApi'
 
@@ -174,26 +178,6 @@ export type CommissionPolicyResponse = {
   maxRewardLevel: number; status: 'DRAFT' | 'ACTIVE' | 'RETIRED' | string; effectiveFrom: string; effectiveTo: string | null
   createdBy: number; approvedBy: number | null; approvedAt: string | null; approvalNote: string | null
   levels: Array<{ rewardLevel: number; enabled: boolean; rewardRate: number | null; freezeDays: number | null }>
-}
-export type MentorIncentiveRuleResponse = {
-  id: number; ruleCode: string; ruleVersion: number; milestoneCode: string
-  platformCode: string; countryCode: string; guildId: string | null
-  amountMinor: number; currencyCode: string; freezeDays: number
-  effectiveFrom: string; effectiveTo: string | null; status: 'DRAFT' | 'ACTIVE' | 'RETIRED' | string
-  createdBy: number | null; approvedBy: number | null; approvedAt: string | null; approvalNote: string | null
-}
-export type MentorShadowLedgerItemResponse = {
-  id: number; recipientUserId: number; sourceUserId: number; platformCode: string; milestoneCode: string
-  ruleCode: string; ruleVersion: number; amountMinor: number; currencyCode: string; ledgerStatus: string; triggeredAt: string
-}
-export type MentorIncentiveDashboardResponse = {
-  qualifiedMentorCount: number; assignedStudentCount: number; shadowEntryCount: number
-  mentors: Array<{ userId: number; phoneNumber: string | null; countryCode: string; languageCode: string; qualificationStatus: string; maxActiveStudents: number; assignedStudentCount: number }>
-  rules: MentorIncentiveRuleResponse[]; recentShadowEntries: MentorShadowLedgerItemResponse[]
-}
-export type MentorAssignedStudentResponse = {
-  userId: number; phoneNumber: string | null; countryCode: string; languageCode: string
-  assignedAt: string; assignmentReason: string
 }
 export type OperatingDividendPolicyResponse = {
   id: number; policyCode: string; policyVersion: number; platformCode: string; countryCode: string; guildId: string | null
@@ -860,12 +844,6 @@ export function activateAdminCommissionPolicy(adminSessionToken: string, id: num
 export function retireAdminCommissionPolicy(adminSessionToken: string, id: number) {
   return request<CommissionPolicyResponse>(`/admin/commission-policies/${id}/retire`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken } })
 }
-export function getAdminMentorIncentiveDashboard(adminSessionToken: string) {
-  return request<MentorIncentiveDashboardResponse>('/admin/incentives/mentor-dashboard', { headers: { 'X-Admin-Session': adminSessionToken } })
-}
-export function getAdminMentorAssignedStudents(adminSessionToken: string, mentorUserId: number) {
-  return request<MentorAssignedStudentResponse[]>(`/admin/incentives/mentors/${mentorUserId}/students`, { headers: { 'X-Admin-Session': adminSessionToken } })
-}
 export function createAdminMentorIncentiveRule(adminSessionToken: string, payload: { milestoneCode: string; platformCode: string; countryCode: string; guildId: string | null; amountMinor: number; currencyCode: string; freezeDays: number; effectiveFrom: string; effectiveTo: string | null }) {
   return request<MentorIncentiveRuleResponse>('/admin/incentives/mentor-rules', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) })
 }
@@ -1301,62 +1279,6 @@ export function refreshAdminLinkyEligibilityBatch(adminSessionToken: string) {
     headers: {
       'X-Admin-Session': adminSessionToken,
     },
-  })
-}
-
-export type WithdrawAdminActionPayload = {
-  operatorId?: number
-  operatorRole?: string
-  remark?: string
-}
-
-export function approveAdminWithdrawRequest(adminSessionToken: string, requestNo: string, payload: WithdrawAdminActionPayload) {
-  return request<AdminWithdrawRequestItem>(`/admin/distribution/withdraw-requests/${encodeURIComponent(requestNo)}/approve`, {
-    method: 'POST',
-    headers: {
-      'X-Admin-Session': adminSessionToken,
-    },
-    body: JSON.stringify(payload),
-  })
-}
-
-export function rejectAdminWithdrawRequest(adminSessionToken: string, requestNo: string, payload: WithdrawAdminActionPayload) {
-  return request<AdminWithdrawRequestItem>(`/admin/distribution/withdraw-requests/${encodeURIComponent(requestNo)}/reject`, {
-    method: 'POST',
-    headers: {
-      'X-Admin-Session': adminSessionToken,
-    },
-    body: JSON.stringify(payload),
-  })
-}
-
-export function applyAdminWithdrawBatchAction(adminSessionToken: string, payload: {
-  requestNos: string[]
-  action: 'APPROVE' | 'REJECT'
-  remark?: string
-}) {
-  return request<BatchOperationResultResponse>('/admin/distribution/withdraw-requests/batch-actions', {
-    method: 'POST',
-    headers: { 'X-Admin-Session': adminSessionToken },
-    body: JSON.stringify(payload),
-  })
-}
-
-export function approveWithdrawForPayment(adminSessionToken: string, requestNo: string, remark: string) {
-  return request<{ requestNo: string; status: string; amount: number }>(`/admin/distribution/withdrawal-workflow/${encodeURIComponent(requestNo)}/approve-for-payment`, {
-    method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ remark }),
-  })
-}
-
-export function recordWithdrawPayment(adminSessionToken: string, requestNo: string, payload: { paymentChannel: string; paymentReference?: string; evidenceUri?: string; evidenceHash?: string; failureReason?: string }, success: boolean) {
-  return request<{ requestNo: string; status: string; amount: number }>(`/admin/distribution/withdrawal-workflow/${encodeURIComponent(requestNo)}/${success ? 'payment-success' : 'payment-failure'}`, {
-    method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload),
-  })
-}
-
-export function reverseWithdrawPayment(adminSessionToken: string, requestNo: string, payload: { reason: string; currencyCode: string }) {
-  return request<{ requestNo: string; status: string; amount: number }>(`/admin/distribution/withdrawal-workflow/${encodeURIComponent(requestNo)}/reverse`, {
-    method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload),
   })
 }
 

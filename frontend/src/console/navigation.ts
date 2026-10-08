@@ -3,7 +3,7 @@ import { buildAdminSectionLinks } from '../opsConsole'
 import { getVisibleFinanceSections } from '../admin/navigation'
 import { canManageTeamsInAdmin, canReadFinanceInAdmin } from '../admin/roleCapabilities'
 
-export type ConsoleRoute = 'users' | 'guilds' | 'overview' | 'grades' | 'channel' | 'commission' | 'risk' | 'bindingRelation' | 'userAccounts' | 'rewardLedger' | 'mySecurity' | 'securityRecords'
+export type ConsoleRoute = 'users' | 'guilds' | 'overview' | 'grades' | 'mentors' | 'channel' | 'commission' | 'risk' | 'bindingRelation' | 'userAccounts' | 'rewardLedger' | 'mySecurity' | 'securityRecords'
 export type ConsolePlatform = 'LINKY' | 'TIMO'
 
 const routeDefinitions: Array<{ key: ConsoleRoute; path: string; label: string; legacyHref: string }> = [
@@ -11,6 +11,7 @@ const routeDefinitions: Array<{ key: ConsoleRoute; path: string; label: string; 
   { key: 'guilds', path: '/console/guilds', label: '平台公会目录', legacyHref: '#admin-platform-guild-directory' },
   { key: 'overview', path: '/console/overview', label: '分销概览', legacyHref: '#admin-overview' },
   { key: 'grades', path: '/console/grades', label: '用户等级列表', legacyHref: '#admin-user-grade-list' },
+  { key: 'mentors', path: '/console/mentors', label: '导师列表', legacyHref: '#admin-mentors' },
   { key: 'channel', path: '/console/channel', label: '渠道入口', legacyHref: '#admin-channel-entries' },
   { key: 'commission', path: '/console/commission', label: '邀请裂变分成', legacyHref: '#admin-commission-policies' },
   { key: 'risk', path: '/console/risk', label: '风险队列（只读）', legacyHref: '#admin-users' },
