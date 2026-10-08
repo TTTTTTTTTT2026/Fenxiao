@@ -6,16 +6,9 @@ import {
 activateAdminOperatingDividendPolicy,
 activateAdminUserGradeLevel,
 addAdminSmsDailyWhitelistNumber,
-adjustAdminRelation,
-applyAdminRiskEventAction,
-applyAdminRiskEventBatchAction,
-applyAdminWithdrawBatchAction,
-approveWithdrawForPayment,
 assignAdminMentor,
 changeExperimentStatus,
 confirmAdminUserGradeAdvancementUpgrade,
-correctAdminOwnership,
-createAdminAccount,
 createAdminMentorIncentiveRules,
 createAdminOperatingDividendPolicies,
 createAdminPlatformGuildOperatingShareRate,
@@ -29,10 +22,8 @@ enrollExperimentParticipant,
 evaluateAdminUserGrade,
 excludeAdminEffectiveUserQualification,
 failAdminUserGradeAdvancementReview,
-getAdminAccounts,
 getAdminAuditLogs,
 getAdminCommissionPolicies,
-getAdminDeviceSessions,
 getAdminEffectiveUserQualifications,
 getAdminGuildConfigs,
 getAdminGuildWeeklyReport,
@@ -46,11 +37,8 @@ getAdminIncomeSyncStatus,
 getAdminInvitationAccount,
 getAdminLinkyReplayRecords,
 getAdminLinkyWebhookLogs,
-getAdminMentorAssignedStudents,
-getAdminMentorIncentiveDashboard,
 getAdminOperatingDividendDashboard,
 getAdminOverview,
-getAdminOwnership,
 getAdminPhoneVerificationCodeAudit,
 getAdminPhoneVerificationCodes,
 getAdminPlatformGuildCompanyShareRules,
@@ -59,40 +47,28 @@ getAdminPlatformGuildDirectorySyncRuns,
 getAdminPlatformIntegrations,
 getAdminPlatformVerificationMocks,
 getAdminPlatformVerificationRuntime,
-getAdminRelation,
-getAdminRewards,
-getAdminRiskEvents,
 getAdminSeedInviters,
 getAdminSmsDailyWhitelist,
 getAdminSmsDeliveryStatus,
-getAdminTeamManagementDashboard,
-getAdminTeamMembers,
 getAdminTokenPointConversionDashboard,
 getAdminUserGradeAdvancementReviews,
 getAdminUserGradeDashboard,
 getAdminUserGradeLevelDashboard,
 getAdminUserPointDashboard,
-getAdminWithdrawRequests,
 getExperimentDashboard,
-getMyAdminSecurityEvents,
 qualifyAdminMentor,
-recordWithdrawPayment,
 refreshAdminEffectiveUserQualifications,
 refreshAdminIncomeRewardCandidates,
 refreshAdminIncomeShadowLedger,
 refreshAdminLinkyEligibility,
 refreshAdminLinkyEligibilityBatch,
 refreshAdminUserPoints,
-rejectAdminWithdrawRequest,
 removeAdminSmsDailyWhitelistNumber,
 replayAdminIncomeShadowLedger,
-resetAdminPassword,
 retireAdminOperatingDividendPolicy,
 retireAdminUserGradeLevel,
 revealAdminPhoneVerificationCode,
-reverseWithdrawPayment,
 reviewAdminIncomeDataQualityException,
-revokeAdminDeviceSession,
 runAdminIncomeControlledChanges,
 runAdminIncomeControlledReconciliation,
 saveAdminGuildConfig,
@@ -100,15 +76,9 @@ saveAdminPlatformVerificationMock,
 saveAdminTeamOperatingProfitSharePermission,
 saveAdminTokenPointConversion,
 setAdminUserPasswordLogin,
-unlockAdminAccount,
-updateAdminAccount,
 updateAdminLinkyInvitationGuild,
 updateAdminSmsDeliveryStatus,
 updateAdminUserCountry,
-type AdminAccountResponse,
-type AdminDeviceSessionResponse,
-type AdminSecurityEventResponse,
-type AdminWithdrawRequestListResponse,
 type AuditLogListResponse,
 type BatchOperationResultResponse,
 type CommissionPolicyResponse,
@@ -131,11 +101,8 @@ type McnIncomeRewardCandidateSampleResponse,
 type McnIncomeRewardCandidateSummaryResponse,
 type McnIncomeShadowLedgerSummaryResponse,
 type McnIncomeSyncStatusResponse,
-type MentorAssignedStudentResponse,
-type MentorIncentiveDashboardResponse,
 type OperatingDividendDashboardResponse,
 type OverviewReportResponse,
-type OwnershipDetailResponse,
 type PhoneVerificationCodeListResponse,
 type PlatformGuildCompanyShareRuleResponse,
 type PlatformGuildDirectoryItem,
@@ -143,22 +110,37 @@ type PlatformGuildDirectorySyncRun,
 type PlatformIntegrationResponse,
 type PlatformVerificationMockResponse,
 type PlatformVerificationRuntimeResponse,
-type RelationDetailResponse,
-type RewardListResponse,
-type RiskEventListResponse,
 type SeedInviterListResponse,
 type SeedInviterResponse,
 type SmsDailyWhitelistPage,
 type SmsDeliveryStatus,
-type TeamManagementDashboardResponse,
-type TeamManagementItemResponse,
-type TeamManagementMemberResponse,
 type TokenPointConversionDashboardResponse,
 type UserGradeAdvancementReviewResponse,
 type UserGradeDashboardResponse,
 type UserGradeLevelDashboardResponse,
 type UserPointDashboardResponse
 } from '../api'
+import { adjustAdminRelation, correctAdminOwnership, getAdminOwnership, getAdminRelation, type OwnershipDetailResponse, type RelationDetailResponse } from './bindingApi'
+import { getAdminRewards, getAdminWithdrawRequests, type AdminWithdrawRequestListResponse, type RewardListResponse } from './financeReadApi'
+import { applyAdminWithdrawBatchAction, approveWithdrawForPayment, recordWithdrawPayment, rejectAdminWithdrawRequest, reverseWithdrawPayment } from './financeWriteApi'
+import { getAdminMentorAssignedStudents, getAdminMentorIncentiveDashboard, type MentorAssignedStudentResponse, type MentorIncentiveDashboardResponse } from './mentorReadApi'
+import LegacyMentorDirectorySection from './LegacyMentorDirectorySection'
+import LegacyTeamDirectorySection from './LegacyTeamDirectorySection'
+import { getAdminTeamManagementDashboard, getAdminTeamMembers, type TeamManagementDashboardResponse, type TeamManagementItemResponse, type TeamManagementMemberResponse } from './teamReadApi'
+import {
+  createAdminAccount,
+  getAdminAccounts,
+  getAdminDeviceSessions,
+  getMyAdminSecurityEvents,
+  resetAdminPassword,
+  revokeAdminDeviceSession,
+  unlockAdminAccount,
+  updateAdminAccount,
+  type AdminAccountResponse,
+  type AdminDeviceSessionResponse,
+  type AdminSecurityEventResponse,
+} from './accountSecurityApi'
+import { applyAdminRiskEventAction, applyAdminRiskEventBatchAction, getAdminRiskEvents, type RiskEventListResponse } from './riskApi'
 import { getAdminUserPlatformProfiles, type UserPlatformProfileListResponse } from './userDirectoryApi'
 import { changeAdminPassword, createAdminSession, getCurrentAdminSession, logoutAdminSession, logoutAllAdminSessions } from './authApi'
 import {
@@ -3111,18 +3093,15 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           ) : null}
 
           {activeAdminSection === 'mentorDirectory' ? (
-            <PanelSection sectionId="admin-mentors" eyebrow="Mentor directory · relationship management" title="导师列表" description="在此维护导师资格和导师可携带的学员。导师关系独立于邀请关系，所有变更均保留版本记录；本页不配置分成规则，也不会产生奖励或付款。" action={<button className="ghost-btn" onClick={() => void loadMentorIncentiveDashboard()} disabled={loading}>刷新列表</button>}>
-              <div className="stack-gap">
-                <InfoCard title="导师与学员概览" tone="neutral">
-                  {mentorIncentiveDashboard ? <div className="relation-grid"><RelationItem label="具备资格的导师" value={mentorIncentiveDashboard.qualifiedMentorCount} /><RelationItem label="当前已归属学员" value={mentorIncentiveDashboard.assignedStudentCount} /></div> : <EmptyState title="尚未读取导师列表" description="点击“刷新列表”读取导师资格与当前学员数量。" />}
-                  <InlineHint text="“编辑学员”只会新增或切换该导师的学员归属版本，不会改写历史导师关系。" />
-                </InfoCard>
-                {canManageMentorRelations ? <InfoCard title="导师资格" tone="neutral"><p>建立导师资格后，才可以为该导师配置可携带的学员。已建立的资格可在列表中修改归属国家和带教上限。</p><button className="primary-btn top-gap" onClick={() => openMentorQualificationDialog()} disabled={loading}>新建导师资格</button></InfoCard> : null}
-                <InfoCard title="导师列表" tone="neutral">
-                  {mentorIncentiveDashboard?.mentors.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>导师信息</th><th>归属国家 / 语言</th><th>资格状态</th><th>学员数量</th><th>带教上限</th><th>操作</th></tr></thead><tbody>{mentorIncentiveDashboard.mentors.map((mentor) => <tr key={mentor.userId}><td>用户 {mentor.userId}{mentor.phoneNumber ? ` · ${mentor.phoneNumber}` : ''}</td><td>{mentor.countryCode} / {mentor.languageCode}</td><td>{mentor.qualificationStatus === 'QUALIFIED' ? '已具备资格' : mentor.qualificationStatus}</td><td>{mentor.assignedStudentCount}</td><td>{mentor.maxActiveStudents}</td><td>{canManageMentorRelations ? <div className="action-row"><button className="ghost-btn small-btn" onClick={() => openMentorQualificationDialog(mentor)} disabled={loading}>编辑资格</button><button className="primary-btn small-btn" onClick={() => openMentorAssignmentDialog(mentor)} disabled={loading}>编辑学员</button></div> : '-'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未建立导师资格" description="先通过“新建导师资格”添加一位导师。" />}
-                </InfoCard>
-              </div>
-            </PanelSection>
+            <LegacyMentorDirectorySection
+              dashboard={mentorIncentiveDashboard}
+              loading={loading}
+              canManageMentorRelations={canManageMentorRelations}
+              onRefresh={() => { void loadMentorIncentiveDashboard() }}
+              onNewQualification={() => openMentorQualificationDialog()}
+              onEditQualification={openMentorQualificationDialog}
+              onEditStudents={openMentorAssignmentDialog}
+            />
           ) : null}
 
           {activeAdminSection === 'mentorIncentives' ? (
@@ -3138,17 +3117,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           ) : null}
 
           {activeAdminSection === 'teams' && canManageTeams ? (
-            <PanelSection sectionId="admin-teams" eyebrow="Team governance · appointment control" title="团队列表" description="金牌达标会自动建立团队并写入负责人资格记录；高级等级须完成培养、经营、职责确认后再正式任命。运营不可绕过该流程授予负责人，也不能修改历史归属。" action={<button className="ghost-btn" onClick={() => void loadTeamManagementDashboard()} disabled={loading}>刷新数据</button>}>
-              <div className="stack-gap">
-                <InfoCard title="团队治理概览" tone="neutral">
-                  {teamManagementDashboard ? <div className="relation-grid"><RelationItem label="已确认负责人团队" value={teamManagementDashboard.leaderTeamCount} /><RelationItem label="有效团队" value={teamManagementDashboard.activeTeamCount} /><RelationItem label="已许可经营分成" value={teamManagementDashboard.operatingProfitShareEnabledTeamCount} /><RelationItem label="当前成员归属" value={teamManagementDashboard.activeMemberRelationCount} /></div> : <EmptyState title="尚未读取团队数据" description="点击“刷新数据”读取当前团队及成员归属。" />}
-                  <InlineHint text="成员归属采用可叠加的历史关系：用户成为新团队负责人后，可保留在上级团队的成员记录。负责人资格、建队和任命状态独立留存；团队经营利润分成全局关闭，当前不能逐团队开启，不会产生奖励、余额、提现或付款。" />
-                </InfoCard>
-                <InfoCard title="团队经营与成员" tone="neutral">
-                  {teamManagementDashboard?.teams.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>团队</th><th>负责人</th><th>负责人状态</th><th>团队经营奖励</th><th>上级团队</th><th>当前成员</th><th>最近经营事实</th><th>建立时间</th><th>操作</th></tr></thead><tbody>{teamManagementDashboard.teams.map((team) => <tr key={team.teamId}><td>{team.teamName}<small className="table-subtle">{team.teamCode} / {team.countryCode}</small></td><td>{team.leaderUserId ? `用户 ${team.leaderUserId}${team.leaderPhoneNumber ? ` · ${team.leaderPhoneNumber}` : ''}` : '待自动产生'}</td><td>{team.leaderAppointmentStatus === 'CONFIRMED' ? '已正式任命' : team.leaderAppointmentStatus === 'AUTO_CONFIRMED' ? '金牌自动确认' : team.leaderAppointmentStatus === 'LEGACY_UNVERIFIED' ? '历史待核验' : '不适用'}<small className="table-subtle">资格：{team.leaderQualificationStatus} / 建队：{team.teamEstablishmentStatus}</small></td><td>全局关闭<small className="table-subtle">独立方案确认前不可启用</small></td><td>{team.parentTeamCode || '—'}</td><td>{team.activeMemberCount}</td><td>{team.latestOperatingProfitMinor === null ? '尚无经营事实' : `${team.latestPlatformCode} · ${team.latestOperatingProfitMinor} ${team.latestCurrencyCode}（截至 ${team.latestPeriodEnd}）`}</td><td>{formatDateTime(team.createdAt)}</td><td><button className="ghost-btn small-btn" onClick={() => void openTeamMembers(team)} disabled={loading}>查看成员</button></td></tr>)}</tbody></table></div> : <EmptyState title="尚无团队记录" description="用户达到金牌等级后，系统会自动建立团队并保留负责人资格记录；不会模拟创建团队。" />}
-                </InfoCard>
-              </div>
-            </PanelSection>
+            <LegacyTeamDirectorySection dashboard={teamManagementDashboard} loading={loading} onRefresh={() => { void loadTeamManagementDashboard() }} onViewMembers={(team) => { void openTeamMembers(team) }} />
           ) : null}
 
           {activeAdminSection === 'operatingDividends' && canManageOperatingDividends ? (
