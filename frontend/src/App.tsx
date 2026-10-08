@@ -262,6 +262,7 @@ import { AdminNavIcon, DataTable, EmptyState, InfoCard, InfoRow, InlineHint, Pan
 import LegacyGuildDirectorySection from './admin/LegacyGuildDirectorySection'
 import LegacyOverviewSection from './admin/LegacyOverviewSection'
 import LegacyUserDirectorySection from './admin/LegacyUserDirectorySection'
+import LegacyChannelEntriesSection from './admin/LegacyChannelEntriesSection'
 import { USER_GRADE_CATALOG } from './admin/userGradeCatalog'
 import { canManageTeamsInAdmin } from './admin/roleCapabilities'
 import {
@@ -3699,57 +3700,14 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             onLoadRiskEvents={() => { void handleLoadRiskEvents() }}
           /> : null}
 
-          {activeAdminSection === 'channel' ? (
-              <PanelSection
-                sectionId="admin-invite-ops"
-                eyebrow="Channel Entry"
-                title="渠道入口管理"
-                description=""
-              >
-                <InfoCard title="入口生成条件" tone="neutral">
-                  <div className="grid-form compact-form exception-filter-grid">
-                    <label>
-                      入口域名
-                      <input value={channelEntryForm.origin} onChange={(e) => setChannelEntryForm({ ...channelEntryForm, origin: e.target.value })} placeholder={CONSUMER_ORIGIN} readOnly={window.location.hostname === 'bandeira.fandodo.online'} />
-                    </label>
-                    <label>
-                      国家
-                      <input value={channelEntryForm.country} onChange={(e) => setChannelEntryForm({ ...channelEntryForm, country: e.target.value })} placeholder="ID / MX / BR" />
-                    </label>
-                    <label>
-                      语言
-                      <input value={channelEntryForm.language} onChange={(e) => setChannelEntryForm({ ...channelEntryForm, language: e.target.value })} placeholder="id / es / pt" />
-                    </label>
-                    <label>
-                      渠道标识
-                      <input value={channelEntryForm.channel} onChange={(e) => setChannelEntryForm({ ...channelEntryForm, channel: e.target.value })} placeholder="whatsapp-main / meta-id-01" />
-                    </label>
-                    <label>
-                      邀请码
-                      <input value={channelEntryForm.inviteCode} onChange={(e) => setChannelEntryForm({ ...channelEntryForm, inviteCode: e.target.value })} placeholder="ABCD1234" />
-                    </label>
-                  </div>
-                  <InlineHint text="自动生成三条渠道链接。" />
-                </InfoCard>
-                <InfoCard title="追踪参数" tone="success">
-                  <div className="relation-grid top-gap">
-                    <div className="relation-item"><span>产品</span><strong>{currentAdminProductLabel}</strong></div>
-                    <div className="relation-item"><span>国家 / 语言</span><strong>{channelEntryForm.country || '-'} / {channelEntryForm.language || '-'}</strong></div>
-                    <div className="relation-item"><span>渠道</span><strong>{channelEntryForm.channel || '-'}</strong></div>
-                    <div className="relation-item"><span>邀请码</span><strong>{channelEntryForm.inviteCode || '-'}</strong></div>
-                  </div>
-                  {channelEntryLinks.map((item) => (
-                    <div key={item.key} className="public-entry-item">
-                      <InfoRow label={item.label} value={item.url} code />
-                      <div className="action-row top-gap public-entry-actions">
-                        <button className="ghost-btn small-btn" type="button" onClick={() => openExternalLandingPage(item.url)}>打开页面</button>
-                        <button className="ghost-btn small-btn" type="button" onClick={() => copyPublicEntryLink(item.url)}>复制渠道链接</button>
-                      </div>
-                    </div>
-                  ))}
-                </InfoCard>
-              </PanelSection>
-          ) : null}
+          {activeAdminSection === 'channel' ? <LegacyChannelEntriesSection
+            form={channelEntryForm}
+            productLabel={currentAdminProductLabel}
+            links={channelEntryLinks}
+            onFormChange={setChannelEntryForm}
+            onOpen={openExternalLandingPage}
+            onCopy={(url) => { void copyPublicEntryLink(url) }}
+          /> : null}
 
           {activeAdminSection === 'userAccounts' ? (
             <PanelSection sectionId="admin-user-accounts" eyebrow="Invitation income" title="用户账户" description="按准确用户 ID 查询邀请奖励积分；不展示平台账号，提现与付款均未开放。">
