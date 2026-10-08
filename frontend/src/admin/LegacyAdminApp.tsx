@@ -73,7 +73,6 @@ getAdminTokenPointConversionDashboard,
 getAdminUserGradeAdvancementReviews,
 getAdminUserGradeDashboard,
 getAdminUserGradeLevelDashboard,
-getAdminUserPlatformProfiles,
 getAdminUserPointDashboard,
 getAdminWithdrawRequests,
 getCurrentAdminSession,
@@ -163,9 +162,9 @@ type TokenPointConversionDashboardResponse,
 type UserGradeAdvancementReviewResponse,
 type UserGradeDashboardResponse,
 type UserGradeLevelDashboardResponse,
-type UserPlatformProfileListResponse,
 type UserPointDashboardResponse
 } from '../api'
+import { getAdminUserPlatformProfiles, type UserPlatformProfileListResponse } from './userDirectoryApi'
 import {
 buildLinkyReplaySummary,
 buildLinkyWebhookSummary,
