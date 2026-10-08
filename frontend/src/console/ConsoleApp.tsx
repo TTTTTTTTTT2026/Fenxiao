@@ -7,7 +7,7 @@ import {
   logoutAdminSession,
   type AdminSessionResponse,
 } from '../api'
-import { canViewUserList } from './userListModel'
+import { availableConsoleRoutes } from './navigation'
 import './console.css'
 
 const { Text, Title } = Typography
@@ -72,7 +72,7 @@ function ConsoleApp() {
 
   if (session.mustChangePassword) return <ConfigProvider locale={zhCN}><div className="new-console-auth"><Result status="warning" title="请先修改管理员密码" subTitle="当前账号需要先在旧版后台完成密码更新，再返回新版工作台。" extra={<Button type="primary" href="/admin">前往旧版后台</Button>} /></div></ConfigProvider>
 
-  if (!canViewUserList(session.role)) return <ConfigProvider locale={zhCN}><div className="new-console-auth"><Result status="403" title="当前账号无权查看用户列表" extra={<Button href="/admin">返回旧版后台</Button>} /></div></ConfigProvider>
+  if (!availableConsoleRoutes(session.role).length) return <ConfigProvider locale={zhCN}><div className="new-console-auth"><Result status="403" title="当前账号暂无可用的新版页面" extra={<Button href="/admin">返回旧版后台</Button>} /></div></ConfigProvider>
 
   return <ConfigProvider locale={zhCN} theme={{ token: { colorPrimary: '#ed5a24', borderRadius: 10 } }}>
     <Suspense fallback={<div className="new-console-auth"><Card loading /></div>}>
