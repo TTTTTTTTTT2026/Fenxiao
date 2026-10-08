@@ -93,3 +93,5 @@
 在前述管理端/C 端分离分支上建立独立接续分支。旧 `/admin` 的邀请裂变分成规则台账 JSX 拆到 `LegacyCommissionPolicySection.tsx`，原状态、刷新取数函数、锚点、类名、文案和财务角色门禁保留。新版 `/console/commission` 采用 Ant Design + ProComponents，读取与旧端相同的 `GET /admin/commission-policies`，只展示当前固定口径及历史快照，不提供创建、审批、启用、停用或财务写入。比例、冻结天数和生效期只做展示格式化，计算仍由服务端负责。
 
 权限对齐服务端 `AdminPermission.FINANCE`（`super_admin`、`finance`）：新版菜单和页面同时拦截其他角色，服务端仍最终校验。旧菜单对 `admin` 角色可见但旧正文由 `canRunControlledIncome` 隐藏的既存不一致，本批未改旧版可见性，以免结构拆分阶段改变旧端行为。新增旧组件字段、只读呈现、角色路由及原 API 会话头测试。本地 245 项前端测试、类型检查、lint、build 通过；真实管理员会话下新旧历史快照、权限拒绝与视觉对照仍待验收。该批依赖前两批，尚未合并或部署。
+
+本批提交 `7b89951` 已推送到独立分支 `feat/admin-console-commission-policies-20261008`；因其依赖待审 #149 和随后旧端文件拆分，尚未建立面向 `main` 的 PR。
