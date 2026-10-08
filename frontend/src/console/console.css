@@ -13,6 +13,13 @@
   padding: 24px;
 }
 
+.new-console-account-name {
+  margin-bottom: 20px;
+  color: #667085;
+  font-size: 13px;
+  text-align: right;
+}
+
 .new-console-content > .ant-typography {
   display: block;
   margin-bottom: 8px;
@@ -46,4 +53,23 @@
 
 .new-console-alert {
   margin-top: 18px;
+}
+
+.new-console-directory-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0;
+}
+
+.new-console-directory-summary,
+.new-console-sync-card {
+  margin: 24px 0;
+}
+
+.new-console-directory-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 20px;
 }
