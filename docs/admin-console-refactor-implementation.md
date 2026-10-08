@@ -101,3 +101,13 @@
 旧 `/admin` 的侧边栏 JSX 拆到 `LegacyAdminNavigation.tsx`，原管理端继续持有展开状态、角色权限、按需加载与锚点路由。新组件只接收派生数据和回调，菜单顺序、文案、可见性与旧 CSS 类名保持不变；点击后仍调用原有加载函数，没有增加业务请求或写入。新增导航展开、角色可见性与点击回调测试。
 
 本地类型检查、lint、build 和 248 项前端测试通过；构建仍提示约 920 kB 的 Table chunk，未完成真实管理员浏览器对照。#149 已于 2026-10-08 合并到 `main`，后续增量须基于该合并提交整理为独立 PR；本批未部署生产。
+
+随后以 #149 合并后的 `main` 为基线重新整理第八至第十批增量，推送 `feat/admin-console-next-readonly-20261008` 并创建面向 `main` 的 [PR #150](https://github.com/TTTTTTTTTT2026/Fenxiao/pull/150)。前端 248 项测试、lint、build，以及该 PR 的 Backend tests、Frontend checks、Repository safeguards 均通过；PR 截至当时仍 OPEN，未作真实管理员业务验收或生产部署。
+
+## 第十一批开发增量：风险队列旧页边界与新版只读查询（2026-10-08；本地）
+
+在 #150 接续分支上，旧 `/admin` 风险队列的筛选、个人视图、批量选择、事件表格与操作按钮 JSX 抽到 `LegacyRiskQueueSection.tsx`。原状态、确认弹窗、批量结果、风险处理/冻结写入函数仍由父组件持有并经回调传入；复用原 `RiskEventListResponse` 类型、状态标签及日期格式。旧页面锚点、文案、类名和注记前置条件不作有意变更。
+
+新版 `/console/risk` 使用 Ant Design + ProComponents，仅通过原 `GET /admin/distribution/risk-events` 按现有管理员会话和单一允许产品范围查询，支持用户 ID、状态与服务端分页；无风险处置、忽略、冻结/解冻或新后端规则。新版路径沿用旧“用户管理”菜单角色可见性，并由页面二次门禁；服务端仍以 `READ` 权限和产品范围作最终校验。敏感写入继续留在旧后台。
+
+新增旧队列的筛选/操作回调及处理备注门禁、新版角色/产品范围/只读页面、原请求路径及会话头回归测试。本地前端 256 项测试、类型检查、lint、build 通过；约 920 kB Table chunk 警告仍在。真实管理员数据一致性、权限拒绝、浏览器视觉、移动端和性能尚未验收；该批尚未合并或部署生产。
