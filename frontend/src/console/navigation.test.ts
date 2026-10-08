@@ -3,10 +3,10 @@ import { allowedConsolePlatforms, availableConsoleRoutes, selectedConsoleRoute }
 
 describe('new console permissions and routes', () => {
   it('uses the existing role menu visibility, without adding a new role policy', () => {
-    expect(availableConsoleRoutes('admin').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'grades', 'channel', 'risk', 'rewardLedger', 'mySecurity', 'securityRecords'])
-    expect(availableConsoleRoutes('operations').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'grades', 'channel', 'risk', 'mySecurity', 'securityRecords'])
-    expect(availableConsoleRoutes('operator').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'channel', 'risk', 'mySecurity', 'securityRecords'])
-    expect(availableConsoleRoutes('customer_support').map((item) => item.key)).toEqual(['users', 'overview', 'risk', 'mySecurity', 'securityRecords'])
+    expect(availableConsoleRoutes('admin').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'grades', 'channel', 'risk', 'bindingRelation', 'rewardLedger', 'mySecurity', 'securityRecords'])
+    expect(availableConsoleRoutes('operations').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'grades', 'channel', 'risk', 'bindingRelation', 'mySecurity', 'securityRecords'])
+    expect(availableConsoleRoutes('operator').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'channel', 'risk', 'bindingRelation', 'mySecurity', 'securityRecords'])
+    expect(availableConsoleRoutes('customer_support').map((item) => item.key)).toEqual(['users', 'overview', 'risk', 'bindingRelation', 'mySecurity', 'securityRecords'])
     expect(availableConsoleRoutes('finance').map((item) => item.key)).toEqual(['overview', 'commission', 'userAccounts', 'rewardLedger', 'mySecurity', 'securityRecords'])
     expect(availableConsoleRoutes('super_admin').map((item) => item.key)).toContain('commission')
     expect(availableConsoleRoutes('super_admin').map((item) => item.key)).toContain('userAccounts')
@@ -34,6 +34,8 @@ describe('new console permissions and routes', () => {
     expect(selectedConsoleRoute('/console/security-records', 'customer_support')?.key).toBe('securityRecords')
     expect(selectedConsoleRoute('/console/reward-ledger', 'finance')?.key).toBe('rewardLedger')
     expect(selectedConsoleRoute('/console/reward-ledger', 'operations')).toBeNull()
+    expect(selectedConsoleRoute('/console/bindings', 'operator')?.key).toBe('bindingRelation')
+    expect(selectedConsoleRoute('/console/bindings', 'finance')).toBeNull()
     expect(selectedConsoleRoute('/console/unknown', 'admin')).toBeNull()
   })
 

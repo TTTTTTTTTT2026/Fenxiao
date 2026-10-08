@@ -3,7 +3,7 @@ import { buildAdminSectionLinks } from '../opsConsole'
 import { getVisibleFinanceSections } from '../admin/navigation'
 import { canManageTeamsInAdmin, canReadFinanceInAdmin } from '../admin/roleCapabilities'
 
-export type ConsoleRoute = 'users' | 'guilds' | 'overview' | 'grades' | 'channel' | 'commission' | 'risk' | 'userAccounts' | 'rewardLedger' | 'mySecurity' | 'securityRecords'
+export type ConsoleRoute = 'users' | 'guilds' | 'overview' | 'grades' | 'channel' | 'commission' | 'risk' | 'bindingRelation' | 'userAccounts' | 'rewardLedger' | 'mySecurity' | 'securityRecords'
 export type ConsolePlatform = 'LINKY' | 'TIMO'
 
 const routeDefinitions: Array<{ key: ConsoleRoute; path: string; label: string; legacyHref: string }> = [
@@ -14,6 +14,7 @@ const routeDefinitions: Array<{ key: ConsoleRoute; path: string; label: string; 
   { key: 'channel', path: '/console/channel', label: '渠道入口', legacyHref: '#admin-channel-entries' },
   { key: 'commission', path: '/console/commission', label: '邀请裂变分成', legacyHref: '#admin-commission-policies' },
   { key: 'risk', path: '/console/risk', label: '风险队列（只读）', legacyHref: '#admin-users' },
+  { key: 'bindingRelation', path: '/console/bindings', label: '邀请关系查询', legacyHref: '#admin-users' },
   { key: 'userAccounts', path: '/console/user-accounts', label: '用户账户', legacyHref: '#admin-user-accounts' },
   { key: 'rewardLedger', path: '/console/reward-ledger', label: '奖励记录', legacyHref: '#admin-rewards' },
   { key: 'mySecurity', path: '/console/my-security', label: '我的安全', legacyHref: '#admin-accounts' },

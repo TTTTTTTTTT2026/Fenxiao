@@ -15,6 +15,7 @@ const RiskQueuePage = lazy(() => import('./RiskQueuePage'))
 const MySecurityPage = lazy(() => import('./MySecurityPage'))
 const SecurityRecordsPage = lazy(() => import('./SecurityRecordsPage'))
 const RewardLedgerPage = lazy(() => import('./RewardLedgerPage'))
+const BindingRelationPage = lazy(() => import('./BindingRelationPage'))
 
 const pages: Record<ConsoleRoute, LazyExoticComponent<ComponentType<{ session: AdminSessionResponse }>>> = {
   users: UserDirectoryPage,
@@ -24,6 +25,7 @@ const pages: Record<ConsoleRoute, LazyExoticComponent<ComponentType<{ session: A
   channel: ChannelEntriesPage,
   commission: CommissionPolicyPage,
   risk: RiskQueuePage,
+  bindingRelation: BindingRelationPage,
   userAccounts: UserAccountPage,
   rewardLedger: RewardLedgerPage,
   mySecurity: MySecurityPage,
