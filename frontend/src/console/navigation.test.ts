@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { allowedConsolePlatforms, availableConsoleRoutes, selectedConsoleRoute } from './navigation'
+import { allowedConsolePlatforms, availableConsoleRoutes, availableConsoleRoutesForSession, selectedConsoleRoute } from './navigation'
 
 describe('new console permissions and routes', () => {
   it('uses the existing role menu visibility, without adding a new role policy', () => {
@@ -10,6 +10,8 @@ describe('new console permissions and routes', () => {
     expect(availableConsoleRoutes('finance').map((item) => item.key)).toEqual(['overview', 'mentors', 'commission', 'userAccounts', 'rewardLedger', 'mySecurity', 'securityRecords'])
     expect(availableConsoleRoutes('super_admin').map((item) => item.key)).toContain('commission')
     expect(availableConsoleRoutes('super_admin').map((item) => item.key)).toContain('userAccounts')
+    expect(availableConsoleRoutes('super_admin').map((item) => item.key)).toContain('platformIntegrations')
+    expect(availableConsoleRoutes('admin').map((item) => item.key)).not.toContain('platformIntegrations')
     expect(availableConsoleRoutes('admin').map((item) => item.key)).not.toContain('commission')
     expect(availableConsoleRoutes('admin').map((item) => item.key)).not.toContain('userAccounts')
   })
@@ -40,6 +42,8 @@ describe('new console permissions and routes', () => {
     expect(selectedConsoleRoute('/console/reward-ledger', 'operations')).toBeNull()
     expect(selectedConsoleRoute('/console/bindings', 'operator')?.key).toBe('bindingRelation')
     expect(selectedConsoleRoute('/console/bindings', 'finance')).toBeNull()
+    expect(selectedConsoleRoute('/console/platform-integrations', 'super_admin')?.key).toBe('platformIntegrations')
+    expect(selectedConsoleRoute('/console/platform-integrations', 'admin')).toBeNull()
     expect(selectedConsoleRoute('/console/unknown', 'admin')).toBeNull()
   })
 
@@ -48,5 +52,11 @@ describe('new console permissions and routes', () => {
     expect(allowedConsolePlatforms('linky, other')).toEqual(['LINKY'])
     expect(allowedConsolePlatforms(' TIMO ')).toEqual(['TIMO'])
     expect(allowedConsolePlatforms('OTHER')).toEqual([])
+  })
+
+  it('hides the global platform page for a scoped highest administrator', () => {
+    const session = { sessionToken: 'test', expiresAt: '', username: 'tester', displayName: 'Tester', role: 'super_admin', mustChangePassword: false, rememberMe: false, passwordExpiresAt: null, platformScope: '*', guildScope: '*', regionScope: '*' }
+    expect(availableConsoleRoutesForSession(session).some((item) => item.key === 'platformIntegrations')).toBe(true)
+    expect(availableConsoleRoutesForSession({ ...session, guildScope: 'guild-17' }).some((item) => item.key === 'platformIntegrations')).toBe(false)
   })
 })

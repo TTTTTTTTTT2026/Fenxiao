@@ -13,6 +13,8 @@ export { changeAdminPassword, createAdminSession, getCurrentAdminSession, logout
 export type { AdminSessionResponse } from './admin/authApi'
 export { getAdminAccounts, createAdminAccount, updateAdminAccount, resetAdminPassword, unlockAdminAccount, getAdminDeviceSessions, revokeAdminDeviceSession, getMyAdminSecurityEvents } from './admin/accountSecurityApi'
 export type { AdminAccountResponse, AdminAccountCreatedResponse, AdminDeviceSessionResponse, AdminSecurityEventResponse } from './admin/accountSecurityApi'
+export { getAdminPlatformIntegrations, getAdminPlatformVerificationRuntime } from './admin/platformReadApi'
+export type { PlatformIntegrationResponse, PlatformVerificationRuntimeResponse } from './admin/platformReadApi'
 export { getAdminRewards, getAdminWithdrawRequests } from './admin/financeReadApi'
 export type { RewardListItem, RewardListResponse, AdminWithdrawRequestItem, AdminWithdrawRequestListResponse } from './admin/financeReadApi'
 export { approveAdminWithdrawRequest, rejectAdminWithdrawRequest, applyAdminWithdrawBatchAction, approveWithdrawForPayment, recordWithdrawPayment, reverseWithdrawPayment } from './admin/financeWriteApi'
@@ -240,17 +242,6 @@ export type UserPointDashboardResponse = {
   platformCode: string; accruedFactCount: number; blockedFactCount: number; revokedFactCount: number; accruedPointTotal: number
   topBalances: UserPointBalanceResponse[]; recentFacts: UserPointFactResponse[]
 }
-export type PlatformIntegrationResponse = {
-  platformCode: string
-  displayName: string
-  primaryAccountIdentifier: string
-  accountIdentifierNote: string
-  mcnIntegrationStatus: string
-  revenueIngestionMode: string
-  rewardMode: string
-  enabled: boolean
-  targetGuilds: Array<{ countryCode: string; officialGuildId: string; officialGuildSid: string | null; guildName: string; enabled: boolean; authoritative: boolean; directoryStatus: string; guildStatus: string; operatingShareRate: number | null; pendingOperatingShareRate: number | null; pendingShareVersion: number | null }>
-}
 export type PlatformGuildCompanyShareRuleResponse = {
   id: number; platformCode: string; guildId: string; shareVersion: number; shareRate: number
   effectiveFrom: string; effectiveTo: string | null; status: 'DRAFT' | 'ACTIVE' | string
@@ -300,11 +291,6 @@ export type PlatformBindingResponse = {
   rejectionCode: string | null
   rejectionReason: string | null
   version: number
-}
-export type PlatformVerificationRuntimeResponse = {
-  source: 'MOCK' | 'MCN' | 'DISABLED' | string
-  mockManagementEnabled: boolean
-  explanation: string
 }
 export type PlatformVerificationMockResponse = {
   id: number
@@ -1182,12 +1168,6 @@ export function updateAdminLinkyInvitationGuild(adminSessionToken: string, userI
   })
 }
 
-export function getAdminPlatformIntegrations(adminSessionToken: string) {
-  return request<PlatformIntegrationResponse[]>('/admin/platform-integrations', {
-    headers: { 'X-Admin-Session': adminSessionToken },
-  })
-}
-
 export function createAdminPlatformGuildOperatingShareRate(adminSessionToken: string, platformCode: string, guildId: string, operatingShareRate: number) {
   return request<PlatformGuildCompanyShareRuleResponse>(`/admin/platform-integrations/${encodeURIComponent(platformCode)}/guilds/${encodeURIComponent(guildId)}/operating-share-rate`, {
     method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ operatingShareRate }),
@@ -1205,12 +1185,6 @@ export function getAdminPlatformGuildDirectory(adminSessionToken: string, platfo
 
 export function getAdminPlatformGuildDirectorySyncRuns(adminSessionToken: string, platform: 'LINKY' | 'TIMO') {
   return request<PlatformGuildDirectorySyncRun[]>(`/admin/distribution/platform-guild-directory/sync-runs?platform=${platform}`, {
-    headers: { 'X-Admin-Session': adminSessionToken },
-  })
-}
-
-export function getAdminPlatformVerificationRuntime(adminSessionToken: string) {
-  return request<PlatformVerificationRuntimeResponse>('/admin/platform-verification', {
     headers: { 'X-Admin-Session': adminSessionToken },
   })
 }
