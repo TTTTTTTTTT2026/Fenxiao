@@ -3,7 +3,7 @@ import { buildAdminSectionLinks } from '../opsConsole'
 import { getVisibleFinanceSections } from '../admin/navigation'
 import { canManageTeamsInAdmin, canReadCommissionPoliciesInAdmin } from '../admin/roleCapabilities'
 
-export type ConsoleRoute = 'users' | 'guilds' | 'overview' | 'grades' | 'channel' | 'commission'
+export type ConsoleRoute = 'users' | 'guilds' | 'overview' | 'grades' | 'channel' | 'commission' | 'risk'
 export type ConsolePlatform = 'LINKY' | 'TIMO'
 
 const routeDefinitions: Array<{ key: ConsoleRoute; path: string; label: string; legacyHref: string }> = [
@@ -13,6 +13,7 @@ const routeDefinitions: Array<{ key: ConsoleRoute; path: string; label: string; 
   { key: 'grades', path: '/console/grades', label: '用户等级列表', legacyHref: '#admin-user-grade-list' },
   { key: 'channel', path: '/console/channel', label: '渠道入口', legacyHref: '#admin-channel-entries' },
   { key: 'commission', path: '/console/commission', label: '邀请裂变分成', legacyHref: '#admin-commission-policies' },
+  { key: 'risk', path: '/console/risk', label: '风险队列（只读）', legacyHref: '#admin-users' },
 ]
 
 export function availableConsoleRoutes(role: string) {

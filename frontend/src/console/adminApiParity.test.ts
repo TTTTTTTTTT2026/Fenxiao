@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createAdminSession, getAdminCommissionPolicies, getAdminOverview, getAdminPlatformGuildDirectory, getAdminPlatformGuildDirectorySyncRuns, getAdminUserGradeDashboard, getAdminUserPlatformProfiles, getCurrentAdminSession, logoutAdminSession } from '../api'
+import { createAdminSession, getAdminCommissionPolicies, getAdminOverview, getAdminPlatformGuildDirectory, getAdminPlatformGuildDirectorySyncRuns, getAdminRiskEvents, getAdminUserGradeDashboard, getAdminUserPlatformProfiles, getCurrentAdminSession, logoutAdminSession } from '../api'
 
 describe('new console reuses the legacy admin API contract', () => {
   afterEach(() => vi.unstubAllGlobals())
@@ -100,5 +100,20 @@ describe('new console reuses the legacy admin API contract', () => {
         credentials: 'include', headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
       }),
     )
+  })
+
+  it('reads the existing scoped risk queue with server filters and without write endpoints', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, text: async () => JSON.stringify({ items: [], total: 0, page: 0, size: 10 }) })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await getAdminRiskEvents('session-token', { product: 'LINKY', userId: 101, riskStatus: 'PENDING', page: 0, size: 10 })
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/admin/distribution/risk-events?userId=101&riskStatus=PENDING&product=LINKY&page=0&size=10',
+      expect.objectContaining({
+        credentials: 'include', headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
+      }),
+    )
+    expect(fetchMock.mock.calls[0][1].method).toBeUndefined()
   })
 })
