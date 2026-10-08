@@ -196,6 +196,7 @@ import LegacyAdminNavigation, { type LegacyNavGroup } from './LegacyAdminNavigat
 import LegacyCommissionPolicySection from './LegacyCommissionPolicySection'
 import LegacyGuildDirectorySection from './LegacyGuildDirectorySection'
 import LegacyOverviewSection from './LegacyOverviewSection'
+import LegacyRiskQueueSection, { type RiskActionName, type RiskQuery } from './LegacyRiskQueueSection'
 import LegacyUserAccountSection from './LegacyUserAccountSection'
 import { DataTable,EmptyState,InfoCard,InfoRow,InlineHint,PanelSection,RelationItem,StatusBadge } from './LegacyPresentation'
 import LegacyUserDirectorySection from './LegacyUserDirectorySection'
@@ -227,10 +228,8 @@ type AdminAuthState = {
 }
 
 type AdminProductKey = 'ALL' | 'LINKY' | 'TIMO'
-type RiskActionName = 'HANDLE' | 'IGNORE' | 'FREEZE_USER' | 'UNFREEZE_USER'
 type WithdrawActionName = 'approve' | 'reject' | 'paid' | 'failed' | 'reverse'
 type WithdrawQuery = { userId: string; status: string; page: string; size: string }
-type RiskQuery = { userId: string; riskStatus: string; startAt: string; endAt: string; page: string; size: string }
 type PendingBatchAction =
   | { kind: 'withdraw'; action: 'APPROVE' | 'REJECT'; targetIds: string[] }
   | { kind: 'risk'; action: 'HANDLE' | 'IGNORE'; targetIds: number[] }
@@ -3766,23 +3765,19 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   </div>
                   ) : null}
                   {activeAdminSection === 'riskQueue' ? (
-                  <div className="admin-risk-workbench">
-                    <form className="admin-filter-bar" onSubmit={(event) => { event.preventDefault(); void handleLoadRiskEvents() }} aria-label="风险队列筛选">
-                      <label>用户 ID<input value={riskQuery.userId} onChange={(e) => setRiskQuery({ ...riskQuery, userId: e.target.value, page: '0' })} placeholder="输入用户 ID…" inputMode="numeric" /></label>
-                      <label>状态<select value={riskQuery.riskStatus} onChange={(e) => setRiskQuery({ ...riskQuery, riskStatus: e.target.value, page: '0' })}><option value="PENDING">待处理</option><option value="HANDLED">已处理</option><option value="IGNORED">已忽略</option><option value="">全部</option></select></label>
-                      <div className="admin-filter-actions"><button className="primary-btn small-btn" type="submit" disabled={loading || !canLoadAdmin}>{loading ? '查询中…' : '查询'}</button><button className="ghost-btn small-btn" type="button" onClick={() => { setRiskQuery({ userId: '', riskStatus: 'PENDING', startAt: '', endAt: '', page: '0', size: '10' }); setRiskEvents(null); setHasQueriedRiskEvents(false) }} disabled={loading}>重置</button></div>
-                    </form>
-                    <div className="admin-saved-views" aria-label="风险个人筛选视图"><select value={selectedRiskViewId} onChange={(event) => applyRiskView(event.target.value)} aria-label="选择风险筛选视图"><option value="">个人筛选视图</option>{riskViews.map((view) => <option key={view.id} value={view.id}>{view.name}</option>)}</select><input value={riskViewName} onChange={(event) => setRiskViewName(event.target.value)} placeholder="给当前筛选命名…" aria-label="风险筛选视图名称" /><button className="ghost-btn small-btn" type="button" onClick={saveRiskView} disabled={!riskViewName.trim()}>保存视图</button><button className="ghost-btn small-btn" type="button" onClick={removeRiskView} disabled={!selectedRiskViewId}>删除</button></div>
-                    {selectedRiskEventIds.length ? <div className="admin-batch-bar" role="region" aria-label="风险批量操作"><strong>已选 {selectedRiskEventIds.length} 条待处理风险</strong><div><button className="primary-btn small-btn" type="button" onClick={() => { setBatchActionResult(null); setPendingBatchAction({ kind: 'risk', action: 'HANDLE', targetIds: selectedRiskEventIds }) }}>批量处理</button><button className="ghost-btn small-btn" type="button" onClick={() => { setBatchActionResult(null); setPendingBatchAction({ kind: 'risk', action: 'IGNORE', targetIds: selectedRiskEventIds }) }}>批量忽略</button><button className="ghost-btn small-btn" type="button" onClick={() => setSelectedRiskEventIds([])}>清空</button></div></div> : null}
-                    {batchActionResult ? <BatchResultSummary result={batchActionResult} /> : null}
-                    {riskEvents?.items?.length ? <DataTable headers={[<input type="checkbox" aria-label="选择本页全部待处理风险" checked={riskEvents.items.some((item) => item.riskStatus === 'PENDING') && riskEvents.items.filter((item) => item.riskStatus === 'PENDING').every((item) => selectedRiskEventIds.includes(item.id))} onChange={(event) => setSelectedRiskEventIds(event.target.checked ? riskEvents.items.filter((item) => item.riskStatus === 'PENDING').map((item) => item.id) : [])} />, '事件', '用户', '风险', '状态', '发现时间', '处理']} rows={riskEvents.items.map((item) => [
-                      <input type="checkbox" aria-label={`选择风险事件 ${item.id}`} disabled={item.riskStatus !== 'PENDING'} checked={selectedRiskEventIds.includes(item.id)} onChange={(event) => setSelectedRiskEventIds((current) => event.target.checked ? [...current, item.id] : current.filter((riskEventId) => riskEventId !== item.id))} />,
-                      `#${item.id}`, `#${item.userId}`, <div><strong>{item.riskType}</strong><small className="admin-cell-note">等级 {item.riskLevel}</small></div>, renderStatusBadge(item.riskStatus), formatDateTime(item.detectedAt),
-                      <div className="admin-row-actions"><input value={riskActionDrafts[item.id] || ''} onChange={(e) => updateRiskActionDraft(item.id, e.target.value)} placeholder="处理备注…" aria-label={`风险事件 ${item.id} 处理备注`} />{item.riskStatus === 'PENDING' ? <><button className="primary-btn small-btn" onClick={() => openRiskActionConfirm(item, 'HANDLE')} disabled={riskActionLoadingId === item.id}>处理</button><button className="ghost-btn small-btn" onClick={() => openRiskActionConfirm(item, 'IGNORE')} disabled={riskActionLoadingId === item.id || !(riskActionDrafts[item.id] || '').trim()}>忽略</button><button className="ghost-btn small-btn" onClick={() => openRiskActionConfirm(item, 'FREEZE_USER')} disabled={riskActionLoadingId === item.id || !(riskActionDrafts[item.id] || '').trim()}>冻结用户</button></> : item.riskStatus === 'HANDLED' ? <button className="ghost-btn small-btn" onClick={() => openRiskActionConfirm(item, 'UNFREEZE_USER')} disabled={riskActionLoadingId === item.id}>解冻用户</button> : null}</div>,
-                    ])} emptyText="当前筛选下没有风险事件" /> : <EmptyState title="暂无待处理风险" description="当前筛选下没有需要人工处置的事件。" actionLabel="可切换状态查看历史" />}
-                    <InlineHint text="忽略或冻结用户属于高影响操作，必须先填写处理备注并二次确认。" />
-                    <div className="table-toolbar"><button className="ghost-btn small-btn" onClick={() => handleRiskPageChange(Number(riskQuery.page) - 1)} disabled={!hasRiskPrevPage}>上一页</button><span className="admin-page-note">{riskPageLabel}</span><button className="ghost-btn small-btn" onClick={() => handleRiskPageChange(Number(riskQuery.page) + 1)} disabled={!hasRiskNextPage}>下一页</button></div>
-                  </div>
+                  <LegacyRiskQueueSection
+                    query={riskQuery} events={riskEvents} views={riskViews} selectedViewId={selectedRiskViewId}
+                    viewName={riskViewName} selectedEventIds={selectedRiskEventIds} actionDrafts={riskActionDrafts}
+                    actionLoadingId={riskActionLoadingId} batchResult={batchActionResult ? <BatchResultSummary result={batchActionResult} /> : null}
+                    loading={loading} canLoadAdmin={canLoadAdmin} pageLabel={riskPageLabel}
+                    hasPrevPage={hasRiskPrevPage} hasNextPage={hasRiskNextPage} renderStatus={renderStatusBadge}
+                    onQueryChange={setRiskQuery} onQuery={() => { void handleLoadRiskEvents() }}
+                    onReset={() => { setRiskQuery({ userId: '', riskStatus: 'PENDING', startAt: '', endAt: '', page: '0', size: '10' }); setRiskEvents(null); setHasQueriedRiskEvents(false) }}
+                    onApplyView={applyRiskView} onViewNameChange={setRiskViewName} onSaveView={saveRiskView} onRemoveView={removeRiskView}
+                    onSelectEventIds={setSelectedRiskEventIds}
+                    onBatchAction={(action, targetIds) => { setBatchActionResult(null); setPendingBatchAction({ kind: 'risk', action, targetIds }) }}
+                    onDraftChange={updateRiskActionDraft} onAction={openRiskActionConfirm} onPageChange={handleRiskPageChange}
+                  />
                   ) : null}
 
                   {isSystemConfigSection ? (
