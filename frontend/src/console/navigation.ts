@@ -1,9 +1,9 @@
 import type { AdminSessionResponse } from '../admin/authApi'
 import { buildAdminSectionLinks } from '../opsConsole'
 import { getVisibleFinanceSections } from '../admin/navigation'
-import { canManageTeamsInAdmin, canReadCommissionPoliciesInAdmin } from '../admin/roleCapabilities'
+import { canManageTeamsInAdmin, canReadFinanceInAdmin } from '../admin/roleCapabilities'
 
-export type ConsoleRoute = 'users' | 'guilds' | 'overview' | 'grades' | 'channel' | 'commission' | 'risk'
+export type ConsoleRoute = 'users' | 'guilds' | 'overview' | 'grades' | 'channel' | 'commission' | 'risk' | 'userAccounts'
 export type ConsolePlatform = 'LINKY' | 'TIMO'
 
 const routeDefinitions: Array<{ key: ConsoleRoute; path: string; label: string; legacyHref: string }> = [
@@ -14,13 +14,14 @@ const routeDefinitions: Array<{ key: ConsoleRoute; path: string; label: string; 
   { key: 'channel', path: '/console/channel', label: '渠道入口', legacyHref: '#admin-channel-entries' },
   { key: 'commission', path: '/console/commission', label: '邀请裂变分成', legacyHref: '#admin-commission-policies' },
   { key: 'risk', path: '/console/risk', label: '风险队列（只读）', legacyHref: '#admin-users' },
+  { key: 'userAccounts', path: '/console/user-accounts', label: '用户账户', legacyHref: '#admin-user-accounts' },
 ]
 
 export function availableConsoleRoutes(role: string) {
   const legacyLinks = new Set(buildAdminSectionLinks(role).map((item) => item.href))
-  return routeDefinitions.filter((item) => (item.key === 'commission' ? getVisibleFinanceSections(role).includes('commissionPolicies') : legacyLinks.has(item.legacyHref))
+  return routeDefinitions.filter((item) => (item.key === 'commission' ? getVisibleFinanceSections(role).includes('commissionPolicies') : item.key === 'userAccounts' ? getVisibleFinanceSections(role).includes('userAccounts') : legacyLinks.has(item.legacyHref))
     && (item.key !== 'grades' || canManageTeamsInAdmin(role))
-    && (item.key !== 'commission' || canReadCommissionPoliciesInAdmin(role)))
+    && (!['commission', 'userAccounts'].includes(item.key) || canReadFinanceInAdmin(role)))
 }
 
 export function selectedConsoleRoute(pathname: string, role: string) {
