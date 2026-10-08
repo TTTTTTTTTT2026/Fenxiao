@@ -2,7 +2,7 @@ import type { AdminSessionResponse } from '../api'
 import { buildAdminSectionLinks } from '../opsConsole'
 import { canManageTeamsInAdmin } from '../admin/roleCapabilities'
 
-export type ConsoleRoute = 'users' | 'guilds' | 'overview' | 'grades'
+export type ConsoleRoute = 'users' | 'guilds' | 'overview' | 'grades' | 'channel'
 export type ConsolePlatform = 'LINKY' | 'TIMO'
 
 const routeDefinitions: Array<{ key: ConsoleRoute; path: string; label: string; legacyHref: string }> = [
@@ -10,6 +10,7 @@ const routeDefinitions: Array<{ key: ConsoleRoute; path: string; label: string; 
   { key: 'guilds', path: '/console/guilds', label: '平台公会目录', legacyHref: '#admin-platform-guild-directory' },
   { key: 'overview', path: '/console/overview', label: '分销概览', legacyHref: '#admin-overview' },
   { key: 'grades', path: '/console/grades', label: '用户等级列表', legacyHref: '#admin-user-grade-list' },
+  { key: 'channel', path: '/console/channel', label: '渠道入口', legacyHref: '#admin-channel-entries' },
 ]
 
 export function availableConsoleRoutes(role: string) {

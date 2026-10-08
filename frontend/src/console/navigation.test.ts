@@ -3,9 +3,9 @@ import { allowedConsolePlatforms, availableConsoleRoutes, selectedConsoleRoute }
 
 describe('new console permissions and routes', () => {
   it('uses the existing role menu visibility, without adding a new role policy', () => {
-    expect(availableConsoleRoutes('admin').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'grades'])
-    expect(availableConsoleRoutes('operations').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'grades'])
-    expect(availableConsoleRoutes('operator').map((item) => item.key)).toEqual(['users', 'guilds', 'overview'])
+    expect(availableConsoleRoutes('admin').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'grades', 'channel'])
+    expect(availableConsoleRoutes('operations').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'grades', 'channel'])
+    expect(availableConsoleRoutes('operator').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'channel'])
     expect(availableConsoleRoutes('customer_support').map((item) => item.key)).toEqual(['users', 'overview'])
     expect(availableConsoleRoutes('finance').map((item) => item.key)).toEqual(['overview'])
   })
@@ -17,6 +17,8 @@ describe('new console permissions and routes', () => {
     expect(selectedConsoleRoute('/console/overview', 'finance')?.key).toBe('overview')
     expect(selectedConsoleRoute('/console/grades', 'operations')?.key).toBe('grades')
     expect(selectedConsoleRoute('/console/grades', 'finance')).toBeNull()
+    expect(selectedConsoleRoute('/console/channel', 'operator')?.key).toBe('channel')
+    expect(selectedConsoleRoute('/console/channel', 'finance')).toBeNull()
     expect(selectedConsoleRoute('/console/unknown', 'admin')).toBeNull()
   })
 
