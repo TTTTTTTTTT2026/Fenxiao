@@ -1,7 +1,7 @@
 import { isValidElement, type ReactElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
-import type { UserPlatformProfileListResponse } from '../api'
+import type { UserPlatformProfileListResponse } from './userDirectoryApi'
 import LegacyUserDirectorySection from './LegacyUserDirectorySection'
 
 const profiles: UserPlatformProfileListResponse = {

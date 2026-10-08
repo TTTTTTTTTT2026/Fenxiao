@@ -1,5 +1,10 @@
 import { request } from './httpClient'
+import type { UserPlatformProfileInvitationGuild } from './admin/userDirectoryApi'
 export { ApiRequestError } from './httpClient'
+export { getAdminUserPlatformProfiles } from './admin/userDirectoryApi'
+export type { UserPlatformProfileBinding, UserPlatformProfileInvitationGuild, UserPlatformProfileItem, UserPlatformProfileListResponse } from './admin/userDirectoryApi'
+export { changeAdminPassword, createAdminSession, getCurrentAdminSession, logoutAdminSession, logoutAllAdminSessions } from './admin/authApi'
+export type { AdminSessionResponse } from './admin/authApi'
 
 export type CreateProfileRequest = {
   userId: number
@@ -60,20 +65,6 @@ export type IssueInviteCodeResponse = {
   languageCode: string
   accessToken: string
   issuedAt: string
-}
-
-export type AdminSessionResponse = {
-  sessionToken: string
-  expiresAt: string
-  username: string
-  displayName: string
-  role: 'super_admin' | 'admin' | 'operator' | string
-  mustChangePassword: boolean
-  rememberMe: boolean
-  passwordExpiresAt: string | null
-  platformScope: string
-  guildScope: string
-  regionScope: string
 }
 
 export type AdminAccountResponse = {
@@ -567,49 +558,6 @@ export type SeedInviterListResponse = {
   size: number
 }
 
-export type UserPlatformProfileBinding = {
-  accountId: string
-  status: string
-  guildId: string | null
-  guildName: string | null
-  verifiedAt: string | null
-  source: string
-  expectedGuildSource: string | null
-}
-
-export type UserPlatformProfileInvitationGuild = {
-  guildId: string
-  guildName: string
-  guildInviteCode: string | null
-  source: string
-  inheritedFromUserId: number | null
-  effectiveAt: string
-  changeReason: string | null
-}
-
-export type UserPlatformProfileItem = {
-  userId: number
-  nickname: string | null
-  inviteCode: string
-  countryCode: string
-  phoneNumber: string | null
-  registeredAt: string
-  directInviterUserId: number | null
-  directInviterNickname: string | null
-  userGradeCode: string
-  passwordLoginEnabled: boolean
-  linky: UserPlatformProfileBinding | null
-  timo: UserPlatformProfileBinding | null
-  invitationGuild: UserPlatformProfileInvitationGuild | null
-}
-
-export type UserPlatformProfileListResponse = {
-  items: UserPlatformProfileItem[]
-  total: number
-  page: number
-  size: number
-}
-
 export type PhoneLoginRequest = {
   phoneNumber: string
   verificationCode: string
@@ -935,17 +883,6 @@ export function logoutUserSession(accessToken: string) {
   })
 }
 
-export function createAdminSession(payload: { username: string; password: string; rememberMe?: boolean }) {
-  return request<AdminSessionResponse>('/admin/auth/session', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  })
-}
-
-export function getCurrentAdminSession() { return request<AdminSessionResponse>('/admin/auth/session') }
-export function logoutAdminSession() { return request<void>('/admin/auth/session/logout', { method: 'POST' }) }
-export function logoutAllAdminSessions() { return request<void>('/admin/auth/session/logout-all', { method: 'POST' }) }
-export function changeAdminPassword(payload: { currentPassword: string; newPassword: string }) { return request<void>('/admin/auth/password', { method: 'POST', body: JSON.stringify(payload) }) }
 export function runAdminIncomeControlledChanges(adminSessionToken: string, payload: { platformCode: string; cursor?: string | null; businessDateFrom: string; businessDateTo: string; pageSize: number; requestId?: string }) {
   return request<McnIncomeControlledChangesResponse>('/admin/income-facts/controlled-read-only/changes', {
     method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload),
@@ -1468,17 +1405,6 @@ export function getAdminSeedInviters(adminSessionToken: string, filters?: { page
   if (filters?.size !== undefined) params.set('size', String(filters.size))
   const query = params.toString()
   return request<SeedInviterListResponse>(`/admin/distribution/seed-inviters${query ? `?${query}` : ''}`, {
-    headers: { 'X-Admin-Session': adminSessionToken },
-  })
-}
-
-export function getAdminUserPlatformProfiles(adminSessionToken: string, filters?: { userId?: number; page?: number; size?: number }) {
-  const params = new URLSearchParams()
-  if (filters?.userId !== undefined) params.set('userId', String(filters.userId))
-  if (filters?.page !== undefined) params.set('page', String(filters.page))
-  if (filters?.size !== undefined) params.set('size', String(filters.size))
-  const query = params.toString()
-  return request<UserPlatformProfileListResponse>(`/admin/distribution/user-platform-profiles${query ? `?${query}` : ''}`, {
     headers: { 'X-Admin-Session': adminSessionToken },
   })
 }
