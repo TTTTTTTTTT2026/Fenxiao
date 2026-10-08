@@ -6,6 +6,7 @@ import { availableConsoleRoutes, selectedConsoleRoute } from './navigation'
 
 const UserDirectoryPage = lazy(() => import('./UserDirectoryPage'))
 const GuildDirectoryPage = lazy(() => import('./GuildDirectoryPage'))
+const OverviewPage = lazy(() => import('./OverviewPage'))
 
 type ConsoleWorkbenchProps = {
   session: AdminSessionResponse
@@ -31,7 +32,7 @@ export default function ConsoleWorkbench({ session, busy, logoutError, onLogout 
         <div className="new-console-account-name">当前管理员：{session.displayName || session.username}</div>
         {logoutError ? <Alert type="error" showIcon message={logoutError} className="new-console-alert" /> : null}
         {selected ? <Suspense fallback={<Card loading />}>
-          {selected.key === 'users' ? <UserDirectoryPage session={session} /> : <GuildDirectoryPage session={session} />}
+          {selected.key === 'users' ? <UserDirectoryPage session={session} /> : selected.key === 'guilds' ? <GuildDirectoryPage session={session} /> : <OverviewPage session={session} />}
         </Suspense> : <Result status="403" title="当前账号无权访问此页面" extra={<Button href="/admin">返回旧版后台</Button>} />}
       </div>
     </ProLayout>

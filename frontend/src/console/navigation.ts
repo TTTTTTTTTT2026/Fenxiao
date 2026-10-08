@@ -1,12 +1,13 @@
 import type { AdminSessionResponse } from '../api'
 import { buildAdminSectionLinks } from '../opsConsole'
 
-export type ConsoleRoute = 'users' | 'guilds'
+export type ConsoleRoute = 'users' | 'guilds' | 'overview'
 export type ConsolePlatform = 'LINKY' | 'TIMO'
 
 const routeDefinitions: Array<{ key: ConsoleRoute; path: string; label: string; legacyHref: string }> = [
   { key: 'users', path: '/console/users', label: '用户列表', legacyHref: '#admin-users' },
   { key: 'guilds', path: '/console/guilds', label: '平台公会目录', legacyHref: '#admin-platform-guild-directory' },
+  { key: 'overview', path: '/console/overview', label: '分销概览', legacyHref: '#admin-overview' },
 ]
 
 export function availableConsoleRoutes(role: string) {

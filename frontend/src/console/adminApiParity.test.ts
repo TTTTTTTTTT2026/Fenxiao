@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createAdminSession, getAdminPlatformGuildDirectory, getAdminPlatformGuildDirectorySyncRuns, getAdminUserPlatformProfiles, getCurrentAdminSession, logoutAdminSession } from '../api'
+import { createAdminSession, getAdminOverview, getAdminPlatformGuildDirectory, getAdminPlatformGuildDirectorySyncRuns, getAdminUserPlatformProfiles, getCurrentAdminSession, logoutAdminSession } from '../api'
 
 describe('new console reuses the legacy admin API contract', () => {
   afterEach(() => vi.unstubAllGlobals())
@@ -58,5 +58,19 @@ describe('new console reuses the legacy admin API contract', () => {
         credentials: 'include', headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
       }))
     }
+  })
+
+  it('reads the existing overview report scoped to a single permitted product', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, text: async () => JSON.stringify({ invitedUsers: 0 }) })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await getAdminOverview('session-token', 'LINKY')
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/admin/distribution/reports/overview?product=LINKY',
+      expect.objectContaining({
+        credentials: 'include', headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
+      }),
+    )
   })
 })
