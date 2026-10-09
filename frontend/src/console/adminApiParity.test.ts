@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createAdminSession, getAdminCommissionPolicies, getAdminInvitationAccount, getAdminOverview, getAdminPlatformGuildDirectory, getAdminPlatformGuildDirectorySyncRuns, getAdminRiskEvents, getAdminUserGradeDashboard, getAdminUserPlatformProfiles, getCurrentAdminSession, logoutAdminSession } from '../api'
+import { createAdminSession, getAdminCommissionPolicies, getAdminEffectiveUserQualifications, getAdminInvitationAccount, getAdminOverview, getAdminPlatformGuildDirectory, getAdminPlatformGuildDirectorySyncRuns, getAdminRiskEvents, getAdminUserGradeDashboard, getAdminUserPlatformProfiles, getAdminUserPointDashboard, getCurrentAdminSession, logoutAdminSession } from '../api'
 
 describe('new console reuses the legacy admin API contract', () => {
   afterEach(() => vi.unstubAllGlobals())
@@ -86,6 +86,22 @@ describe('new console reuses the legacy admin API contract', () => {
         credentials: 'include', headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }),
       }),
     )
+  })
+
+  it('reads the existing per-platform historical points and effective-user facts without writes', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, text: async () => '[]' })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await getAdminUserPointDashboard('session-token', 'TIMO')
+    await getAdminEffectiveUserQualifications('session-token', 'TIMO', 50)
+
+    expect(fetchMock.mock.calls.map(([url, init]) => [url, init.method])).toEqual([
+      ['/admin/incentives/user-points/dashboard?platformCode=TIMO&limit=20', undefined],
+      ['/admin/incentives/effective-users?platformCode=TIMO&limit=50', undefined],
+    ])
+    for (const [, init] of fetchMock.mock.calls) {
+      expect(init).toEqual(expect.objectContaining({ credentials: 'include', headers: expect.objectContaining({ 'X-Admin-Session': 'session-token' }) }))
+    }
   })
 
   it('reads the existing finance-gated commission policy ledger', async () => {

@@ -11,7 +11,9 @@ describe('new console permissions and routes', () => {
     expect(availableConsoleRoutes('super_admin').map((item) => item.key)).toContain('commission')
     expect(availableConsoleRoutes('super_admin').map((item) => item.key)).toContain('userAccounts')
     expect(availableConsoleRoutes('super_admin').map((item) => item.key)).toContain('platformIntegrations')
+    expect(availableConsoleRoutes('super_admin').map((item) => item.key)).toContain('gradeFacts')
     expect(availableConsoleRoutes('admin').map((item) => item.key)).not.toContain('platformIntegrations')
+    expect(availableConsoleRoutes('admin').map((item) => item.key)).not.toContain('gradeFacts')
     expect(availableConsoleRoutes('admin').map((item) => item.key)).not.toContain('commission')
     expect(availableConsoleRoutes('admin').map((item) => item.key)).not.toContain('userAccounts')
   })
@@ -44,6 +46,8 @@ describe('new console permissions and routes', () => {
     expect(selectedConsoleRoute('/console/bindings', 'finance')).toBeNull()
     expect(selectedConsoleRoute('/console/platform-integrations', 'super_admin')?.key).toBe('platformIntegrations')
     expect(selectedConsoleRoute('/console/platform-integrations', 'admin')).toBeNull()
+    expect(selectedConsoleRoute('/console/grade-facts', 'super_admin')?.key).toBe('gradeFacts')
+    expect(selectedConsoleRoute('/console/grade-facts', 'operations')).toBeNull()
     expect(selectedConsoleRoute('/console/unknown', 'admin')).toBeNull()
   })
 
@@ -57,6 +61,8 @@ describe('new console permissions and routes', () => {
   it('hides the global platform page for a scoped highest administrator', () => {
     const session = { sessionToken: 'test', expiresAt: '', username: 'tester', displayName: 'Tester', role: 'super_admin', mustChangePassword: false, rememberMe: false, passwordExpiresAt: null, platformScope: '*', guildScope: '*', regionScope: '*' }
     expect(availableConsoleRoutesForSession(session).some((item) => item.key === 'platformIntegrations')).toBe(true)
+    expect(availableConsoleRoutesForSession(session).some((item) => item.key === 'gradeFacts')).toBe(true)
     expect(availableConsoleRoutesForSession({ ...session, guildScope: 'guild-17' }).some((item) => item.key === 'platformIntegrations')).toBe(false)
+    expect(availableConsoleRoutesForSession({ ...session, regionScope: 'ID' }).some((item) => item.key === 'gradeFacts')).toBe(false)
   })
 })

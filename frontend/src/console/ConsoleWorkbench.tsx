@@ -8,6 +8,7 @@ const UserDirectoryPage = lazy(() => import('./UserDirectoryPage'))
 const GuildDirectoryPage = lazy(() => import('./GuildDirectoryPage'))
 const OverviewPage = lazy(() => import('./OverviewPage'))
 const UserGradeRulesPage = lazy(() => import('./UserGradeRulesPage'))
+const GradeFactsPage = lazy(() => import('./GradeFactsPage'))
 const MentorDirectoryPage = lazy(() => import('./MentorDirectoryPage'))
 const TeamDirectoryPage = lazy(() => import('./TeamDirectoryPage'))
 const ChannelEntriesPage = lazy(() => import('./ChannelEntriesPage'))
@@ -25,6 +26,7 @@ const pages: Record<ConsoleRoute, LazyExoticComponent<ComponentType<{ session: A
   guilds: GuildDirectoryPage,
   overview: OverviewPage,
   grades: UserGradeRulesPage,
+  gradeFacts: GradeFactsPage,
   mentors: MentorDirectoryPage,
   teams: TeamDirectoryPage,
   channel: ChannelEntriesPage,
