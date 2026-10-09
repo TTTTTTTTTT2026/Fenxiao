@@ -46,7 +46,7 @@ export function availableConsoleRoutesForSession(session: AdminSessionResponse) 
 
 export function selectedConsoleRoute(pathname: string, role: string) {
   const available = availableConsoleRoutes(role)
-  const path = pathname === '/console' || pathname === '/console/' ? available[0]?.path : pathname
+  const path = pathname === '/console' || pathname === '/console/' ? (available.find((item) => item.key === 'overview') ?? available[0])?.path : pathname
   return available.find((item) => item.path === path) ?? null
 }
 
