@@ -324,11 +324,16 @@ CREATE TABLE IF NOT EXISTS invitation_commission_report_event (
     direct_invitee_user_id BIGINT NOT NULL,
     source_user_id BIGINT NOT NULL,
     reward_level INT NOT NULL,
-    points_delta DECIMAL(24,6) NOT NULL
+    points_delta DECIMAL(24,6) NOT NULL,
+    business_date DATE NULL,
+    source_guild_id VARCHAR(64) NULL,
+    occurred_at TIMESTAMP NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_local_commission_event_owner_day
     ON invitation_commission_report_event(user_id, platform_code, report_date);
+CREATE INDEX IF NOT EXISTS idx_local_commission_ranking_scope
+    ON invitation_commission_report_event(platform_code, business_date, source_guild_id, user_id);
 
 CREATE TABLE IF NOT EXISTS invitation_commission_report_daily (
     user_id BIGINT NOT NULL,

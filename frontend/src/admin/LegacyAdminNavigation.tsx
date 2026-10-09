@@ -33,7 +33,7 @@ export default function LegacyAdminNavigation({ links, activeSection, visibleFin
           </button>
           {openGroups.users ? <div className="admin-nav-submenu" aria-label="用户管理子菜单">
             <a className={`admin-nav-subitem ${activeSection === 'users' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.users} onClick={() => onNavigate('users')}>用户列表</a>
-            {import.meta.env.DEV ? <a className={`admin-nav-subitem ${activeSection === 'highValueRanking' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.highValueRanking}>高价值用户排行</a> : null}
+            {['super_admin', 'admin', 'operations', 'finance'].includes(role.toLowerCase()) ? <a className={`admin-nav-subitem ${activeSection === 'highValueRanking' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.highValueRanking}>高价值用户排行</a> : null}
             <a className={`admin-nav-subitem ${activeSection === 'bindings' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.bindings}>绑定管理</a>
             <a className={`admin-nav-subitem ${activeSection === 'riskQueue' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.riskQueue} onClick={() => onNavigate('riskQueue')}>风险队列{riskEventTotal ? ` · ${riskEventTotal}` : ''}</a>
           </div> : null}

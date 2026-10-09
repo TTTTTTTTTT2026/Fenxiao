@@ -20,7 +20,7 @@ public class InvitationCommissionReportProjector {
     public void recordLedger(long ledgerId) {
         List<Event> events = jdbc.query("""
                 SELECT l.user_id,l.platform_code,l.created_at,l.source_user_id,l.reward_level,
-                       l.frozen_delta+l.available_delta,
+                       l.frozen_delta+l.available_delta,e.business_date,e.source_guild_id,e.occurred_at,
                        CASE WHEN l.reward_level=1 THEN l.source_user_id ELSE COALESCE((
                            SELECT r.inviter_user_id FROM invitation_relation_version r
                            WHERE r.user_id=l.source_user_id AND r.effective_from<=e.occurred_at
@@ -33,7 +33,8 @@ public class InvitationCommissionReportProjector {
                   AND l.event_type IN ('INVITATION_REWARD','MCN_INCREASE','MCN_REVISION')
                 """, (rs, row) -> new Event(rs.getLong(1), rs.getString(2),
                 LocalDate.ofInstant(rs.getTimestamp(3).toInstant(), ZoneOffset.UTC), rs.getLong(4),
-                rs.getInt(5), rs.getBigDecimal(6), rs.getLong(7)), ledgerId);
+                rs.getInt(5), rs.getBigDecimal(6), rs.getObject(7, LocalDate.class), rs.getString(8),
+                rs.getTimestamp(9), rs.getLong(10)), ledgerId);
         if (events.isEmpty()) return; // UNFREEZE is a transfer, not new commission.
         Event event = events.getFirst();
         List<Long> prior = jdbc.query("SELECT ledger_id FROM invitation_commission_report_event WHERE ledger_id=?",
@@ -41,10 +42,11 @@ public class InvitationCommissionReportProjector {
         if (!prior.isEmpty()) return;
         jdbc.update("""
                 INSERT INTO invitation_commission_report_event
-                (ledger_id,user_id,platform_code,report_date,direct_invitee_user_id,source_user_id,reward_level,points_delta)
-                VALUES (?,?,?,?,?,?,?,?)
+                (ledger_id,user_id,platform_code,report_date,direct_invitee_user_id,source_user_id,reward_level,points_delta,
+                 business_date,source_guild_id,occurred_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?)
                 """, ledgerId, event.userId(), event.platform(), event.day(), event.directInviteeUserId(),
-                event.sourceUserId(), event.level(), event.points());
+                event.sourceUserId(), event.level(), event.points(), event.businessDate(), event.guildId(), event.occurredAt());
         jdbc.update("""
                 INSERT INTO invitation_commission_report_daily
                 (user_id,platform_code,report_date,direct_invitee_user_id,source_user_id,reward_level,points_delta)
@@ -55,5 +57,6 @@ public class InvitationCommissionReportProjector {
     }
 
     private record Event(long userId, String platform, LocalDate day, long sourceUserId,
-                         int level, BigDecimal points, long directInviteeUserId) { }
+                         int level, BigDecimal points, LocalDate businessDate, String guildId,
+                         java.sql.Timestamp occurredAt, long directInviteeUserId) { }
 }

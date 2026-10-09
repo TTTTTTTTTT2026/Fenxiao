@@ -627,6 +627,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const currentAccountView = SYSTEM_MANAGEMENT_SECTION_VIEWS[activeAdminSection] ?? (activeAdminSection === 'accounts' ? 'security' : null)
   const isSystemManagementSection = activeAdminSection === 'accounts' || currentAccountView !== null
   const isFinanceManagementSection = ['rewards', 'userAccounts', 'commissionPolicies', 'tokenPointConversions'].includes(activeAdminSection)
+  const canViewHighValueRanking = ['super_admin', 'admin', 'operations', 'finance'].includes(adminSession?.role?.toLowerCase() ?? '')
   const showingProductSpecificDiagnostics = adminProduct === 'LINKY'
   const channelEntryLinks = useMemo(
     () => buildChannelEntryLinks(channelEntryForm.origin, {
@@ -650,13 +651,13 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   useEffect(() => {
     const isVisibleUserGradeChild = ['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.userGradeList)
     const isVisibleUserManagementChild = ['users', 'bindings', 'riskQueue'].includes(activeAdminSection) && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.users)
-    const isVisibleHighValuePrototype = import.meta.env.DEV && activeAdminSection === 'highValueRanking' && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.users)
+    const isVisibleHighValueRanking = canViewHighValueRanking && activeAdminSection === 'highValueRanking' && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.users)
     const isVisibleFinanceManagementChild = visibleFinanceSections.includes(activeAdminSection)
     const isVisibleSystemConfigChild = currentSettingsView !== null && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.settings)
     const isVisibleSystemManagementChild = currentAccountView !== null && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.accounts)
-    if (!adminSession || isVisibleUserGradeChild || isVisibleUserManagementChild || isVisibleHighValuePrototype || isVisibleFinanceManagementChild || isVisibleSystemConfigChild || isVisibleSystemManagementChild || adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])) return
+    if (!adminSession || isVisibleUserGradeChild || isVisibleUserManagementChild || isVisibleHighValueRanking || isVisibleFinanceManagementChild || isVisibleSystemConfigChild || isVisibleSystemManagementChild || adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])) return
     window.location.hash = ADMIN_SECTION_HASHES.overview
-  }, [activeAdminSection, adminSectionLinks, adminSession, currentAccountView, currentSettingsView, visibleFinanceSections])
+  }, [activeAdminSection, adminSectionLinks, adminSession, canViewHighValueRanking, currentAccountView, currentSettingsView, visibleFinanceSections])
 
   useEffect(() => {
     if (currentSettingsView !== 'phoneVerification' || !adminSession || !canAuditPhoneVerification) return
@@ -3497,7 +3498,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             onEditOperations={openUserOperationsDialog}
           /> : null}
 
-          {import.meta.env.DEV && activeAdminSection === 'highValueRanking' ? <LegacyHighValueRankingSection /> : null}
+          {canViewHighValueRanking && activeAdminSection === 'highValueRanking' && adminSession ? <LegacyHighValueRankingSection sessionToken={adminSession.sessionToken} /> : null}
 
           {activeAdminSection === 'platformGuildDirectory' ? (
             <LegacyGuildDirectorySection
