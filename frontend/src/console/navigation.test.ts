@@ -1,26 +1,34 @@
 import { describe, expect, it } from 'vitest'
-import { allowedConsolePlatforms, availableConsoleRoutes, selectedConsoleRoute } from './navigation'
+import { allowedConsolePlatforms, availableConsoleRoutes, availableConsoleRoutesForSession, selectedConsoleRoute } from './navigation'
 
 describe('new console permissions and routes', () => {
   it('uses the existing role menu visibility, without adding a new role policy', () => {
-    expect(availableConsoleRoutes('admin').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'grades', 'channel', 'risk'])
-    expect(availableConsoleRoutes('operations').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'grades', 'channel', 'risk'])
-    expect(availableConsoleRoutes('operator').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'channel', 'risk'])
-    expect(availableConsoleRoutes('customer_support').map((item) => item.key)).toEqual(['users', 'overview', 'risk'])
-    expect(availableConsoleRoutes('finance').map((item) => item.key)).toEqual(['overview', 'commission', 'userAccounts'])
+    expect(availableConsoleRoutes('admin').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'grades', 'mentors', 'teams', 'channel', 'risk', 'bindingRelation', 'rewardLedger', 'mySecurity', 'securityRecords'])
+    expect(availableConsoleRoutes('operations').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'grades', 'mentors', 'teams', 'channel', 'risk', 'bindingRelation', 'mySecurity', 'securityRecords'])
+    expect(availableConsoleRoutes('operator').map((item) => item.key)).toEqual(['users', 'guilds', 'overview', 'channel', 'risk', 'bindingRelation', 'mySecurity', 'securityRecords'])
+    expect(availableConsoleRoutes('customer_support').map((item) => item.key)).toEqual(['users', 'overview', 'risk', 'bindingRelation', 'mySecurity', 'securityRecords'])
+    expect(availableConsoleRoutes('finance').map((item) => item.key)).toEqual(['overview', 'mentors', 'commission', 'userAccounts', 'rewardLedger', 'mySecurity', 'securityRecords'])
     expect(availableConsoleRoutes('super_admin').map((item) => item.key)).toContain('commission')
     expect(availableConsoleRoutes('super_admin').map((item) => item.key)).toContain('userAccounts')
+    expect(availableConsoleRoutes('super_admin').map((item) => item.key)).toContain('platformIntegrations')
+    expect(availableConsoleRoutes('super_admin').map((item) => item.key)).toContain('gradeFacts')
+    expect(availableConsoleRoutes('admin').map((item) => item.key)).not.toContain('platformIntegrations')
+    expect(availableConsoleRoutes('admin').map((item) => item.key)).not.toContain('gradeFacts')
     expect(availableConsoleRoutes('admin').map((item) => item.key)).not.toContain('commission')
     expect(availableConsoleRoutes('admin').map((item) => item.key)).not.toContain('userAccounts')
   })
 
   it('resolves the default route and denies paths absent from the role menu', () => {
-    expect(selectedConsoleRoute('/console', 'operator')?.key).toBe('users')
+    expect(selectedConsoleRoute('/console', 'operator')?.key).toBe('overview')
     expect(selectedConsoleRoute('/console/guilds', 'operator')?.key).toBe('guilds')
     expect(selectedConsoleRoute('/console/guilds', 'customer_support')).toBeNull()
     expect(selectedConsoleRoute('/console/overview', 'finance')?.key).toBe('overview')
     expect(selectedConsoleRoute('/console/grades', 'operations')?.key).toBe('grades')
     expect(selectedConsoleRoute('/console/grades', 'finance')).toBeNull()
+    expect(selectedConsoleRoute('/console/mentors', 'finance')?.key).toBe('mentors')
+    expect(selectedConsoleRoute('/console/mentors', 'operator')).toBeNull()
+    expect(selectedConsoleRoute('/console/teams', 'operations')?.key).toBe('teams')
+    expect(selectedConsoleRoute('/console/teams', 'finance')).toBeNull()
     expect(selectedConsoleRoute('/console/channel', 'operator')?.key).toBe('channel')
     expect(selectedConsoleRoute('/console/channel', 'finance')).toBeNull()
     expect(selectedConsoleRoute('/console/commission', 'finance')?.key).toBe('commission')
@@ -30,6 +38,16 @@ describe('new console permissions and routes', () => {
     expect(selectedConsoleRoute('/console/user-accounts', 'operator')).toBeNull()
     expect(selectedConsoleRoute('/console/risk', 'operator')?.key).toBe('risk')
     expect(selectedConsoleRoute('/console/risk', 'finance')).toBeNull()
+    expect(selectedConsoleRoute('/console/my-security', 'finance')?.key).toBe('mySecurity')
+    expect(selectedConsoleRoute('/console/security-records', 'customer_support')?.key).toBe('securityRecords')
+    expect(selectedConsoleRoute('/console/reward-ledger', 'finance')?.key).toBe('rewardLedger')
+    expect(selectedConsoleRoute('/console/reward-ledger', 'operations')).toBeNull()
+    expect(selectedConsoleRoute('/console/bindings', 'operator')?.key).toBe('bindingRelation')
+    expect(selectedConsoleRoute('/console/bindings', 'finance')).toBeNull()
+    expect(selectedConsoleRoute('/console/platform-integrations', 'super_admin')?.key).toBe('platformIntegrations')
+    expect(selectedConsoleRoute('/console/platform-integrations', 'admin')).toBeNull()
+    expect(selectedConsoleRoute('/console/grade-facts', 'super_admin')?.key).toBe('gradeFacts')
+    expect(selectedConsoleRoute('/console/grade-facts', 'operations')).toBeNull()
     expect(selectedConsoleRoute('/console/unknown', 'admin')).toBeNull()
   })
 
@@ -38,5 +56,13 @@ describe('new console permissions and routes', () => {
     expect(allowedConsolePlatforms('linky, other')).toEqual(['LINKY'])
     expect(allowedConsolePlatforms(' TIMO ')).toEqual(['TIMO'])
     expect(allowedConsolePlatforms('OTHER')).toEqual([])
+  })
+
+  it('hides the global platform page for a scoped highest administrator', () => {
+    const session = { sessionToken: 'test', expiresAt: '', username: 'tester', displayName: 'Tester', role: 'super_admin', mustChangePassword: false, rememberMe: false, passwordExpiresAt: null, platformScope: '*', guildScope: '*', regionScope: '*' }
+    expect(availableConsoleRoutesForSession(session).some((item) => item.key === 'platformIntegrations')).toBe(true)
+    expect(availableConsoleRoutesForSession(session).some((item) => item.key === 'gradeFacts')).toBe(true)
+    expect(availableConsoleRoutesForSession({ ...session, guildScope: 'guild-17' }).some((item) => item.key === 'platformIntegrations')).toBe(false)
+    expect(availableConsoleRoutesForSession({ ...session, regionScope: 'ID' }).some((item) => item.key === 'gradeFacts')).toBe(false)
   })
 })

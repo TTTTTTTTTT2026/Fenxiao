@@ -6,16 +6,9 @@ import {
 activateAdminOperatingDividendPolicy,
 activateAdminUserGradeLevel,
 addAdminSmsDailyWhitelistNumber,
-adjustAdminRelation,
-applyAdminRiskEventAction,
-applyAdminRiskEventBatchAction,
-applyAdminWithdrawBatchAction,
-approveWithdrawForPayment,
 assignAdminMentor,
 changeExperimentStatus,
 confirmAdminUserGradeAdvancementUpgrade,
-correctAdminOwnership,
-createAdminAccount,
 createAdminMentorIncentiveRules,
 createAdminOperatingDividendPolicies,
 createAdminPlatformGuildOperatingShareRate,
@@ -29,10 +22,8 @@ enrollExperimentParticipant,
 evaluateAdminUserGrade,
 excludeAdminEffectiveUserQualification,
 failAdminUserGradeAdvancementReview,
-getAdminAccounts,
 getAdminAuditLogs,
 getAdminCommissionPolicies,
-getAdminDeviceSessions,
 getAdminEffectiveUserQualifications,
 getAdminGuildConfigs,
 getAdminGuildWeeklyReport,
@@ -46,53 +37,36 @@ getAdminIncomeSyncStatus,
 getAdminInvitationAccount,
 getAdminLinkyReplayRecords,
 getAdminLinkyWebhookLogs,
-getAdminMentorAssignedStudents,
-getAdminMentorIncentiveDashboard,
 getAdminOperatingDividendDashboard,
 getAdminOverview,
-getAdminOwnership,
 getAdminPhoneVerificationCodeAudit,
 getAdminPhoneVerificationCodes,
 getAdminPlatformGuildCompanyShareRules,
 getAdminPlatformGuildDirectory,
 getAdminPlatformGuildDirectorySyncRuns,
-getAdminPlatformIntegrations,
 getAdminPlatformVerificationMocks,
-getAdminPlatformVerificationRuntime,
-getAdminRelation,
-getAdminRewards,
-getAdminRiskEvents,
 getAdminSeedInviters,
 getAdminSmsDailyWhitelist,
 getAdminSmsDeliveryStatus,
-getAdminTeamManagementDashboard,
-getAdminTeamMembers,
 getAdminTokenPointConversionDashboard,
 getAdminUserGradeAdvancementReviews,
 getAdminUserGradeDashboard,
 getAdminUserGradeLevelDashboard,
 getAdminUserPointDashboard,
-getAdminWithdrawRequests,
 getExperimentDashboard,
-getMyAdminSecurityEvents,
 qualifyAdminMentor,
-recordWithdrawPayment,
 refreshAdminEffectiveUserQualifications,
 refreshAdminIncomeRewardCandidates,
 refreshAdminIncomeShadowLedger,
 refreshAdminLinkyEligibility,
 refreshAdminLinkyEligibilityBatch,
 refreshAdminUserPoints,
-rejectAdminWithdrawRequest,
 removeAdminSmsDailyWhitelistNumber,
 replayAdminIncomeShadowLedger,
-resetAdminPassword,
 retireAdminOperatingDividendPolicy,
 retireAdminUserGradeLevel,
 revealAdminPhoneVerificationCode,
-reverseWithdrawPayment,
 reviewAdminIncomeDataQualityException,
-revokeAdminDeviceSession,
 runAdminIncomeControlledChanges,
 runAdminIncomeControlledReconciliation,
 saveAdminGuildConfig,
@@ -100,15 +74,9 @@ saveAdminPlatformVerificationMock,
 saveAdminTeamOperatingProfitSharePermission,
 saveAdminTokenPointConversion,
 setAdminUserPasswordLogin,
-unlockAdminAccount,
-updateAdminAccount,
 updateAdminLinkyInvitationGuild,
 updateAdminSmsDeliveryStatus,
 updateAdminUserCountry,
-type AdminAccountResponse,
-type AdminDeviceSessionResponse,
-type AdminSecurityEventResponse,
-type AdminWithdrawRequestListResponse,
 type AuditLogListResponse,
 type BatchOperationResultResponse,
 type CommissionPolicyResponse,
@@ -131,34 +99,47 @@ type McnIncomeRewardCandidateSampleResponse,
 type McnIncomeRewardCandidateSummaryResponse,
 type McnIncomeShadowLedgerSummaryResponse,
 type McnIncomeSyncStatusResponse,
-type MentorAssignedStudentResponse,
-type MentorIncentiveDashboardResponse,
 type OperatingDividendDashboardResponse,
 type OverviewReportResponse,
-type OwnershipDetailResponse,
 type PhoneVerificationCodeListResponse,
 type PlatformGuildCompanyShareRuleResponse,
 type PlatformGuildDirectoryItem,
 type PlatformGuildDirectorySyncRun,
-type PlatformIntegrationResponse,
 type PlatformVerificationMockResponse,
-type PlatformVerificationRuntimeResponse,
-type RelationDetailResponse,
-type RewardListResponse,
-type RiskEventListResponse,
 type SeedInviterListResponse,
 type SeedInviterResponse,
 type SmsDailyWhitelistPage,
 type SmsDeliveryStatus,
-type TeamManagementDashboardResponse,
-type TeamManagementItemResponse,
-type TeamManagementMemberResponse,
 type TokenPointConversionDashboardResponse,
 type UserGradeAdvancementReviewResponse,
 type UserGradeDashboardResponse,
 type UserGradeLevelDashboardResponse,
 type UserPointDashboardResponse
 } from '../api'
+import { adjustAdminRelation, correctAdminOwnership, getAdminOwnership, getAdminRelation, type OwnershipDetailResponse, type RelationDetailResponse } from './bindingApi'
+import { getAdminRewards, getAdminWithdrawRequests, type AdminWithdrawRequestListResponse, type RewardListResponse } from './financeReadApi'
+import { applyAdminWithdrawBatchAction, approveWithdrawForPayment, recordWithdrawPayment, rejectAdminWithdrawRequest, reverseWithdrawPayment } from './financeWriteApi'
+import { getAdminMentorAssignedStudents, getAdminMentorIncentiveDashboard, type MentorAssignedStudentResponse, type MentorIncentiveDashboardResponse } from './mentorReadApi'
+import { getAdminPlatformIntegrations, getAdminPlatformVerificationRuntime, type PlatformIntegrationResponse, type PlatformVerificationRuntimeResponse } from './platformReadApi'
+import LegacyMentorDirectorySection from './LegacyMentorDirectorySection'
+import LegacyTeamDirectorySection from './LegacyTeamDirectorySection'
+import { LegacyAdminMySecuritySection, LegacyAdminSecurityAuditSection } from './LegacyAdminSecuritySection'
+import { LegacyPlatformIntegrationSection } from './LegacyPlatformIntegrationSection'
+import { getAdminTeamManagementDashboard, getAdminTeamMembers, type TeamManagementDashboardResponse, type TeamManagementItemResponse, type TeamManagementMemberResponse } from './teamReadApi'
+import {
+  createAdminAccount,
+  getAdminAccounts,
+  getAdminDeviceSessions,
+  getMyAdminSecurityEvents,
+  resetAdminPassword,
+  revokeAdminDeviceSession,
+  unlockAdminAccount,
+  updateAdminAccount,
+  type AdminAccountResponse,
+  type AdminDeviceSessionResponse,
+  type AdminSecurityEventResponse,
+} from './accountSecurityApi'
+import { applyAdminRiskEventAction, applyAdminRiskEventBatchAction, getAdminRiskEvents, type RiskEventListResponse } from './riskApi'
 import { getAdminUserPlatformProfiles, type UserPlatformProfileListResponse } from './userDirectoryApi'
 import { changeAdminPassword, createAdminSession, getCurrentAdminSession, logoutAdminSession, logoutAllAdminSessions } from './authApi'
 import {
@@ -193,6 +174,7 @@ import LegacyGuildDirectorySection from './LegacyGuildDirectorySection'
 import LegacyOverviewSection from './LegacyOverviewSection'
 import LegacyRiskQueueSection, { type RiskActionName, type RiskQuery } from './LegacyRiskQueueSection'
 import LegacyUserAccountSection from './LegacyUserAccountSection'
+import LegacyRewardLedgerSection from './LegacyRewardLedgerSection'
 import { DataTable,EmptyState,InfoCard,InfoRow,InlineHint,PanelSection,RelationItem,StatusBadge } from './LegacyPresentation'
 import LegacyUserDirectorySection from './LegacyUserDirectorySection'
 import {
@@ -2905,24 +2887,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           {isSystemManagementSection ? (
             <div className="stack-gap" id="admin-accounts">
               <PanelSection eyebrow="System management" title={currentAccountView === 'staff' ? '账号管理' : currentAccountView === 'audit' ? '安全记录' : '我的安全'} description={currentAccountView === 'staff' ? '管理运营后台账号、角色与数据范围。' : currentAccountView === 'audit' ? '查看当前账号的安全事件记录。' : '管理当前账号的密码和登录设备。'} action={<button className="primary-btn" onClick={() => void handleLoadAdminIdentityCenter()} disabled={loading}>刷新页面数据</button>}>
-                {currentAccountView === 'security' ? <div className="admin-account-section">
-                <div className="content-grid two-columns entity-grid">
-                  <InfoCard title="修改我的密码" tone="neutral">
-                    <InfoRow label="密码到期时间" value={adminSession.passwordExpiresAt ? formatDateTime(adminSession.passwordExpiresAt) : '未设置'} />
-                    <form className="grid-form compact-form" onSubmit={handleChangeAdminPassword}>
-                      <label>当前密码<input type="password" autoComplete="current-password" value={adminPasswordForm.currentPassword} onChange={(e) => setAdminPasswordForm({ ...adminPasswordForm, currentPassword: e.target.value })} /></label>
-                      <label>新密码<input type="password" autoComplete="new-password" value={adminPasswordForm.newPassword} onChange={(e) => setAdminPasswordForm({ ...adminPasswordForm, newPassword: e.target.value })} /></label>
-                      <label>确认新密码<input type="password" autoComplete="new-password" value={adminPasswordForm.confirmPassword} onChange={(e) => setAdminPasswordForm({ ...adminPasswordForm, confirmPassword: e.target.value })} /></label>
-                      <p className="inline-hint">新密码至少 8 位，且须同时包含英文字符和数字。</p>
-                      <button className="primary-btn small-btn" type="submit">修改并退出全部设备</button>
-                    </form>
-                  </InfoCard>
-                </div>
-                <InfoCard title="本机与其他登录设备" tone="neutral">
-                  <div className="table-toolbar"><button className="ghost-btn small-btn" onClick={() => void handleLogoutAllAdminDevices()}>退出全部设备</button></div>
-                  <DataTable headers={['设备', '最近使用', '到期时间', '网络地址', '状态', '操作']} rows={adminDevices.map((item) => [item.userAgent || '未知设备', formatDateTime(item.lastSeenAt), formatDateTime(item.expiresAt), item.ipAddress || '-', item.current ? '本机' : item.rememberMe ? '保持登录' : '普通会话', <button className="ghost-btn small-btn" onClick={() => void handleRevokeAdminDevice(item.id)}>退出</button>])} emptyText="刷新后查看当前登录设备" />
-                </InfoCard>
-                </div> : null}
+                {currentAccountView === 'security' ? <LegacyAdminMySecuritySection passwordExpiresAt={adminSession.passwordExpiresAt} passwordForm={adminPasswordForm} devices={adminDevices} onPasswordFormChange={setAdminPasswordForm} onChangePassword={handleChangeAdminPassword} onLogoutAllDevices={() => void handleLogoutAllAdminDevices()} onRevokeDevice={(id) => void handleRevokeAdminDevice(id)} /> : null}
                 {currentAccountView === 'staff' && adminSession.role.toLowerCase() === 'super_admin' ? (
                   <div className="admin-account-section">
                     <InfoCard title="新增员工账号" tone="success">
@@ -2949,57 +2914,11 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                     </InfoCard>
                   </div>
                 ) : null}
-                {currentAccountView === 'audit' ? <div className="admin-account-section"><InfoCard title="最近安全事件" tone="neutral"><DataTable headers={['时间', '事件', '结果', '网络地址', '说明']} rows={adminSecurityEvents.map((item) => [formatDateTime(item.occurredAt), item.eventType, item.success ? '成功' : '失败', item.ipAddress || '-', item.detail || '-'])} emptyText="刷新后查看最近安全事件" /></InfoCard></div> : null}
+                {currentAccountView === 'audit' ? <LegacyAdminSecurityAuditSection events={adminSecurityEvents} /> : null}
               </PanelSection>
             </div>
           ) : null}
-          {isSystemConfigSection && currentSettingsView === 'platforms' ? (
-            <PanelSection
-              sectionId="admin-platform-integrations"
-              eyebrow="Platform integration"
-              title="平台接入配置"
-              description="平台账号主标识、公会范围和收益处理模式。Timo 当前仅允许保存收入事实并进行测算核对，不会触发真实发奖。"
-              action={<button className="primary-btn" onClick={() => void loadPlatformIntegrations()} disabled={loading}>{loading ? '刷新中…' : '刷新配置'}</button>}
-            >
-              <div className="stack-gap">
-                {platformVerificationRuntime ? <InfoCard title={`核验通道 · ${platformVerificationRuntime.source}`} tone={platformVerificationRuntime.source === 'MOCK' ? 'success' : 'neutral'}>
-                  <div className="relation-grid">
-                    <RelationItem label="有效数据源" value={platformVerificationRuntime.source} />
-                    <RelationItem label="Mock 管理" value={platformVerificationRuntime.mockManagementEnabled ? '可用（仅本地 / 测试）' : '不可用'} />
-                  </div>
-                  <InlineHint text={platformVerificationRuntime.explanation} />
-                </InfoCard> : null}
-                {(platformIntegrations ?? []).map((platform) => (
-                  <InfoCard key={platform.platformCode} title={`${platform.displayName} · ${platform.enabled ? '已启用' : '已停用'}`} tone={platform.platformCode === 'TIMO' ? 'success' : 'neutral'}>
-                    <div className="relation-grid">
-                      <RelationItem label="平台代码" value={platform.platformCode} />
-                      <RelationItem label="账号主标识" value={platform.primaryAccountIdentifier} />
-                      <RelationItem label="MCN 接入状态" value={platform.mcnIntegrationStatus} />
-                      <RelationItem label="收益接入模式" value={platform.revenueIngestionMode} />
-                      <RelationItem label="奖励模式" value={platform.rewardMode} />
-                    </div>
-                    <InlineHint text={platform.accountIdentifierNote} />
-                    <DataTable
-                      headers={['国家', '官方公会 ID', '公会名称', 'MCN 目录状态', '当前公司比例', '操作']}
-                      rows={platform.targetGuilds.map((guild) => {
-                        const editable = guild.authoritative && guild.directoryStatus === 'NORMAL' && ['ACTIVE', 'ENABLED'].includes(guild.guildStatus.toUpperCase())
-                        const activeShare = guild.operatingShareRate == null ? null : `${(guild.operatingShareRate * 100).toFixed(2)}%`
-                        const pendingShare = guild.pendingOperatingShareRate == null ? null : `${(guild.pendingOperatingShareRate * 100).toFixed(2)}%`
-                        const shareLabel = pendingShare
-                          ? `${activeShare ? `当前 ${activeShare} · ` : ''}待审批 V${guild.pendingShareVersion}：${pendingShare}`
-                          : activeShare ?? '未配置'
-                        return [guild.countryCode, guild.officialGuildId, guild.guildName, `${guild.directoryStatus} / ${guild.guildStatus}`, shareLabel, editable ? <button key={`${platform.platformCode}:${guild.officialGuildId}-edit`} className="ghost-btn small-btn" disabled={loading || !canRunControlledIncome} onClick={() => void openPlatformGuildShareDialog(platform.platformCode, guild.officialGuildId, guild.guildName)}>编辑分成</button> : '仅可配置 MCN 正常且启用的公会']
-                      })}
-                      emptyText="MCN 权威公会目录暂无数据；请检查公会目录同步状态。"
-                    />
-                    <InlineHint text="此处显示 MCN 权威公会目录。公司分成比例按版本、审批与生效时间管理；收入候选只会读取收入发生时已启用的比例快照。它不改变 MCN 原始收入，也不会产生发奖。" />
-                  </InfoCard>
-                ))}
-                {!platformIntegrations ? <EmptyState title="平台配置待加载" description="进入本页会自动加载；也可以点击刷新配置。" /> : null}
-                {platformIntegrations?.length === 0 ? <EmptyState title="尚未初始化平台配置" description="本地环境请重启后端完成初始配置；生产环境请检查数据库迁移是否完成。" /> : null}
-              </div>
-            </PanelSection>
-          ) : null}
+          {isSystemConfigSection && currentSettingsView === 'platforms' ? <LegacyPlatformIntegrationSection integrations={platformIntegrations} runtime={platformVerificationRuntime} loading={loading} canRunControlledIncome={canRunControlledIncome} onRefresh={() => void loadPlatformIntegrations()} onEditShare={(platformCode, guildId, guildName) => void openPlatformGuildShareDialog(platformCode, guildId, guildName)} /> : null}
 
           {isSystemConfigSection && canRunControlledIncome && currentSettingsView === 'incomeControlled' ? (
             <PanelSection
@@ -3111,18 +3030,15 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           ) : null}
 
           {activeAdminSection === 'mentorDirectory' ? (
-            <PanelSection sectionId="admin-mentors" eyebrow="Mentor directory · relationship management" title="导师列表" description="在此维护导师资格和导师可携带的学员。导师关系独立于邀请关系，所有变更均保留版本记录；本页不配置分成规则，也不会产生奖励或付款。" action={<button className="ghost-btn" onClick={() => void loadMentorIncentiveDashboard()} disabled={loading}>刷新列表</button>}>
-              <div className="stack-gap">
-                <InfoCard title="导师与学员概览" tone="neutral">
-                  {mentorIncentiveDashboard ? <div className="relation-grid"><RelationItem label="具备资格的导师" value={mentorIncentiveDashboard.qualifiedMentorCount} /><RelationItem label="当前已归属学员" value={mentorIncentiveDashboard.assignedStudentCount} /></div> : <EmptyState title="尚未读取导师列表" description="点击“刷新列表”读取导师资格与当前学员数量。" />}
-                  <InlineHint text="“编辑学员”只会新增或切换该导师的学员归属版本，不会改写历史导师关系。" />
-                </InfoCard>
-                {canManageMentorRelations ? <InfoCard title="导师资格" tone="neutral"><p>建立导师资格后，才可以为该导师配置可携带的学员。已建立的资格可在列表中修改归属国家和带教上限。</p><button className="primary-btn top-gap" onClick={() => openMentorQualificationDialog()} disabled={loading}>新建导师资格</button></InfoCard> : null}
-                <InfoCard title="导师列表" tone="neutral">
-                  {mentorIncentiveDashboard?.mentors.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>导师信息</th><th>归属国家 / 语言</th><th>资格状态</th><th>学员数量</th><th>带教上限</th><th>操作</th></tr></thead><tbody>{mentorIncentiveDashboard.mentors.map((mentor) => <tr key={mentor.userId}><td>用户 {mentor.userId}{mentor.phoneNumber ? ` · ${mentor.phoneNumber}` : ''}</td><td>{mentor.countryCode} / {mentor.languageCode}</td><td>{mentor.qualificationStatus === 'QUALIFIED' ? '已具备资格' : mentor.qualificationStatus}</td><td>{mentor.assignedStudentCount}</td><td>{mentor.maxActiveStudents}</td><td>{canManageMentorRelations ? <div className="action-row"><button className="ghost-btn small-btn" onClick={() => openMentorQualificationDialog(mentor)} disabled={loading}>编辑资格</button><button className="primary-btn small-btn" onClick={() => openMentorAssignmentDialog(mentor)} disabled={loading}>编辑学员</button></div> : '-'}</td></tr>)}</tbody></table></div> : <EmptyState title="尚未建立导师资格" description="先通过“新建导师资格”添加一位导师。" />}
-                </InfoCard>
-              </div>
-            </PanelSection>
+            <LegacyMentorDirectorySection
+              dashboard={mentorIncentiveDashboard}
+              loading={loading}
+              canManageMentorRelations={canManageMentorRelations}
+              onRefresh={() => { void loadMentorIncentiveDashboard() }}
+              onNewQualification={() => openMentorQualificationDialog()}
+              onEditQualification={openMentorQualificationDialog}
+              onEditStudents={openMentorAssignmentDialog}
+            />
           ) : null}
 
           {activeAdminSection === 'mentorIncentives' ? (
@@ -3138,17 +3054,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           ) : null}
 
           {activeAdminSection === 'teams' && canManageTeams ? (
-            <PanelSection sectionId="admin-teams" eyebrow="Team governance · appointment control" title="团队列表" description="金牌达标会自动建立团队并写入负责人资格记录；高级等级须完成培养、经营、职责确认后再正式任命。运营不可绕过该流程授予负责人，也不能修改历史归属。" action={<button className="ghost-btn" onClick={() => void loadTeamManagementDashboard()} disabled={loading}>刷新数据</button>}>
-              <div className="stack-gap">
-                <InfoCard title="团队治理概览" tone="neutral">
-                  {teamManagementDashboard ? <div className="relation-grid"><RelationItem label="已确认负责人团队" value={teamManagementDashboard.leaderTeamCount} /><RelationItem label="有效团队" value={teamManagementDashboard.activeTeamCount} /><RelationItem label="已许可经营分成" value={teamManagementDashboard.operatingProfitShareEnabledTeamCount} /><RelationItem label="当前成员归属" value={teamManagementDashboard.activeMemberRelationCount} /></div> : <EmptyState title="尚未读取团队数据" description="点击“刷新数据”读取当前团队及成员归属。" />}
-                  <InlineHint text="成员归属采用可叠加的历史关系：用户成为新团队负责人后，可保留在上级团队的成员记录。负责人资格、建队和任命状态独立留存；团队经营利润分成全局关闭，当前不能逐团队开启，不会产生奖励、余额、提现或付款。" />
-                </InfoCard>
-                <InfoCard title="团队经营与成员" tone="neutral">
-                  {teamManagementDashboard?.teams.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>团队</th><th>负责人</th><th>负责人状态</th><th>团队经营奖励</th><th>上级团队</th><th>当前成员</th><th>最近经营事实</th><th>建立时间</th><th>操作</th></tr></thead><tbody>{teamManagementDashboard.teams.map((team) => <tr key={team.teamId}><td>{team.teamName}<small className="table-subtle">{team.teamCode} / {team.countryCode}</small></td><td>{team.leaderUserId ? `用户 ${team.leaderUserId}${team.leaderPhoneNumber ? ` · ${team.leaderPhoneNumber}` : ''}` : '待自动产生'}</td><td>{team.leaderAppointmentStatus === 'CONFIRMED' ? '已正式任命' : team.leaderAppointmentStatus === 'AUTO_CONFIRMED' ? '金牌自动确认' : team.leaderAppointmentStatus === 'LEGACY_UNVERIFIED' ? '历史待核验' : '不适用'}<small className="table-subtle">资格：{team.leaderQualificationStatus} / 建队：{team.teamEstablishmentStatus}</small></td><td>全局关闭<small className="table-subtle">独立方案确认前不可启用</small></td><td>{team.parentTeamCode || '—'}</td><td>{team.activeMemberCount}</td><td>{team.latestOperatingProfitMinor === null ? '尚无经营事实' : `${team.latestPlatformCode} · ${team.latestOperatingProfitMinor} ${team.latestCurrencyCode}（截至 ${team.latestPeriodEnd}）`}</td><td>{formatDateTime(team.createdAt)}</td><td><button className="ghost-btn small-btn" onClick={() => void openTeamMembers(team)} disabled={loading}>查看成员</button></td></tr>)}</tbody></table></div> : <EmptyState title="尚无团队记录" description="用户达到金牌等级后，系统会自动建立团队并保留负责人资格记录；不会模拟创建团队。" />}
-                </InfoCard>
-              </div>
-            </PanelSection>
+            <LegacyTeamDirectorySection dashboard={teamManagementDashboard} loading={loading} onRefresh={() => { void loadTeamManagementDashboard() }} onViewMembers={(team) => { void openTeamMembers(team) }} />
           ) : null}
 
           {activeAdminSection === 'operatingDividends' && canManageOperatingDividends ? (
@@ -3586,55 +3492,20 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   <button className={adminFinanceView === 'withdrawals' ? 'is-active' : ''} onClick={() => setAdminFinanceView('withdrawals')} role="tab" aria-selected={adminFinanceView === 'withdrawals'}>提现审核</button>
                 </div>
                 {adminFinanceView === 'rewards' ? (
-                <PanelSection
-                  sectionId="admin-rewards"
-                  eyebrow="Rewards"
-                  title="收益记录管理"
-                  description=""
-                  action={<button className="primary-btn" onClick={handleLoadAdminRewards} disabled={loading || !canLoadAdmin}>查询收益记录</button>}
-                >
-                  <InfoCard title="筛选条件" tone="neutral">
-                    <div className="query-shell soft-query-shell compact-query-shell">
-                      <div className="grid-form compact-form exception-filter-grid">
-                        <label>
-                          受益用户 ID
-                          <input value={adminRewardQuery.beneficiaryUserId} onChange={(e) => setAdminRewardQuery({ ...adminRewardQuery, beneficiaryUserId: e.target.value })} placeholder="例如 11001" />
-                        </label>
-                        <label>
-                          状态
-                          <select value={adminRewardQuery.status} onChange={(e) => setAdminRewardQuery({ ...adminRewardQuery, status: e.target.value })}>
-                            <option value="">全部</option>
-                            <option value="FROZEN">冻结中</option>
-                            <option value="AVAILABLE">可用</option>
-                            <option value="RISK_HOLD">风险冻结</option>
-                          </select>
-                        </label>
-                      </div>
-                      <InlineHint text={rewardPageLabel} />
-                      <div className="table-toolbar compact-toolbar">
-                        <button className="ghost-btn small-btn" onClick={() => handleAdminRewardPageChange(Number(adminRewardQuery.page) - 1)} disabled={loading || !hasRewardPrevPage}>上一页</button>
-                        <button className="ghost-btn small-btn" onClick={() => handleAdminRewardPageChange(Number(adminRewardQuery.page) + 1)} disabled={loading || !hasRewardNextPage}>下一页</button>
-                      </div>
-                    </div>
-                  </InfoCard>
-
-                  {adminRewards?.items?.length ? (
-                    <DataTable
-                      headers={['受益用户', '来源用户', '层级', '奖励金额', '状态', '计算时间']}
-                      rows={adminRewards.items.map((item) => [
-                        item.beneficiaryUserId,
-                        item.sourceUserId,
-                        item.rewardLevel,
-                        item.rewardAmount,
-                        renderStatusBadge(item.rewardStatus),
-                        formatDateTime(item.calculatedAt),
-                      ])}
-                      emptyText="暂无后台奖励数据"
-                    />
-                  ) : (
-                    <EmptyState title="暂无后台奖励数据" description="先按受益用户或状态查一页。" actionLabel={rewardEmptyState.actionLabel} />
-                  )}
-                </PanelSection>
+                <LegacyRewardLedgerSection
+                  query={adminRewardQuery}
+                  rewards={adminRewards}
+                  loading={loading}
+                  canLoadAdmin={canLoadAdmin}
+                  pageLabel={rewardPageLabel}
+                  hasPreviousPage={hasRewardPrevPage}
+                  hasNextPage={hasRewardNextPage}
+                  emptyState={rewardEmptyState}
+                  renderStatus={renderStatusBadge}
+                  onQueryChange={setAdminRewardQuery}
+                  onLoad={handleLoadAdminRewards}
+                  onPageChange={handleAdminRewardPageChange}
+                />
                 ) : null}
                 {adminFinanceView === 'withdrawals' ? (
                 <PanelSection

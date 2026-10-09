@@ -1,10 +1,30 @@
 import { request } from './httpClient'
 import type { UserPlatformProfileInvitationGuild } from './admin/userDirectoryApi'
+import type { RewardListResponse } from './admin/financeReadApi'
+import type { MentorIncentiveRuleResponse } from './admin/mentorReadApi'
+import type { TeamManagementItemResponse } from './admin/teamReadApi'
 export { ApiRequestError } from './httpClient'
+export type { BatchOperationItem, BatchOperationResultResponse } from './admin/batchOperation'
+export { applyAdminRiskEventAction, applyAdminRiskEventBatchAction, getAdminRiskEvents } from './admin/riskApi'
+export type { RiskEventListItem, RiskEventListResponse } from './admin/riskApi'
 export { getAdminUserPlatformProfiles } from './admin/userDirectoryApi'
 export type { UserPlatformProfileBinding, UserPlatformProfileInvitationGuild, UserPlatformProfileItem, UserPlatformProfileListResponse } from './admin/userDirectoryApi'
 export { changeAdminPassword, createAdminSession, getCurrentAdminSession, logoutAdminSession, logoutAllAdminSessions } from './admin/authApi'
 export type { AdminSessionResponse } from './admin/authApi'
+export { getAdminAccounts, createAdminAccount, updateAdminAccount, resetAdminPassword, unlockAdminAccount, getAdminDeviceSessions, revokeAdminDeviceSession, getMyAdminSecurityEvents } from './admin/accountSecurityApi'
+export type { AdminAccountResponse, AdminAccountCreatedResponse, AdminDeviceSessionResponse, AdminSecurityEventResponse } from './admin/accountSecurityApi'
+export { getAdminPlatformIntegrations, getAdminPlatformVerificationRuntime } from './admin/platformReadApi'
+export type { PlatformIntegrationResponse, PlatformVerificationRuntimeResponse } from './admin/platformReadApi'
+export { getAdminRewards, getAdminWithdrawRequests } from './admin/financeReadApi'
+export type { RewardListItem, RewardListResponse, AdminWithdrawRequestItem, AdminWithdrawRequestListResponse } from './admin/financeReadApi'
+export { approveAdminWithdrawRequest, rejectAdminWithdrawRequest, applyAdminWithdrawBatchAction, approveWithdrawForPayment, recordWithdrawPayment, reverseWithdrawPayment } from './admin/financeWriteApi'
+export type { WithdrawAdminActionPayload } from './admin/financeWriteApi'
+export { getAdminMentorIncentiveDashboard, getAdminMentorAssignedStudents } from './admin/mentorReadApi'
+export type { MentorIncentiveRuleResponse, MentorShadowLedgerItemResponse, MentorIncentiveDashboardResponse, MentorAssignedStudentResponse } from './admin/mentorReadApi'
+export { getAdminTeamManagementDashboard, getAdminTeamMembers } from './admin/teamReadApi'
+export type { TeamManagementDashboardResponse, TeamManagementItemResponse, TeamManagementMemberResponse } from './admin/teamReadApi'
+export { getAdminRelation, adjustAdminRelation, getAdminOwnership, correctAdminOwnership } from './admin/bindingApi'
+export type { RelationDetailResponse, OwnershipItemResponse, OwnershipDetailResponse } from './admin/bindingApi'
 
 export type CreateProfileRequest = {
   userId: number
@@ -67,12 +87,6 @@ export type IssueInviteCodeResponse = {
   issuedAt: string
 }
 
-export type AdminAccountResponse = {
-  id: number; username: string; displayName: string; role: string; enabled: boolean
-  platformScope: string; guildScope: string; regionScope: string; mustChangePassword: boolean
-  lastLoginAt: string | null; passwordChangedAt: string | null; passwordExpiresAt: string | null; lockedUntil: string | null; activeSessions: number
-}
-export type AdminAccountCreatedResponse = { account: AdminAccountResponse; temporaryPassword: string }
 export type McnIncomeControlledChangesResponse = {
   runId: string
   requestId: string
@@ -170,26 +184,6 @@ export type CommissionPolicyResponse = {
   createdBy: number; approvedBy: number | null; approvedAt: string | null; approvalNote: string | null
   levels: Array<{ rewardLevel: number; enabled: boolean; rewardRate: number | null; freezeDays: number | null }>
 }
-export type MentorIncentiveRuleResponse = {
-  id: number; ruleCode: string; ruleVersion: number; milestoneCode: string
-  platformCode: string; countryCode: string; guildId: string | null
-  amountMinor: number; currencyCode: string; freezeDays: number
-  effectiveFrom: string; effectiveTo: string | null; status: 'DRAFT' | 'ACTIVE' | 'RETIRED' | string
-  createdBy: number | null; approvedBy: number | null; approvedAt: string | null; approvalNote: string | null
-}
-export type MentorShadowLedgerItemResponse = {
-  id: number; recipientUserId: number; sourceUserId: number; platformCode: string; milestoneCode: string
-  ruleCode: string; ruleVersion: number; amountMinor: number; currencyCode: string; ledgerStatus: string; triggeredAt: string
-}
-export type MentorIncentiveDashboardResponse = {
-  qualifiedMentorCount: number; assignedStudentCount: number; shadowEntryCount: number
-  mentors: Array<{ userId: number; phoneNumber: string | null; countryCode: string; languageCode: string; qualificationStatus: string; maxActiveStudents: number; assignedStudentCount: number }>
-  rules: MentorIncentiveRuleResponse[]; recentShadowEntries: MentorShadowLedgerItemResponse[]
-}
-export type MentorAssignedStudentResponse = {
-  userId: number; phoneNumber: string | null; countryCode: string; languageCode: string
-  assignedAt: string; assignmentReason: string
-}
 export type OperatingDividendPolicyResponse = {
   id: number; policyCode: string; policyVersion: number; platformCode: string; countryCode: string; guildId: string | null
   requiredValidStarts: number; requiredWithdrawEligible: number; requiredActive7d: number; profitShareRate: number
@@ -201,23 +195,6 @@ export type OperatingDividendDashboardResponse = {
   policies: OperatingDividendPolicyResponse[]
   recentProfitFacts: Array<{ id: number; teamId: number; platformCode: string; periodStart: string; periodEnd: string; operatingProfitMinor: number; currencyCode: string; sourceSystem: string; sourceEventId: string; receivedAt: string }>
   recentShadowEntries: Array<{ id: number; teamId: number; leaderUserId: number; platformCode: string; policyId: number; shareRate: number; shareAmountMinor: number; currencyCode: string; ledgerStatus: string; triggeredAt: string }>
-}
-export type TeamManagementDashboardResponse = {
-  activeTeamCount: number; leaderTeamCount: number; operatingProfitShareEnabledTeamCount: number; activeMemberRelationCount: number
-  teams: TeamManagementItemResponse[]
-}
-export type TeamManagementItemResponse = {
-  teamId: number; teamCode: string; teamName: string; countryCode: string
-  leaderUserId: number | null; leaderPhoneNumber: string | null
-  leaderQualificationStatus: string; teamEstablishmentStatus: string; leaderAppointmentStatus: string
-  leadershipSource: string | null; leaderAppointedAt: string | null
-  operatingProfitShareEnabled: boolean
-  parentTeamId: number | null; parentTeamCode: string | null; activeMemberCount: number
-  latestPlatformCode: string | null; latestPeriodEnd: string | null
-  latestOperatingProfitMinor: number | null; latestCurrencyCode: string | null; createdAt: string
-}
-export type TeamManagementMemberResponse = {
-  userId: number; phoneNumber: string | null; countryCode: string; memberRole: string; sourceType: string; effectiveFrom: string
 }
 export type UserGradeRuleResponse = {
   id: number; ruleCode: string; ruleVersion: number; gradeCode: 'PROMOTER' | 'TEAM_LEADER' | string
@@ -264,17 +241,6 @@ export type UserPointBalanceResponse = { userId: number; totalPoints: number; ac
 export type UserPointDashboardResponse = {
   platformCode: string; accruedFactCount: number; blockedFactCount: number; revokedFactCount: number; accruedPointTotal: number
   topBalances: UserPointBalanceResponse[]; recentFacts: UserPointFactResponse[]
-}
-export type PlatformIntegrationResponse = {
-  platformCode: string
-  displayName: string
-  primaryAccountIdentifier: string
-  accountIdentifierNote: string
-  mcnIntegrationStatus: string
-  revenueIngestionMode: string
-  rewardMode: string
-  enabled: boolean
-  targetGuilds: Array<{ countryCode: string; officialGuildId: string; officialGuildSid: string | null; guildName: string; enabled: boolean; authoritative: boolean; directoryStatus: string; guildStatus: string; operatingShareRate: number | null; pendingOperatingShareRate: number | null; pendingShareVersion: number | null }>
 }
 export type PlatformGuildCompanyShareRuleResponse = {
   id: number; platformCode: string; guildId: string; shareVersion: number; shareRate: number
@@ -326,11 +292,6 @@ export type PlatformBindingResponse = {
   rejectionReason: string | null
   version: number
 }
-export type PlatformVerificationRuntimeResponse = {
-  source: 'MOCK' | 'MCN' | 'DISABLED' | string
-  mockManagementEnabled: boolean
-  explanation: string
-}
 export type PlatformVerificationMockResponse = {
   id: number
   platformCode: string
@@ -342,8 +303,6 @@ export type PlatformVerificationMockResponse = {
   sourceReference: string | null
   enabled: boolean
 }
-export type AdminDeviceSessionResponse = { id: number; current: boolean; rememberMe: boolean; issuedAt: string; lastSeenAt: string; expiresAt: string; ipAddress: string | null; userAgent: string | null }
-export type AdminSecurityEventResponse = { id: number; accountId: number | null; username: string | null; eventType: string; success: boolean; ipAddress: string | null; userAgent: string | null; detail: string | null; occurredAt: string }
 export type DistributionHomeResponse = {
   userId: number
   inviteCode: string
@@ -469,22 +428,6 @@ export type TeamWeeklyIncomeResponse = {
   items: TeamWeeklyIncomeItem[]
 }
 
-export type RewardListItem = {
-  beneficiaryUserId: number
-  sourceUserId: number
-  rewardLevel: number
-  rewardAmount: number
-  rewardStatus: string
-  calculatedAt: string
-}
-
-export type RewardListResponse = {
-  items: RewardListItem[]
-  total: number
-  page: number
-  size: number
-}
-
 export type RewardTierSummaryItem = {
   rewardLevel: number
   businessLevelLabel: string
@@ -566,26 +509,6 @@ export type PhoneLoginRequest = {
   languageCode?: string
 }
 
-export type RiskEventListItem = {
-  id: number
-  userId: number
-  riskType: string
-  riskLevel: number
-  riskStatus: string
-  detailJson: string
-  detectedAt: string
-  handledBy: number | null
-  handledAt: string | null
-  resultNote: string | null
-}
-
-export type RiskEventListResponse = {
-  items: RiskEventListItem[]
-  total: number
-  page: number
-  size: number
-}
-
 export type AuditLogListItem = {
   id: number
   moduleName: string
@@ -613,34 +536,6 @@ export type OverviewReportResponse = {
   frozenRewardTotal: number
   availableRewardTotal: number
   riskEventCount: number
-}
-
-export type RelationDetailResponse = {
-  userId: number
-  level1InviterId: number | null
-  level2InviterId: number | null
-  level3InviterId: number | null
-  bindSource: string
-  lockStatus: string
-  bindTime: string
-  lockTime: string | null
-  countryCode: string
-  crossCountry: boolean
-}
-
-export type OwnershipItemResponse = {
-  id: number
-  productCode: string
-  ownershipStatus: string
-  ownershipSource: string
-  sourceRecordType: string
-  sourceRecordId: number | null
-  effectiveAt: string
-}
-
-export type OwnershipDetailResponse = {
-  userId: number
-  items: OwnershipItemResponse[]
 }
 
 export type LinkyEligibilityCheckResponse = {
@@ -707,40 +602,11 @@ export type WithdrawRequestResponse = {
   requestedAt: string
 }
 
-export type AdminWithdrawRequestItem = {
-  requestNo: string
-  userId: number
-  requestedDiamondAmount: number
-  requestStatus: string
-  requestWeek: string
-  requestedAt: string
-}
-
 export type WithdrawHistoryListResponse = {
   items: WithdrawRequestResponse[]
   total: number
   page: number
   size: number
-}
-
-export type AdminWithdrawRequestListResponse = {
-  items: AdminWithdrawRequestItem[]
-  total: number
-  page: number
-  size: number
-}
-
-export type BatchOperationItem = {
-  targetId: string
-  success: boolean
-  status: string
-  message: string | null
-}
-
-export type BatchOperationResultResponse = {
-  successCount: number
-  failureCount: number
-  items: BatchOperationItem[]
 }
 
 export type ExperimentDashboardResponse = {
@@ -950,12 +816,6 @@ export function activateAdminCommissionPolicy(adminSessionToken: string, id: num
 export function retireAdminCommissionPolicy(adminSessionToken: string, id: number) {
   return request<CommissionPolicyResponse>(`/admin/commission-policies/${id}/retire`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken } })
 }
-export function getAdminMentorIncentiveDashboard(adminSessionToken: string) {
-  return request<MentorIncentiveDashboardResponse>('/admin/incentives/mentor-dashboard', { headers: { 'X-Admin-Session': adminSessionToken } })
-}
-export function getAdminMentorAssignedStudents(adminSessionToken: string, mentorUserId: number) {
-  return request<MentorAssignedStudentResponse[]>(`/admin/incentives/mentors/${mentorUserId}/students`, { headers: { 'X-Admin-Session': adminSessionToken } })
-}
 export function createAdminMentorIncentiveRule(adminSessionToken: string, payload: { milestoneCode: string; platformCode: string; countryCode: string; guildId: string | null; amountMinor: number; currencyCode: string; freezeDays: number; effectiveFrom: string; effectiveTo: string | null }) {
   return request<MentorIncentiveRuleResponse>('/admin/incentives/mentor-rules', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) })
 }
@@ -976,12 +836,6 @@ export function assignAdminMentor(adminSessionToken: string, studentUserId: numb
 }
 export function getAdminOperatingDividendDashboard(adminSessionToken: string) {
   return request<OperatingDividendDashboardResponse>('/admin/incentives/operating-dividend-dashboard', { headers: { 'X-Admin-Session': adminSessionToken } })
-}
-export function getAdminTeamManagementDashboard(adminSessionToken: string) {
-  return request<TeamManagementDashboardResponse>('/admin/incentives/team-management-dashboard', { headers: { 'X-Admin-Session': adminSessionToken } })
-}
-export function getAdminTeamMembers(adminSessionToken: string, teamId: number) {
-  return request<TeamManagementMemberResponse[]>(`/admin/incentives/teams/${teamId}/members`, { headers: { 'X-Admin-Session': adminSessionToken } })
 }
 export function saveAdminTeamOperatingProfitSharePermission(adminSessionToken: string, teamId: number, enabled: boolean) {
   return request<TeamManagementItemResponse>(`/admin/incentives/teams/${teamId}/operating-profit-share-permission`, { method: 'PUT', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ enabled }) })
@@ -1018,14 +872,6 @@ export function getAdminUserGradeAdvancementReviews(adminSessionToken: string) {
 export function createAdminUserGradeAdvancementReview(adminSessionToken: string, payload: { userId: number; platformCode: string; guildId: string; targetGradeCode: string }) { return request<UserGradeAdvancementReviewResponse>('/admin/incentives/user-grade-advancement-reviews', { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload) }) }
 export function confirmAdminUserGradeAdvancementUpgrade(adminSessionToken: string, id: number, note: string) { return request<UserGradeAdvancementReviewResponse>(`/admin/incentives/user-grade-advancement-reviews/${id}/confirm-upgrade`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ note }) }) }
 export function failAdminUserGradeAdvancementReview(adminSessionToken: string, id: number, note: string) { return request<UserGradeAdvancementReviewResponse>(`/admin/incentives/user-grade-advancement-reviews/${id}/fail`, { method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ note }) }) }
-export function getAdminAccounts() { return request<AdminAccountResponse[]>('/admin/accounts') }
-export function createAdminAccount(payload: { username: string; displayName: string; role: string; platformScope?: string; guildScope?: string; regionScope?: string }) { return request<AdminAccountCreatedResponse>('/admin/accounts', { method: 'POST', body: JSON.stringify(payload) }) }
-export function updateAdminAccount(id: number, payload: { displayName: string; role: string; enabled: boolean; platformScope?: string; guildScope?: string; regionScope?: string }) { return request<AdminAccountResponse>(`/admin/accounts/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }) }
-export function resetAdminPassword(id: number) { return request<AdminAccountCreatedResponse>(`/admin/accounts/${id}/reset-password`, { method: 'POST' }) }
-export function unlockAdminAccount(id: number) { return request<AdminAccountResponse>(`/admin/accounts/${id}/unlock`, { method: 'POST' }) }
-export function getAdminDeviceSessions() { return request<AdminDeviceSessionResponse[]>('/admin/accounts/me/sessions') }
-export function revokeAdminDeviceSession(id: number) { return request<{ revoked: boolean }>(`/admin/accounts/me/sessions/${id}`, { method: 'DELETE' }) }
-export function getMyAdminSecurityEvents() { return request<AdminSecurityEventResponse[]>('/admin/accounts/me/security-events') }
 
 export function getConsumerWorkspace(userId: number, accessToken: string) {
   return request<ConsumerWorkspaceResponse>(`/api/distribution/workspaces/${userId}`, {
@@ -1166,129 +1012,6 @@ export function getAdminOverview(adminSessionToken: string, product?: string) {
     headers: {
       'X-Admin-Session': adminSessionToken,
     },
-  })
-}
-
-export function getAdminRewards(adminSessionToken: string, filters?: {
-  beneficiaryUserId?: number
-  status?: string
-  product?: string
-  startAt?: string
-  endAt?: string
-  page?: number
-  size?: number
-}) {
-  const params = new URLSearchParams()
-  if (filters?.beneficiaryUserId) params.set('beneficiaryUserId', String(filters.beneficiaryUserId))
-  if (filters?.status) params.set('status', filters.status)
-  if (filters?.product) params.set('product', filters.product)
-  if (filters?.startAt) params.set('startAt', filters.startAt)
-  if (filters?.endAt) params.set('endAt', filters.endAt)
-  if (filters?.page !== undefined) params.set('page', String(filters.page))
-  if (filters?.size !== undefined) params.set('size', String(filters.size))
-  const query = params.toString()
-  return request<RewardListResponse>(`/admin/distribution/rewards${query ? `?${query}` : ''}`, {
-    headers: {
-      'X-Admin-Session': adminSessionToken,
-    },
-  })
-}
-
-export function getAdminRiskEvents(adminSessionToken: string, filters?: {
-  userId?: number
-  riskStatus?: string
-  product?: string
-  startAt?: string
-  endAt?: string
-  page?: number
-  size?: number
-}) {
-  const params = new URLSearchParams()
-  if (filters?.userId) params.set('userId', String(filters.userId))
-  if (filters?.riskStatus) params.set('riskStatus', filters.riskStatus)
-  if (filters?.product) params.set('product', filters.product)
-  if (filters?.startAt) params.set('startAt', filters.startAt)
-  if (filters?.endAt) params.set('endAt', filters.endAt)
-  if (filters?.page !== undefined) params.set('page', String(filters.page))
-  if (filters?.size !== undefined) params.set('size', String(filters.size))
-  const query = params.toString()
-  return request<RiskEventListResponse>(`/admin/distribution/risk-events${query ? `?${query}` : ''}`, {
-    headers: {
-      'X-Admin-Session': adminSessionToken,
-    },
-  })
-}
-
-export function getAdminRelation(adminSessionToken: string, userId: number, product?: string) {
-  const params = new URLSearchParams()
-  if (product) params.set('product', product)
-  const query = params.toString()
-  return request<RelationDetailResponse>(`/admin/distribution/relation/${userId}${query ? `?${query}` : ''}`, {
-    headers: {
-      'X-Admin-Session': adminSessionToken,
-    },
-  })
-}
-
-export function adjustAdminRelation(adminSessionToken: string, userId: number, payload: {
-  level1InviterId?: number
-  note?: string
-}, product?: string) {
-  const params = new URLSearchParams()
-  if (product) params.set('product', product)
-  const query = params.toString()
-  return request<RelationDetailResponse>(`/admin/distribution/relation/${userId}/adjustments${query ? `?${query}` : ''}`, {
-    method: 'POST',
-    headers: {
-      'X-Admin-Session': adminSessionToken,
-    },
-    body: JSON.stringify(payload),
-  })
-}
-
-export function getAdminOwnership(adminSessionToken: string, userId: number) {
-  return request<OwnershipDetailResponse>(`/admin/distribution/ownership/${userId}`, {
-    headers: {
-      'X-Admin-Session': adminSessionToken,
-    },
-  })
-}
-
-export function correctAdminOwnership(adminSessionToken: string, userId: number, payload: {
-  productCode: string
-  note?: string
-}) {
-  return request<OwnershipDetailResponse>(`/admin/distribution/ownership/${userId}/corrections`, {
-    method: 'POST',
-    headers: {
-      'X-Admin-Session': adminSessionToken,
-    },
-    body: JSON.stringify(payload),
-  })
-}
-
-export function applyAdminRiskEventAction(adminSessionToken: string, riskEventId: number, payload: {
-  action: 'HANDLE' | 'IGNORE' | 'FREEZE_USER' | 'UNFREEZE_USER'
-  note?: string
-}) {
-  return request<RiskEventListItem>(`/admin/distribution/risk-events/${riskEventId}/actions`, {
-    method: 'POST',
-    headers: {
-      'X-Admin-Session': adminSessionToken,
-    },
-    body: JSON.stringify(payload),
-  })
-}
-
-export function applyAdminRiskEventBatchAction(adminSessionToken: string, payload: {
-  riskEventIds: number[]
-  action: 'HANDLE' | 'IGNORE'
-  note?: string
-}) {
-  return request<BatchOperationResultResponse>('/admin/distribution/risk-events/batch-actions', {
-    method: 'POST',
-    headers: { 'X-Admin-Session': adminSessionToken },
-    body: JSON.stringify(payload),
   })
 }
 
@@ -1445,12 +1168,6 @@ export function updateAdminLinkyInvitationGuild(adminSessionToken: string, userI
   })
 }
 
-export function getAdminPlatformIntegrations(adminSessionToken: string) {
-  return request<PlatformIntegrationResponse[]>('/admin/platform-integrations', {
-    headers: { 'X-Admin-Session': adminSessionToken },
-  })
-}
-
 export function createAdminPlatformGuildOperatingShareRate(adminSessionToken: string, platformCode: string, guildId: string, operatingShareRate: number) {
   return request<PlatformGuildCompanyShareRuleResponse>(`/admin/platform-integrations/${encodeURIComponent(platformCode)}/guilds/${encodeURIComponent(guildId)}/operating-share-rate`, {
     method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ operatingShareRate }),
@@ -1468,12 +1185,6 @@ export function getAdminPlatformGuildDirectory(adminSessionToken: string, platfo
 
 export function getAdminPlatformGuildDirectorySyncRuns(adminSessionToken: string, platform: 'LINKY' | 'TIMO') {
   return request<PlatformGuildDirectorySyncRun[]>(`/admin/distribution/platform-guild-directory/sync-runs?platform=${platform}`, {
-    headers: { 'X-Admin-Session': adminSessionToken },
-  })
-}
-
-export function getAdminPlatformVerificationRuntime(adminSessionToken: string) {
-  return request<PlatformVerificationRuntimeResponse>('/admin/platform-verification', {
     headers: { 'X-Admin-Session': adminSessionToken },
   })
 }
@@ -1522,81 +1233,6 @@ export function refreshAdminLinkyEligibilityBatch(adminSessionToken: string) {
     headers: {
       'X-Admin-Session': adminSessionToken,
     },
-  })
-}
-
-export function getAdminWithdrawRequests(adminSessionToken: string, filters?: {
-  userId?: number
-  status?: string
-  page?: number
-  size?: number
-}) {
-  const params = new URLSearchParams()
-  if (filters?.userId !== undefined) params.set('userId', String(filters.userId))
-  if (filters?.status) params.set('status', filters.status)
-  if (filters?.page !== undefined) params.set('page', String(filters.page))
-  if (filters?.size !== undefined) params.set('size', String(filters.size))
-  const query = params.toString()
-  return request<AdminWithdrawRequestListResponse>(`/admin/distribution/withdraw-requests${query ? `?${query}` : ''}`, {
-    headers: {
-      'X-Admin-Session': adminSessionToken,
-    },
-  })
-}
-
-export type WithdrawAdminActionPayload = {
-  operatorId?: number
-  operatorRole?: string
-  remark?: string
-}
-
-export function approveAdminWithdrawRequest(adminSessionToken: string, requestNo: string, payload: WithdrawAdminActionPayload) {
-  return request<AdminWithdrawRequestItem>(`/admin/distribution/withdraw-requests/${encodeURIComponent(requestNo)}/approve`, {
-    method: 'POST',
-    headers: {
-      'X-Admin-Session': adminSessionToken,
-    },
-    body: JSON.stringify(payload),
-  })
-}
-
-export function rejectAdminWithdrawRequest(adminSessionToken: string, requestNo: string, payload: WithdrawAdminActionPayload) {
-  return request<AdminWithdrawRequestItem>(`/admin/distribution/withdraw-requests/${encodeURIComponent(requestNo)}/reject`, {
-    method: 'POST',
-    headers: {
-      'X-Admin-Session': adminSessionToken,
-    },
-    body: JSON.stringify(payload),
-  })
-}
-
-export function applyAdminWithdrawBatchAction(adminSessionToken: string, payload: {
-  requestNos: string[]
-  action: 'APPROVE' | 'REJECT'
-  remark?: string
-}) {
-  return request<BatchOperationResultResponse>('/admin/distribution/withdraw-requests/batch-actions', {
-    method: 'POST',
-    headers: { 'X-Admin-Session': adminSessionToken },
-    body: JSON.stringify(payload),
-  })
-}
-
-export function approveWithdrawForPayment(adminSessionToken: string, requestNo: string, remark: string) {
-  return request<{ requestNo: string; status: string; amount: number }>(`/admin/distribution/withdrawal-workflow/${encodeURIComponent(requestNo)}/approve-for-payment`, {
-    method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify({ remark }),
-  })
-}
-
-export function recordWithdrawPayment(adminSessionToken: string, requestNo: string, payload: { paymentChannel: string; paymentReference?: string; evidenceUri?: string; evidenceHash?: string; failureReason?: string }, success: boolean) {
-  return request<{ requestNo: string; status: string; amount: number }>(`/admin/distribution/withdrawal-workflow/${encodeURIComponent(requestNo)}/${success ? 'payment-success' : 'payment-failure'}`, {
-    method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload),
-  })
-}
-
-export function reverseWithdrawPayment(adminSessionToken: string, requestNo: string, payload: { reason: string; currencyCode: string }) {
-  return request<{ requestNo: string; status: string; amount: number }>(`/admin/distribution/withdrawal-workflow/${encodeURIComponent(requestNo)}/reverse`, {
-    method: 'POST', headers: { 'X-Admin-Session': adminSessionToken }, body: JSON.stringify(payload),
   })
 }
 
