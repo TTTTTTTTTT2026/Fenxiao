@@ -52,7 +52,8 @@ export default function ConsoleWorkbench({ session, busy, logoutError, onLogout 
   const menuGroups = buildConsoleMenuHierarchy(session)
   const candidate = selectedConsoleRoute(window.location.pathname, session.role)
   const selected = candidate && routes.some((route) => route.key === candidate.key) ? candidate : null
-  const activeGroup = menuGroups.find((group) => group.entries.some((entry) => entry.href === selected?.path))
+  const activeGroup = menuGroups.find((group) => group.entries.some((entry) => entry.href === selected?.path) || group.href === window.location.pathname)
+  const legacyOnlyGroup = !selected && activeGroup?.href === window.location.pathname && window.location.pathname.startsWith('/console/section/')
   const Page = selected ? pages[selected.key] : null
 
   return <Layout className="new-console-root">
@@ -85,7 +86,7 @@ export default function ConsoleWorkbench({ session, busy, logoutError, onLogout 
         {logoutError ? <Alert type="error" showIcon message={logoutError} className="new-console-alert" /> : null}
         {Page ? <Suspense fallback={<Card loading />}>
           <Page session={session} />
-        </Suspense> : <Result status="403" title="当前账号无权访问此页面" extra={<Button href="/admin">返回旧版后台</Button>} />}
+        </Suspense> : legacyOnlyGroup ? <Result status="info" title={`${activeGroup.label}尚在旧版后台`} subTitle="请从左侧二级菜单选择需要办理的功能；新版不会复制旧版写入逻辑。" /> : <Result status="403" title="当前账号无权访问此页面" extra={<Button href="/admin">返回旧版后台</Button>} />}
       </main>
     </div>
   </Layout>

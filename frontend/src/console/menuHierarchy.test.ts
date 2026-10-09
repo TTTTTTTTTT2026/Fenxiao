@@ -42,4 +42,12 @@ describe('T-shaped console navigation', () => {
     expect(scoped.flatMap((group) => group.entries).some((entry) => entry.key === 'platformIntegrations' || entry.key === 'gradeFacts')).toBe(false)
     expect(scoped.find((group) => group.key === 'config')?.entries.some((entry) => entry.key === 'systemPlatforms')).toBe(true)
   })
+
+  it('keeps the second level visible when a role has only legacy functions in a category', () => {
+    const operations = buildConsoleMenuHierarchy({ ...fullSession, role: 'operations' })
+    expect(operations.find((group) => group.key === 'finance')?.href).toBe('/console/section/finance')
+    expect(operations.find((group) => group.key === 'finance')?.entries).toEqual([
+      { key: 'tokenPointConversions', label: '代币积分兑换', href: '/admin#admin-token-point-conversions', legacy: true },
+    ])
+  })
 })
