@@ -11,6 +11,9 @@ describe('legacy admin navigation contract', () => {
   })
 
   it('preserves historical hash redirects', () => {
+    expect(resolveAdminSectionFromHash('#admin-high-value-day')).toBe('highValueRanking')
+    expect(resolveAdminSectionFromHash('#admin-high-value-week')).toBe('highValueRanking')
+    expect(resolveAdminSectionFromHash('#admin-high-value-month')).toBe('highValueRanking')
     expect(resolveAdminSectionFromHash('#admin-user-platform-profiles')).toBe('users')
     expect(resolveAdminSectionFromHash('#admin-withdraw-requests')).toBe('rewards')
     expect(resolveAdminSectionFromHash('#admin-risks')).toBe('riskQueue')

@@ -18,13 +18,12 @@ import com.fenxiao.user.entity.UserDistributionProfile;
 import com.fenxiao.user.repository.UserDistributionProfileRepository;
 import com.fenxiao.user.repository.UserPublicProfileRepository;
 import org.springframework.dao.DataAccessException;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -71,19 +70,38 @@ public class UserPlatformProfileAdminService {
     }
 
     public UserPlatformProfileListResponse list(Long userId, int page, int size) {
+        return list(new Filters(userId, null, false, null, null, null, null, null), page, size);
+    }
+
+    public UserPlatformProfileListResponse list(Filters filters, int page, int size) {
         int safePage = Math.max(0, page);
         int safeSize = Math.max(1, Math.min(size, 100));
-        Page<UserDistributionProfile> result = userId == null
-                ? users.findAllByOrderByRegisteredAtDescUserIdDesc(PageRequest.of(safePage, safeSize))
-                : users.findById(userId).map(value -> new SingleItemPage(value, safePage, safeSize)).orElseGet(() -> new SingleItemPage(safePage, safeSize));
-        List<Long> ids = result.getContent().stream().map(UserDistributionProfile::getUserId).toList();
-        Map<Long, LinkyAccountBinding> linkyByUser = index(linkyBindings.findByUserIdIn(ids), LinkyAccountBinding::getUserId);
+        SearchPage searchPage = search(filters, safePage, safeSize);
+        List<Long> ids = searchPage.userIds();
+        Map<Long, UserDistributionProfile> usersById = index(users.findByUserIdIn(ids), UserDistributionProfile::getUserId);
+        List<UserDistributionProfile> profiles = ids.stream().map(usersById::get).filter(Objects::nonNull).toList();
+        Map<Long, LinkyAccountBinding> linkyByUser = linkyBindings.findByUserIdIn(ids).stream()
+                .collect(Collectors.toMap(LinkyAccountBinding::getUserId, Function.identity(),
+                        (left, right) -> left.getId() >= right.getId() ? left : right, HashMap::new));
         Map<Long, PlatformAccountBinding> timoByUser = index(platformBindings.findByUserIdInAndPlatformCode(ids, "TIMO"), PlatformAccountBinding::getUserId);
         Map<Long, LinkyInvitationGuildAttribution> guildByUser = index(invitationGuilds.findByUserIdIn(ids), LinkyInvitationGuildAttribution::getUserId);
         Map<Long, GuildAccountConfig> legacyGuildByUser = index(
                 legacyGuildConfigs.findByProductCodeAndInviterUserIdInAndEnabledTrue("LINKY", ids), GuildAccountConfig::getInviterUserId);
         Map<Long, String> gradesByUser = gradesByUser(ids);
         Map<Long, UserPasswordCredential> passwordsByUser = index(passwordCredentials.findByUserIdIn(ids), UserPasswordCredential::getUserId);
+        Map<Long, UserOperationsAdminService.Current> operationsByUser = new HashMap<>();
+        if (!ids.isEmpty()) {
+            String placeholders = ids.stream().map(value -> "?").collect(Collectors.joining(","));
+            jdbc.query("""
+                    select p.user_id, p.operator_admin_id, p.value_code, a.display_name
+                    from user_operations_profile p left join admin_account a on a.id = p.operator_admin_id
+                    where p.user_id in (%s)
+                    """.formatted(placeholders), rs -> {
+                Number operator = (Number) rs.getObject("operator_admin_id");
+                operationsByUser.put(rs.getLong("user_id"), new UserOperationsAdminService.Current(
+                        operator == null ? null : operator.longValue(), rs.getString("display_name"), rs.getString("value_code")));
+            }, ids.toArray());
+        }
         Map<Long, Long> inviterByUser = new HashMap<>();
         for (Long id : ids) {
             relations.findByUserId(id).ifPresent(relation -> inviterByUser.put(id, relation.getLevel1InviterId()));
@@ -95,18 +113,65 @@ public class UserPlatformProfileAdminService {
             publicProfiles.findNicknamesByUserIds(nicknameIds)
                     .forEach(row -> nicknamesByUser.put((Long) row[0], (String) row[1]));
         }
-        List<UserPlatformProfileListResponse.Item> items = result.getContent().stream().map(profile -> {
+        List<UserPlatformProfileListResponse.Item> items = profiles.stream().map(profile -> {
             Long inviterId = inviterByUser.get(profile.getUserId());
+            var operations = operationsByUser.getOrDefault(profile.getUserId(),
+                    new UserOperationsAdminService.Current(null, null, UserOperationsAdminService.GENERAL));
             return new UserPlatformProfileListResponse.Item(profile.getUserId(), nicknamesByUser.get(profile.getUserId()),
                     profile.getInviteCode(), profile.getCountryCode(), profile.getPhoneNumber(), profile.getRegisteredAt(),
                     inviterId, inviterId == null ? null : nicknamesByUser.get(inviterId),
                     gradesByUser.getOrDefault(profile.getUserId(), "NORMAL_MEMBER"),
                     passwordsByUser.containsKey(profile.getUserId()) && passwordsByUser.get(profile.getUserId()).isEnabled(),
                     linky(linkyByUser.get(profile.getUserId())), timo(timoByUser.get(profile.getUserId())),
-                    invitationGuild(guildByUser.get(profile.getUserId()), legacyGuildByUser.get(profile.getUserId())));
+                    invitationGuild(guildByUser.get(profile.getUserId()), legacyGuildByUser.get(profile.getUserId())),
+                    operations.operatorAdminId(), operations.operatorName(), operations.valueCode());
         }).toList();
-        return new UserPlatformProfileListResponse(items, result.getTotalElements(), safePage, safeSize);
+        return new UserPlatformProfileListResponse(items, searchPage.total(), safePage, safeSize);
     }
+
+    private SearchPage search(Filters filters, int page, int size) {
+        if (filters.operatorAdminId() != null && filters.unassigned())
+            throw new IllegalArgumentException("conflicting operator filters");
+        if (filters.valueCode() != null && !Set.of("GENERAL", "HIGH_VALUE").contains(filters.valueCode()))
+            throw new IllegalArgumentException("invalid user value filter");
+        StringBuilder where = new StringBuilder(" from user_distribution_profile u left join user_operations_profile op on op.user_id = u.user_id where 1=1");
+        List<Object> parameters = new ArrayList<>();
+        if (filters.userId() != null) { where.append(" and u.user_id = ?"); parameters.add(filters.userId()); }
+        if (filters.operatorAdminId() != null) { where.append(" and op.operator_admin_id = ?"); parameters.add(filters.operatorAdminId()); }
+        if (filters.unassigned()) where.append(" and op.operator_admin_id is null");
+        if (filters.valueCode() != null) {
+            where.append(" and coalesce(op.value_code, 'GENERAL') = ?"); parameters.add(filters.valueCode());
+        }
+        if (filters.countryCode() != null && !filters.countryCode().isBlank()) {
+            where.append(" and u.country_code = ?"); parameters.add(filters.countryCode().trim().toUpperCase());
+        }
+        if (filters.localPhone() != null && !filters.localPhone().isBlank()) {
+            String phone = filters.localPhone().trim();
+            if (!phone.matches("[0-9]{7,15}")) throw new IllegalArgumentException("local phone must contain 7-15 digits");
+            where.append(" and u.phone_number like ?"); parameters.add("%" + phone);
+        }
+        if (filters.linkyGuildId() != null && !filters.linkyGuildId().isBlank()) {
+            where.append(" and exists (select 1 from linky_account_binding l where l.user_id = u.user_id"
+                    + " and l.id = (select max(latest.id) from linky_account_binding latest where latest.user_id = u.user_id)"
+                    + " and l.guild_id = ?)");
+            parameters.add(filters.linkyGuildId().trim());
+        }
+        if (filters.timoGuildId() != null && !filters.timoGuildId().isBlank()) {
+            where.append(" and exists (select 1 from platform_account_binding t where t.user_id = u.user_id and t.platform_code = 'TIMO' and t.official_guild_id = ?)");
+            parameters.add(filters.timoGuildId().trim());
+        }
+        Long total = jdbc.queryForObject("select count(*)" + where, Long.class, parameters.toArray());
+        List<Object> pageParameters = new ArrayList<>(parameters);
+        pageParameters.add(size);
+        pageParameters.add((long) page * size);
+        List<Long> userIds = jdbc.queryForList("select u.user_id" + where + " order by u.registered_at desc, u.user_id desc limit ? offset ?",
+                Long.class, pageParameters.toArray());
+        return new SearchPage(userIds, total == null ? 0 : total);
+    }
+
+    public record Filters(Long userId, Long operatorAdminId, boolean unassigned, String valueCode,
+                          String countryCode, String localPhone, String linkyGuildId, String timoGuildId) {}
+    private record SearchPage(List<Long> userIds, long total) {}
 
     private Map<Long, String> gradesByUser(List<Long> userIds) {
         if (userIds.isEmpty()) return Map.of();
@@ -178,8 +243,4 @@ public class UserPlatformProfileAdminService {
         return values.stream().collect(Collectors.toMap(id, Function.identity(), (left, right) -> left, HashMap::new));
     }
 
-    private static final class SingleItemPage extends org.springframework.data.domain.PageImpl<UserDistributionProfile> {
-        SingleItemPage(UserDistributionProfile value, int page, int size) { super(List.of(value), PageRequest.of(page, size), 1); }
-        SingleItemPage(int page, int size) { super(List.of(), PageRequest.of(page, size), 0); }
-    }
 }
