@@ -44,6 +44,7 @@ const groups: MenuGroupDefinition[] = [
   { key: 'finance', legacySection: 'rewards', children: [
     { legacySection: 'rewards', label: '收益提现', visible: financeSection('rewards') },
     { route: 'rewardLedger', label: '奖励记录 · 只读' },
+    { route: 'withdrawals', label: '提现申请 · 只读' },
     { route: 'userAccounts', label: '用户账户 · 只读' },
     { legacySection: 'userAccounts', label: '用户账户 · 旧版操作', visible: financeSection('userAccounts') },
     { route: 'commission', label: '邀请裂变分成 · 只读' },

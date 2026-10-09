@@ -19,6 +19,7 @@ const RiskQueuePage = lazy(() => import('./RiskQueuePage'))
 const MySecurityPage = lazy(() => import('./MySecurityPage'))
 const SecurityRecordsPage = lazy(() => import('./SecurityRecordsPage'))
 const RewardLedgerPage = lazy(() => import('./RewardLedgerPage'))
+const WithdrawalRequestsPage = lazy(() => import('./WithdrawalRequestsPage'))
 const BindingRelationPage = lazy(() => import('./BindingRelationPage'))
 const PlatformIntegrationPage = lazy(() => import('./PlatformIntegrationPage'))
 
@@ -36,6 +37,7 @@ const pages: Record<ConsoleRoute, LazyExoticComponent<ComponentType<{ session: A
   bindingRelation: BindingRelationPage,
   userAccounts: UserAccountPage,
   rewardLedger: RewardLedgerPage,
+  withdrawals: WithdrawalRequestsPage,
   mySecurity: MySecurityPage,
   securityRecords: SecurityRecordsPage,
   platformIntegrations: PlatformIntegrationPage,
