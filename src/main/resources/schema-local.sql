@@ -343,3 +343,33 @@ CREATE TABLE IF NOT EXISTS invitation_commission_report_daily (
 
 CREATE INDEX IF NOT EXISTS idx_local_commission_daily_drill
     ON invitation_commission_report_daily(user_id, platform_code, direct_invitee_user_id, report_date);
+
+-- Local acceptance disables Flyway. Mirror the JDBC-backed V76 user operations
+-- tables here; production keeps the foreign keys and indexes in the migration.
+CREATE TABLE IF NOT EXISTS user_operations_profile (
+    user_id BIGINT PRIMARY KEY,
+    operator_admin_id BIGINT NULL,
+    value_code VARCHAR(24) NOT NULL DEFAULT 'GENERAL',
+    updated_at TIMESTAMP NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_local_user_operations_operator
+    ON user_operations_profile(operator_admin_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_local_user_operations_value
+    ON user_operations_profile(value_code, user_id);
+
+CREATE TABLE IF NOT EXISTS user_operations_profile_change (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    field_name VARCHAR(24) NOT NULL,
+    old_operator_admin_id BIGINT NULL,
+    new_operator_admin_id BIGINT NULL,
+    old_value_code VARCHAR(24) NULL,
+    new_value_code VARCHAR(24) NULL,
+    changed_by_admin_id BIGINT NOT NULL,
+    reason VARCHAR(255) NOT NULL,
+    changed_at TIMESTAMP NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_local_user_operations_change_history
+    ON user_operations_profile_change(user_id, changed_at, id);
