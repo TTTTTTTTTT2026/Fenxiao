@@ -174,6 +174,7 @@ import LegacyGuildDirectorySection from './LegacyGuildDirectorySection'
 import LegacyOverviewSection from './LegacyOverviewSection'
 import LegacyRiskQueueSection, { type RiskActionName, type RiskQuery } from './LegacyRiskQueueSection'
 import LegacyUserAccountSection from './LegacyUserAccountSection'
+import LegacyRewardLedgerSection from './LegacyRewardLedgerSection'
 import { DataTable,EmptyState,InfoCard,InfoRow,InlineHint,PanelSection,RelationItem,StatusBadge } from './LegacyPresentation'
 import LegacyUserDirectorySection from './LegacyUserDirectorySection'
 import {
@@ -3491,55 +3492,20 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                   <button className={adminFinanceView === 'withdrawals' ? 'is-active' : ''} onClick={() => setAdminFinanceView('withdrawals')} role="tab" aria-selected={adminFinanceView === 'withdrawals'}>提现审核</button>
                 </div>
                 {adminFinanceView === 'rewards' ? (
-                <PanelSection
-                  sectionId="admin-rewards"
-                  eyebrow="Rewards"
-                  title="收益记录管理"
-                  description=""
-                  action={<button className="primary-btn" onClick={handleLoadAdminRewards} disabled={loading || !canLoadAdmin}>查询收益记录</button>}
-                >
-                  <InfoCard title="筛选条件" tone="neutral">
-                    <div className="query-shell soft-query-shell compact-query-shell">
-                      <div className="grid-form compact-form exception-filter-grid">
-                        <label>
-                          受益用户 ID
-                          <input value={adminRewardQuery.beneficiaryUserId} onChange={(e) => setAdminRewardQuery({ ...adminRewardQuery, beneficiaryUserId: e.target.value })} placeholder="例如 11001" />
-                        </label>
-                        <label>
-                          状态
-                          <select value={adminRewardQuery.status} onChange={(e) => setAdminRewardQuery({ ...adminRewardQuery, status: e.target.value })}>
-                            <option value="">全部</option>
-                            <option value="FROZEN">冻结中</option>
-                            <option value="AVAILABLE">可用</option>
-                            <option value="RISK_HOLD">风险冻结</option>
-                          </select>
-                        </label>
-                      </div>
-                      <InlineHint text={rewardPageLabel} />
-                      <div className="table-toolbar compact-toolbar">
-                        <button className="ghost-btn small-btn" onClick={() => handleAdminRewardPageChange(Number(adminRewardQuery.page) - 1)} disabled={loading || !hasRewardPrevPage}>上一页</button>
-                        <button className="ghost-btn small-btn" onClick={() => handleAdminRewardPageChange(Number(adminRewardQuery.page) + 1)} disabled={loading || !hasRewardNextPage}>下一页</button>
-                      </div>
-                    </div>
-                  </InfoCard>
-
-                  {adminRewards?.items?.length ? (
-                    <DataTable
-                      headers={['受益用户', '来源用户', '层级', '奖励金额', '状态', '计算时间']}
-                      rows={adminRewards.items.map((item) => [
-                        item.beneficiaryUserId,
-                        item.sourceUserId,
-                        item.rewardLevel,
-                        item.rewardAmount,
-                        renderStatusBadge(item.rewardStatus),
-                        formatDateTime(item.calculatedAt),
-                      ])}
-                      emptyText="暂无后台奖励数据"
-                    />
-                  ) : (
-                    <EmptyState title="暂无后台奖励数据" description="先按受益用户或状态查一页。" actionLabel={rewardEmptyState.actionLabel} />
-                  )}
-                </PanelSection>
+                <LegacyRewardLedgerSection
+                  query={adminRewardQuery}
+                  rewards={adminRewards}
+                  loading={loading}
+                  canLoadAdmin={canLoadAdmin}
+                  pageLabel={rewardPageLabel}
+                  hasPreviousPage={hasRewardPrevPage}
+                  hasNextPage={hasRewardNextPage}
+                  emptyState={rewardEmptyState}
+                  renderStatus={renderStatusBadge}
+                  onQueryChange={setAdminRewardQuery}
+                  onLoad={handleLoadAdminRewards}
+                  onPageChange={handleAdminRewardPageChange}
+                />
                 ) : null}
                 {adminFinanceView === 'withdrawals' ? (
                 <PanelSection
