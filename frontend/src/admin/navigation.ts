@@ -1,6 +1,6 @@
 export type AdminSettingsView = 'experiment' | 'guilds' | 'platforms' | 'incomeControlled' | 'incomeShadow' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification' | 'smsWhitelist'
 export type AdminAccountView = 'security' | 'staff' | 'audit'
-export type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'riskQueue' | 'users' | 'highValueDay' | 'highValueWeek' | 'highValueMonth' | 'platformGuildDirectory' | 'rewards' | 'userAccounts' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'teams' | 'operatingDividends' | 'userGrades' | 'userGradeList' | 'advancedGradeAcceptance' | 'userGradeFacts' | 'tokenPointConversions' | 'accounts' | 'accountManagement' | 'mySecurity' | 'securityRecords' | 'settings' | 'systemExperiment' | 'systemGuilds' | 'systemPlatforms' | 'systemIncomeControlled' | 'systemIncomeShadow' | 'systemMockVerification' | 'systemAdvanced' | 'systemSeedInviter' | 'systemPhoneVerification' | 'systemSmsWhitelist'
+export type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'riskQueue' | 'users' | 'highValueRanking' | 'platformGuildDirectory' | 'rewards' | 'userAccounts' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'teams' | 'operatingDividends' | 'userGrades' | 'userGradeList' | 'advancedGradeAcceptance' | 'userGradeFacts' | 'tokenPointConversions' | 'accounts' | 'accountManagement' | 'mySecurity' | 'securityRecords' | 'settings' | 'systemExperiment' | 'systemGuilds' | 'systemPlatforms' | 'systemIncomeControlled' | 'systemIncomeShadow' | 'systemMockVerification' | 'systemAdvanced' | 'systemSeedInviter' | 'systemPhoneVerification' | 'systemSmsWhitelist'
 
 export const ADMIN_SECTION_HASHES: Record<AdminSectionKey, string> = {
   overview: '#admin-overview',
@@ -8,9 +8,7 @@ export const ADMIN_SECTION_HASHES: Record<AdminSectionKey, string> = {
   bindings: '#admin-bindings',
   riskQueue: '#admin-risk-queue',
   users: '#admin-users',
-  highValueDay: '#admin-high-value-day',
-  highValueWeek: '#admin-high-value-week',
-  highValueMonth: '#admin-high-value-month',
+  highValueRanking: '#admin-high-value-ranking',
   platformGuildDirectory: '#admin-platform-guild-directory',
   rewards: '#admin-rewards',
   userAccounts: '#admin-user-accounts',
@@ -70,6 +68,7 @@ export function getVisibleFinanceSections(role?: string): AdminSectionKey[] {
 
 export function resolveAdminSectionFromHash(hash?: string): AdminSectionKey {
   const normalized = hash || '#admin-overview'
+  if (['#admin-high-value-day', '#admin-high-value-week', '#admin-high-value-month'].includes(normalized)) return 'highValueRanking'
   if (normalized === '#admin-mentor-incentives') return 'mentorDirectory'
   if (normalized === '#admin-operating-dividends') return 'teams'
   if (normalized === '#admin-system-mock-verification') return 'systemPlatforms'
