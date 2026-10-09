@@ -16,6 +16,10 @@ const grade: UserGradeDashboardResponse = {
     userId: 17, platformCode: 'TIMO', guildId: 'guild-7', gradeCode: 'SILVER', ruleId: 1,
     status: 'QUALIFIED', directInviteCount: 5, currentActiveEffectiveInviteCount: 4,
     directIncome: 0, qualifiedAt: null, evaluatedAt: '2026-10-09T01:00:00Z',
+  }, {
+    userId: 99, platformCode: 'LINKY', guildId: 'other-guild', gradeCode: 'GOLD', ruleId: 2,
+    status: 'QUALIFIED', directInviteCount: 7, currentActiveEffectiveInviteCount: 6,
+    directIncome: 0, qualifiedAt: null, evaluatedAt: '2026-10-09T02:00:00Z',
   }],
 }
 const points: UserPointDashboardResponse = {
@@ -53,6 +57,7 @@ describe('grade facts read-only migration', () => {
     expect(markup).toContain('已启用等级规则')
     expect(markup).toContain('最近等级评估')
     expect(markup).toContain('guild-7')
+    expect(markup).not.toContain('other-guild')
     expect(markup).toContain('当前活跃有效直邀')
     expect(markup).toContain('测试证据')
     expect(markup).toContain('12.500000')
