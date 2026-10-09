@@ -10,6 +10,17 @@ const fullSession: AdminSessionResponse = {
 }
 
 describe('T-shaped console navigation', () => {
+  it('provides unique target paths for rendering legacy and new entries in every group', () => {
+    for (const role of ['super_admin', 'admin', 'finance', 'operations', 'operator', 'customer_support']) {
+      for (const group of buildConsoleMenuHierarchy({ ...fullSession, role })) {
+        const paths = group.entries.map((entry) => entry.href)
+        expect(new Set(paths).size).toBe(paths.length)
+      }
+    }
+    const finance = buildConsoleMenuHierarchy(fullSession).find((group) => group.key === 'finance')!
+    expect(finance.entries.filter((entry) => entry.key === 'userAccounts').map((entry) => entry.href)).toEqual(['/console/user-accounts', '/admin#admin-user-accounts'])
+  })
+
   it('keeps the legacy first-level order and exposes all available new pages exactly once', () => {
     const menu = buildConsoleMenuHierarchy(fullSession)
     expect(menu.map((group) => group.label)).toEqual([

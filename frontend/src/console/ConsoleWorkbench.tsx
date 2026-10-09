@@ -4,6 +4,7 @@ import type { AdminSessionResponse } from '../admin/authApi'
 import { availableConsoleRoutesForSession, selectedConsoleRoute, type ConsoleRoute } from './navigation'
 import { buildConsoleMenuHierarchy } from './menuHierarchy'
 import { shouldNavigateWithinConsole } from './clientNavigation'
+import ConsolePageBoundary from './ConsolePageBoundary'
 
 const UserDirectoryPage = lazy(() => import('./UserDirectoryPage'))
 const GuildDirectoryPage = lazy(() => import('./GuildDirectoryPage'))
@@ -95,7 +96,7 @@ export default function ConsoleWorkbench({ session, busy, logoutError, onLogout 
       <aside className="new-console-sidebar" aria-label="后台二级菜单">
         <div className="new-console-sidebar-heading">{activeGroup?.label ?? '工作台导航'}</div>
         <nav className="new-console-sub-nav">
-          {activeGroup?.entries.map((entry) => <a key={entry.key} href={entry.href} onClick={(event) => navigate(event, entry.href)} className={selected?.path === entry.href ? 'is-active' : ''} aria-current={selected?.path === entry.href ? 'page' : undefined}>
+          {activeGroup?.entries.map((entry) => <a key={entry.href} href={entry.href} onClick={(event) => navigate(event, entry.href)} className={selected?.path === entry.href ? 'is-active' : ''} aria-current={selected?.path === entry.href ? 'page' : undefined}>
             <span>{entry.label}</span>{entry.legacy ? <span className="new-console-legacy-badge">旧版</span> : null}
           </a>)}
         </nav>
@@ -104,9 +105,9 @@ export default function ConsoleWorkbench({ session, busy, logoutError, onLogout 
       <main className="new-console-content" id="main-content">
         <div className="new-console-account-name">当前管理员：{session.displayName || session.username}</div>
         {logoutError ? <Alert type="error" showIcon message={logoutError} className="new-console-alert" /> : null}
-        {Page ? <Suspense fallback={<Card loading />}>
+        {Page ? <ConsolePageBoundary key={pathname}><Suspense fallback={<Card loading />}>
           <Page session={session} />
-        </Suspense> : legacyOnlyGroup ? <Result status="info" title={`${activeGroup.label}尚在旧版后台`} subTitle="请从左侧二级菜单选择需要办理的功能；新版不会复制旧版写入逻辑。" /> : <Result status="403" title="当前账号无权访问此页面" extra={<Button href="/admin">返回旧版后台</Button>} />}
+        </Suspense></ConsolePageBoundary> : legacyOnlyGroup ? <Result status="info" title={`${activeGroup.label}尚在旧版后台`} subTitle="请从左侧二级菜单选择需要办理的功能；新版不会复制旧版写入逻辑。" /> : <Result status="403" title="当前账号无权访问此页面" extra={<Button href="/admin">返回旧版后台</Button>} />}
       </main>
     </div>
   </Layout>
