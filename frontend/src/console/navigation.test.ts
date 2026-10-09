@@ -19,7 +19,7 @@ describe('new console permissions and routes', () => {
   })
 
   it('resolves the default route and denies paths absent from the role menu', () => {
-    expect(selectedConsoleRoute('/console', 'operator')?.key).toBe('users')
+    expect(selectedConsoleRoute('/console', 'operator')?.key).toBe('overview')
     expect(selectedConsoleRoute('/console/guilds', 'operator')?.key).toBe('guilds')
     expect(selectedConsoleRoute('/console/guilds', 'customer_support')).toBeNull()
     expect(selectedConsoleRoute('/console/overview', 'finance')?.key).toBe('overview')
