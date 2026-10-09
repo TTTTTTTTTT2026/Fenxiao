@@ -1,6 +1,13 @@
 package com.fenxiao.admin.api;
 
 import com.fenxiao.audit.repository.OperationAuditLogRepository;
+import com.fenxiao.admin.entity.AdminAccount;
+import com.fenxiao.admin.repository.AdminAccountRepository;
+import com.fenxiao.admin.service.AdminPasswordHasher;
+import com.fenxiao.distribution.entity.LinkyAccountBinding;
+import com.fenxiao.distribution.repository.LinkyAccountBindingRepository;
+import com.fenxiao.platform.entity.PlatformAccountBinding;
+import com.fenxiao.platform.repository.PlatformAccountBindingRepository;
 import com.fenxiao.distribution.api.dto.IssueInviteCodeRequest;
 import com.fenxiao.distribution.entity.DistributionRelation;
 import com.fenxiao.distribution.repository.DistributionRelationRepository;
@@ -21,6 +28,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,6 +57,21 @@ class DistributionMvpAdminControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private AdminAccountRepository adminAccountRepository;
+
+    @Autowired
+    private AdminPasswordHasher adminPasswordHasher;
+
+    @Autowired
+    private JdbcTemplate jdbc;
+
+    @Autowired
+    private LinkyAccountBindingRepository linkyAccountBindingRepository;
+
+    @Autowired
+    private PlatformAccountBindingRepository platformAccountBindingRepository;
 
     @Autowired
     private DistributionBindingService distributionBindingService;
@@ -120,6 +143,143 @@ class DistributionMvpAdminControllerTest {
                 .andExpect(jsonPath("$.items[0].linky").isEmpty())
                 .andExpect(jsonPath("$.items[0].timo").isEmpty())
                 .andExpect(jsonPath("$.items[0].invitationGuild").isEmpty());
+    }
+
+    @Test
+    void shouldSearchAndAuditCurrentOperatorAndValueWithoutRewritingHistory() throws Exception {
+        UserDistributionProfile profile = distributionBindingService.createProfile(990111L, "BR", "pt-br", null);
+        profile.bindPhoneNumber("+559999999999");
+        userDistributionProfileRepository.saveAndFlush(profile);
+        Long firstOperator = adminAccountRepository.saveAndFlush(
+                AdminAccount.create("staff_search_a", "运营甲", "operations", "unused-hash", true)).getId();
+        Long secondOperator = adminAccountRepository.saveAndFlush(
+                AdminAccount.create("staff_search_b", "运营乙", "operations", "unused-hash", true)).getId();
+        String session = loginAsAdmin();
+
+        mockMvc.perform(get("/admin/distribution/user-platform-profiles")
+                        .header("X-Admin-Session", session).param("userId", "990111"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].valueCode").value("GENERAL"))
+                .andExpect(jsonPath("$.items[0].operatorAdminId").isEmpty());
+
+        mockMvc.perform(post("/admin/distribution/user-platform-profiles/990111/operator")
+                        .header("X-Admin-Session", session).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"operatorAdminId\":" + firstOperator + ",\"reason\":\"初次分配\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.operatorAdminId").value(firstOperator));
+        mockMvc.perform(post("/admin/distribution/user-platform-profiles/990111/value")
+                        .header("X-Admin-Session", session).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"valueCode\":\"HIGH_VALUE\",\"reason\":\"人工评估\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.valueCode").value("HIGH_VALUE"));
+
+        mockMvc.perform(get("/admin/distribution/user-platform-profiles")
+                        .header("X-Admin-Session", session)
+                        .param("operatorAdminId", firstOperator.toString()).param("valueCode", "HIGH_VALUE")
+                        .param("countryCode", "BR").param("localPhone", "9999999999"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.items[0].userId").value(990111))
+                .andExpect(jsonPath("$.items[0].operatorName").value("运营甲"));
+
+        mockMvc.perform(post("/admin/distribution/user-platform-profiles/990111/operator")
+                        .header("X-Admin-Session", session).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"operatorAdminId\":" + secondOperator + ",\"reason\":\"转交\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.operatorAdminId").value(secondOperator));
+        var events = jdbc.queryForList("""
+                select old_operator_admin_id, new_operator_admin_id from user_operations_profile_change
+                where user_id = 990111 and field_name = 'OPERATOR' order by id
+                """);
+        org.assertj.core.api.Assertions.assertThat(events).hasSize(2);
+        org.assertj.core.api.Assertions.assertThat(((Number) events.get(0).get("new_operator_admin_id")).longValue())
+                .isEqualTo(firstOperator);
+        org.assertj.core.api.Assertions.assertThat(((Number) events.get(1).get("old_operator_admin_id")).longValue())
+                .isEqualTo(firstOperator);
+        var valueEvents = jdbc.queryForList("""
+                select old_value_code, new_value_code from user_operations_profile_change
+                where user_id = 990111 and field_name = 'VALUE' order by id
+                """);
+        org.assertj.core.api.Assertions.assertThat(valueEvents).hasSize(1);
+        org.assertj.core.api.Assertions.assertThat(valueEvents.get(0).get("old_value_code")).isEqualTo("GENERAL");
+        org.assertj.core.api.Assertions.assertThat(valueEvents.get(0).get("new_value_code")).isEqualTo("HIGH_VALUE");
+        mockMvc.perform(get("/admin/distribution/user-platform-profiles")
+                        .header("X-Admin-Session", session).param("operatorAdminId", firstOperator.toString())
+                        .param("userId", "990111"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(0));
+    }
+
+    @Test
+    void shouldRejectUnauthenticatedAndInvalidOperationsAndFilterDefaults() throws Exception {
+        distributionBindingService.createProfile(990112L, "ID", "id", null);
+        userDistributionProfileRepository.flush();
+        String session = loginAsAdmin();
+        mockMvc.perform(post("/admin/distribution/user-platform-profiles/990112/value")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"valueCode\":\"HIGH_VALUE\",\"reason\":\"test\"}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/admin/distribution/user-platform-profiles/990112/value")
+                        .header("X-Admin-Session", session).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"valueCode\":\"OTHER\",\"reason\":\"test\"}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/admin/distribution/user-platform-profiles")
+                        .header("X-Admin-Session", session).param("userId", "990112")
+                        .param("valueCode", "GENERAL").param("unassigned", "true"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(1));
+        mockMvc.perform(get("/admin/distribution/user-platform-profiles")
+                        .header("X-Admin-Session", session).param("localPhone", "12"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void operationsRoleCanReadDirectoryButCannotChangeAssignmentOrValue() throws Exception {
+        distributionBindingService.createProfile(990114L, "ID", "id", null);
+        adminAccountRepository.saveAndFlush(AdminAccount.create("staff_read_990114", "运营只读测试", "operations",
+                adminPasswordHasher.hash("Operations-Password-2026!"), true));
+        String response = mockMvc.perform(post("/admin/auth/session")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"staff_read_990114\",\"password\":\"Operations-Password-2026!\"}"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String session = response.replaceAll(".*\\\"sessionToken\\\":\\\"([^\\\"]+)\\\".*", "$1");
+        mockMvc.perform(get("/admin/distribution/user-platform-profiles")
+                        .header("X-Admin-Session", session).param("userId", "990114"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(1));
+        mockMvc.perform(get("/admin/distribution/user-platform-profiles/options")
+                        .header("X-Admin-Session", session))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/admin/distribution/user-platform-profiles/990114/value")
+                        .header("X-Admin-Session", session).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"valueCode\":\"HIGH_VALUE\",\"reason\":\"测试越权\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void shouldFilterActualLinkyAndTimoGuildsAndExposeSelectOptions() throws Exception {
+        distributionBindingService.createProfile(990113L, "ID", "id", null);
+        userDistributionProfileRepository.flush();
+        LinkyAccountBinding previousLinky = LinkyAccountBinding.createUnchecked("linky-old-990113");
+        previousLinky.markEligible("LINKY-OLD", "旧公会", 1L, "test");
+        previousLinky.attachRegistration(990113L, "+6281234567890", "INV990113");
+        linkyAccountBindingRepository.saveAndFlush(previousLinky);
+        LinkyAccountBinding linky = LinkyAccountBinding.createUnchecked("linky-990113");
+        linky.markEligible("LINKY-ONE", "Linky 一公会", 1L, "test");
+        linky.attachRegistration(990113L, "+6281234567890", "INV990113");
+        linkyAccountBindingRepository.saveAndFlush(linky);
+        PlatformAccountBinding timo = PlatformAccountBinding.submit(990113L, "TIMO", "183082848282", LocalDateTime.now());
+        timo.verify("TIMO-TWO", LocalDateTime.now(), "TEST", "fixture", LocalDateTime.now());
+        platformAccountBindingRepository.saveAndFlush(timo);
+        String session = loginAsAdmin();
+
+        mockMvc.perform(get("/admin/distribution/user-platform-profiles/options")
+                        .header("X-Admin-Session", session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.linkyGuilds[*].guildId").value(org.hamcrest.Matchers.hasItem("LINKY-ONE")))
+                .andExpect(jsonPath("$.linkyGuilds[*].guildId").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem("LINKY-OLD"))))
+                .andExpect(jsonPath("$.timoGuilds[*].guildId").value(org.hamcrest.Matchers.hasItem("TIMO-TWO")));
+        mockMvc.perform(get("/admin/distribution/user-platform-profiles")
+                        .header("X-Admin-Session", session).param("userId", "990113")
+                        .param("linkyGuildId", "LINKY-ONE").param("timoGuildId", "TIMO-TWO"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(1));
+        mockMvc.perform(get("/admin/distribution/user-platform-profiles")
+                        .header("X-Admin-Session", session).param("userId", "990113")
+                        .param("linkyGuildId", "LINKY-OLD"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(0));
     }
 
     @Test

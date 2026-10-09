@@ -159,7 +159,7 @@ type UserGradeDashboardResponse,
 type UserGradeLevelDashboardResponse,
 type UserPointDashboardResponse
 } from '../api'
-import { getAdminUserPlatformProfiles, type UserPlatformProfileListResponse } from './userDirectoryApi'
+import { getAdminUserPlatformProfiles, getAdminUserDirectoryOptions, updateAdminUserOperator, updateAdminUserValue, type UserDirectoryOptions, type UserPlatformProfileListResponse } from './userDirectoryApi'
 import { changeAdminPassword, createAdminSession, getCurrentAdminSession, logoutAdminSession, logoutAllAdminSessions } from './authApi'
 import {
 buildLinkyReplaySummary,
@@ -194,7 +194,7 @@ import LegacyOverviewSection from './LegacyOverviewSection'
 import LegacyRiskQueueSection, { type RiskActionName, type RiskQuery } from './LegacyRiskQueueSection'
 import LegacyUserAccountSection from './LegacyUserAccountSection'
 import { DataTable,EmptyState,InfoCard,InfoRow,InlineHint,PanelSection,RelationItem,StatusBadge } from './LegacyPresentation'
-import LegacyUserDirectorySection from './LegacyUserDirectorySection'
+import LegacyUserDirectorySection, { type UserPlatformQuery } from './LegacyUserDirectorySection'
 import {
 ADMIN_SECTION_HASHES,
 SYSTEM_CONFIG_SECTION_VIEWS,
@@ -525,7 +525,10 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [createdSeedInviter, setCreatedSeedInviter] = useState<SeedInviterResponse | null>(null)
   const [seedInviters, setSeedInviters] = useState<SeedInviterListResponse | null>(null)
   const [userPlatformProfiles, setUserPlatformProfiles] = useState<UserPlatformProfileListResponse | null>(null)
-  const [userPlatformQuery, setUserPlatformQuery] = useState({ userId: '', page: '0', size: '20' })
+  const [userPlatformQuery, setUserPlatformQuery] = useState<UserPlatformQuery>({ userId: '', operatorAdminId: '', valueCode: '', countryCode: '', localPhone: '', linkyGuildId: '', timoGuildId: '', page: '0', size: '20' })
+  const [userPlatformAppliedQuery, setUserPlatformAppliedQuery] = useState<UserPlatformQuery>(userPlatformQuery)
+  const [userDirectoryOptions, setUserDirectoryOptions] = useState<UserDirectoryOptions | null>(null)
+  const [userOperationsDraft, setUserOperationsDraft] = useState<{ userId: number; field: 'operator' | 'value'; target: string; current: string; reason: string } | null>(null)
   const [userCountryDraft, setUserCountryDraft] = useState<{ userId: number; currentCountryCode: string; targetCountryCode: string } | null>(null)
   const [userPasswordDraft, setUserPasswordDraft] = useState<{ userId: number; nickname: string | null; phoneNumber: string; mode: 'set' | 'disable'; alreadyEnabled: boolean; password: string; confirmPassword: string } | null>(null)
   const [platformGuildDirectoryPlatform, setPlatformGuildDirectoryPlatform] = useState<'LINKY' | 'TIMO'>('LINKY')
@@ -604,6 +607,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const canManageLinkyInvitationGuild = ['super_admin', 'admin'].includes(adminSession?.role?.toLowerCase() ?? '')
   const canManageUserCountry = ['super_admin', 'admin', 'operations'].includes(adminSession?.role?.toLowerCase() ?? '')
   const canManageUserPasswordLogin = adminSession?.role?.toLowerCase() === 'super_admin'
+  const canManageUserOperations = adminSession?.role?.toLowerCase() === 'super_admin'
   const linkyGuildOptions = useMemo(() => {
     return (linkyInvitationGuildOptions ?? [])
       .filter((item) => item.directoryStatus === 'NORMAL' && ['ACTIVE', 'ENABLED'].includes(item.guildStatus.toUpperCase()))
@@ -1238,13 +1242,20 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     }
   }
 
-  const loadUserPlatformProfiles = useCallback(async (query = userPlatformQuery) => {
+  const loadUserPlatformProfiles = useCallback(async (query = userPlatformAppliedQuery) => {
     if (!adminSession) return
     setLoading(true)
     setError('')
     try {
       const result = await getAdminUserPlatformProfiles(adminSession.sessionToken, {
         userId: query.userId.trim() ? Number(query.userId) : undefined,
+        operatorAdminId: query.operatorAdminId && query.operatorAdminId !== 'UNASSIGNED' ? Number(query.operatorAdminId) : undefined,
+        unassigned: query.operatorAdminId === 'UNASSIGNED',
+        valueCode: query.valueCode ? query.valueCode as 'GENERAL' | 'HIGH_VALUE' : undefined,
+        countryCode: query.countryCode || undefined,
+        localPhone: query.localPhone || undefined,
+        linkyGuildId: query.linkyGuildId || undefined,
+        timoGuildId: query.timoGuildId || undefined,
         page: Number(query.page || 0),
         size: Number(query.size || 20),
       })
@@ -1254,7 +1265,51 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     } finally {
       setLoading(false)
     }
-  }, [adminSession, userPlatformQuery])
+  }, [adminSession, userPlatformAppliedQuery])
+
+  function searchUserPlatformProfiles() {
+    const next = { ...userPlatformQuery, page: '0' }
+    setUserPlatformQuery(next)
+    setUserPlatformAppliedQuery(next)
+  }
+
+  function changeUserPlatformPage(page: number) {
+    const next = { ...userPlatformAppliedQuery, page: String(page) }
+    setUserPlatformQuery(next)
+    setUserPlatformAppliedQuery(next)
+  }
+
+  function changeUserPlatformPageSize(size: number) {
+    const next = { ...userPlatformAppliedQuery, page: '0', size: String(size) }
+    setUserPlatformQuery(next)
+    setUserPlatformAppliedQuery(next)
+  }
+
+  function openUserOperationsDialog(item: UserPlatformProfileListResponse['items'][number], field: 'operator' | 'value') {
+    const current = field === 'operator' ? String(item.operatorAdminId ?? '') : item.valueCode || 'GENERAL'
+    setUserOperationsDraft({ userId: item.userId, field, current, target: current, reason: '' })
+  }
+
+  async function saveUserOperations() {
+    if (!adminSession || !canManageUserOperations || !userOperationsDraft || !userOperationsDraft.reason.trim()
+      || userOperationsDraft.target === userOperationsDraft.current) return
+    const draft = userOperationsDraft
+    setLoading(true)
+    setError('')
+    setSuccessMessage('')
+    try {
+      if (draft.field === 'operator') {
+        await updateAdminUserOperator(adminSession.sessionToken, draft.userId, draft.target ? Number(draft.target) : null, draft.reason.trim())
+      } else {
+        await updateAdminUserValue(adminSession.sessionToken, draft.userId, draft.target as 'GENERAL' | 'HIGH_VALUE', draft.reason.trim())
+      }
+      setUserOperationsDraft(null)
+      await loadUserPlatformProfiles()
+      setSuccessMessage(`用户 #${draft.userId} 的${draft.field === 'operator' ? '对接运营' : '用户价值'}已更新，变更历史已保存。`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '保存用户运营资料失败')
+    } finally { setLoading(false) }
+  }
 
   async function saveUserCountry() {
     if (!adminSession || !canManageUserCountry || !userCountryDraft || !userCountryDraft.targetCountryCode
@@ -1316,6 +1371,12 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
     const timer = window.setTimeout(() => { void loadUserPlatformProfiles() }, 0)
     return () => window.clearTimeout(timer)
   }, [activeAdminSection, adminSession, loadUserPlatformProfiles])
+
+  useEffect(() => {
+    if (activeAdminSection !== 'users' || !adminSession) return
+    void getAdminUserDirectoryOptions(adminSession.sessionToken).then(setUserDirectoryOptions)
+      .catch((err) => setError(err instanceof Error ? err.message : '加载用户筛选选项失败'))
+  }, [activeAdminSection, adminSession])
 
   async function loadPlatformGuildDirectory(platform = platformGuildDirectoryPlatform) {
     if (!adminSession) return
@@ -3416,17 +3477,22 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
 
           {activeAdminSection === 'users' ? <LegacyUserDirectorySection
             query={userPlatformQuery}
+            options={userDirectoryOptions}
             onQueryChange={setUserPlatformQuery}
+            onSearch={searchUserPlatformProfiles}
+            onPageChange={changeUserPlatformPage}
+            onPageSizeChange={changeUserPlatformPageSize}
             profiles={userPlatformProfiles}
             loading={loading}
             canManageCountry={canManageUserCountry}
             canManageLinkyInvitationGuild={canManageLinkyInvitationGuild}
             canManagePasswordLogin={canManageUserPasswordLogin}
-            onRefresh={() => { void loadUserPlatformProfiles() }}
+            canManageOperations={canManageUserOperations}
             onCopyInviteCode={(inviteCode) => { void handleCopyInviteCode(inviteCode) }}
             onAdjustCountry={openUserCountryDialog}
             onAdjustLinkyInvitationGuild={openLinkyInvitationGuildOverride}
             onPasswordLogin={openUserPasswordDialog}
+            onEditOperations={openUserOperationsDialog}
           /> : null}
 
           {activeAdminSection === 'platformGuildDirectory' ? (
@@ -4236,6 +4302,33 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           <label>处理结论<select value={incomeExceptionReviewForm.reviewStatus} onChange={(event) => setIncomeExceptionReviewForm({ ...incomeExceptionReviewForm, reviewStatus: event.target.value as 'ACKNOWLEDGED' | 'IGNORED' })}><option value="ACKNOWLEDGED">已知悉，待后续处理</option><option value="IGNORED">确认不纳入本次处理</option></select></label>
           <label className="top-gap">复核备注<textarea value={incomeExceptionReviewForm.reviewNote} maxLength={255} onChange={(event) => setIncomeExceptionReviewForm({ ...incomeExceptionReviewForm, reviewNote: event.target.value })} placeholder="说明已核对的依据、后续负责人或不纳入原因" /></label>
           <InlineHint text="保存复核结论不会改变 MCN 原始事实、绑定状态、候选测算或任何财务数据。" />
+        </ConfirmDialog>
+      ) : null}
+
+      {userOperationsDraft ? (
+        <ConfirmDialog
+          title={`${userOperationsDraft.field === 'operator' ? '设置对接运营' : '设置用户价值'} · 用户 #${userOperationsDraft.userId}`}
+          tone="primary"
+          confirmText="确认保存"
+          loading={loading}
+          confirmDisabled={!userOperationsDraft.reason.trim() || userOperationsDraft.target === userOperationsDraft.current}
+          onCancel={() => setUserOperationsDraft(null)}
+          onConfirm={() => void saveUserOperations()}
+        >
+          <div className="grid-form compact-form">
+            {userOperationsDraft.field === 'operator' ? <label>对接运营
+              <select value={userOperationsDraft.target} onChange={(event) => setUserOperationsDraft({ ...userOperationsDraft, target: event.target.value })}>
+                <option value="">未分配</option>
+                {(userDirectoryOptions?.operators ?? []).map((operator) => <option key={operator.id} value={operator.id} disabled={!operator.enabled}>{operator.displayName}（{operator.username}）{operator.enabled ? '' : ' · 已停用'}</option>)}
+              </select>
+            </label> : <label>用户价值
+              <select value={userOperationsDraft.target} onChange={(event) => setUserOperationsDraft({ ...userOperationsDraft, target: event.target.value })}>
+                <option value="GENERAL">一般用户</option><option value="HIGH_VALUE">高价值用户</option>
+              </select>
+            </label>}
+            <label className="full-span">变更原因<textarea required maxLength={255} value={userOperationsDraft.reason} onChange={(event) => setUserOperationsDraft({ ...userOperationsDraft, reason: event.target.value })} placeholder="请填写本次调整依据" /></label>
+          </div>
+          <InlineHint text="保存后仅变更当前负责人或用户价值；历史业绩不随负责人转交而改写。每次实际变更都会保留时间、操作者、变更前后及原因。" />
         </ConfirmDialog>
       ) : null}
 

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getAdminUserPlatformProfiles as legacyGetProfiles } from '../api'
-import { getAdminUserPlatformProfiles } from './userDirectoryApi'
+import { getAdminUserPlatformProfiles, getAdminUserDirectoryOptions, updateAdminUserOperator, updateAdminUserValue } from './userDirectoryApi'
 
 describe('admin user directory API boundary', () => {
   afterEach(() => vi.unstubAllGlobals())
@@ -36,5 +36,23 @@ describe('admin user directory API boundary', () => {
       '/admin/distribution/user-platform-profiles',
       '/admin/distribution/user-platform-profiles?userId=0&page=0&size=0',
     ])
+  })
+
+  it('serializes combined search filters and privileged updates on the shared API', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, text: async () => '{}' })
+    vi.stubGlobal('fetch', fetchMock)
+    await getAdminUserPlatformProfiles('session-token', {
+      userId: 42, unassigned: true, valueCode: 'GENERAL', countryCode: 'ID', localPhone: '81234567890',
+      linkyGuildId: 'L1', timoGuildId: 'T2', page: 0, size: 50,
+    })
+    await getAdminUserDirectoryOptions('session-token')
+    await updateAdminUserOperator('session-token', 42, null, '人员转交')
+    await updateAdminUserValue('session-token', 42, 'HIGH_VALUE', '人工评估')
+    expect(fetchMock.mock.calls[0][0]).toContain('localPhone=81234567890')
+    expect(fetchMock.mock.calls[0][0]).toContain('unassigned=true')
+    expect(fetchMock.mock.calls[0][0]).not.toContain('operatorAdminId=')
+    expect(fetchMock.mock.calls[1][0]).toBe('/admin/distribution/user-platform-profiles/options')
+    expect(fetchMock.mock.calls[2][1]).toEqual(expect.objectContaining({ method: 'POST', body: JSON.stringify({ operatorAdminId: null, reason: '人员转交' }) }))
+    expect(fetchMock.mock.calls[3][1]).toEqual(expect.objectContaining({ method: 'POST', body: JSON.stringify({ valueCode: 'HIGH_VALUE', reason: '人工评估' }) }))
   })
 })

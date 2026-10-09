@@ -194,10 +194,18 @@ public class DistributionAdminController {
     public UserPlatformProfileListResponse userPlatformProfiles(@RequestHeader(value = "X-Admin-Token", required = false) String adminToken,
                                                                  @RequestHeader(value = "X-Admin-Session", required = false) String adminSessionToken,
                                                                  @RequestParam(required = false) Long userId,
+                                                                 @RequestParam(required = false) Long operatorAdminId,
+                                                                 @RequestParam(defaultValue = "false") boolean unassigned,
+                                                                 @RequestParam(required = false) String valueCode,
+                                                                 @RequestParam(required = false) String countryCode,
+                                                                 @RequestParam(required = false) String localPhone,
+                                                                 @RequestParam(required = false) String linkyGuildId,
+                                                                 @RequestParam(required = false) String timoGuildId,
                                                                  @RequestParam(defaultValue = "0") int page,
                                                                  @RequestParam(defaultValue = "20") int size) {
         distributionAccessGuard.assertAdminAccess(adminToken, adminSessionToken);
-        return userPlatformProfileAdminService.list(userId, page, size);
+        return userPlatformProfileAdminService.list(new UserPlatformProfileAdminService.Filters(
+                userId, operatorAdminId, unassigned, valueCode, countryCode, localPhone, linkyGuildId, timoGuildId), page, size);
     }
 
     @PostMapping("/user-platform-profiles/{userId}/country")

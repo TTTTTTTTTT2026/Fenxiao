@@ -13,7 +13,7 @@ spring:
   sql:
     init:
       mode: always
-      schema-locations: classpath:incentive-shadow-schema.sql,classpath:withdrawal-workflow-schema.sql,classpath:controlled-experiment-schema.sql
+      schema-locations: classpath:incentive-shadow-schema.sql,classpath:withdrawal-workflow-schema.sql,classpath:controlled-experiment-schema.sql,classpath:user-operations-schema.sql
 app:
   distribution:
     legacy-user-token-enabled: true
