@@ -102,6 +102,6 @@ export function buildConsoleMenuHierarchy(session: AdminSessionResponse): Consol
       return [{ key: child.legacySection, label: child.label, href: `/admin${ADMIN_SECTION_HASHES[child.legacySection]}`, legacy: true }]
     })
     if (!entries.length) return []
-    return [{ key: group.key, label, href: entries.find((entry) => !entry.legacy)?.href ?? entries[0].href, entries }]
+    return [{ key: group.key, label, href: entries.find((entry) => !entry.legacy)?.href ?? `/console/section/${group.key}`, entries }]
   })
 }
