@@ -63,15 +63,15 @@ export function GradeFactsSnapshot({ grade, points, qualifications, platform }: 
   platform: ConsolePlatform
 }) {
   return <>
-    <Card title="等级规则概览" className="new-console-directory-summary">
+    <Card title="等级规则概览（全局）" className="new-console-directory-summary">
       <Descriptions column={{ xs: 1, sm: 2 }} items={[
         { key: 'activeRules', label: '已启用等级规则', children: grade?.activeRuleCount ?? '—' },
         { key: 'leaders', label: '已合格团队长', children: grade?.qualifiedTeamLeaderCount ?? '—' },
       ]} />
       <Text type="secondary">MCN 仅提供收入事实；邀请关系、有效用户资格和等级由分销平台计算及审计。当前活跃以最近 7 个完整自然日（不含当天）为窗口。</Text>
     </Card>
-    <Card title="最近等级评估" className="new-console-directory-summary">
-      <Table rowKey={(item) => `${item.userId}-${item.platformCode}-${item.guildId}-${item.gradeCode}-${item.ruleId}-${item.evaluatedAt}`} columns={evaluationColumns} dataSource={grade?.recentEvaluations ?? []} pagination={paging} scroll={{ x: 1050 }} locale={{ emptyText: <Empty description="暂无等级评估记录" /> }} />
+    <Card title={`${platform} 最近等级评估`} className="new-console-directory-summary">
+      <Table rowKey={(item) => `${item.userId}-${item.platformCode}-${item.guildId}-${item.gradeCode}-${item.ruleId}-${item.evaluatedAt}`} columns={evaluationColumns} dataSource={grade?.recentEvaluations.filter((item) => item.platformCode.toUpperCase() === platform) ?? []} pagination={paging} scroll={{ x: 1050 }} locale={{ emptyText: <Empty description="暂无等级评估记录" /> }} />
     </Card>
     <Card title={`${platform} 有效用户资格事实`} className="new-console-directory-summary">
       <Text type="secondary">永久资格与当前活跃分别展示；本页只读取服务端事实，不提供刷新资格或人工纠偏。</Text>
