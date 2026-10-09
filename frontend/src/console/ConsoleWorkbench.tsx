@@ -1,8 +1,9 @@
-import { lazy, Suspense, type ComponentType, type LazyExoticComponent } from 'react'
+import { lazy, startTransition, Suspense, useEffect, useState, type ComponentType, type LazyExoticComponent, type MouseEvent } from 'react'
 import { Alert, Button, Card, Layout, Result } from 'antd'
 import type { AdminSessionResponse } from '../admin/authApi'
 import { availableConsoleRoutesForSession, selectedConsoleRoute, type ConsoleRoute } from './navigation'
 import { buildConsoleMenuHierarchy } from './menuHierarchy'
+import { shouldNavigateWithinConsole } from './clientNavigation'
 
 const UserDirectoryPage = lazy(() => import('./UserDirectoryPage'))
 const GuildDirectoryPage = lazy(() => import('./GuildDirectoryPage'))
@@ -48,22 +49,39 @@ type ConsoleWorkbenchProps = {
 }
 
 export default function ConsoleWorkbench({ session, busy, logoutError, onLogout }: ConsoleWorkbenchProps) {
+  const [pathname, setPathname] = useState(() => window.location.pathname)
+
+  useEffect(() => {
+    const syncBrowserHistory = () => startTransition(() => setPathname(window.location.pathname))
+    window.addEventListener('popstate', syncBrowserHistory)
+    return () => window.removeEventListener('popstate', syncBrowserHistory)
+  }, [])
+
+  function navigate(event: MouseEvent<HTMLAnchorElement>, href: string) {
+    if (!shouldNavigateWithinConsole(event, href)) return
+    event.preventDefault()
+    if (window.location.pathname === href) return
+    window.history.pushState(null, '', href)
+    startTransition(() => setPathname(href))
+    window.scrollTo(0, 0)
+  }
+
   const routes = availableConsoleRoutesForSession(session)
   const menuGroups = buildConsoleMenuHierarchy(session)
-  const candidate = selectedConsoleRoute(window.location.pathname, session.role)
+  const candidate = selectedConsoleRoute(pathname, session.role)
   const selected = candidate && routes.some((route) => route.key === candidate.key) ? candidate : null
-  const activeGroup = menuGroups.find((group) => group.entries.some((entry) => entry.href === selected?.path) || group.href === window.location.pathname)
-  const legacyOnlyGroup = !selected && activeGroup?.href === window.location.pathname && window.location.pathname.startsWith('/console/section/')
+  const activeGroup = menuGroups.find((group) => group.entries.some((entry) => entry.href === selected?.path) || group.href === pathname)
+  const legacyOnlyGroup = !selected && activeGroup?.href === pathname && pathname.startsWith('/console/section/')
   const Page = selected ? pages[selected.key] : null
 
   return <Layout className="new-console-root">
     <Layout.Header className="new-console-header">
-      <a className="new-console-brand" href="/console/overview" aria-label="BANDEIRA 管理后台首页">
+      <a className="new-console-brand" href="/console/overview" onClick={(event) => navigate(event, '/console/overview')} aria-label="BANDEIRA 管理后台首页">
         <img src="/bandeira-logo-v1.png" alt="" />
         <span>BANDEIRA <small>管理后台</small></span>
       </a>
       <nav className="new-console-top-nav" aria-label="后台一级菜单">
-        {menuGroups.map((group) => <a key={group.key} href={group.href} className={activeGroup?.key === group.key ? 'is-active' : ''} aria-current={activeGroup?.key === group.key ? 'page' : undefined}>{group.label}</a>)}
+        {menuGroups.map((group) => <a key={group.key} href={group.href} onClick={(event) => navigate(event, group.href)} className={activeGroup?.key === group.key ? 'is-active' : ''} aria-current={activeGroup?.key === group.key ? 'page' : undefined}>{group.label}</a>)}
       </nav>
       <div className="new-console-header-actions">
         <span className="new-console-header-user">{session.displayName || session.username}</span>
@@ -75,7 +93,7 @@ export default function ConsoleWorkbench({ session, busy, logoutError, onLogout 
       <aside className="new-console-sidebar" aria-label="后台二级菜单">
         <div className="new-console-sidebar-heading">{activeGroup?.label ?? '工作台导航'}</div>
         <nav className="new-console-sub-nav">
-          {activeGroup?.entries.map((entry) => <a key={entry.key} href={entry.href} className={selected?.path === entry.href ? 'is-active' : ''} aria-current={selected?.path === entry.href ? 'page' : undefined}>
+          {activeGroup?.entries.map((entry) => <a key={entry.key} href={entry.href} onClick={(event) => navigate(event, entry.href)} className={selected?.path === entry.href ? 'is-active' : ''} aria-current={selected?.path === entry.href ? 'page' : undefined}>
             <span>{entry.label}</span>{entry.legacy ? <span className="new-console-legacy-badge">旧版</span> : null}
           </a>)}
         </nav>
