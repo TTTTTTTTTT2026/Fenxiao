@@ -27,12 +27,17 @@ export default function LegacyAdminNavigation({ links, activeSection, visibleFin
     <div className="admin-nav-strip" id="admin-modules" aria-label="后台模块导航">
       {links.map((item) => item.href === ADMIN_SECTION_HASHES.users ? (
         <div className="admin-nav-group" key={item.label}>
-          <button type="button" className={`admin-nav-chip admin-nav-group-trigger ${['users', 'bindings', 'riskQueue'].includes(activeSection) ? 'is-active' : ''}`} aria-expanded={openGroups.users} onClick={() => onToggleGroup('users')}>
+          <button type="button" className={`admin-nav-chip admin-nav-group-trigger ${['users', 'bindings', 'riskQueue', 'highValueDay', 'highValueWeek', 'highValueMonth'].includes(activeSection) ? 'is-active' : ''}`} aria-expanded={openGroups.users} onClick={() => onToggleGroup('users')}>
             <AdminNavIcon label={item.label} />
             <span>{item.label}</span><span className="admin-nav-group-caret">{openGroups.users ? '⌄' : '›'}</span>
           </button>
           {openGroups.users ? <div className="admin-nav-submenu" aria-label="用户管理子菜单">
             <a className={`admin-nav-subitem ${activeSection === 'users' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.users} onClick={() => onNavigate('users')}>用户列表</a>
+            {import.meta.env.DEV ? <>
+              <a className={`admin-nav-subitem ${activeSection === 'highValueDay' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.highValueDay}>高价值用户排行 · 日</a>
+              <a className={`admin-nav-subitem ${activeSection === 'highValueWeek' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.highValueWeek}>高价值用户排行 · 周</a>
+              <a className={`admin-nav-subitem ${activeSection === 'highValueMonth' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.highValueMonth}>高价值用户排行 · 月</a>
+            </> : null}
             <a className={`admin-nav-subitem ${activeSection === 'bindings' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.bindings}>绑定管理</a>
             <a className={`admin-nav-subitem ${activeSection === 'riskQueue' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.riskQueue} onClick={() => onNavigate('riskQueue')}>风险队列{riskEventTotal ? ` · ${riskEventTotal}` : ''}</a>
           </div> : null}

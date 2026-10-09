@@ -1,6 +1,6 @@
 export type AdminSettingsView = 'experiment' | 'guilds' | 'platforms' | 'incomeControlled' | 'incomeShadow' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification' | 'smsWhitelist'
 export type AdminAccountView = 'security' | 'staff' | 'audit'
-export type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'riskQueue' | 'users' | 'platformGuildDirectory' | 'rewards' | 'userAccounts' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'teams' | 'operatingDividends' | 'userGrades' | 'userGradeList' | 'advancedGradeAcceptance' | 'userGradeFacts' | 'tokenPointConversions' | 'accounts' | 'accountManagement' | 'mySecurity' | 'securityRecords' | 'settings' | 'systemExperiment' | 'systemGuilds' | 'systemPlatforms' | 'systemIncomeControlled' | 'systemIncomeShadow' | 'systemMockVerification' | 'systemAdvanced' | 'systemSeedInviter' | 'systemPhoneVerification' | 'systemSmsWhitelist'
+export type AdminSectionKey = 'overview' | 'channel' | 'bindings' | 'riskQueue' | 'users' | 'highValueDay' | 'highValueWeek' | 'highValueMonth' | 'platformGuildDirectory' | 'rewards' | 'userAccounts' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'teams' | 'operatingDividends' | 'userGrades' | 'userGradeList' | 'advancedGradeAcceptance' | 'userGradeFacts' | 'tokenPointConversions' | 'accounts' | 'accountManagement' | 'mySecurity' | 'securityRecords' | 'settings' | 'systemExperiment' | 'systemGuilds' | 'systemPlatforms' | 'systemIncomeControlled' | 'systemIncomeShadow' | 'systemMockVerification' | 'systemAdvanced' | 'systemSeedInviter' | 'systemPhoneVerification' | 'systemSmsWhitelist'
 
 export const ADMIN_SECTION_HASHES: Record<AdminSectionKey, string> = {
   overview: '#admin-overview',
@@ -8,6 +8,9 @@ export const ADMIN_SECTION_HASHES: Record<AdminSectionKey, string> = {
   bindings: '#admin-bindings',
   riskQueue: '#admin-risk-queue',
   users: '#admin-users',
+  highValueDay: '#admin-high-value-day',
+  highValueWeek: '#admin-high-value-week',
+  highValueMonth: '#admin-high-value-month',
   platformGuildDirectory: '#admin-platform-guild-directory',
   rewards: '#admin-rewards',
   userAccounts: '#admin-user-accounts',

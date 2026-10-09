@@ -190,6 +190,7 @@ import LegacyChannelEntriesSection from './LegacyChannelEntriesSection'
 import LegacyAdminNavigation, { type LegacyNavGroup } from './LegacyAdminNavigation'
 import LegacyCommissionPolicySection from './LegacyCommissionPolicySection'
 import LegacyGuildDirectorySection from './LegacyGuildDirectorySection'
+import LegacyHighValueRankingSection from './LegacyHighValueRankingSection'
 import LegacyOverviewSection from './LegacyOverviewSection'
 import LegacyRiskQueueSection, { type RiskActionName, type RiskQuery } from './LegacyRiskQueueSection'
 import LegacyUserAccountSection from './LegacyUserAccountSection'
@@ -344,7 +345,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [adminProduct, setAdminProduct] = useState<AdminProductKey>('ALL')
   const [activeAdminSection, setActiveAdminSection] = useState<AdminSectionKey>(() => resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined))
   const [isUserGradeNavOpen, setIsUserGradeNavOpen] = useState(() => ['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
-  const [isUserManagementNavOpen, setIsUserManagementNavOpen] = useState(() => ['users', 'bindings', 'riskQueue'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
+  const [isUserManagementNavOpen, setIsUserManagementNavOpen] = useState(() => ['users', 'bindings', 'riskQueue', 'highValueDay', 'highValueWeek', 'highValueMonth'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [isFinanceManagementNavOpen, setIsFinanceManagementNavOpen] = useState(() => ['rewards', 'commissionPolicies', 'tokenPointConversions'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [isSystemConfigNavOpen, setIsSystemConfigNavOpen] = useState(() => ['settings', 'systemExperiment', 'systemGuilds', 'systemPlatforms', 'systemIncomeControlled', 'systemIncomeShadow', 'systemMockVerification', 'systemAdvanced', 'systemSeedInviter', 'systemPhoneVerification', 'systemSmsWhitelist'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [isSystemManagementNavOpen, setIsSystemManagementNavOpen] = useState(() => ['accounts', 'accountManagement', 'mySecurity', 'securityRecords'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
@@ -649,10 +650,11 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   useEffect(() => {
     const isVisibleUserGradeChild = ['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.userGradeList)
     const isVisibleUserManagementChild = ['users', 'bindings', 'riskQueue'].includes(activeAdminSection) && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.users)
+    const isVisibleHighValuePrototype = import.meta.env.DEV && ['highValueDay', 'highValueWeek', 'highValueMonth'].includes(activeAdminSection) && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.users)
     const isVisibleFinanceManagementChild = visibleFinanceSections.includes(activeAdminSection)
     const isVisibleSystemConfigChild = currentSettingsView !== null && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.settings)
     const isVisibleSystemManagementChild = currentAccountView !== null && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.accounts)
-    if (!adminSession || isVisibleUserGradeChild || isVisibleUserManagementChild || isVisibleFinanceManagementChild || isVisibleSystemConfigChild || isVisibleSystemManagementChild || adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])) return
+    if (!adminSession || isVisibleUserGradeChild || isVisibleUserManagementChild || isVisibleHighValuePrototype || isVisibleFinanceManagementChild || isVisibleSystemConfigChild || isVisibleSystemManagementChild || adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])) return
     window.location.hash = ADMIN_SECTION_HASHES.overview
   }, [activeAdminSection, adminSectionLinks, adminSession, currentAccountView, currentSettingsView, visibleFinanceSections])
 
@@ -2912,7 +2914,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
       <header className="admin-topbar">
         <div className="admin-page-heading">
           <p className="eyebrow">运营后台</p>
-          <h1>{['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) ? '用户等级' : ['users', 'bindings', 'riskQueue'].includes(activeAdminSection) ? '用户管理' : isFinanceManagementSection ? '财务管理' : isSystemConfigSection ? '配置中心' : isSystemManagementSection ? '系统管理' : adminSectionLinks.find((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])?.label}</h1>
+          <h1>{['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) ? '用户等级' : ['users', 'bindings', 'riskQueue', 'highValueDay', 'highValueWeek', 'highValueMonth'].includes(activeAdminSection) ? '用户管理' : isFinanceManagementSection ? '财务管理' : isSystemConfigSection ? '配置中心' : isSystemManagementSection ? '系统管理' : adminSectionLinks.find((item) => item.href === ADMIN_SECTION_HASHES[activeAdminSection])?.label}</h1>
         </div>
         <div className="hero-actions">
           <label className="hero-select-field">
@@ -3494,6 +3496,10 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             onPasswordLogin={openUserPasswordDialog}
             onEditOperations={openUserOperationsDialog}
           /> : null}
+
+          {import.meta.env.DEV && activeAdminSection === 'highValueDay' ? <LegacyHighValueRankingSection key="day" period="day" /> : null}
+          {import.meta.env.DEV && activeAdminSection === 'highValueWeek' ? <LegacyHighValueRankingSection key="week" period="week" /> : null}
+          {import.meta.env.DEV && activeAdminSection === 'highValueMonth' ? <LegacyHighValueRankingSection key="month" period="month" /> : null}
 
           {activeAdminSection === 'platformGuildDirectory' ? (
             <LegacyGuildDirectorySection
