@@ -3,7 +3,7 @@ import { buildAdminSectionLinks } from '../opsConsole'
 import { getVisibleFinanceSections } from '../admin/navigation'
 import { canManageTeamsInAdmin, canReadFinanceInAdmin } from '../admin/roleCapabilities'
 
-export type ConsoleRoute = 'users' | 'guilds' | 'overview' | 'grades' | 'mentors' | 'teams' | 'channel' | 'commission' | 'risk' | 'bindingRelation' | 'userAccounts' | 'rewardLedger' | 'mySecurity' | 'securityRecords' | 'platformIntegrations'
+export type ConsoleRoute = 'users' | 'guilds' | 'overview' | 'grades' | 'gradeFacts' | 'mentors' | 'teams' | 'channel' | 'commission' | 'risk' | 'bindingRelation' | 'userAccounts' | 'rewardLedger' | 'mySecurity' | 'securityRecords' | 'platformIntegrations'
 export type ConsolePlatform = 'LINKY' | 'TIMO'
 
 const routeDefinitions: Array<{ key: ConsoleRoute; path: string; label: string; legacyHref: string }> = [
@@ -11,6 +11,7 @@ const routeDefinitions: Array<{ key: ConsoleRoute; path: string; label: string; 
   { key: 'guilds', path: '/console/guilds', label: '平台公会目录', legacyHref: '#admin-platform-guild-directory' },
   { key: 'overview', path: '/console/overview', label: '分销概览', legacyHref: '#admin-overview' },
   { key: 'grades', path: '/console/grades', label: '用户等级列表', legacyHref: '#admin-user-grade-list' },
+  { key: 'gradeFacts', path: '/console/grade-facts', label: '等级资格事实', legacyHref: '#admin-user-grade-list' },
   { key: 'mentors', path: '/console/mentors', label: '导师列表', legacyHref: '#admin-mentors' },
   { key: 'teams', path: '/console/teams', label: '团队列表', legacyHref: '#admin-teams' },
   { key: 'channel', path: '/console/channel', label: '渠道入口', legacyHref: '#admin-channel-entries' },
@@ -29,16 +30,18 @@ export function availableConsoleRoutes(role: string) {
   return routeDefinitions.filter((item) => (item.key === 'commission' ? getVisibleFinanceSections(role).includes('commissionPolicies') : item.key === 'userAccounts' ? getVisibleFinanceSections(role).includes('userAccounts') : item.key === 'rewardLedger' ? getVisibleFinanceSections(role).includes('rewards') : legacyLinks.has(item.legacyHref))
     && (!['grades', 'teams'].includes(item.key) || canManageTeamsInAdmin(role))
     && (!['commission', 'userAccounts'].includes(item.key) || canReadFinanceInAdmin(role))
-    && (item.key !== 'platformIntegrations' || role.toLowerCase() === 'super_admin'))
+    && (!['platformIntegrations', 'gradeFacts'].includes(item.key) || role.toLowerCase() === 'super_admin'))
 }
 
-export function canReadGlobalPlatformIntegrations(session: AdminSessionResponse) {
+export function canReadUnrestrictedAdminData(session: AdminSessionResponse) {
   return session.role.toLowerCase() === 'super_admin'
     && [session.platformScope, session.guildScope, session.regionScope].every((scope) => scope?.trim() === '*')
 }
 
+export const canReadGlobalPlatformIntegrations = canReadUnrestrictedAdminData
+
 export function availableConsoleRoutesForSession(session: AdminSessionResponse) {
-  return availableConsoleRoutes(session.role).filter((item) => item.key !== 'platformIntegrations' || canReadGlobalPlatformIntegrations(session))
+  return availableConsoleRoutes(session.role).filter((item) => !['platformIntegrations', 'gradeFacts'].includes(item.key) || canReadUnrestrictedAdminData(session))
 }
 
 export function selectedConsoleRoute(pathname: string, role: string) {
