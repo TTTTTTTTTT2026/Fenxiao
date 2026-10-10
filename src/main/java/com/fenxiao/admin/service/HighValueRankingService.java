@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -83,14 +82,8 @@ public class HighValueRankingService {
                 }).sorted(comparator(metric)).toList();
         int start = (int) Math.min((long) page * size, ranked.size());
         int finish = Math.min(start + size, ranked.size());
-        int expectedDays = Math.toIntExact(ChronoUnit.DAYS.between(window.start(), window.endExclusive()));
-        Integer coveredDays = jdbc.queryForObject("""
-                SELECT COUNT(DISTINCT business_date) FROM mcn_income_shadow_ledger_run
-                WHERE platform_code=? AND business_date>=? AND business_date<?
-                """, Integer.class, platform, window.start(), window.endExclusive());
         return new Report(platform, guild, country, window.start(), window.endExclusive(), metric,
-                operatorAdminId, ranked.size(), page, size, expectedDays,
-                coveredDays == null ? 0 : coveredDays, ranked.subList(start, finish));
+                operatorAdminId, ranked.size(), page, size, ranked.subList(start, finish));
     }
 
     private void commission(List<Long> ids, String platform, String guild, Window window,
@@ -268,6 +261,6 @@ public class HighValueRankingService {
                        BigDecimal directRawDiamonds, int newInvitees) {}
     public record Report(String platformCode, String guildId, String countryCode, LocalDate periodStart,
                          LocalDate periodEndExclusive, String rankingMetric, Long operatorAdminId,
-                         int total, int page, int size, int expectedIncomeDays, int coveredIncomeDays,
+                         int total, int page, int size,
                          List<Item> items) {}
 }

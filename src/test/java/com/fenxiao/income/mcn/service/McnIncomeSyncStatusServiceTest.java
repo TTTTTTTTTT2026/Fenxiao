@@ -11,6 +11,8 @@ import com.fenxiao.income.mcn.repository.McnIncomeAccountSyncCheckpointRepositor
 import com.fenxiao.platform.domain.PlatformBindingStatus;
 import com.fenxiao.platform.repository.PlatformAccountBindingRepository;
 import com.fenxiao.platform.entity.PlatformAccountBinding;
+import com.fenxiao.distribution.entity.LinkyAccountBinding;
+import com.fenxiao.distribution.repository.LinkyAccountBindingRepository;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -30,6 +32,7 @@ class McnIncomeSyncStatusServiceTest {
         McnIncomeSyncRunRepository runs = mock(McnIncomeSyncRunRepository.class);
         McnIncomeAccountSyncCheckpointRepository accountCheckpoints = mock(McnIncomeAccountSyncCheckpointRepository.class);
         PlatformAccountBindingRepository bindings = mock(PlatformAccountBindingRepository.class);
+        LinkyAccountBindingRepository linkyBindings = mock(LinkyAccountBindingRepository.class);
         when(accountCheckpoints.findByPlatformCode("TIMO")).thenReturn(List.of());
         when(accountCheckpoints.findByPlatformCode("LINKY")).thenReturn(List.of());
         when(bindings.findByBindingStatusAndPlatformCode(PlatformBindingStatus.VERIFIED, "TIMO")).thenReturn(List.of());
@@ -40,7 +43,7 @@ class McnIncomeSyncStatusServiceTest {
         when(runs.findTopByPlatformCodeOrderByCompletedAtDescIdDesc("LINKY")).thenReturn(Optional.empty());
 
         McnIncomeSyncStatusResponse result = new McnIncomeSyncStatusService(properties, checkpoints, runs,
-                accountCheckpoints, bindings, new ObjectMapper()).status();
+                accountCheckpoints, new McnIncomeVerifiedAccounts(bindings, linkyBindings), new ObjectMapper()).status();
 
         assertThat(result.continuousPullEnabled()).isFalse();
         assertThat(result.maxPagesPerRun()).isEqualTo(100);
@@ -60,16 +63,18 @@ class McnIncomeSyncStatusServiceTest {
         McnIncomeSyncRunRepository runs = mock(McnIncomeSyncRunRepository.class);
         McnIncomeAccountSyncCheckpointRepository accountCheckpoints = mock(McnIncomeAccountSyncCheckpointRepository.class);
         PlatformAccountBindingRepository bindings = mock(PlatformAccountBindingRepository.class);
-        PlatformAccountBinding verified = mock(PlatformAccountBinding.class);
-        when(verified.getPlatformUserId()).thenReturn("01234567");
-        when(bindings.findByBindingStatusAndPlatformCode(PlatformBindingStatus.VERIFIED, "LINKY"))
+        LinkyAccountBindingRepository linkyBindings = mock(LinkyAccountBindingRepository.class);
+        LinkyAccountBinding verified = mock(LinkyAccountBinding.class);
+        when(verified.getUserId()).thenReturn(8L);
+        when(verified.getLinkyAccount()).thenReturn("01234567");
+        when(linkyBindings.findByUserIdIsNotNullAndRegistrationEligibilityAndGuildCheckStatus("ELIGIBLE", "MATCHED_OURS"))
                 .thenReturn(List.of(verified));
         McnIncomeAccountSyncCheckpoint read = McnIncomeAccountSyncCheckpoint.initial("LINKY", "01234567");
         read.advance("opaque", Instant.parse("2026-09-23T09:00:00Z"), "{}", Instant.parse("2026-09-23T09:00:00Z"));
         when(accountCheckpoints.findByPlatformCode("LINKY")).thenReturn(List.of(read));
 
         var result = new McnIncomeSyncStatusService(properties, checkpoints, runs, accountCheckpoints,
-                bindings, new ObjectMapper()).status();
+                new McnIncomeVerifiedAccounts(bindings, linkyBindings), new ObjectMapper()).status();
         var linky = result.platforms().get(1);
         assertThat(linky.verifiedAccountCount()).isEqualTo(1);
         assertThat(linky.readAccountCount()).isEqualTo(1);

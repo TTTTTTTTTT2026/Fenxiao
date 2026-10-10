@@ -25,8 +25,6 @@ export type HighValueRankingReport = {
   total: number
   page: number
   size: number
-  expectedIncomeDays: number
-  coveredIncomeDays: number
   items: Array<{
     userId: number
     nickname: string | null

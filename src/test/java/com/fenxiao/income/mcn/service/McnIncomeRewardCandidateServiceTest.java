@@ -153,7 +153,9 @@ class McnIncomeRewardCandidateServiceTest {
         UserDistributionProfileRepository users = mock(UserDistributionProfileRepository.class);
         PlatformGuildCompanyShareService companyShares = mock(PlatformGuildCompanyShareService.class);
         return new Fixture(jdbc, bindings, relations, policies, users, companyShares,
-                new McnIncomeRewardCandidateService(jdbc, bindings, relations, policies, users, companyShares, Clock.fixed(Instant.parse("2026-09-14T00:00:00Z"), ZoneOffset.UTC)));
+                new McnIncomeRewardCandidateService(jdbc,
+                        new McnIncomeVerifiedAccounts(bindings, mock(com.fenxiao.distribution.repository.LinkyAccountBindingRepository.class)),
+                        relations, policies, users, companyShares, Clock.fixed(Instant.parse("2026-09-14T00:00:00Z"), ZoneOffset.UTC)));
     }
 
     private CommissionPolicy policy(int maxLevel) {

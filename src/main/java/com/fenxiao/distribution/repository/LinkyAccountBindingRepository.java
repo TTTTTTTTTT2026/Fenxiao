@@ -13,6 +13,12 @@ import java.util.Optional;
 public interface LinkyAccountBindingRepository extends JpaRepository<LinkyAccountBinding, Long> {
     Optional<LinkyAccountBinding> findByLinkyAccount(String linkyAccount);
 
+    List<LinkyAccountBinding> findByUserIdIsNotNullAndRegistrationEligibilityAndGuildCheckStatus(
+            String registrationEligibility, String guildCheckStatus);
+
+    List<LinkyAccountBinding> findByLinkyAccountInAndUserIdIsNotNullAndRegistrationEligibilityAndGuildCheckStatus(
+            Collection<String> linkyAccounts, String registrationEligibility, String guildCheckStatus);
+
     Optional<LinkyAccountBinding> findFirstByUserIdAndRegistrationEligibilityAndGuildCheckStatusOrderByIdDesc(
             Long userId, String registrationEligibility, String guildCheckStatus);
 

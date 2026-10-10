@@ -8,6 +8,8 @@ import com.fenxiao.income.mcn.entity.McnIncomeRawLedgerEvent;
 import com.fenxiao.income.mcn.repository.McnIncomeRawLedgerEventRepository;
 import com.fenxiao.platform.entity.PlatformAccountBinding;
 import com.fenxiao.platform.repository.PlatformAccountBindingRepository;
+import com.fenxiao.distribution.repository.LinkyAccountBindingRepository;
+import com.fenxiao.distribution.entity.LinkyAccountBinding;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -71,6 +73,35 @@ class McnIncomeShadowLedgerServiceTest {
 
         assertThat(result.boundFinalCount()).isZero();
         assertThat(result.unmatchedCount()).isEqualTo(1);
+    }
+
+    @Test
+    void refreshMakesExistingLinkyIncomeVisibleAfterTheAccountIsVerified() {
+        McnIncomeRawLedgerEventRepository rawEvents = mock(McnIncomeRawLedgerEventRepository.class);
+        LinkyAccountBindingRepository linkyBindings = mock(LinkyAccountBindingRepository.class);
+        LinkyAccountBinding verified = mock(LinkyAccountBinding.class);
+        when(verified.getUserId()).thenReturn(72L);
+        when(verified.getLinkyAccount()).thenReturn("00123456");
+        when(verified.getRegistrationEligibility()).thenReturn("ELIGIBLE");
+        when(verified.getGuildCheckStatus()).thenReturn("MATCHED_OURS");
+        when(linkyBindings.findByLinkyAccountInAndUserIdIsNotNullAndRegistrationEligibilityAndGuildCheckStatus(
+                List.of("00123456"), "ELIGIBLE", "MATCHED_OURS")).thenReturn(List.of(verified));
+        McnIncomeRawLedgerEvent fact = fact("linky-event", "1", "00123456", NOW,
+                McnIncomeEventType.INCOME, McnIncomeSettlementStatus.SETTLED);
+        when(rawEvents.findBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", "LINKY", DAY, DAY))
+                .thenReturn(List.of(fact));
+        when(rawEvents.findLatestBySourceSystemAndPlatformCodeAndBusinessDateBetween("MCN", "LINKY", DAY, DAY))
+                .thenReturn(List.of(fact));
+        JdbcTemplate jdbc = writableJdbc();
+
+        var result = new McnIncomeShadowLedgerService(rawEvents,
+                new McnIncomeVerifiedAccounts(mock(PlatformAccountBindingRepository.class), linkyBindings),
+                jdbc, Clock.fixed(NOW, ZoneOffset.UTC)).refresh("LINKY", DAY);
+
+        assertThat(result.boundFinalCount()).isEqualTo(1);
+        ArgumentCaptor<List<Object[]>> values = ArgumentCaptor.forClass(List.class);
+        verify(jdbc).batchUpdate(anyString(), values.capture());
+        assertThat(values.getValue().getFirst()[7]).isEqualTo(72L);
     }
 
     @Test
@@ -159,7 +190,9 @@ class McnIncomeShadowLedgerServiceTest {
     }
 
     private McnIncomeShadowLedgerService service(McnIncomeRawLedgerEventRepository rawEvents, PlatformAccountBindingRepository bindings, JdbcTemplate jdbc) {
-        return new McnIncomeShadowLedgerService(rawEvents, bindings, jdbc, Clock.fixed(NOW, ZoneOffset.UTC));
+        return new McnIncomeShadowLedgerService(rawEvents,
+                new McnIncomeVerifiedAccounts(bindings, mock(LinkyAccountBindingRepository.class)), jdbc,
+                Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     private JdbcTemplate writableJdbc() {

@@ -24,7 +24,6 @@ class HighValueRankingServiceTest {
         jdbc.update("INSERT INTO mcn_income_raw_ledger_event VALUES (1,'2026-10-08 10:00:00'),(2,'2026-10-08 10:00:00')");
         jdbc.update("INSERT INTO mcn_income_shadow_ledger_projection VALUES (1,'MCN','LINKY','2026-10-08','g1',3,'SETTLED','INCOME',100,'LINKY_DIAMOND','BOUND_FINAL',1),(2,'MCN','TIMO','2026-10-08','g1',3,'SETTLED','INCOME',900,'TIMO_DIAMOND','BOUND_FINAL',2)");
         jdbc.update("INSERT INTO linky_verification_attempt VALUES (1,3,'FOUND','IN_EXPECTED_GUILD','g1','g1','2026-10-08 10:00:00'),(2,3,'FOUND','IN_EXPECTED_GUILD','g1','g1','2026-10-08 11:00:00')");
-        jdbc.update("INSERT INTO mcn_income_shadow_ledger_run VALUES ('LINKY','2026-10-08')");
         HighValueRankingService service = service(jdbc);
 
         var report = service.report("LINKY", "g1", "ID", "day", "2026-10-08", 7L, "SELF_COMMISSION", 0, 20);
@@ -33,7 +32,6 @@ class HighValueRankingServiceTest {
         assertThat(report.items().getFirst().selfCommission()).isEqualByComparingTo("10");
         assertThat(report.items().getFirst().directRawDiamonds()).isEqualByComparingTo("100");
         assertThat(report.items().getFirst().newInvitees()).isEqualTo(1);
-        assertThat(report.coveredIncomeDays()).isEqualTo(1);
         assertThat(new HighValueRankingService(jdbc, Clock.fixed(Instant.parse("2026-10-15T00:00:00Z"), ZoneOffset.UTC))
                 .report("LINKY", "g1", "ID", "week", "2026-W41", null,
                 "NEW_INVITEES", 0, 20).items()).hasSize(2);
@@ -76,7 +74,6 @@ class HighValueRankingServiceTest {
         jdbc.execute("CREATE TABLE linky_verification_attempt(id BIGINT PRIMARY KEY,user_id BIGINT,result_status VARCHAR(32),membership_status VARCHAR(64),expected_guild_id VARCHAR(64),observed_guild_id VARCHAR(64),attempted_at TIMESTAMP)");
         jdbc.execute("CREATE TABLE platform_binding_history(id BIGINT PRIMARY KEY,binding_id BIGINT,user_id BIGINT,platform_code VARCHAR(32),to_status VARCHAR(32),occurred_at TIMESTAMP)");
         jdbc.execute("CREATE TABLE platform_verification_attempt(id BIGINT PRIMARY KEY,binding_id BIGINT,outcome VARCHAR(32),official_guild_id VARCHAR(64),attempted_at TIMESTAMP)");
-        jdbc.execute("CREATE TABLE mcn_income_shadow_ledger_run(platform_code VARCHAR(32),business_date DATE)");
         return jdbc;
     }
 }

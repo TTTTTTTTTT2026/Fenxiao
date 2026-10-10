@@ -23,9 +23,6 @@ import com.fenxiao.income.mcn.external.McnIncomeFactsRequestContext;
 import com.fenxiao.income.mcn.external.McnIncomeFactsTransportException;
 import com.fenxiao.income.mcn.repository.McnIncomeControlledReadRunRepository;
 import com.fenxiao.income.mcn.repository.McnIncomeRawLedgerEventRepository;
-import com.fenxiao.platform.domain.PlatformBindingStatus;
-import com.fenxiao.platform.entity.PlatformAccountBinding;
-import com.fenxiao.platform.repository.PlatformAccountBindingRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
@@ -53,7 +50,7 @@ public class McnIncomeControlledReadOnlyService {
     private final McnIncomeFactsProperties properties;
     private final McnIncomeRawLedgerService rawLedgerService;
     private final McnIncomeRawLedgerEventRepository eventRepository;
-    private final PlatformAccountBindingRepository bindingRepository;
+    private final McnIncomeVerifiedAccounts verifiedAccounts;
     private final McnIncomeControlledReadRunRepository runRepository;
     private final ObjectMapper json;
     private final Clock clock;
@@ -61,11 +58,11 @@ public class McnIncomeControlledReadOnlyService {
     public McnIncomeControlledReadOnlyService(McnIncomeFactsClient client, McnIncomeFactsProperties properties,
                                               McnIncomeRawLedgerService rawLedgerService,
                                               McnIncomeRawLedgerEventRepository eventRepository,
-                                              PlatformAccountBindingRepository bindingRepository,
+                                              McnIncomeVerifiedAccounts verifiedAccounts,
                                               McnIncomeControlledReadRunRepository runRepository,
                                               ObjectMapper json, Clock clock) {
         this.client = client; this.properties = properties; this.rawLedgerService = rawLedgerService;
-        this.eventRepository = eventRepository; this.bindingRepository = bindingRepository;
+        this.eventRepository = eventRepository; this.verifiedAccounts = verifiedAccounts;
         this.runRepository = runRepository; this.json = json; this.clock = clock;
     }
 
@@ -178,8 +175,8 @@ public class McnIncomeControlledReadOnlyService {
         }
     }
     private List<String> registeredPlatformUserIds(String platform) {
-        List<String> ids = bindingRepository.findByBindingStatusAndPlatformCode(PlatformBindingStatus.VERIFIED, platform).stream()
-                .map(PlatformAccountBinding::getPlatformUserId).filter(value -> value != null && !value.isBlank())
+        List<String> ids = verifiedAccounts.list(platform).stream()
+                .map(McnIncomeVerifiedAccounts.Account::platformUserId).filter(value -> value != null && !value.isBlank())
                 .distinct().sorted().toList();
         if (ids.size() > 100) throw new IllegalStateException("受控读取最多支持 100 个已核验账号，请缩小本次范围后重试。");
         return ids;
