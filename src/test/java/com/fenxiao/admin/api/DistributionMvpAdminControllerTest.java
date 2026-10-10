@@ -327,6 +327,56 @@ class DistributionMvpAdminControllerTest {
     }
 
     @Test
+    void shouldAllowAdminToChangeAndClearNicknameWithAudit() throws Exception {
+        distributionBindingService.createProfile(10033L, "BR", "pt-br", null);
+        String session = loginAsAdmin();
+
+        mockMvc.perform(post("/admin/distribution/user-platform-profiles/10033/nickname")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"nickname\":\"Not allowed\"}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/admin/distribution/user-platform-profiles/10033/nickname")
+                        .header("X-Admin-Session", session)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"nickname\":\"  Sofia  \"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nickname").value("Sofia"))
+                .andExpect(jsonPath("$.avatarDataUrl").doesNotExist());
+        mockMvc.perform(get("/admin/distribution/user-platform-profiles")
+                        .header("X-Admin-Session", session).param("userId", "10033"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].nickname").value("Sofia"));
+
+        mockMvc.perform(post("/admin/distribution/user-platform-profiles/10033/nickname")
+                        .header("X-Admin-Session", session)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"nickname\":\"Sofia\"}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/admin/distribution/user-platform-profiles/10033/nickname")
+                        .header("X-Admin-Session", session)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"nickname\":\"   \"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.nickname").isEmpty());
+        mockMvc.perform(get("/admin/distribution/user-platform-profiles")
+                        .header("X-Admin-Session", session).param("userId", "10033"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].nickname").isEmpty());
+
+        var logs = operationAuditLogRepository.findByAuditTarget("user", "user_public_profile", 10033L,
+                org.springframework.data.domain.PageRequest.of(0, 10));
+        org.assertj.core.api.Assertions.assertThat(logs.getTotalElements()).isEqualTo(2);
+        org.assertj.core.api.Assertions.assertThat(logs.getContent()).allMatch(log -> "CHANGE_NICKNAME".equals(log.getActionName()));
+    }
+
+    @Test
+    void shouldRejectInvalidAdminNicknameAndUnknownUser() throws Exception {
+        distributionBindingService.createProfile(10034L, "BR", "pt-br", null);
+        String session = loginAsAdmin();
+        mockMvc.perform(post("/admin/distribution/user-platform-profiles/10034/nickname")
+                        .header("X-Admin-Session", session)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"nickname\":\"abcdefghijklmnopqrstuvwxyz\"}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/admin/distribution/user-platform-profiles/99999999/nickname")
+                        .header("X-Admin-Session", session)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"nickname\":\"Someone\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void shouldAdjustUserCountryAndAuditWithoutChangingInvitationOrPhone() throws Exception {
         String inviterCode = distributionBindingService.createProfile(10021L, "ID", "id", null).getInviteCode();
         UserDistributionProfile profile = distributionBindingService.createProfile(10022L, "ID", "id", inviterCode);

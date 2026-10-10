@@ -28,7 +28,7 @@ const profiles: UserPlatformProfileListResponse = {
 const callbacks = {
   onQueryChange: vi.fn(), onSearch: vi.fn(), onPageChange: vi.fn(), onPageSizeChange: vi.fn(),
   onCopyInviteCode: vi.fn(), onAdjustCountry: vi.fn(), onAdjustLinkyInvitationGuild: vi.fn(),
-  onPasswordLogin: vi.fn(), onEditOperations: vi.fn(),
+  onPasswordLogin: vi.fn(), onEditOperations: vi.fn(), onEditNickname: vi.fn(),
 }
 
 function findElement(node: unknown, matches: (element: ReactElement<Record<string, unknown>>) => boolean): ReactElement<Record<string, unknown>> | undefined {
@@ -49,10 +49,10 @@ describe('legacy user directory filters and operations', () => {
   it('shows both new dimensions, all requested filters and bottom pagination without refresh', () => {
     const markup = renderToStaticMarkup(<LegacyUserDirectorySection
       query={query} options={options} profiles={profiles} loading={false}
-      canManageCountry canManageLinkyInvitationGuild canManagePasswordLogin canManageOperations {...callbacks}
+      canManageCountry canManageLinkyInvitationGuild canManagePasswordLogin canManageOperations canManageNickname {...callbacks}
     />)
     for (const text of ['用户 ID', '对接运营', '用户价值', '归属国家', '手机号（本地号码）',
-      'Linky 公会', 'Timo 公会', '搜索', '设置对接运营', '设置用户价值', '上一页', '下一页', '每页数量',
+      'Linky 公会', 'Timo 公会', '搜索', '修改昵称', '设置对接运营', '设置用户价值', '上一页', '下一页', '每页数量',
       '测试昵称', '运营甲', '高价值用户', 'Linky 公会', '目标公会']) expect(markup).toContain(text)
     expect(markup).not.toContain('刷新用户')
     expect(markup.indexOf('每页数量')).toBeGreaterThan(markup.indexOf('用户与平台核验信息'))
@@ -62,32 +62,45 @@ describe('legacy user directory filters and operations', () => {
     const markup = renderToStaticMarkup(<LegacyUserDirectorySection
       query={query} options={options} profiles={profiles} loading={false}
       canManageCountry={false} canManageLinkyInvitationGuild={false} canManagePasswordLogin={false}
-      canManageOperations={false} {...callbacks}
+      canManageOperations={false} canManageNickname={false} {...callbacks}
     />)
     expect(markup).toContain('<td>只读</td>')
     expect(markup).not.toContain('设置对接运营')
     expect(markup).not.toContain('设置用户价值')
+    expect(markup).not.toContain('修改昵称')
+  })
+
+  it('shows a dash for users without a nickname', () => {
+    const markup = renderToStaticMarkup(<LegacyUserDirectorySection
+      query={query} options={options} profiles={{ ...profiles, items: [{ ...profiles.items[0], nickname: null }] }} loading={false}
+      canManageCountry={false} canManageLinkyInvitationGuild={false} canManagePasswordLogin={false}
+      canManageOperations={false} canManageNickname={false} {...callbacks}
+    />)
+    expect(markup).toContain('<strong>#1001</strong><span>-</span>')
   })
 
   it('does not query on input change; search, edit and pagination use explicit callbacks', () => {
     const tree = LegacyUserDirectorySection({
       query, options, profiles, loading: false, canManageCountry: true,
       canManageLinkyInvitationGuild: true, canManagePasswordLogin: true,
-      canManageOperations: true, ...callbacks,
+      canManageOperations: true, canManageNickname: true, ...callbacks,
     })
     const filter = findElement(tree, (element) => element.type === 'input' && element.props.inputMode === 'numeric')
     const form = findElement(tree, (element) => element.type === 'form')
     const edit = findElement(tree, (element) => element.type === 'button' && element.props.children === '设置对接运营')
+    const nickname = findElement(tree, (element) => element.type === 'button' && element.props.children === '修改昵称')
     const next = findElement(tree, (element) => element.type === 'button' && element.props.children === '下一页')
-    expect(filter && form && edit && next).toBeDefined()
+    expect(filter && form && edit && nickname && next).toBeDefined()
     ;(filter!.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: '1a002' } })
     expect(callbacks.onQueryChange).toHaveBeenCalledWith({ ...query, userId: '1002' })
     expect(callbacks.onSearch).not.toHaveBeenCalled()
     ;(form!.props.onSubmit as (event: { preventDefault: () => void }) => void)({ preventDefault: vi.fn() })
     ;(edit!.props.onClick as () => void)()
+    ;(nickname!.props.onClick as () => void)()
     ;(next!.props.onClick as () => void)()
     expect(callbacks.onSearch).toHaveBeenCalledTimes(1)
     expect(callbacks.onEditOperations).toHaveBeenCalledWith(profiles.items[0], 'operator')
+    expect(callbacks.onEditNickname).toHaveBeenCalledWith(profiles.items[0])
     expect(callbacks.onPageChange).toHaveBeenCalledWith(1)
   })
 })

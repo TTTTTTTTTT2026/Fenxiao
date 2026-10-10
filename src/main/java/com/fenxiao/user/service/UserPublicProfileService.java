@@ -32,14 +32,19 @@ public class UserPublicProfileService {
     }
 
     public ProfileView updateNickname(long userId, String value) {
+        String nickname = normalizeNickname(value);
+        UserPublicProfile profile = getOrCreate(userId);
+        profile.setNickname(nickname);
+        return view(profiles.save(profile));
+    }
+
+    public static String normalizeNickname(String value) {
         String nickname = value == null ? "" : value.strip();
         if (nickname.isEmpty() || nickname.codePointCount(0, nickname.length()) > 24 || nickname.length() > 40
                 || nickname.codePoints().anyMatch(Character::isISOControl)) {
             throw new IllegalArgumentException("nickname must be 1-24 characters without control characters");
         }
-        UserPublicProfile profile = getOrCreate(userId);
-        profile.setNickname(nickname);
-        return view(profiles.save(profile));
+        return nickname;
     }
 
     public ProfileView updateAvatar(long userId, String dataUrl) {
