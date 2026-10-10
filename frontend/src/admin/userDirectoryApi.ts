@@ -96,3 +96,10 @@ export function updateAdminUserValue(adminSessionToken: string, userId: number, 
     body: JSON.stringify({ valueCode, reason }),
   })
 }
+
+export function updateAdminUserNickname(adminSessionToken: string, userId: number, nickname: string) {
+  return request<{ userId: number; nickname: string | null }>(`/admin/distribution/user-platform-profiles/${userId}/nickname`, {
+    method: 'POST', headers: { 'X-Admin-Session': adminSessionToken },
+    body: JSON.stringify({ nickname }),
+  })
+}

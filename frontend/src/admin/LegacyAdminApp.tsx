@@ -159,7 +159,7 @@ type UserGradeDashboardResponse,
 type UserGradeLevelDashboardResponse,
 type UserPointDashboardResponse
 } from '../api'
-import { getAdminUserPlatformProfiles, getAdminUserDirectoryOptions, updateAdminUserOperator, updateAdminUserValue, type UserDirectoryOptions, type UserPlatformProfileListResponse } from './userDirectoryApi'
+import { getAdminUserPlatformProfiles, getAdminUserDirectoryOptions, updateAdminUserNickname, updateAdminUserOperator, updateAdminUserValue, type UserDirectoryOptions, type UserPlatformProfileListResponse } from './userDirectoryApi'
 import { changeAdminPassword, createAdminSession, getCurrentAdminSession, logoutAdminSession, logoutAllAdminSessions } from './authApi'
 import {
 buildLinkyReplaySummary,
@@ -289,6 +289,14 @@ const ADMIN_ROLE_OPTIONS = [
   { value: 'finance', label: '财务' }, { value: 'customer_support', label: '客服' },
   { value: 'mentor', label: '导师' }, { value: 'team_leader', label: '团队负责人' },
 ]
+
+function validAdminNickname(value: string): boolean {
+  const characters = Array.from(value.trim())
+  return characters.length <= 24 && characters.every((character) => {
+    const code = character.charCodeAt(0)
+    return code >= 32 && (code < 127 || code > 159)
+  })
+}
 
 const mentorQualificationLanguages: Record<string, { code: string; label: string }> = {
   BR: { code: 'pt-br', label: '葡萄牙语' },
@@ -530,6 +538,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [userPlatformAppliedQuery, setUserPlatformAppliedQuery] = useState<UserPlatformQuery>(userPlatformQuery)
   const [userDirectoryOptions, setUserDirectoryOptions] = useState<UserDirectoryOptions | null>(null)
   const [userOperationsDraft, setUserOperationsDraft] = useState<{ userId: number; field: 'operator' | 'value'; target: string; current: string; reason: string } | null>(null)
+  const [userNicknameDraft, setUserNicknameDraft] = useState<{ userId: number; current: string; target: string } | null>(null)
   const [userCountryDraft, setUserCountryDraft] = useState<{ userId: number; currentCountryCode: string; targetCountryCode: string } | null>(null)
   const [userPasswordDraft, setUserPasswordDraft] = useState<{ userId: number; nickname: string | null; phoneNumber: string; mode: 'set' | 'disable'; alreadyEnabled: boolean; password: string; confirmPassword: string } | null>(null)
   const [platformGuildDirectoryPlatform, setPlatformGuildDirectoryPlatform] = useState<'LINKY' | 'TIMO'>('LINKY')
@@ -607,6 +616,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const canManageTeams = canManageTeamsInAdmin(adminSession?.role)
   const canManageLinkyInvitationGuild = ['super_admin', 'admin'].includes(adminSession?.role?.toLowerCase() ?? '')
   const canManageUserCountry = ['super_admin', 'admin', 'operations'].includes(adminSession?.role?.toLowerCase() ?? '')
+  const canManageUserNickname = canManageUserCountry
   const canManageUserPasswordLogin = adminSession?.role?.toLowerCase() === 'super_admin'
   const canManageUserOperations = adminSession?.role?.toLowerCase() === 'super_admin'
   const linkyGuildOptions = useMemo(() => {
@@ -1291,6 +1301,28 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   function openUserOperationsDialog(item: UserPlatformProfileListResponse['items'][number], field: 'operator' | 'value') {
     const current = field === 'operator' ? String(item.operatorAdminId ?? '') : item.valueCode || 'GENERAL'
     setUserOperationsDraft({ userId: item.userId, field, current, target: current, reason: '' })
+  }
+
+  function openUserNicknameDialog(item: UserPlatformProfileListResponse['items'][number]) {
+    setUserNicknameDraft({ userId: item.userId, current: item.nickname ?? '', target: item.nickname ?? '' })
+  }
+
+  async function saveUserNickname() {
+    if (!adminSession || !canManageUserNickname || !userNicknameDraft) return
+    const draft = userNicknameDraft
+    const target = draft.target.trim()
+    if (target === draft.current || !validAdminNickname(target)) return
+    setLoading(true)
+    setError('')
+    setSuccessMessage('')
+    try {
+      await updateAdminUserNickname(adminSession.sessionToken, draft.userId, target)
+      setUserNicknameDraft(null)
+      await loadUserPlatformProfiles()
+      setSuccessMessage(`用户 #${draft.userId} 的昵称已${target ? '更新' : '清空'}。`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '保存用户昵称失败')
+    } finally { setLoading(false) }
   }
 
   async function saveUserOperations() {
@@ -3491,11 +3523,13 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             canManageLinkyInvitationGuild={canManageLinkyInvitationGuild}
             canManagePasswordLogin={canManageUserPasswordLogin}
             canManageOperations={canManageUserOperations}
+            canManageNickname={canManageUserNickname}
             onCopyInviteCode={(inviteCode) => { void handleCopyInviteCode(inviteCode) }}
             onAdjustCountry={openUserCountryDialog}
             onAdjustLinkyInvitationGuild={openLinkyInvitationGuildOverride}
             onPasswordLogin={openUserPasswordDialog}
             onEditOperations={openUserOperationsDialog}
+            onEditNickname={openUserNicknameDialog}
           /> : null}
 
           {canViewHighValueRanking && activeAdminSection === 'highValueRanking' && adminSession ? <LegacyHighValueRankingSection sessionToken={adminSession.sessionToken} /> : null}
@@ -4307,6 +4341,24 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           <label>处理结论<select value={incomeExceptionReviewForm.reviewStatus} onChange={(event) => setIncomeExceptionReviewForm({ ...incomeExceptionReviewForm, reviewStatus: event.target.value as 'ACKNOWLEDGED' | 'IGNORED' })}><option value="ACKNOWLEDGED">已知悉，待后续处理</option><option value="IGNORED">确认不纳入本次处理</option></select></label>
           <label className="top-gap">复核备注<textarea value={incomeExceptionReviewForm.reviewNote} maxLength={255} onChange={(event) => setIncomeExceptionReviewForm({ ...incomeExceptionReviewForm, reviewNote: event.target.value })} placeholder="说明已核对的依据、后续负责人或不纳入原因" /></label>
           <InlineHint text="保存复核结论不会改变 MCN 原始事实、绑定状态、候选测算或任何财务数据。" />
+        </ConfirmDialog>
+      ) : null}
+
+      {userNicknameDraft ? (
+        <ConfirmDialog
+          title={`修改用户昵称 · 用户 #${userNicknameDraft.userId}`}
+          tone="primary"
+          confirmText="保存昵称"
+          loading={loading}
+          confirmDisabled={userNicknameDraft.target.trim() === userNicknameDraft.current || !validAdminNickname(userNicknameDraft.target)}
+          onCancel={() => setUserNicknameDraft(null)}
+          onConfirm={() => void saveUserNickname()}
+        >
+          <InfoRow label="当前昵称" value={userNicknameDraft.current || '-'} />
+          <label className="dialog-field">新昵称
+            <input maxLength={40} value={userNicknameDraft.target} onChange={(event) => setUserNicknameDraft({ ...userNicknameDraft, target: event.target.value })} placeholder="留空可清空昵称" />
+          </label>
+          <InlineHint text="昵称最多 24 个字符；留空后用户列表显示“-”。保存会同步更新用户资料，并记录管理员变更审计。" />
         </ConfirmDialog>
       ) : null}
 

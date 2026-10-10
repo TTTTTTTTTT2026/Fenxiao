@@ -11,7 +11,7 @@ const { Text, Title } = Typography
 
 const columns: ProColumns<UserPlatformProfileItem>[] = [
   { title: '用户 ID', dataIndex: 'userId', hideInTable: true, fieldProps: { inputMode: 'numeric', placeholder: '留空查看最近注册用户' } },
-  { title: '用户', key: 'user', width: 135, search: false, render: (_, item) => <Space direction="vertical" size={0}><Text strong>#{item.userId}</Text><Text type="secondary">{item.nickname || '未设置昵称'}</Text></Space> },
+  { title: '用户', key: 'user', width: 135, search: false, render: (_, item) => <Space direction="vertical" size={0}><Text strong>#{item.userId}</Text><Text type="secondary">{item.nickname?.trim() || '-'}</Text></Space> },
   { title: '邀请码', dataIndex: 'inviteCode', width: 130, search: false, renderText: (value: string) => value || '-' },
   { title: '归属国家', dataIndex: 'countryCode', width: 105, search: false, renderText: (value: string) => formatCountryNameZh(value) },
   { title: '用户等级', dataIndex: 'userGradeCode', width: 110, search: false, renderText: (value: string) => formatConsumerUserGrade(value, 'zh') },
