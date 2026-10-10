@@ -67,12 +67,15 @@ import loginHeroPt800 from './assets/login-hero/login-hero-pt-BR-v1-800.webp'
 import loginHeroZh1600 from './assets/login-hero/login-hero-zh-v1-1600.webp'
 import loginHeroZh800 from './assets/login-hero/login-hero-zh-v1-800.webp'
 import { isAvatarValidationError,prepareAvatarDataUrl } from './avatarUpload'
+import InvitationProgressPanel from './InvitationProgressPanel'
 import { ConsumerUnboundDialog,ConsumerUnboundGuidance } from './consumerWorkspaceGuidance'
 import { canOpenEarningsWorkspace,resolveConsumerAccountWorkspace } from './consumerWorkspaceView'
+import { effectiveTeamCount } from './consumerTeamState'
 import PartnerPortal from './PartnerPortal'
 import { internalPhoneCodeNotice } from './phoneCodeNotice'
 import { consumerEntryOrigin } from './publicEntries'
 import { formatConsumerUserGrade,phoneCountries,type ConsumerLocale } from './shared/catalog'
+import { CLIENT_COUNTRY_KEY,initialClientCountry,languageForLocale,suggestedClientCountry,type ClientCountryCode } from './shared/consumerEntryPreferences'
 import { formatMoney,formatPhoneNumber,normalizeLocalPhoneNumber } from './shared/legacyFormatting'
 import { EXTERNAL_LOCALE_KEY,loadExternalLocale,loadJsonState,saveUserSession,STORAGE_KEY,type SessionState } from './shared/legacySession'
 
@@ -901,6 +904,21 @@ const platformBindingProofCopy: Record<ConsumerLocale, { ownership: string; trac
   pt: { ownership: 'Verificação de titularidade', traceable: 'Registro rastreável' },
 }
 
+const timoHelpCopy: Record<ConsumerLocale, { findId: string; waiting: string; technical: string; manual: string }> = {
+  zh: { findId: '获取 Timo ID：打开 Timo APP → 打开「我」的页面 → 复制 12 位数字 ID。', waiting: '正在等待最新的公会记录，尚未得出核验结果。', technical: '核验服务暂时无法返回结果，系统会自动重试；这并不表示您的账号不合格。', manual: '自动核验未能完成，已转人工处理；请联系运营人员，无需反复提交。' },
+  en: { findId: 'Find your Timo ID: open the Timo app → Me → copy the 12-digit ID.', waiting: 'Waiting for the latest guild record. No verification decision yet.', technical: 'The verification service is temporarily unavailable. The system will retry automatically; your account has not been rejected.', manual: 'Automatic verification could not finish. Please contact support for manual review; do not submit repeatedly.' },
+  es: { findId: 'Busca tu ID de Timo: abre Timo → Yo → copia el ID de 12 dígitos.', waiting: 'Esperando el registro más reciente del gremio; aún no hay resultado.', technical: 'El servicio de verificación no está disponible. El sistema reintentará automáticamente; tu cuenta no ha sido rechazada.', manual: 'La verificación automática no terminó. Contacta al equipo para una revisión manual; no envíes varias veces.' },
+  id: { findId: 'Temukan ID Timo: buka aplikasi Timo → Saya → salin ID 12 digit.', waiting: 'Menunggu data guild terbaru; belum ada keputusan verifikasi.', technical: 'Layanan verifikasi sementara tidak dapat memberi hasil. Sistem akan mencoba lagi; akun Anda belum ditolak.', manual: 'Verifikasi otomatis belum selesai. Hubungi tim dukungan untuk pemeriksaan manual; jangan kirim berulang kali.' },
+  pt: { findId: 'Encontre seu ID Timo: abra o aplicativo Timo → Eu → copie o ID de 12 dígitos.', waiting: 'Aguardando o registro mais recente da guilda; ainda não há resultado.', technical: 'O serviço de verificação está indisponível. O sistema tentará novamente; sua conta não foi rejeitada.', manual: 'A verificação automática não terminou. Contate o suporte para revisão manual; não envie várias vezes.' },
+}
+
+function timoPendingState(binding: PlatformBindingResponse, locale: ConsumerLocale): string {
+  if (binding.verificationState === 'MANUAL_REVIEW_REQUIRED') return timoHelpCopy[locale].manual
+  if (binding.verificationState === 'ERROR') return timoHelpCopy[locale].technical
+  if (binding.verificationState === 'SOURCE_STALE') return timoHelpCopy[locale].waiting
+  return timoBindingCopy[locale].submitted
+}
+
 const invitePageCopyByLocale = {
   zh: {
     shareTitle: 'BANDEIRA 邀请',
@@ -1310,13 +1328,14 @@ function InviteCodePage() {
   const [locale, setLocale] = useState<keyof typeof externalPageCopyByLocale>(() => loadExternalLocale())
   const [loginMode, setLoginMode] = useState<'phone' | 'password'>(() => typeof window !== 'undefined' && window.location.hash === '#password-login' ? 'password' : 'phone')
   const [loginPassword, setLoginPassword] = useState('')
+  const [countryManuallyChosen, setCountryManuallyChosen] = useState(() => typeof window !== 'undefined' && !!window.localStorage.getItem(CLIENT_COUNTRY_KEY))
   const incomingInviteCode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('inviteCode')?.trim().toUpperCase() ?? '' : ''
   const [phoneForm, setPhoneForm] = useState({
     phoneNumber: '',
     verificationCode: '',
     inviteCode: incomingInviteCode || session?.inviteCode || '',
-    countryCode: clientPhoneCountries.some((country) => country.countryCode === session?.countryCode) ? session!.countryCode : 'BR',
-    languageCode: session?.languageCode ?? 'pt-br',
+    countryCode: initialClientCountry(loadExternalLocale(), session?.countryCode),
+    languageCode: session?.languageCode ?? languageForLocale(loadExternalLocale()),
   })
   const [phoneCodeHint, setPhoneCodeHint] = useState('')
   const [phoneCodeCooldownSeconds, setPhoneCodeCooldownSeconds] = useState(0)
@@ -1330,6 +1349,19 @@ function InviteCodePage() {
   const loginHero = consumerLoginHero[locale]
   const selectedPhoneCountry = clientPhoneCountries.find((country) => country.countryCode === phoneForm.countryCode) ?? clientPhoneCountries[0]
   const phoneNumberForSubmission = formatPhoneNumber(selectedPhoneCountry.callingCode, phoneForm.phoneNumber)
+
+  function changeLoginLocale(next: ConsumerLocale) {
+    setLocale(next)
+    setPhoneForm((current) => ({ ...current, languageCode: languageForLocale(next),
+      countryCode: !countryManuallyChosen && !current.phoneNumber && !current.verificationCode && !phoneCodeCooldownSeconds
+        ? suggestedClientCountry(next) : current.countryCode }))
+  }
+
+  function choosePhoneCountry(countryCode: ClientCountryCode) {
+    setCountryManuallyChosen(true)
+    window.localStorage.setItem(CLIENT_COUNTRY_KEY, countryCode)
+    setPhoneForm((current) => ({ ...current, countryCode }))
+  }
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -1424,7 +1456,7 @@ function InviteCodePage() {
       })
       const nextSession = saveUserSession(profile)
       setSession(nextSession)
-      setPhoneForm({ ...phoneForm, inviteCode: profile.inviteCode, countryCode: profile.countryCode, languageCode: profile.languageCode })
+      setPhoneForm({ ...phoneForm, inviteCode: profile.inviteCode, countryCode: profile.countryCode as ClientCountryCode, languageCode: profile.languageCode })
       window.location.assign('/app')
     } catch (err) {
       setError(localizeInviteOperationError(err, locale, 'signIn'))
@@ -1464,7 +1496,7 @@ function InviteCodePage() {
           <a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />BANDEIRA</a>
           <div className="consumer-topbar-actions">
             <label className="consumer-language-select">
-              <select aria-label={copy.languageLabel} value={locale} onChange={(event) => setLocale(event.target.value as keyof typeof externalPageCopyByLocale)}>
+              <select aria-label={copy.languageLabel} value={locale} onChange={(event) => changeLoginLocale(event.target.value as ConsumerLocale)}>
                 <option value="zh">中文</option><option value="en">English</option><option value="es">Español</option><option value="id">Bahasa Indonesia</option><option value="pt">Português</option>
               </select>
             </label>
@@ -1519,7 +1551,7 @@ function InviteCodePage() {
                 <select
                   aria-label={inviteCopy.countryCallingCodeLabel}
                   value={selectedPhoneCountry.countryCode}
-                  onChange={(event) => setPhoneForm({ ...phoneForm, countryCode: event.target.value })}
+                  onChange={(event) => choosePhoneCountry(event.target.value as ClientCountryCode)}
                 >
                   {clientPhoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names[locale]} {country.callingCode}</option>)}
                 </select>
@@ -1542,7 +1574,7 @@ function InviteCodePage() {
             <label className="consumer-field">
               <span>{inviteCopy.phoneLabel}</span>
               <div className="consumer-phone-input">
-                <select aria-label={inviteCopy.countryCallingCodeLabel} value={selectedPhoneCountry.countryCode} onChange={(event) => setPhoneForm({ ...phoneForm, countryCode: event.target.value })}>
+                <select aria-label={inviteCopy.countryCallingCodeLabel} value={selectedPhoneCountry.countryCode} onChange={(event) => choosePhoneCountry(event.target.value as ClientCountryCode)}>
                   {clientPhoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names[locale]} {country.callingCode}</option>)}
                 </select>
                 <input value={phoneForm.phoneNumber} onChange={(event) => setPhoneForm({ ...phoneForm, phoneNumber: normalizeLocalPhoneNumber(event.target.value, selectedPhoneCountry.callingCode) })} placeholder={inviteCopy.phonePlaceholder} inputMode="tel" autoComplete="username" />
@@ -1554,6 +1586,8 @@ function InviteCodePage() {
           </form>}
           <button type="button" className="consumer-login-switch" onClick={() => switchLoginMode(loginMode === 'phone' ? 'password' : 'phone')}>{loginMode === 'phone' ? passwordCopy.switchToPassword : passwordCopy.switchToPhone}</button>
         </>}
+
+        {session ? <InvitationProgressPanel key={workspace?.selected || 'TIMO'} userId={session.userId} accessToken={session.accessToken} locale={locale} initialPlatform={workspace?.selected || 'TIMO'} /> : null}
 
         {session ? <ConsumerBottomNavigation locale={locale} active="invite" /> : null}
       </main>
@@ -1567,6 +1601,7 @@ function AccountPage() {
   const [workspace, setWorkspace] = useState<ConsumerWorkspaceResponse | null>(null)
   const [workspaceError, setWorkspaceError] = useState(false)
   const [workspaceDialogOpen, setWorkspaceDialogOpen] = useState(false)
+  const [firstBindingDialogOpen, setFirstBindingDialogOpen] = useState(false)
   const [switchingWorkspace, setSwitchingWorkspace] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
   const [linkyBinding, setLinkyBinding] = useState<LinkyAccountBindingResponse | null>(null)
@@ -1589,7 +1624,10 @@ function AccountPage() {
     if (!session) return
     let active = true
     void getConsumerWorkspace(session.userId, session.accessToken)
-      .then((value) => { if (active) setWorkspace(value) })
+      .then((value) => {
+        if (!active) return
+        setWorkspace(value)
+      })
       .catch(() => { if (active) setWorkspaceError(true) })
     void getVerifiedLinkyAccountBinding(session.userId, session.accessToken)
       .then((value) => { if (active) setLinkyBinding(value) })
@@ -1605,6 +1643,17 @@ function AccountPage() {
     return () => { active = false }
   }, [session])
 
+  useEffect(() => {
+    if (!session || !workspace || linkyStatusLoading || timoStatusLoading || linkyStatusError || timoStatusError
+        || workspace.apps.some((app) => app.verified) || linkyBinding
+        || timoBinding?.status === 'SUBMITTED' || timoBinding?.status === 'VERIFYING' || timoBinding?.status === 'VERIFIED') return
+    const key = `fenxiao-binding-guidance-${session.userId}`
+    if (window.sessionStorage.getItem(key)) return
+    window.sessionStorage.setItem(key, 'shown')
+    const timer = window.setTimeout(() => setFirstBindingDialogOpen(true), 0)
+    return () => window.clearTimeout(timer)
+  }, [session, workspace, linkyStatusLoading, timoStatusLoading, linkyStatusError, timoStatusError, linkyBinding, timoBinding])
+
   const statusCopy = {
     zh: { unbound: '未绑定', submitted: '绑定中', verifying: '核验中', verified: '已绑定', rejected: '核验未通过', loading: '状态读取中', error: '状态暂不可用', view: '查看详情' },
     en: { unbound: 'Not bound', submitted: 'Binding', verifying: 'Verifying', verified: 'Bound', rejected: 'Not verified', loading: 'Loading status', error: 'Status unavailable', view: 'View details' },
@@ -1614,7 +1663,9 @@ function AccountPage() {
   }[locale]
   const timoStatus = timoStatusLoading ? statusCopy.loading : timoStatusError ? statusCopy.error
     : timoBinding?.status === 'VERIFIED' ? statusCopy.verified
-      : timoBinding?.status === 'VERIFYING' ? statusCopy.verifying
+      : timoBinding?.status === 'VERIFYING' ? timoBinding.verificationState === 'MANUAL_REVIEW_REQUIRED' ? timoHelpCopy[locale].manual
+        : timoBinding.verificationState === 'ERROR' ? timoHelpCopy[locale].technical
+          : timoBinding.verificationState === 'SOURCE_STALE' ? timoHelpCopy[locale].waiting : statusCopy.verifying
         : timoBinding?.status === 'SUBMITTED' ? statusCopy.submitted
           : timoBinding?.status === 'REJECTED' ? statusCopy.rejected : statusCopy.unbound
   const linkyStatus = linkyStatusLoading ? statusCopy.loading : linkyStatusError ? statusCopy.error
@@ -1698,6 +1749,7 @@ function AccountPage() {
                 <button className="consumer-workspace-close" type="button" onClick={() => setWorkspaceDialogOpen(false)}>{workCopy.close}</button>
               </section>
             </div> : null}
+            {firstBindingDialogOpen ? <ConsumerUnboundDialog locale={locale} onClose={() => setFirstBindingDialogOpen(false)} /> : null}
           </>
         ) : (
           <section className="consumer-auth-gate"><div className="consumer-auth-icon"><LockSimple weight="duotone" aria-hidden="true" /></div><h1>{copy.signInTitle}</h1><p>{copy.signInHint}</p><a className="consumer-primary-link" href="/invite#phone-login">{copy.signIn}<ArrowRight weight="bold" aria-hidden="true" /></a></section>
@@ -1781,7 +1833,6 @@ function TimoBindingPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const copy = timoBindingCopy[locale]
-  const proofCopy = platformBindingProofCopy[locale]
 
   useEffect(() => {
     if (typeof window !== 'undefined') window.localStorage.setItem(EXTERNAL_LOCALE_KEY, locale)
@@ -1811,8 +1862,9 @@ function TimoBindingPage() {
       const verified = await verifyPlatformBinding(session.userId, session.accessToken, 'TIMO')
       setBinding(verified)
       if (verified.status === 'VERIFIED') setSuccess(copy.verified)
-      else if (verified.status === 'REJECTED') setError(localizeTimoBindingError(verified.rejectionCode || verified.rejectionReason || '', locale))
-      else setSuccess(copy.pending)
+      else if (verified.status === 'REJECTED') setError(verified.verificationState === 'ERROR' ? timoHelpCopy[locale].technical
+        : localizeTimoBindingError(verified.rejectionCode || verified.rejectionReason || '', locale))
+      else setSuccess(timoPendingState(verified, locale))
     } catch (err) {
       setBinding(current)
       const message = err instanceof Error ? err.message.toLowerCase() : ''
@@ -1854,6 +1906,7 @@ function TimoBindingPage() {
 
   const isVerified = binding?.status === 'VERIFIED'
   const isRejected = binding?.status === 'REJECTED'
+  const isTechnicalRejection = isRejected && binding?.verificationState === 'ERROR'
 
   return (
     <div className="consumer-app-page">
@@ -1867,27 +1920,18 @@ function TimoBindingPage() {
         </header>
 
         {session ? <>
-          <section className="consumer-commercial-hero consumer-bind-hero">
-            <span className="consumer-visually-hidden">{copy.title}</span>
-            <div className="consumer-commercial-kicker"><Diamond weight="fill" aria-hidden="true" /> BANDEIRA REWARDS</div>
-            <h1>{copy.title}</h1>
-            <p>Timo · {copy.subtitle}</p>
-            <div className="consumer-commercial-proof">
-              <span><ShieldCheck weight="fill" aria-hidden="true" />{proofCopy.ownership}</span>
-              <span><LinkSimple weight="bold" aria-hidden="true" />{proofCopy.traceable}</span>
-            </div>
-          </section>
+          <h1 className="consumer-bind-title">{copy.title}</h1>
           {error ? <div className="consumer-banner is-error" role="alert">{error}</div> : null}
           {!error && success ? <div className="consumer-banner is-success" role="status"><CheckCircle size={20} weight="fill" />{success}</div> : null}
           <section className="consumer-form-card">
-            <div className="consumer-form-card-heading"><div><h2>{copy.account}</h2><p>{copy.hint}</p></div><IdentificationCard size={28} weight="duotone" /></div>
+            <div className="consumer-form-card-heading"><div><h2>{copy.account}</h2><p>{timoHelpCopy[locale].findId}</p></div><IdentificationCard size={28} weight="duotone" /></div>
             {isVerified ? <div className="consumer-form-note"><CheckCircle size={20} weight="fill" />{copy.verified}<br />Timo ID · {binding?.platformUserId}</div> : !binding ? (
               <form onSubmit={handleSubmit}>
                 <label className="consumer-field"><span>{copy.account}</span><input required value={timoId} onChange={(event) => setTimoId(event.target.value.replace(/\D/g, '').slice(0, 12))} placeholder={copy.placeholder} inputMode="numeric" autoComplete="off" pattern="[1-9][0-9]{11}" maxLength={12} /><small>{copy.hint}</small></label>
                 <button className="consumer-form-submit" type="submit" disabled={loading || !/^[1-9][0-9]{11}$/.test(timoId)}>{loading ? copy.verifying : copy.submit}</button>
               </form>
             ) : null}
-            {binding && !isVerified ? <div className="consumer-form-note"><strong>{isRejected ? copy.rejected : copy.submitted}</strong><span>Timo ID · {binding.platformUserId}</span>{isRejected && (binding.rejectionCode || binding.rejectionReason) ? <span>{localizeTimoBindingError(binding.rejectionCode || binding.rejectionReason || '', locale)}</span> : null}<button className="consumer-secondary-link" type="button" onClick={() => void handleRetryVerification()} disabled={loading}>{loading ? copy.verifying : copy.verifyAgain}</button></div> : null}
+            {binding && !isVerified ? <div className="consumer-form-note"><strong>{isTechnicalRejection ? timoHelpCopy[locale].technical : isRejected ? copy.rejected : timoPendingState(binding, locale)}</strong><span>Timo ID · {binding.platformUserId}</span>{isRejected && !isTechnicalRejection && (binding.rejectionCode || binding.rejectionReason) ? <span>{localizeTimoBindingError(binding.rejectionCode || binding.rejectionReason || '', locale)}</span> : null}{isRejected ? <button className="consumer-secondary-link" type="button" onClick={() => void handleRetryVerification()} disabled={loading}>{loading ? copy.verifying : copy.verifyAgain}</button> : null}</div> : null}
           </section>
         </> : <section className="consumer-auth-gate"><div className="consumer-auth-icon"><LockSimple weight="duotone" aria-hidden="true" /></div><h1>{copy.signInTitle}</h1><p>{copy.signInHint}</p><a className="consumer-primary-link" href="/invite#phone-login">{copy.signIn}<ArrowRight weight="bold" aria-hidden="true" /></a></section>}
         {session ? <ConsumerBottomNavigation locale={locale} active="account" /> : null}
@@ -1904,11 +1948,21 @@ const consumerWithdrawalCopy = {
   pt: { title: 'Gerenciar saques dos ganhos', close: 'Fechar', when: 'Quando os saques estarão disponíveis?', whenAnswer: 'A data ainda não foi definida. Acompanhe os anúncios oficiais.', how: 'Como os ganhos são pagos?', howAnswer: 'As recompensas por convite entram primeiro na conta de pontos e são liberadas após 7 dias. O método de saque será anunciado separadamente.' },
 } as const
 
+const teamLoadCopy: Record<ConsumerLocale, { failed: string; retry: string }> = {
+  zh: { failed: '团队数据暂时无法读取，当前人数不能按 0 计算。', retry: '重试' },
+  en: { failed: 'Team data is temporarily unavailable. The count is not zero.', retry: 'Retry' },
+  es: { failed: 'Los datos del equipo no están disponibles; el número no es cero.', retry: 'Reintentar' },
+  id: { failed: 'Data tim sementara tidak tersedia; jumlahnya bukan nol.', retry: 'Coba lagi' },
+  pt: { failed: 'Os dados da equipe estão indisponíveis; a contagem não é zero.', retry: 'Tentar novamente' },
+}
+
 function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' | 'activity' }) {
   const [session, setSession] = useState<SessionState | null>(() => loadJsonState<SessionState>(STORAGE_KEY))
   const [locale, setLocale] = useState<keyof typeof externalPageCopyByLocale>(() => loadExternalLocale())
   const [home, setHome] = useState<DistributionHomeResponse | null>(null)
   const [team, setTeam] = useState<EffectiveTeamResponse | null>(null)
+  const [teamError, setTeamError] = useState(false)
+  const [teamReload, setTeamReload] = useState(0)
   const [wallet, setWallet] = useState<InvitationRewardAccountResponse | null>(null)
   const [profile, setProfile] = useState<UserPublicProfileResponse | null>(null)
   const [selectedPlatform, setSelectedPlatform] = useState<'TIMO' | 'LINKY' | null>(null)
@@ -2002,12 +2056,13 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
         if (!verified) return
         const [homeData, teamData, walletData, profileData] = await Promise.all([
           getDistributionHome(session.userId, session.accessToken, platformCode),
-          getDistributionEffectiveTeam(session.userId, session.accessToken, platformCode).catch(() => null),
+          getDistributionEffectiveTeam(session.userId, session.accessToken, platformCode).catch(() => { setTeamError(true); return null }),
           getDistributionInvitationAccount(session.userId, session.accessToken, 0, 20, platformCode),
           getUserPublicProfile(session.userId, session.accessToken).catch(() => null),
         ])
         setHome(homeData)
         setTeam(teamData)
+        if (teamData) setTeamError(false)
         setWallet(walletData)
         setProfile(profileData)
       } catch (err) {
@@ -2025,7 +2080,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
     }
 
     void loadData()
-  }, [session, view, walletCopy.loadFailure, walletCopy.sessionExpired])
+  }, [session, view, teamReload, walletCopy.loadFailure, walletCopy.sessionExpired])
 
   async function loadMoreWallet() {
     if (!session || !selectedPlatform || !wallet || wallet.items.length >= wallet.totalRecords) return
@@ -2060,10 +2115,10 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   const availableReward = wallet?.availablePoints ?? 0
   const totalReward = wallet?.totalPoints ?? 0
   const frozenReward = wallet?.frozenPoints ?? 0
-  const effectiveUsersThisView = team?.total ?? home?.effectiveUsers ?? 0
+  const effectiveUsersThisView = effectiveTeamCount(team, teamError)
   const growthTarget = 10
-  const growthProgress = Math.min(100, Math.round((effectiveUsersThisView / growthTarget) * 100))
-  const growthRemaining = Math.max(0, growthTarget - effectiveUsersThisView)
+  const growthProgress = Math.min(100, Math.round(((effectiveUsersThisView ?? 0) / growthTarget) * 100))
+  const growthRemaining = Math.max(0, growthTarget - (effectiveUsersThisView ?? 0))
 
   if (session && workspaceLoaded && !selectedPlatform) {
     return <div className="consumer-app-page"><main className="consumer-shell consumer-detail-page">
@@ -2093,9 +2148,10 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
       {error ? <div className="consumer-banner is-error" role="alert">{error}</div> : null}
       {!session ? <a className="consumer-primary-link" href="/invite#phone-login">{walletCopy.signIn}</a> :
         view === 'effective' ? <section className="consumer-settings-card">
-          <h2>{walletCopy.effectiveCount(team?.total ?? 0)}</h2>
+          <h2>{teamError ? teamLoadCopy[locale].failed : effectiveUsersThisView === null ? copy.loading : walletCopy.effectiveCount(effectiveUsersThisView)}</h2>
           <p>{walletCopy.teamOverview}</p>
-          {loading ? <p>{copy.loading}</p> : team?.items.length ?
+          {teamError ? <button type="button" onClick={() => setTeamReload((value) => value + 1)}>{teamLoadCopy[locale].retry}</button> : null}
+          {loading ? <p>{copy.loading}</p> : teamError ? null : team?.items.length ?
             <div className="consumer-detail-member-list">{team.items.map((item) =>
               <div key={`${item.level}-${item.userId}`}><strong>#{item.userId}</strong><span>{item.level === 1 ? walletCopy.firstLevel : item.level === 2 ? walletCopy.secondLevel : walletCopy.thirdLevel} · {consumerCountryName(item.countryCode, locale)}</span></div>)}</div> :
             <div className="consumer-empty-state"><UsersThree weight="duotone" aria-hidden="true" /><p>{walletCopy.effectiveCount(0)}</p></div>}
@@ -2111,6 +2167,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
             <div className="consumer-empty-state"><Wallet weight="duotone" aria-hidden="true" /><p>{copy.emptyRewardsTitle}</p></div>}
           {wallet && wallet.items.length < wallet.totalRecords ? <button className="consumer-detail-load-more" type="button" onClick={() => void loadMoreWallet()} disabled={loading}>{loading ? copy.loading : walletCopy.loadMore}</button> : null}
         </section>}
+      {view === 'effective' && selectedPlatform && session ? <InvitationProgressPanel userId={session.userId} accessToken={session.accessToken} locale={locale} initialPlatform={selectedPlatform} allowSwitch={false} /> : null}
       {session ? <ConsumerBottomNavigation locale={locale} active="earnings" /> : null}
     </main></div>
   }
@@ -2186,7 +2243,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
                 </div>
                 <div>
                   <span>{copy.effectiveUsers}</span>
-                  <strong>{effectiveUsersThisView}</strong>
+                  <strong>{effectiveUsersThisView ?? '—'}</strong>
                 </div>
               </div>
             </section>
@@ -2194,21 +2251,16 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
             <a className="consumer-growth-card" href="/earnings/effective-users">
               <span className="consumer-growth-medal"><Medal weight="duotone" aria-hidden="true" /></span>
               <span className="consumer-growth-copy">
-                <span><strong>{walletCopy.growthTitle}</strong><b>{effectiveUsersThisView}<small>/{growthTarget}</small></b></span>
-                <i><em style={{ width: `${growthProgress}%` }} /></i>
-                <small>{growthRemaining > 0 ? <>{walletCopy.growthBefore}<strong>{growthRemaining}</strong>{walletCopy.growthAfter}</> : walletCopy.growthDone}</small>
+                <span><strong>{walletCopy.growthTitle}</strong><b>{effectiveUsersThisView ?? '—'}<small>/{growthTarget}</small></b></span>
+                {effectiveUsersThisView !== null ? <i><em style={{ width: `${growthProgress}%` }} /></i> : null}
+                <small>{teamError ? teamLoadCopy[locale].failed : effectiveUsersThisView === null ? copy.loading : growthRemaining > 0 ? <>{walletCopy.growthBefore}<strong>{growthRemaining}</strong>{walletCopy.growthAfter}</> : walletCopy.growthDone}</small>
               </span>
               <CaretRight weight="bold" aria-hidden="true" />
             </a>
 
-            <a className="consumer-team-summary" href="/earnings/effective-users">
-              <span className="consumer-card-title"><UsersThree weight="fill" aria-hidden="true" />{walletCopy.inviteOverview}</span>
+            <a className="consumer-commission-entry" href="/earnings/commission">
+              <span><strong>{commissionReportCopy[locale].title}</strong><small>{commissionReportCopy[locale].entryHint}</small></span>
               <CaretRight weight="bold" aria-hidden="true" />
-              <span className="consumer-team-summary-grid">
-                <span><small>{walletCopy.invitedUsers}</small><strong>{home?.directInvitedUsers ?? 0}</strong></span>
-                <span><small>{walletCopy.income}</small><strong>{formatMoney(wallet?.cumulativeIncomePoints, locale)} {walletCopy.unit}</strong></span>
-                <span><small>{walletCopy.total}</small><strong>{formatMoney(totalReward, locale)} {walletCopy.unit}</strong></span>
-              </span>
             </a>
 
             <section className="consumer-task-section">
@@ -2220,7 +2272,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
               <div className="consumer-task-list">
                 <a href="/invite"><span className="is-orange"><UserPlus weight="fill" /></span><div><strong>{walletCopy.inviteAction}</strong><small>{walletCopy.invitedCount(home?.directInvitedUsers ?? 0)}</small></div><b>{walletCopy.goInvite}</b></a>
                 <a href="/account"><span className="is-pink"><LinkSimple weight="bold" /></span><div><strong>{walletCopy.bindAction}</strong><small>{walletCopy.bindHint}</small></div><b>{walletCopy.goBind}</b></a>
-                <a href="/earnings/effective-users"><span className="is-green"><UsersThree weight="fill" /></span><div><strong>{walletCopy.followAction}</strong><small>{walletCopy.effectiveCount(effectiveUsersThisView)}</small></div><b>{walletCopy.viewTeam}</b></a>
+                <a href="/earnings/effective-users"><span className="is-green"><UsersThree weight="fill" /></span><div><strong>{walletCopy.followAction}</strong><small>{teamError ? teamLoadCopy[locale].failed : effectiveUsersThisView === null ? copy.loading : walletCopy.effectiveCount(effectiveUsersThisView)}</small></div><b>{walletCopy.viewTeam}</b></a>
                 <a href="/earnings/activity"><span className="is-purple"><Sparkle weight="fill" /></span><div><strong>{walletCopy.records}</strong><small>{walletCopy.recordsCount(wallet?.totalRecords ?? 0)}</small></div><b>{walletCopy.viewRecords}</b></a>
               </div>
             </section>
@@ -2265,11 +2317,6 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
                 </div>
               )}
             </section>
-
-            <a className="consumer-commission-entry" href="/earnings/commission">
-              <span><strong>{commissionReportCopy[locale].title}</strong><small>{commissionReportCopy[locale].entryHint}</small></span>
-              <CaretRight weight="bold" aria-hidden="true" />
-            </a>
 
             {withdrawalDialogOpen ? <div className="consumer-modal-backdrop" onClick={() => setWithdrawalDialogOpen(false)}>
               <section className="consumer-withdrawal-dialog" role="dialog" aria-modal="true" aria-label={withdrawalCopy.title} onClick={(event) => event.stopPropagation()}>
@@ -2321,6 +2368,7 @@ function CommissionReportPage({ directInviteeUserId }: { directInviteeUserId?: n
   const [endDate, setEndDate] = useState(() => initialParams.get('endDate') || utcReportDate())
   const [quick, setQuick] = useState<number | 'yesterday' | 'custom'>(() =>
     initialParams.has('startDate') || initialParams.has('endDate') ? 'custom' : 7)
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(() => initialParams.has('startDate') || initialParams.has('endDate'))
   const [platform, setPlatform] = useState<'TIMO' | 'LINKY' | null>(null)
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false)
   const [verified, setVerified] = useState(false)
@@ -2396,9 +2444,12 @@ function CommissionReportPage({ directInviteeUserId }: { directInviteeUserId?: n
       <p className="consumer-workspace-banner">{copy.app(consumerAppName(platform))}</p>
       <section className="consumer-settings-card consumer-commission-filters">
         <h2>{copy.period}</h2>
-        <div className="consumer-commission-quick">{(['yesterday', 3, 7, 14, 30, 60] as const).map((days) =>
+        <div className="consumer-commission-quick">{(['yesterday', 3, 7] as const).map((days) =>
           <button key={days} type="button" className={quick === days ? 'is-selected' : ''} onClick={() => chooseQuick(days)}>{days === 'yesterday' ? copy.yesterday : copy.recent(days)}</button>)}</div>
-        <div className="consumer-commission-dates"><label>{copy.start}<input type="date" value={startDate} max={utcReportDate()} onChange={(event) => { setQuick('custom'); setStartDate(event.target.value) }} /></label><label>{copy.end}<input type="date" value={endDate} max={utcReportDate()} onChange={(event) => { setQuick('custom'); setEndDate(event.target.value) }} /></label></div>
+        <button type="button" className="consumer-commission-more-filters" aria-expanded={advancedFiltersOpen} onClick={() => setAdvancedFiltersOpen((value) => !value)}>{({ zh: '更多日期选择', en: 'More dates', es: 'Más fechas', id: 'Pilihan tanggal lain', pt: 'Mais datas' } as const)[locale]}{!advancedFiltersOpen && quick !== 'yesterday' && quick !== 3 && quick !== 7 ? ` · ${quick === 'custom' ? copy.custom : copy.recent(quick)}` : ''} {advancedFiltersOpen ? '⌃' : '⌄'}</button>
+        {advancedFiltersOpen ? <><div className="consumer-commission-quick">{([14, 30, 60] as const).map((days) =>
+          <button key={days} type="button" className={quick === days ? 'is-selected' : ''} onClick={() => chooseQuick(days)}>{copy.recent(days)}</button>)}</div>
+          <div className="consumer-commission-dates"><label>{copy.start}<input type="date" value={startDate} max={utcReportDate()} onChange={(event) => { setQuick('custom'); setStartDate(event.target.value) }} /></label><label>{copy.end}<input type="date" value={endDate} max={utcReportDate()} onChange={(event) => { setQuick('custom'); setEndDate(event.target.value) }} /></label></div></> : null}
         {quick === 'custom' ? <small>{copy.custom} · {copy.period}</small> : null}
         {!valid ? <p className="consumer-commission-warning" role="alert">{copy.invalid}</p> : null}
       </section>

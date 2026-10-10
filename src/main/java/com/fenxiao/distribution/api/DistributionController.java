@@ -5,6 +5,7 @@ import com.fenxiao.distribution.api.dto.CreateProfileRequest;
 import com.fenxiao.distribution.api.dto.DistributionHomeResponse;
 import com.fenxiao.distribution.api.dto.EffectiveTeamResponse;
 import com.fenxiao.distribution.api.dto.InviteBindingResponse;
+import com.fenxiao.distribution.api.dto.InvitationProgressResponse;
 import com.fenxiao.distribution.api.dto.IssueInviteCodeRequest;
 import com.fenxiao.distribution.api.dto.IssueInviteCodeResponse;
 import com.fenxiao.distribution.api.dto.LinkyAccountBindingResponse;
@@ -25,6 +26,7 @@ import com.fenxiao.distribution.service.DistributionFrontendService;
 import com.fenxiao.distribution.service.ConsumerWorkspaceService;
 import com.fenxiao.distribution.service.InviteBindingRegistrationService;
 import com.fenxiao.distribution.service.InviteCodeIssueService;
+import com.fenxiao.distribution.service.InvitationProgressService;
 import com.fenxiao.distribution.service.LinkyRegistrationEligibilityService;
 import com.fenxiao.distribution.service.PhoneAuthService;
 import com.fenxiao.distribution.service.UserPasswordLoginService;
@@ -61,6 +63,7 @@ public class DistributionController {
     private final DistributionAccessGuard distributionAccessGuard;
     private final UserSessionService userSessionService;
     private final ConsumerWorkspaceService workspaces;
+    private final InvitationProgressService invitationProgress;
 
     public DistributionController(DistributionBindingService distributionBindingService,
                                   DistributionFrontendService distributionFrontendService,
@@ -72,7 +75,8 @@ public class DistributionController {
                                   UserPasswordLoginService userPasswordLoginService,
                                   DistributionAccessGuard distributionAccessGuard,
                                   UserSessionService userSessionService,
-                                  ConsumerWorkspaceService workspaces) {
+                                  ConsumerWorkspaceService workspaces,
+                                  InvitationProgressService invitationProgress) {
         this.distributionBindingService = distributionBindingService;
         this.distributionFrontendService = distributionFrontendService;
         this.inviteBindingRegistrationService = inviteBindingRegistrationService;
@@ -84,6 +88,7 @@ public class DistributionController {
         this.distributionAccessGuard = distributionAccessGuard;
         this.userSessionService = userSessionService;
         this.workspaces = workspaces;
+        this.invitationProgress = invitationProgress;
     }
 
     @GetMapping("/health")
@@ -212,6 +217,16 @@ public class DistributionController {
                                  @PathVariable Long userId) {
         distributionAccessGuard.assertUserAccess(userId, accessToken);
         return distributionFrontendService.getDirectTeam(userId);
+    }
+
+    @GetMapping("/team/{userId}/invitation-progress")
+    public InvitationProgressResponse invitationProgress(@RequestHeader("X-Distribution-Token") String accessToken,
+                                                          @PathVariable Long userId,
+                                                          @RequestParam(defaultValue = "TIMO") String platformCode,
+                                                          @RequestParam(defaultValue = "0") int page,
+                                                          @RequestParam(defaultValue = "20") int size) {
+        distributionAccessGuard.assertUserAccess(userId, accessToken);
+        return invitationProgress.get(userId, platformCode, page, size);
     }
 
     @GetMapping("/team/{userId}/weekly-income")

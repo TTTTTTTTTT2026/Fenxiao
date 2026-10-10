@@ -4,6 +4,8 @@ import com.fenxiao.common.security.DistributionAccessGuard;
 import com.fenxiao.platform.dto.*;
 import com.fenxiao.platform.service.PlatformBindingVerificationService;
 import com.fenxiao.platform.service.PlatformLifecycleService;
+import com.fenxiao.platform.entity.PlatformAccountBinding;
+import com.fenxiao.platform.repository.PlatformVerificationAttemptRepository;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,9 +14,19 @@ public class PlatformBindingController {
     private final DistributionAccessGuard accessGuard;
     private final PlatformLifecycleService service;
     private final PlatformBindingVerificationService bindingVerificationService;
+    private final PlatformVerificationAttemptRepository verificationAttempts;
     public PlatformBindingController(DistributionAccessGuard accessGuard, PlatformLifecycleService service,
-                                     PlatformBindingVerificationService bindingVerificationService) {
+                                     PlatformBindingVerificationService bindingVerificationService,
+                                     PlatformVerificationAttemptRepository verificationAttempts) {
         this.accessGuard = accessGuard; this.service = service; this.bindingVerificationService = bindingVerificationService;
+        this.verificationAttempts = verificationAttempts;
+    }
+
+    private PlatformBindingResponse withVerificationState(PlatformAccountBinding binding) {
+        if (binding.getId() == null || !"TIMO".equals(binding.getPlatformCode())) return PlatformBindingResponse.from(binding);
+        String latestOutcome = verificationAttempts.findTopByBindingIdOrderByAttemptedAtDesc(binding.getId())
+                .map(attempt -> attempt.getOutcome()).orElse(null);
+        return PlatformBindingResponse.from(binding, latestOutcome);
     }
 
     @PostMapping("/api/distribution/platform-bindings/{userId}")
@@ -22,7 +34,7 @@ public class PlatformBindingController {
                                           @PathVariable Long userId,
                                           @Valid @RequestBody SubmitPlatformBindingRequest request) {
         accessGuard.assertUserAccess(userId, token);
-        return PlatformBindingResponse.from(service.submit(userId, request.platformCode(), request.platformUserId()));
+        return withVerificationState(service.submit(userId, request.platformCode(), request.platformUserId()));
     }
 
     @GetMapping("/api/distribution/platform-lifecycle/{userId}/{platformCode}")
@@ -37,14 +49,14 @@ public class PlatformBindingController {
     public PlatformBindingResponse binding(@RequestHeader("X-Distribution-Token") String token,
                                            @PathVariable Long userId, @PathVariable String platformCode) {
         accessGuard.assertUserAccess(userId, token);
-        return PlatformBindingResponse.from(service.getBinding(userId, platformCode));
+        return withVerificationState(service.getBinding(userId, platformCode));
     }
 
     @PostMapping("/api/distribution/platform-bindings/{userId}/{platformCode}/verify")
     public PlatformBindingResponse verifySubmittedBinding(@RequestHeader("X-Distribution-Token") String token,
                                                            @PathVariable Long userId, @PathVariable String platformCode) {
         accessGuard.assertUserAccess(userId, token);
-        return PlatformBindingResponse.from(bindingVerificationService.verifySubmittedBinding(userId, platformCode));
+        return withVerificationState(bindingVerificationService.verifySubmittedBinding(userId, platformCode));
     }
 
     @PostMapping("/internal/distribution/platform-bindings/verify")
