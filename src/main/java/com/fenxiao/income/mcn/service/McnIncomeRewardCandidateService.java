@@ -4,8 +4,6 @@ import com.fenxiao.identity.domain.AccountStatus;
 import com.fenxiao.income.mcn.api.dto.McnIncomeRewardCandidateItemResponse;
 import com.fenxiao.income.mcn.api.dto.McnIncomeRewardCandidateSampleResponse;
 import com.fenxiao.income.mcn.api.dto.McnIncomeRewardCandidateSummaryResponse;
-import com.fenxiao.platform.domain.PlatformBindingStatus;
-import com.fenxiao.platform.repository.PlatformAccountBindingRepository;
 import com.fenxiao.platform.service.PlatformGuildCompanyShareService;
 import com.fenxiao.relationship.entity.InvitationRelationVersion;
 import com.fenxiao.relationship.repository.InvitationRelationVersionRepository;
@@ -41,7 +39,7 @@ public class McnIncomeRewardCandidateService {
     private static final String CALCULATION_VERSION = "INVITATION_COMPANY_INCOME_V2";
     private static final BigDecimal TEAM_REWARD_RESERVE_RATE = new BigDecimal("0.020000");
     private final JdbcTemplate jdbc;
-    private final PlatformAccountBindingRepository bindingRepository;
+    private final McnIncomeVerifiedAccounts verifiedAccounts;
     private final InvitationRelationVersionRepository invitationRepository;
     private final CommissionPolicyService commissionPolicies;
     private final UserDistributionProfileRepository userRepository;
@@ -49,13 +47,13 @@ public class McnIncomeRewardCandidateService {
     private final Clock clock;
 
     public McnIncomeRewardCandidateService(JdbcTemplate jdbc,
-                                           PlatformAccountBindingRepository bindingRepository,
+                                           McnIncomeVerifiedAccounts verifiedAccounts,
                                            InvitationRelationVersionRepository invitationRepository,
                                            CommissionPolicyService commissionPolicies,
                                            UserDistributionProfileRepository userRepository,
                                            PlatformGuildCompanyShareService companyShares,
                                            Clock clock) {
-        this.jdbc = jdbc; this.bindingRepository = bindingRepository; this.invitationRepository = invitationRepository;
+        this.jdbc = jdbc; this.verifiedAccounts = verifiedAccounts; this.invitationRepository = invitationRepository;
         this.commissionPolicies = commissionPolicies; this.userRepository = userRepository; this.companyShares = companyShares; this.clock = clock;
     }
 
@@ -133,9 +131,8 @@ public class McnIncomeRewardCandidateService {
             counts.blocked++; return;
         }
         LocalDateTime occurredAt = LocalDateTime.ofInstant(input.occurredAt(), ZoneOffset.UTC);
-        boolean bindingEffective = bindingRepository.findByUserIdAndPlatformCode(input.sourceUserId(), platform)
-                .filter(value -> value.getBindingStatus() == PlatformBindingStatus.VERIFIED)
-                .map(value -> value.getVerifiedAt() != null && !value.getVerifiedAt().isAfter(occurredAt)).orElse(false);
+        boolean bindingEffective = verifiedAccounts.byUser(platform, input.sourceUserId())
+                .map(value -> value.verifiedAt() != null && !value.verifiedAt().isAfter(occurredAt)).orElse(false);
         if (!bindingEffective) {
             writeBase(platform, input, input.sourceUserId(), "BLOCKED_BINDING_NOT_EFFECTIVE", "binding was not verified at the income occurrence time", now);
             counts.blocked++; return;

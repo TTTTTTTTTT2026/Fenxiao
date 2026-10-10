@@ -7,8 +7,8 @@ import com.fenxiao.income.mcn.domain.McnIncomeSettlementStatus;
 import com.fenxiao.income.mcn.entity.McnIncomeRawLedgerEvent;
 import com.fenxiao.income.mcn.repository.McnIncomeDeliveryReceiptRepository;
 import com.fenxiao.income.mcn.repository.McnIncomeRawLedgerEventRepository;
-import com.fenxiao.platform.entity.PlatformAccountBinding;
-import com.fenxiao.platform.repository.PlatformAccountBindingRepository;
+import com.fenxiao.distribution.entity.LinkyAccountBinding;
+import com.fenxiao.distribution.repository.LinkyAccountBindingRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -19,7 +19,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.Instant;
 import java.util.List;
@@ -38,14 +37,15 @@ class McnIncomeRawLedgerControllerTest {
 
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
-    @Autowired private PlatformAccountBindingRepository bindingRepository;
+    @Autowired private LinkyAccountBindingRepository bindingRepository;
     @Autowired private McnIncomeRawLedgerEventRepository eventRepository;
     @Autowired private McnIncomeDeliveryReceiptRepository receiptRepository;
 
     @Test
     void shouldRecordAResolvedMcnFactWithoutCallingTheRewardFlow() throws Exception {
-        PlatformAccountBinding binding = PlatformAccountBinding.submit(94001L, "LINKY", "51684621", LocalDateTime.of(2026, 9, 12, 8, 0));
-        binding.verify("22000448", LocalDateTime.of(2026, 9, 12, 8, 10), "MCN_LINKY", "request-1", LocalDateTime.of(2026, 9, 12, 8, 11));
+        LinkyAccountBinding binding = LinkyAccountBinding.createUnchecked("51684621");
+        binding.markEligible("22000448", "Test guild", 0L, "verified in test");
+        binding.attachRegistration(94001L, null, null);
         bindingRepository.save(binding);
 
         mockMvc.perform(post("/internal/distribution/mcn/income-ledger-deliveries")

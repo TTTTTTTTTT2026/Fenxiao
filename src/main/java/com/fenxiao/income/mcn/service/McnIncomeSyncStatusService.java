@@ -9,8 +9,6 @@ import com.fenxiao.income.mcn.external.McnIncomeFactsProperties;
 import com.fenxiao.income.mcn.repository.McnIncomeAccountSyncCheckpointRepository;
 import com.fenxiao.income.mcn.repository.McnIncomeSyncCheckpointRepository;
 import com.fenxiao.income.mcn.repository.McnIncomeSyncRunRepository;
-import com.fenxiao.platform.domain.PlatformBindingStatus;
-import com.fenxiao.platform.repository.PlatformAccountBindingRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -21,15 +19,15 @@ public class McnIncomeSyncStatusService {
     private final McnIncomeSyncCheckpointRepository checkpoints;
     private final McnIncomeSyncRunRepository runs;
     private final McnIncomeAccountSyncCheckpointRepository accountCheckpoints;
-    private final PlatformAccountBindingRepository bindings;
+    private final McnIncomeVerifiedAccounts verifiedAccounts;
     private final ObjectMapper json;
 
     public McnIncomeSyncStatusService(McnIncomeFactsProperties properties, McnIncomeSyncCheckpointRepository checkpoints,
                                       McnIncomeSyncRunRepository runs,
                                       McnIncomeAccountSyncCheckpointRepository accountCheckpoints,
-                                      PlatformAccountBindingRepository bindings, ObjectMapper json) {
+                                      McnIncomeVerifiedAccounts verifiedAccounts, ObjectMapper json) {
         this.properties = properties; this.checkpoints = checkpoints; this.runs = runs;
-        this.accountCheckpoints = accountCheckpoints; this.bindings = bindings; this.json = json;
+        this.accountCheckpoints = accountCheckpoints; this.verifiedAccounts = verifiedAccounts; this.json = json;
     }
 
     public McnIncomeSyncStatusResponse status() {
@@ -40,8 +38,8 @@ public class McnIncomeSyncStatusService {
     private McnIncomeSyncStatusResponse.PlatformStatus platform(String code) {
         McnIncomeSyncCheckpoint checkpoint = checkpoints.findById(code).orElse(null);
         McnIncomeSyncRun run = runs.findTopByPlatformCodeOrderByCompletedAtDescIdDesc(code).orElse(null);
-        var verifiedIds = bindings.findByBindingStatusAndPlatformCode(PlatformBindingStatus.VERIFIED, code).stream()
-                .map(binding -> binding.getPlatformUserId())
+        var verifiedIds = verifiedAccounts.list(code).stream()
+                .map(McnIncomeVerifiedAccounts.Account::platformUserId)
                 .filter(id -> id != null && !id.isBlank()).collect(java.util.stream.Collectors.toSet());
         List<McnIncomeAccountSyncCheckpoint> accountStates = accountCheckpoints.findByPlatformCode(code).stream()
                 .filter(state -> verifiedIds.contains(state.getPlatformUserId())).toList();

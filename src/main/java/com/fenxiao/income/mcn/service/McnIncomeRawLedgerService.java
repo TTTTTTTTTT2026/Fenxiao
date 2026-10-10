@@ -12,8 +12,6 @@ import com.fenxiao.income.mcn.entity.McnIncomeDeliveryReceipt;
 import com.fenxiao.income.mcn.entity.McnIncomeRawLedgerEvent;
 import com.fenxiao.income.mcn.repository.McnIncomeDeliveryReceiptRepository;
 import com.fenxiao.income.mcn.repository.McnIncomeRawLedgerEventRepository;
-import com.fenxiao.platform.domain.PlatformBindingStatus;
-import com.fenxiao.platform.repository.PlatformAccountBindingRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
@@ -37,18 +35,18 @@ public class McnIncomeRawLedgerService {
 
     private final McnIncomeDeliveryReceiptRepository receiptRepository;
     private final McnIncomeRawLedgerEventRepository eventRepository;
-    private final PlatformAccountBindingRepository bindingRepository;
+    private final McnIncomeVerifiedAccounts verifiedAccounts;
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
     public McnIncomeRawLedgerService(McnIncomeDeliveryReceiptRepository receiptRepository,
                                      McnIncomeRawLedgerEventRepository eventRepository,
-                                     PlatformAccountBindingRepository bindingRepository,
+                                     McnIncomeVerifiedAccounts verifiedAccounts,
                                      ObjectMapper objectMapper,
                                      Clock clock) {
         this.receiptRepository = receiptRepository;
         this.eventRepository = eventRepository;
-        this.bindingRepository = bindingRepository;
+        this.verifiedAccounts = verifiedAccounts;
         this.objectMapper = objectMapper;
         this.clock = clock;
     }
@@ -100,11 +98,10 @@ public class McnIncomeRawLedgerService {
             }
 
             String platformUserId = require(fact.platformUserId(), "platform user id");
-            var binding = bindingRepository.findByPlatformCodeAndPlatformUserId(platformCode, platformUserId)
-                    .filter(value -> value.getBindingStatus() == PlatformBindingStatus.VERIFIED);
+            var binding = verifiedAccounts.byAccount(platformCode, platformUserId);
             McnIncomeResolutionStatus resolutionStatus = binding.isPresent()
                     ? McnIncomeResolutionStatus.BOUND : McnIncomeResolutionStatus.UNMATCHED;
-            Long resolvedUserId = binding.map(value -> value.getUserId()).orElse(null);
+            Long resolvedUserId = binding.map(McnIncomeVerifiedAccounts.Account::userId).orElse(null);
             String resolutionReason = binding.isPresent()
                     ? "VERIFIED_PLATFORM_BINDING" : "NO_VERIFIED_PLATFORM_BINDING";
             if (resolutionStatus == McnIncomeResolutionStatus.UNMATCHED) {

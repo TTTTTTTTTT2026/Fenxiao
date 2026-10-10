@@ -105,7 +105,7 @@ class McnIncomeControlledReadOnlyServiceTest {
         properties.setCredentialId("credential");
         properties.setHmacSecret("secret");
         return new McnIncomeControlledReadOnlyService(client, properties, mock(McnIncomeRawLedgerService.class), events,
-                mock(PlatformAccountBindingRepository.class), runs,
+                mock(McnIncomeVerifiedAccounts.class), runs,
                 new ObjectMapper(), Clock.fixed(NOW, ZoneOffset.UTC));
     }
 }

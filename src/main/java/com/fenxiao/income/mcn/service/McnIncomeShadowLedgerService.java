@@ -12,8 +12,6 @@ import com.fenxiao.income.mcn.entity.McnIncomeDataQualityReview;
 import com.fenxiao.income.mcn.entity.McnIncomeRawLedgerEvent;
 import com.fenxiao.income.mcn.repository.McnIncomeDataQualityReviewRepository;
 import com.fenxiao.income.mcn.repository.McnIncomeRawLedgerEventRepository;
-import com.fenxiao.platform.domain.PlatformBindingStatus;
-import com.fenxiao.platform.repository.PlatformAccountBindingRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,21 +45,21 @@ public class McnIncomeShadowLedgerService {
             ON DUPLICATE KEY UPDATE raw_ledger_event_id=VALUES(raw_ledger_event_id), source_revision=VALUES(source_revision), business_date=VALUES(business_date), guild_id=VALUES(guild_id), resolved_user_id=VALUES(resolved_user_id), settlement_status=VALUES(settlement_status), event_type=VALUES(event_type), amount=VALUES(amount), amount_unit=VALUES(amount_unit), currency_code=VALUES(currency_code), shadow_status=VALUES(shadow_status), source_updated_at=VALUES(source_updated_at), projected_at=VALUES(projected_at)
             """;
     private final McnIncomeRawLedgerEventRepository rawEvents;
-    private final PlatformAccountBindingRepository bindings;
+    private final McnIncomeVerifiedAccounts verifiedAccounts;
     private final JdbcTemplate jdbc;
     private final Clock clock;
     private final McnIncomeDataQualityReviewRepository reviews;
     private final OperationAuditLogRepository audits;
 
-    public McnIncomeShadowLedgerService(McnIncomeRawLedgerEventRepository rawEvents, PlatformAccountBindingRepository bindings, JdbcTemplate jdbc, Clock clock) {
-        this(rawEvents, bindings, jdbc, clock, null, null);
+    public McnIncomeShadowLedgerService(McnIncomeRawLedgerEventRepository rawEvents, McnIncomeVerifiedAccounts verifiedAccounts, JdbcTemplate jdbc, Clock clock) {
+        this(rawEvents, verifiedAccounts, jdbc, clock, null, null);
     }
 
     @Autowired
-    public McnIncomeShadowLedgerService(McnIncomeRawLedgerEventRepository rawEvents, PlatformAccountBindingRepository bindings,
+    public McnIncomeShadowLedgerService(McnIncomeRawLedgerEventRepository rawEvents, McnIncomeVerifiedAccounts verifiedAccounts,
                                         JdbcTemplate jdbc, Clock clock, McnIncomeDataQualityReviewRepository reviews,
                                         OperationAuditLogRepository audits) {
-        this.rawEvents = rawEvents; this.bindings = bindings; this.jdbc = jdbc; this.clock = clock;
+        this.rawEvents = rawEvents; this.verifiedAccounts = verifiedAccounts; this.jdbc = jdbc; this.clock = clock;
         this.reviews = reviews; this.audits = audits;
     }
 
@@ -205,9 +203,7 @@ public class McnIncomeShadowLedgerService {
         Map<String, Long> result = new HashMap<>();
         for (int start = 0; start < accountIds.size(); start += BINDING_LOOKUP_BATCH_SIZE) {
             List<String> batch = accountIds.subList(start, Math.min(start + BINDING_LOOKUP_BATCH_SIZE, accountIds.size()));
-            for (var binding : bindings.findByPlatformCodeAndPlatformUserIdIn(platform, batch)) {
-                if (binding.getBindingStatus() == PlatformBindingStatus.VERIFIED) result.put(binding.getPlatformUserId(), binding.getUserId());
-            }
+            result.putAll(verifiedAccounts.owners(platform, batch));
         }
         return result;
     }

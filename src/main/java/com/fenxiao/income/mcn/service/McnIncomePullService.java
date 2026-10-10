@@ -18,9 +18,6 @@ import com.fenxiao.income.mcn.repository.McnIncomeSyncCheckpointRepository;
 import com.fenxiao.income.mcn.repository.McnIncomeAccountSyncCheckpointRepository;
 import com.fenxiao.income.mcn.repository.McnIncomeSyncRunRepository;
 import com.fenxiao.income.mcn.repository.McnIncomeRawLedgerEventRepository;
-import com.fenxiao.platform.domain.PlatformBindingStatus;
-import com.fenxiao.platform.entity.PlatformAccountBinding;
-import com.fenxiao.platform.repository.PlatformAccountBindingRepository;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
@@ -44,7 +41,7 @@ public class McnIncomePullService {
     private final McnIncomeRawLedgerService rawLedgerService;
     private final McnIncomeSyncCheckpointRepository checkpointRepository;
     private final McnIncomeAccountSyncCheckpointRepository accountCheckpointRepository;
-    private final PlatformAccountBindingRepository bindingRepository;
+    private final McnIncomeVerifiedAccounts verifiedAccounts;
     private final McnIncomeSyncRunRepository runRepository;
     private final McnIncomeRawLedgerEventRepository eventRepository;
     private final ApplicationEventPublisher events;
@@ -55,7 +52,7 @@ public class McnIncomePullService {
                                 McnIncomeRawLedgerService rawLedgerService,
                                 McnIncomeSyncCheckpointRepository checkpointRepository,
                                 McnIncomeAccountSyncCheckpointRepository accountCheckpointRepository,
-                                PlatformAccountBindingRepository bindingRepository,
+                                McnIncomeVerifiedAccounts verifiedAccounts,
                                 McnIncomeSyncRunRepository runRepository, McnIncomeRawLedgerEventRepository eventRepository,
                                 ApplicationEventPublisher events,
                                 ObjectMapper json, Clock clock) {
@@ -64,7 +61,7 @@ public class McnIncomePullService {
         this.rawLedgerService = rawLedgerService;
         this.checkpointRepository = checkpointRepository;
         this.accountCheckpointRepository = accountCheckpointRepository;
-        this.bindingRepository = bindingRepository;
+        this.verifiedAccounts = verifiedAccounts;
         this.runRepository = runRepository;
         this.eventRepository = eventRepository;
         this.events = events;
@@ -77,12 +74,12 @@ public class McnIncomePullService {
         if (!properties.isContinuousPullEnabled()) {
             throw new IllegalStateException("MCN income facts continuous pull is disabled or not configured");
         }
-        List<PlatformAccountBinding> accounts = verifiedAccounts(platform);
+        List<McnIncomeVerifiedAccounts.Account> accounts = verifiedAccounts.list(platform);
         if (accounts.isEmpty()) return new McnIncomePullResult(platform, "EMPTY_SCOPE", null, 0, 0, 0, 0, false, null);
-        PlatformAccountBinding account = accounts.stream().min(Comparator.comparing(binding -> accountCheckpointRepository
-                .findById(McnIncomeAccountSyncCheckpoint.key(platform, binding.getPlatformUserId()))
+        McnIncomeVerifiedAccounts.Account account = accounts.stream().min(Comparator.comparing(binding -> accountCheckpointRepository
+                .findById(McnIncomeAccountSyncCheckpoint.key(platform, binding.platformUserId()))
                 .map(McnIncomeAccountSyncCheckpoint::getLastSuccessAt).orElse(null), Comparator.nullsFirst(Comparator.naturalOrder()))).orElseThrow();
-        return pullNextPage(platform, account.getPlatformUserId());
+        return pullNextPage(platform, account.platformUserId());
     }
 
     private McnIncomePullResult pullNextPage(String platform, String platformUserId) {
@@ -200,17 +197,17 @@ public class McnIncomePullService {
         boolean deferred = false;
         String incompleteStatus = null;
         Integer incompleteRetryAfter = null;
-        List<PlatformAccountBinding> accounts = verifiedAccounts(platform).stream()
+        List<McnIncomeVerifiedAccounts.Account> accounts = verifiedAccounts.list(platform).stream()
                 .sorted(Comparator.comparing(binding -> accountCheckpointRepository
-                        .findById(McnIncomeAccountSyncCheckpoint.key(platform, binding.getPlatformUserId()))
+                        .findById(McnIncomeAccountSyncCheckpoint.key(platform, binding.platformUserId()))
                         .map(McnIncomeAccountSyncCheckpoint::getLastSuccessAt).orElse(null),
                         Comparator.nullsFirst(Comparator.naturalOrder())))
                 .toList();
-        for (PlatformAccountBinding account : accounts) {
+        for (McnIncomeVerifiedAccounts.Account account : accounts) {
             do {
                 if (pages >= safeMaxPages) return new McnIncomePullBatchResult(platform, "PARTIAL", pages,
                         received, added, duplicates, unmatched, true, null);
-                McnIncomePullResult page = pullNextPage(platform, account.getPlatformUserId());
+                McnIncomePullResult page = pullNextPage(platform, account.platformUserId());
                 if ("DEFERRED".equals(page.status())) { deferred = true; break; }
                 pages++; received += page.receivedCount(); added += page.newCount(); duplicates += page.duplicateCount(); unmatched += page.unmatchedCount();
                 if ("STALE".equals(page.status()) || "WAITING_FINALITY".equals(page.status())) {
@@ -257,13 +254,6 @@ public class McnIncomePullService {
         checkpoint.finishRecoveryWindow();
         accountCheckpointRepository.save(checkpoint);
         return new McnIncomePullResult(platform, "SUCCESS", null, 0, 0, 0, 0, true, null);
-    }
-
-    private List<PlatformAccountBinding> verifiedAccounts(String platform) {
-        return bindingRepository.findByBindingStatusAndPlatformCode(PlatformBindingStatus.VERIFIED, platform).stream()
-                .filter(binding -> binding.getPlatformUserId() != null && !binding.getPlatformUserId().isBlank())
-                .collect(java.util.stream.Collectors.toMap(PlatformAccountBinding::getPlatformUserId, value -> value, (left, right) -> left))
-                .values().stream().sorted(Comparator.comparing(PlatformAccountBinding::getPlatformUserId)).toList();
     }
 
     private void validatePageScope(McnIncomeFactsPage page, String platformUserId) {

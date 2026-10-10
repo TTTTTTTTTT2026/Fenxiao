@@ -20,6 +20,8 @@ import com.fenxiao.income.mcn.repository.McnIncomeRawLedgerEventRepository;
 import com.fenxiao.platform.domain.PlatformBindingStatus;
 import com.fenxiao.platform.entity.PlatformAccountBinding;
 import com.fenxiao.platform.repository.PlatformAccountBindingRepository;
+import com.fenxiao.distribution.entity.LinkyAccountBinding;
+import com.fenxiao.distribution.repository.LinkyAccountBindingRepository;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -177,7 +179,7 @@ class McnIncomePullServiceTest {
         properties.setCredentialId("test-credential");
         properties.setHmacSecret("test-secret");
         properties.setMaxPagesPerRun(10);
-        return new McnIncomePullService(client, properties, rawLedger, checkpoints, accountCheckpoints, bindings, runs,
+        return new McnIncomePullService(client, properties, rawLedger, checkpoints, accountCheckpoints, verifiedAccounts(bindings), runs,
                 mock(McnIncomeRawLedgerEventRepository.class), mock(org.springframework.context.ApplicationEventPublisher.class), new ObjectMapper(),
                 Clock.fixed(NOW, ZoneOffset.UTC));
     }
@@ -235,7 +237,7 @@ class McnIncomePullServiceTest {
         properties.setEnabled(true); properties.setBaseUrl("https://mcn.example.test");
         properties.setCredentialId("test-credential"); properties.setHmacSecret("test-secret");
         McnIncomePullService service = new McnIncomePullService(client, properties, rawLedger, checkpoints,
-                accountCheckpoints, bindings(), mock(McnIncomeSyncRunRepository.class), events,
+                accountCheckpoints, verifiedAccounts(bindings()), mock(McnIncomeSyncRunRepository.class), events,
                 mock(org.springframework.context.ApplicationEventPublisher.class), new ObjectMapper(),
                 Clock.fixed(NOW, ZoneOffset.UTC));
 
@@ -275,7 +277,7 @@ class McnIncomePullServiceTest {
         properties.setEnabled(true); properties.setBaseUrl("https://mcn.example.test");
         properties.setCredentialId("test-credential"); properties.setHmacSecret("test-secret");
         McnIncomePullService service = new McnIncomePullService(client, properties, rawLedger, checkpoints,
-                accountCheckpoints, bindings(), runs, mock(McnIncomeRawLedgerEventRepository.class),
+                accountCheckpoints, verifiedAccounts(bindings()), runs, mock(McnIncomeRawLedgerEventRepository.class),
                 publisher, new ObjectMapper(), Clock.fixed(NOW, ZoneOffset.UTC));
 
         assertThat(service.pullNextPage("LINKY").status()).isEqualTo("SUCCESS");
@@ -294,6 +296,16 @@ class McnIncomePullServiceTest {
         when(repository.findByBindingStatusAndPlatformCode(PlatformBindingStatus.VERIFIED, "TIMO")).thenReturn(List.of(timo));
         when(repository.findByBindingStatusAndPlatformCode(PlatformBindingStatus.VERIFIED, "LINKY")).thenReturn(List.of(linky));
         return repository;
+    }
+
+    private McnIncomeVerifiedAccounts verifiedAccounts(PlatformAccountBindingRepository bindings) {
+        LinkyAccountBindingRepository linky = mock(LinkyAccountBindingRepository.class);
+        LinkyAccountBinding eligible = mock(LinkyAccountBinding.class);
+        when(eligible.getUserId()).thenReturn(8L);
+        when(eligible.getLinkyAccount()).thenReturn("01234567");
+        when(linky.findByUserIdIsNotNullAndRegistrationEligibilityAndGuildCheckStatus("ELIGIBLE", "MATCHED_OURS"))
+                .thenReturn(List.of(eligible));
+        return new McnIncomeVerifiedAccounts(bindings, linky);
     }
 
     private McnIncomeFactsPage page(String platform, String deliveryId, String cursor, boolean hasMore) {

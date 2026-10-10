@@ -255,6 +255,9 @@ class InvitationRewardAccountServiceTest {
         jdbc.execute("CREATE TABLE invitation_relation_version(user_id BIGINT,inviter_user_id BIGINT,version_no INT,effective_from TIMESTAMP,effective_to TIMESTAMP)");
         jdbc.execute("CREATE TABLE user_public_profile(user_id BIGINT PRIMARY KEY,nickname VARCHAR(40))");
         new ResourceDatabasePopulator(new ClassPathResource("db/migration/V74__add_invitation_commission_report_projection.sql")).execute(source);
+        jdbc.execute("ALTER TABLE invitation_commission_report_event ADD COLUMN business_date DATE");
+        jdbc.execute("ALTER TABLE invitation_commission_report_event ADD COLUMN source_guild_id VARCHAR(64)");
+        jdbc.execute("ALTER TABLE invitation_commission_report_event ADD COLUMN occurred_at TIMESTAMP");
         return jdbc;
     }
 
