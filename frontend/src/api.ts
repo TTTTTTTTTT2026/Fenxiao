@@ -325,6 +325,7 @@ export type PlatformBindingResponse = {
   rejectionCode: string | null
   rejectionReason: string | null
   version: number
+  verificationState?: 'FOUND' | 'NOT_FOUND' | 'SOURCE_STALE' | 'ERROR' | 'MANUAL_REVIEW_REQUIRED' | null
 }
 export type PlatformVerificationRuntimeResponse = {
   source: 'MOCK' | 'MCN' | 'DISABLED' | string
@@ -445,6 +446,15 @@ export type TeamMemberItem = {
 export type TeamListResponse = {
   items: TeamMemberItem[]
   total: number
+}
+
+export type InvitationProgressResponse = {
+  platformCode: 'TIMO' | 'LINKY'
+  items: Array<{ userId: number; maskedPhone: string | null; registeredAt: string | null; bindingStatus: string }>
+  page: number
+  size: number
+  total: number
+  hasMore: boolean
 }
 
 export type EffectiveTeamResponse = {
@@ -1099,6 +1109,12 @@ export function getDistributionTeam(userId: number, accessToken: string) {
     headers: {
       'X-Distribution-Token': accessToken,
     },
+  })
+}
+
+export function getInvitationProgress(userId: number, accessToken: string, platformCode: 'TIMO' | 'LINKY', page = 0) {
+  return request<InvitationProgressResponse>(`/api/distribution/team/${userId}/invitation-progress?${new URLSearchParams({ platformCode, page: String(page), size: '20' })}`, {
+    headers: { 'X-Distribution-Token': accessToken },
   })
 }
 

@@ -6011,6 +6011,7 @@ code {
 .consumer-commission-dates label { display: grid; gap: 6px; color: #56504a; font-size: 13px; }
 .consumer-commission-dates input { min-width: 0; width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #e7dcd4; border-radius: 12px; background: #fff; color: #262525; font: inherit; }
 .consumer-commission-filters > small { display: block; margin-top: 8px; color: #756f68; }
+.consumer-commission-more-filters { border: 0; background: transparent; padding: 4px 0 8px; color: #d34e20; font: inherit; font-weight: 700; cursor: pointer; }
 .consumer-commission-warning { color: #a23628; background: #fff4f1; border-radius: 12px; padding: 10px 12px; }
 .consumer-commission-summary { margin: 8px 0 18px; }
 .consumer-commission-list { display: grid; }
@@ -6529,6 +6530,31 @@ code {
   font-size: 14px;
   line-height: 1.4;
 }
+
+/* Consumer flow: readable metrics and compact secondary actions on narrow screens. */
+.consumer-balance-metrics {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  row-gap: 12px;
+}
+.consumer-balance-metrics > div,
+.consumer-balance-metrics > div + div { padding: 4px 10px; border-left: 0; text-align: left; }
+.consumer-balance-metrics > div:nth-child(even) { border-left: 1px solid #eee4dc; }
+.consumer-balance-metrics > div:nth-child(n + 3) { border-top: 1px solid #eee4dc; padding-top: 12px; }
+.consumer-balance-metrics span,
+.consumer-balance-metrics strong { display: block; overflow: visible; white-space: normal; text-overflow: clip; overflow-wrap: anywhere; }
+.consumer-balance-metrics span { font-size: 12px; }
+.consumer-balance-metrics strong { font-size: 16px; }
+.consumer-commission-entry { margin-bottom: 18px; }
+.consumer-binding-priority { padding: 12px; border-radius: 12px; background: #fff0e9; color: #9a3c20; font-weight: 700; }
+.consumer-bind-title { margin: 10px 4px 16px; color: #342923; font-size: clamp(24px, 6vw, 32px); }
+.consumer-invitation-progress { margin: 18px 0 max(128px, calc(110px + env(safe-area-inset-bottom))); }
+.consumer-invitation-apps { display: flex; gap: 8px; margin: 12px 0; }
+.consumer-invitation-apps button { border: 1px solid #efd9cd; border-radius: 99px; background: #fffaf6; padding: 7px 14px; color: #704832; cursor: pointer; }
+.consumer-invitation-apps button.is-selected { color: #fff; background: #f15c22; border-color: #f15c22; }
+.consumer-invitation-list { display: grid; }
+.consumer-invitation-row { display: grid; gap: 4px; padding: 12px 0; border-top: 1px solid #f0e9e3; overflow-wrap: anywhere; }
+.consumer-invitation-row span { color: #675d57; font-size: 13px; }
+.consumer-invitation-row b { color: #db5428; }
 
 .consumer-field input,
 .consumer-input-with-icon input,
@@ -7155,3 +7181,8 @@ code {
 .consumer-unbound-dialog > h2 { margin: 0 0 10px; font-size: 21px; }
 .consumer-unbound-dialog > p { margin: 0 0 18px; color: #6a625c; line-height: 1.55; }
 .consumer-unbound-dialog-close { width: 100%; min-height: 44px; margin-top: 12px; border: 0; border-radius: 12px; background: #f5f1ee; color: #443c37; font: inherit; font-weight: 700; cursor: pointer; }
+@media (max-width: 480px) {
+  .consumer-balance-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .consumer-balance-metrics span { font-size: 12px; }
+  .consumer-balance-metrics strong { font-size: 16px; }
+}

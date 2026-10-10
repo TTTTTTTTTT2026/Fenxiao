@@ -31,10 +31,17 @@ export function ConsumerUnboundGuidance({ locale, variant = 'notice', bindHref =
 
 export function ConsumerUnboundDialog({ locale, error = false, onClose }: { locale: ConsumerLocale; error?: boolean; onClose: () => void }) {
   const copy = guidanceCopy[locale]
+  const bindingNotice: Record<ConsumerLocale, string> = {
+    zh: '需要完成任意平台的绑定并通过核验，才可以继续获得对应应用的额外收入。',
+    en: 'Bind and verify an app account before earning additional income from that app.',
+    es: 'Vincula y verifica una cuenta de aplicación para obtener ingresos adicionales de esa aplicación.',
+    id: 'Hubungkan dan verifikasi akun aplikasi agar dapat memperoleh penghasilan tambahan dari aplikasi tersebut.',
+    pt: 'Vincule e valide uma conta de aplicativo para obter ganhos adicionais desse aplicativo.',
+  }
   return <div className="consumer-modal-backdrop" onClick={onClose}>
     <section className="consumer-unbound-dialog" role="dialog" aria-modal="true" aria-label={error ? copy.errorTitle : copy.title} onClick={(event) => event.stopPropagation()}>
       {error ? <><h2>{copy.errorTitle}</h2><p>{copy.errorDetail}</p><a className="consumer-primary-link" href="/account">{copy.bind}<ArrowRight weight="bold" aria-hidden="true" /></a></>
-        : <ConsumerUnboundGuidance locale={locale} variant="gate" />}
+        : <><p className="consumer-binding-priority">{bindingNotice[locale]}</p><ConsumerUnboundGuidance locale={locale} variant="gate" /></>}
       <button type="button" className="consumer-unbound-dialog-close" onClick={onClose} autoFocus>{copy.close}</button>
     </section>
   </div>

@@ -154,12 +154,12 @@ describe('App external landing pages', () => {
 
     const markup = renderToStaticMarkup(<App />)
 
-    expect(markup).toContain('绑定 Timo 账号')
+    expect(markup).toContain('获取 Timo ID：打开 Timo APP')
     expect(markup).toContain('Timo ID（12 位数字）')
     expect(markup).toContain('首位非 0')
     expect(markup).toContain('pattern="[1-9][0-9]{11}"')
     expect(markup).toContain('maxLength="12"')
-    expect(markup).toContain('consumer-commercial-hero consumer-bind-hero')
+    expect(markup).not.toContain('consumer-commercial-hero consumer-bind-hero')
   })
 
   it('does not show member navigation on the account page before sign-in', () => {
@@ -249,10 +249,11 @@ describe('consumer locale coverage', () => {
     })
 
     const markup = renderToStaticMarkup(<App />)
-    expect(markup).toContain('Visão geral dos convites (esta semana)')
+    expect(markup).not.toContain('Visão geral dos convites (esta semana)')
     expect(markup).toContain('Como aumentar seus ganhos hoje')
     expect(markup).toContain('0,00 pontos')
     expect(markup).toContain('href="/earnings/effective-users"')
+    expect(markup.indexOf('consumer-commission-entry')).toBeLessThan(markup.indexOf('consumer-task-section'))
   })
 })
 

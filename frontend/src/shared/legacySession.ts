@@ -15,6 +15,11 @@ export function loadExternalLocale(): 'zh' | 'en' | 'es' | 'id' | 'pt' {
   if (typeof window === 'undefined') return 'zh'
   const value = window.localStorage.getItem(EXTERNAL_LOCALE_KEY)?.trim().toLowerCase().split(/[-_]/)[0]
   if (value === 'zh' || value === 'en' || value === 'es' || value === 'id' || value === 'pt') return value
+  const browserLanguages = window.navigator?.languages?.length ? window.navigator.languages : [window.navigator?.language]
+  for (const language of browserLanguages) {
+    const code = language?.trim().toLowerCase().split(/[-_]/)[0]
+    if (code === 'zh' || code === 'en' || code === 'es' || code === 'id' || code === 'pt') return code
+  }
   return 'zh'
 }
 

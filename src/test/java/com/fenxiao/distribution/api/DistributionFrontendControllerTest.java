@@ -98,6 +98,29 @@ class DistributionFrontendControllerTest {
     }
 
     @Test
+    void invitationProgressShowsOnlyRegisteredDirectInviteesAndProtectsTheirPhones() throws Exception {
+        UserDistributionProfile root = distributionBindingService.createProfile(21011L, "ID", "id", null);
+        UserDistributionProfile direct = distributionBindingService.createProfile(21012L, "ID", "id", root.getInviteCode());
+        distributionBindingService.createProfile(21013L, "ID", "id", direct.getInviteCode());
+        direct.bindPhoneNumber("+6281234562049");
+        userDistributionProfileRepository.save(direct);
+
+        mockMvc.perform(get("/api/distribution/team/21011/invitation-progress")
+                        .param("platformCode", "TIMO")
+                        .header("X-Distribution-Token", root.getApiAccessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.items[0].userId").value(21012))
+                .andExpect(jsonPath("$.items[0].maskedPhone").value("+628****2049"))
+                .andExpect(jsonPath("$.items[0].registeredAt").exists())
+                .andExpect(jsonPath("$.items[0].bindingStatus").value("UNBOUND"));
+
+        mockMvc.perform(get("/api/distribution/team/21011/invitation-progress")
+                        .header("X-Distribution-Token", direct.getApiAccessToken()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void shouldListOnlyQualifiedEffectiveUsersAcrossInvitationLevels() throws Exception {
         jdbc.execute("create table if not exists effective_user_qualification_fact (id bigint auto_increment primary key,user_id bigint not null,platform_code varchar(32) not null,qualification_status varchar(32) not null,evaluated_at timestamp not null)");
         UserDistributionProfile root = distributionBindingService.createProfile(21201L, "BR", "pt-br", null);

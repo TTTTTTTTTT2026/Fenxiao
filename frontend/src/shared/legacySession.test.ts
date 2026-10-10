@@ -20,6 +20,11 @@ describe('legacy session shared by consumer and admin entries', () => {
     expect(loadExternalLocale()).toBe('pt')
   })
 
+  it('uses the browser language when there is no saved choice', () => {
+    vi.stubGlobal('window', { localStorage: { getItem: () => null }, navigator: { languages: ['id-ID', 'en-US'] } })
+    expect(loadExternalLocale()).toBe('id')
+  })
+
   it('saves the existing consumer session shape', () => {
     const values = new Map<string, string>()
     vi.stubGlobal('localStorage', { setItem: (key: string, value: string) => values.set(key, value) })
