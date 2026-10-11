@@ -2,6 +2,8 @@ services:
   mysql:
     image: mysql:8.4
     restart: unless-stopped
+    # Keep a seven-day recovery window; MySQL 8.4 otherwise defaults to 30 days.
+    command: ["--binlog-expire-logs-seconds=604800"]
     environment:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
