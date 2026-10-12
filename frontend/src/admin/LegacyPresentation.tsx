@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { GearSix, House, IdentificationCard, LinkSimple, Megaphone, UsersThree, Wallet } from '@phosphor-icons/react'
+import { ChartLineUp, GearSix, House, IdentificationCard, LinkSimple, Megaphone, UsersThree, Wallet } from '@phosphor-icons/react'
 import { statusPresentation } from '../shared/statusPresentation'
 
 export function PanelSection({ eyebrow, title, description, action, children, sectionId }: { eyebrow: string; title: string; description?: string; action?: ReactNode; children: ReactNode; sectionId?: string }) {
@@ -20,6 +20,7 @@ export function PanelSection({ eyebrow, title, description, action, children, se
 
 export function AdminNavIcon({ label }: { label: string }) {
   const props = { size: 18, weight: 'duotone' as const }
+  if (label === '运营数据看板') return <ChartLineUp {...props} />
   if (label === '分销概览') return <House {...props} />
   if (label === '渠道入口') return <Megaphone {...props} />
   if (label === '绑定关系') return <LinkSimple {...props} />

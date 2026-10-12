@@ -469,6 +469,8 @@ describe('ConsoleApp admin core distribution workspace', () => {
   it('renders a module-based admin console without a separate user-workbench mode', () => {
     const markup = renderToStaticMarkup(<ConsoleApp initialViewMode="admin" initialAdminSession={adminTestSession} />)
 
+    expect(markup).toContain('id="admin-operations-dashboard"')
+    expect(markup).not.toContain('id="admin-overview"')
     expect(markup).toContain('admin-console-page')
     expect(markup).toContain('admin-sidebar')
     expect(markup).toContain('admin-workspace-shell')
