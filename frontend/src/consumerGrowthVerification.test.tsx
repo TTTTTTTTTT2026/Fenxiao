@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { ConsumerGradeProgressView } from './ConsumerGradeProgressCard'
 import TimoVerificationResult from './TimoVerificationResult'
-import { validSupportUrl } from './consumerSupport'
 import type { ConsumerGradeProgressResponse, PlatformBindingResponse } from './api'
 
 const progress: ConsumerGradeProgressResponse = { platformCode: 'TIMO', state: 'IN_PROGRESS', currentGradeCode: 'NORMAL_MEMBER', qualifiedDirectInviteCount: 2, requiredDirectInviteCount: 3, gradeEvaluatedAt: null }
@@ -81,13 +80,11 @@ describe('Timo verification recovery', () => {
     const busy = renderToStaticMarkup(<TimoVerificationResult binding={binding} locale="zh" loading onRetry={noop} localizedReason="" />)
     expect(busy).toContain('disabled')
   })
-  it('only renders a usable configured HTTPS support link', () => {
-    expect(validSupportUrl('javascript:alert(1)')).toBeUndefined()
-    expect(validSupportUrl('http://example.test')).toBeUndefined()
-    expect(validSupportUrl('https://user:password@example.test')).toBeUndefined()
-    expect(validSupportUrl('')).toBeUndefined()
-    const html = renderToStaticMarkup(<TimoVerificationResult binding={binding} locale="zh" loading={false} onRetry={noop} localizedReason="" supportUrl="https://support.example.test/timo" />)
-    expect(html).toContain('href="https://support.example.test/timo"')
+  it('directs users to their inviter without an external support placeholder', () => {
+    const html = renderToStaticMarkup(<TimoVerificationResult binding={binding} locale="zh" loading={false} onRetry={noop} localizedReason="" />)
+    expect(html).toContain('请联系你的邀请人')
+    expect(html).not.toContain('联系官方支持')
+    expect(html).not.toContain('href=""')
     expect(html).toContain('请勿提供密码或短信验证码')
   })
 })
