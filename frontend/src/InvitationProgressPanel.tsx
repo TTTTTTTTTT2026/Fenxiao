@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { getInvitationProgress, type InvitationProgressResponse } from './api'
 import type { ConsumerLocale } from './shared/catalog'
 
@@ -24,6 +24,11 @@ export default function InvitationProgressPanel({ userId, accessToken, locale, i
   const [error, setError] = useState(false)
   const [reload, setReload] = useState(0)
   const words = copy[locale]
+  const section = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    if (window.location.hash === '#direct-invite-progress') section.current?.scrollIntoView({ block: 'start' })
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -58,7 +63,7 @@ export default function InvitationProgressPanel({ userId, accessToken, locale, i
     } catch { setError(true) } finally { setLoading(false) }
   }
 
-  return <section className="consumer-settings-card consumer-invitation-progress" aria-label={words.title}>
+  return <section ref={section} id="direct-invite-progress" className="consumer-settings-card consumer-invitation-progress" aria-label={words.title}>
     <h2>{words.title}</h2><p>{words.hint}</p>
     {allowSwitch ? <div className="consumer-invitation-apps" role="group" aria-label="App">
       {(['TIMO', 'LINKY'] as const).map((app) => <button key={app} type="button" className={platform === app ? 'is-selected' : ''} onClick={() => choosePlatform(app)}>{app === 'TIMO' ? 'Timo' : 'Linky'}</button>)}

@@ -112,18 +112,26 @@ public class UserGradeAdminService {
     }
 
     private List<UserGradeEvaluationResponse> evaluateRules(UserDistributionProfile user, String platform, String guild, LocalDateTime now) {
-        List<UserGradeRuleResponse> all = jdbc.query(selectRules() + " where platform_code=? and country_code=? and rule_status='ACTIVE' and effective_from<=? and (effective_to is null or effective_to>?) and (guild_id is null or guild_id=?) order by grade_code,case when guild_id=? then 0 else 1 end,id desc", (rs, row) -> mapRule(rs), platform, upper(user.getCountryCode()), now, now, guild, guild);
-        Map<String, UserGradeRuleResponse> selected = new LinkedHashMap<>();
-        all.stream().filter(rule -> baseGrade(rule.gradeCode())).forEach(rule -> selected.putIfAbsent(rule.gradeCode(), rule));
+        List<UserGradeRuleResponse> selected = applicableBaseRules(platform, user.getCountryCode(), guild, now);
         if (effectiveUsers != null) effectiveUsers.refreshDirectInvitees(user.getUserId(), platform);
         int directCount = effectiveUsers == null ? directEffectiveInviteCount(user.getUserId(), platform, now) : effectiveUsers.qualifiedDirectInviteCount(user.getUserId(), platform, now);
         BigDecimal directIncome = BigDecimal.ZERO;
         int currentActiveCount = currentActiveEffectiveInviteCount(user.getUserId(), platform, now);
-        List<UserGradeEvaluationResponse> results = selected.values().stream().map(rule -> upsertEvaluation(user, rule, guild, directCount, currentActiveCount, directIncome, now)).toList();
+        List<UserGradeEvaluationResponse> results = selected.stream().map(rule -> upsertEvaluation(user, rule, guild, directCount, currentActiveCount, directIncome, now)).toList();
         if (results.stream().anyMatch(result -> "GOLD".equals(result.gradeCode()) && "QUALIFIED".equals(result.status()))) {
             if (relationships != null) relationships.ensureGoldGradeTeam(user);
         }
         return results;
+    }
+
+    /** Shares rule selection with the consumer read-only view; never refreshes facts or evaluates grades. */
+    @Transactional(readOnly = true)
+    public List<UserGradeRuleResponse> applicableBaseRules(String platformCode, String countryCode, String guild, LocalDateTime now) {
+        List<UserGradeRuleResponse> all = jdbc.query(selectRules() + " where platform_code=? and country_code=? and rule_status='ACTIVE' and effective_from<=? and (effective_to is null or effective_to>?) and (guild_id is null or guild_id=?) order by grade_code,case when guild_id=? then 0 else 1 end,id desc",
+                (rs, row) -> mapRule(rs), platform(platformCode), upper(countryCode), now, now, guild, guild);
+        Map<String, UserGradeRuleResponse> selected = new LinkedHashMap<>();
+        all.stream().filter(rule -> baseGrade(rule.gradeCode())).forEach(rule -> selected.putIfAbsent(rule.gradeCode(), rule));
+        return List.copyOf(selected.values());
     }
 
     /** Scheduled callers use this local-only refresh; it never calls MCN and never generates a payment. */

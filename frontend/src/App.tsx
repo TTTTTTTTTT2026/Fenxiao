@@ -10,7 +10,6 @@ EyeSlash,
 IdentificationCard,
 LinkSimple,
 LockSimple,
-Medal,
 ShareNetwork,
 ShieldCheck,
 SignIn,
@@ -68,6 +67,8 @@ import loginHeroZh1600 from './assets/login-hero/login-hero-zh-v1-1600.webp'
 import loginHeroZh800 from './assets/login-hero/login-hero-zh-v1-800.webp'
 import { isAvatarValidationError,prepareAvatarDataUrl } from './avatarUpload'
 import InvitationProgressPanel from './InvitationProgressPanel'
+import ConsumerGradeProgressCard from './ConsumerGradeProgressCard'
+import TimoVerificationResult from './TimoVerificationResult'
 import { ConsumerUnboundDialog,ConsumerUnboundGuidance } from './consumerWorkspaceGuidance'
 import { canOpenEarningsWorkspace,resolveConsumerAccountWorkspace } from './consumerWorkspaceView'
 import { effectiveTeamCount } from './consumerTeamState'
@@ -875,11 +876,11 @@ const timoBindingCopy: Record<ConsumerLocale, {
 }
 
 const timoBindingErrorCopy: Record<ConsumerLocale, { country: string; targetGuild: string; duplicate: string; notInGuild: string; joinWindow: string; joinedAtMissing: string; unavailable: string; generic: string }> = {
-  zh: { country: '当前登记国家尚未配置 Timo 公会核验，请联系运营人员。', targetGuild: '目标 Timo 公会未配置或与权威记录不符。', duplicate: '这个 Timo ID 已被登记，不能重复绑定。', notInGuild: '这个 Timo ID 不属于目标公会。', joinWindow: '公会加入时间与绑定提交时间不符合核验要求。', joinedAtMissing: 'MCN 暂未提供可核验的公会加入时间。', unavailable: 'Timo 核验暂时不可用，请稍后重试。', generic: 'Timo 核验未完成，请稍后重试或联系运营人员。' },
-  en: { country: 'Timo guild verification is not configured for your registered country. Please contact support.', targetGuild: 'The expected Timo guild is not configured or does not match the official record.', duplicate: 'This Timo ID is already registered and cannot be bound again.', notInGuild: 'This Timo ID is not in the expected guild.', joinWindow: 'The guild join date does not meet the binding verification window.', joinedAtMissing: 'MCN has not provided a verifiable guild join date.', unavailable: 'Timo verification is temporarily unavailable. Try again later.', generic: 'Timo verification could not be completed. Try again later or contact support.' },
-  es: { country: 'La verificación del gremio Timo no está configurada para tu país de registro. Contacta al equipo de soporte.', targetGuild: 'El gremio Timo esperado no está configurado o no coincide con el registro oficial.', duplicate: 'Este ID de Timo ya está registrado y no puede vincularse otra vez.', notInGuild: 'Este ID de Timo no pertenece al gremio esperado.', joinWindow: 'La fecha de ingreso al gremio no cumple el plazo de verificación.', joinedAtMissing: 'MCN no ha proporcionado una fecha de ingreso verificable.', unavailable: 'La verificación de Timo no está disponible por ahora. Inténtalo más tarde.', generic: 'No se pudo completar la verificación de Timo. Inténtalo más tarde o contacta al equipo de soporte.' },
-  id: { country: 'Verifikasi guild Timo belum tersedia untuk negara pendaftaranmu. Hubungi tim dukungan.', targetGuild: 'Guild Timo tujuan belum dikonfigurasi atau tidak cocok dengan data resmi.', duplicate: 'ID Timo ini sudah terdaftar dan tidak dapat dihubungkan lagi.', notInGuild: 'ID Timo ini tidak berada di guild tujuan.', joinWindow: 'Tanggal bergabung dengan guild tidak memenuhi batas waktu verifikasi.', joinedAtMissing: 'MCN belum menyediakan tanggal bergabung dengan guild yang dapat diverifikasi.', unavailable: 'Verifikasi Timo sementara tidak tersedia. Coba lagi nanti.', generic: 'Verifikasi Timo belum selesai. Coba lagi nanti atau hubungi tim dukungan.' },
-  pt: { country: 'A verificação da guilda Timo não está configurada para o seu país de cadastro. Entre em contato com o suporte.', targetGuild: 'A guilda Timo esperada não está configurada ou não corresponde ao registro oficial.', duplicate: 'Este ID Timo já está cadastrado e não pode ser vinculado novamente.', notInGuild: 'Este ID Timo não pertence à guilda esperada.', joinWindow: 'A data de entrada na guilda não atende ao prazo de verificação.', joinedAtMissing: 'O MCN ainda não forneceu uma data de entrada na guilda que possa ser verificada.', unavailable: 'A verificação do Timo está temporariamente indisponível. Tente novamente mais tarde.', generic: 'Não foi possível concluir a verificação do Timo. Tente novamente mais tarde ou entre em contato com o suporte.' },
+  zh: { country: '当前登记国家尚未配置 Timo 公会核验，请联系你的邀请人。', targetGuild: '目标 Timo 公会未配置或与权威记录不符。', duplicate: '这个 Timo ID 已被登记，不能重复绑定。', notInGuild: '这个 Timo ID 不属于目标公会。', joinWindow: '公会加入时间与绑定提交时间不符合核验要求。', joinedAtMissing: 'MCN 暂未提供可核验的公会加入时间。', unavailable: 'Timo 核验暂时不可用，请稍后重试。', generic: 'Timo 核验未完成，请稍后重试或联系你的邀请人。' },
+  en: { country: 'Timo guild verification is not configured for your registered country. Please contact your inviter.', targetGuild: 'The expected Timo guild is not configured or does not match the official record.', duplicate: 'This Timo ID is already registered and cannot be bound again.', notInGuild: 'This Timo ID is not in the expected guild.', joinWindow: 'The guild join date does not meet the binding verification window.', joinedAtMissing: 'MCN has not provided a verifiable guild join date.', unavailable: 'Timo verification is temporarily unavailable. Try again later.', generic: 'Timo verification could not be completed. Try again later or contact your inviter.' },
+  es: { country: 'La verificación del gremio Timo no está configurada para tu país de registro. Contacta a quien te invitó.', targetGuild: 'El gremio Timo esperado no está configurado o no coincide con el registro oficial.', duplicate: 'Este ID de Timo ya está registrado y no puede vincularse otra vez.', notInGuild: 'Este ID de Timo no pertenece al gremio esperado.', joinWindow: 'La fecha de ingreso al gremio no cumple el plazo de verificación.', joinedAtMissing: 'MCN no ha proporcionado una fecha de ingreso verificable.', unavailable: 'La verificación de Timo no está disponible por ahora. Inténtalo más tarde.', generic: 'No se pudo completar la verificación de Timo. Inténtalo más tarde o contacta a quien te invitó.' },
+  id: { country: 'Verifikasi guild Timo belum tersedia untuk negara pendaftaranmu. Hubungi orang yang mengundang Anda.', targetGuild: 'Guild Timo tujuan belum dikonfigurasi atau tidak cocok dengan data resmi.', duplicate: 'ID Timo ini sudah terdaftar dan tidak dapat dihubungkan lagi.', notInGuild: 'ID Timo ini tidak berada di guild tujuan.', joinWindow: 'Tanggal bergabung dengan guild tidak memenuhi batas waktu verifikasi.', joinedAtMissing: 'MCN belum menyediakan tanggal bergabung dengan guild yang dapat diverifikasi.', unavailable: 'Verifikasi Timo sementara tidak tersedia. Coba lagi nanti.', generic: 'Verifikasi Timo belum selesai. Coba lagi nanti atau hubungi orang yang mengundang Anda.' },
+  pt: { country: 'A verificação da guilda Timo não está configurada para o seu país de cadastro. Entre em contato com quem convidou você.', targetGuild: 'A guilda Timo esperada não está configurada ou não corresponde ao registro oficial.', duplicate: 'Este ID Timo já está cadastrado e não pode ser vinculado novamente.', notInGuild: 'Este ID Timo não pertence à guilda esperada.', joinWindow: 'A data de entrada na guilda não atende ao prazo de verificação.', joinedAtMissing: 'O MCN ainda não forneceu uma data de entrada na guilda que possa ser verificada.', unavailable: 'A verificação do Timo está temporariamente indisponível. Tente novamente mais tarde.', generic: 'Não foi possível concluir a verificação do Timo. Tente novamente mais tarde ou entre em contato com quem convidou você.' },
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -905,11 +906,11 @@ const platformBindingProofCopy: Record<ConsumerLocale, { ownership: string; trac
 }
 
 const timoHelpCopy: Record<ConsumerLocale, { findId: string; waiting: string; technical: string; manual: string }> = {
-  zh: { findId: '获取 Timo ID：打开 Timo APP → 打开「我」的页面 → 复制 12 位数字 ID。', waiting: '正在等待最新的公会记录，尚未得出核验结果。', technical: '核验服务暂时无法返回结果，系统会自动重试；这并不表示您的账号不合格。', manual: '自动核验未能完成，已转人工处理；请联系运营人员，无需反复提交。' },
-  en: { findId: 'Find your Timo ID: open the Timo app → Me → copy the 12-digit ID.', waiting: 'Waiting for the latest guild record. No verification decision yet.', technical: 'The verification service is temporarily unavailable. The system will retry automatically; your account has not been rejected.', manual: 'Automatic verification could not finish. Please contact support for manual review; do not submit repeatedly.' },
-  es: { findId: 'Busca tu ID de Timo: abre Timo → Yo → copia el ID de 12 dígitos.', waiting: 'Esperando el registro más reciente del gremio; aún no hay resultado.', technical: 'El servicio de verificación no está disponible. El sistema reintentará automáticamente; tu cuenta no ha sido rechazada.', manual: 'La verificación automática no terminó. Contacta al equipo para una revisión manual; no envíes varias veces.' },
-  id: { findId: 'Temukan ID Timo: buka aplikasi Timo → Saya → salin ID 12 digit.', waiting: 'Menunggu data guild terbaru; belum ada keputusan verifikasi.', technical: 'Layanan verifikasi sementara tidak dapat memberi hasil. Sistem akan mencoba lagi; akun Anda belum ditolak.', manual: 'Verifikasi otomatis belum selesai. Hubungi tim dukungan untuk pemeriksaan manual; jangan kirim berulang kali.' },
-  pt: { findId: 'Encontre seu ID Timo: abra o aplicativo Timo → Eu → copie o ID de 12 dígitos.', waiting: 'Aguardando o registro mais recente da guilda; ainda não há resultado.', technical: 'O serviço de verificação está indisponível. O sistema tentará novamente; sua conta não foi rejeitada.', manual: 'A verificação automática não terminou. Contate o suporte para revisão manual; não envie várias vezes.' },
+  zh: { findId: '获取 Timo ID：打开 Timo APP → 打开「我」的页面 → 复制 12 位数字 ID。', waiting: '正在等待最新的公会记录，尚未得出核验结果。', technical: '核验服务暂时无法返回结果，尚未形成账号资格结论；请稍后查看或联系你的邀请人。', manual: '自动核验未能完成，需要人工协助；请联系你的邀请人核实。' },
+  en: { findId: 'Find your Timo ID: open the Timo app → Me → copy the 12-digit ID.', waiting: 'Waiting for the latest guild record. No verification decision yet.', technical: 'Verification is temporarily unavailable. No eligibility decision yet; check back later or contact your inviter.', manual: 'Automatic verification could not finish. Contact your inviter for help.' },
+  es: { findId: 'Busca tu ID de Timo: abre Timo → Yo → copia el ID de 12 dígitos.', waiting: 'Esperando el registro más reciente del gremio; aún no hay resultado.', technical: 'La verificación no está disponible. Aún no hay decisión; consulta más tarde o contacta a quien te invitó.', manual: 'La verificación automática no terminó. Contacta a quien te invitó para obtener ayuda.' },
+  id: { findId: 'Temukan ID Timo: buka aplikasi Timo → Saya → salin ID 12 digit.', waiting: 'Menunggu data guild terbaru; belum ada keputusan verifikasi.', technical: 'Verifikasi belum tersedia. Belum ada keputusan kelayakan; periksa nanti atau hubungi orang yang mengundang Anda.', manual: 'Verifikasi otomatis belum selesai. Hubungi orang yang mengundang Anda untuk bantuan.' },
+  pt: { findId: 'Encontre seu ID Timo: abra o aplicativo Timo → Eu → copie o ID de 12 dígitos.', waiting: 'Aguardando o registro mais recente da guilda; ainda não há resultado.', technical: 'A verificação está indisponível. Ainda não há decisão; confira mais tarde ou contate quem convidou você.', manual: 'A verificação automática não terminou. Contate quem convidou você para obter ajuda.' },
 }
 
 function timoPendingState(binding: PlatformBindingResponse, locale: ConsumerLocale): string {
@@ -1862,8 +1863,7 @@ function TimoBindingPage() {
       const verified = await verifyPlatformBinding(session.userId, session.accessToken, 'TIMO')
       setBinding(verified)
       if (verified.status === 'VERIFIED') setSuccess(copy.verified)
-      else if (verified.status === 'REJECTED') setError(verified.verificationState === 'ERROR' ? timoHelpCopy[locale].technical
-        : localizeTimoBindingError(verified.rejectionCode || verified.rejectionReason || '', locale))
+      else if (verified.status === 'REJECTED') setSuccess('')
       else setSuccess(timoPendingState(verified, locale))
     } catch (err) {
       setBinding(current)
@@ -1905,8 +1905,6 @@ function TimoBindingPage() {
   }
 
   const isVerified = binding?.status === 'VERIFIED'
-  const isRejected = binding?.status === 'REJECTED'
-  const isTechnicalRejection = isRejected && binding?.verificationState === 'ERROR'
 
   return (
     <div className="consumer-app-page">
@@ -1931,7 +1929,9 @@ function TimoBindingPage() {
                 <button className="consumer-form-submit" type="submit" disabled={loading || !/^[1-9][0-9]{11}$/.test(timoId)}>{loading ? copy.verifying : copy.submit}</button>
               </form>
             ) : null}
-            {binding && !isVerified ? <div className="consumer-form-note"><strong>{isTechnicalRejection ? timoHelpCopy[locale].technical : isRejected ? copy.rejected : timoPendingState(binding, locale)}</strong><span>Timo ID · {binding.platformUserId}</span>{isRejected && !isTechnicalRejection && (binding.rejectionCode || binding.rejectionReason) ? <span>{localizeTimoBindingError(binding.rejectionCode || binding.rejectionReason || '', locale)}</span> : null}{isRejected ? <button className="consumer-secondary-link" type="button" onClick={() => void handleRetryVerification()} disabled={loading}>{loading ? copy.verifying : copy.verifyAgain}</button> : null}</div> : null}
+            {binding && !isVerified ? <TimoVerificationResult binding={binding} locale={locale} loading={loading} onRetry={() => void handleRetryVerification()}
+              localizedReason={binding.rejectionCode || binding.rejectionReason ? localizeTimoBindingError(binding.rejectionCode || binding.rejectionReason || '', locale) : ''}
+              /> : null}
           </section>
         </> : <section className="consumer-auth-gate"><div className="consumer-auth-icon"><LockSimple weight="duotone" aria-hidden="true" /></div><h1>{copy.signInTitle}</h1><p>{copy.signInHint}</p><a className="consumer-primary-link" href="/invite#phone-login">{copy.signIn}<ArrowRight weight="bold" aria-hidden="true" /></a></section>}
         {session ? <ConsumerBottomNavigation locale={locale} active="account" /> : null}
@@ -1978,7 +1978,6 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
     zh: {
       available: '本应用已解冻积分', frozen: '本应用冻结中', total: '本应用奖励净额', withdraw: '管理收益提现', income: '邀请奖励', direct: '直接邀请奖励', indirect: '间接邀请奖励', release: '到期解冻', revision: '收入修订', records: '应用奖励流水', sourceUser: '来自用户', unit: '积分', diamondUnit: '钻石',
       signIn: '登录', greeting: '早上好，伙伴！', greetingSubtitle: '每一次有效邀请，都在积累你的收入。', notificationLabel: '查看奖励记录', hideBalance: '隐藏余额', showBalance: '显示余额',
-      growthTitle: '新星邀请人', growthBefore: '再邀请 ', growthAfter: ' 位有效用户，即可完成本阶段目标', growthDone: '本阶段目标已完成，继续保持增长',
       inviteOverview: '邀请概览（本周）', invitedUsers: '已邀请用户', actionsTitle: '今天怎么推进收益', actionsCount: '4 个关键动作',
       inviteAction: '邀请新用户', invitedCount: (count: number) => `当前已邀请 ${count} 人`, goInvite: '去邀请', bindAction: '完成平台绑定', bindHint: '登记并验证 Timo / Linky ID', goBind: '去绑定',
       followAction: '跟进有效用户', effectiveCount: (count: number) => `已达标有效用户 ${count} 人`, viewTeam: '查看团队', recordsCount: (count: number) => `${count} 条`, viewRecords: '查看记录', allRecords: '全部记录',
@@ -1988,7 +1987,6 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
     en: {
       available: 'App unlocked points', frozen: 'App frozen points', total: 'App reward balance', withdraw: 'Manage earnings withdrawals', income: 'Invitation income', direct: 'Direct invitation income', indirect: 'Indirect invitation income', release: 'Unlocked', revision: 'Income adjustment', records: 'App reward activity', sourceUser: 'From user', unit: 'points', diamondUnit: 'diamonds',
       signIn: 'Sign in', greeting: 'Good morning, partner!', greetingSubtitle: 'Every eligible invitation helps your earnings grow.', notificationLabel: 'View reward activity', hideBalance: 'Hide balance', showBalance: 'Show balance',
-      growthTitle: 'Rising Star inviter', growthBefore: 'Invite ', growthAfter: ' more eligible users to reach this stage’s goal', growthDone: 'Stage goal reached. Keep growing!',
       inviteOverview: 'Invitation overview (this week)', invitedUsers: 'Users invited', actionsTitle: 'Grow your earnings today', actionsCount: '4 key actions',
       inviteAction: 'Invite new users', invitedCount: (count: number) => `${count} users invited so far`, goInvite: 'Invite now', bindAction: 'Bind platform accounts', bindHint: 'Register and verify your Timo / Linky ID', goBind: 'Bind now',
       followAction: 'Follow up with eligible users', effectiveCount: (count: number) => `${count} qualified users`, viewTeam: 'View team', recordsCount: (count: number) => `${count} records`, viewRecords: 'View records', allRecords: 'All records',
@@ -1998,7 +1996,6 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
     es: {
       available: 'Puntos liberados de la app', frozen: 'Congelados de la app', total: 'Saldo de recompensas de la app', withdraw: 'Gestionar retiros', income: 'Ingreso por invitación', direct: 'Invitación directa', indirect: 'Invitación indirecta', release: 'Liberados', revision: 'Ajuste de ingresos', records: 'Movimientos de la app', sourceUser: 'Del usuario', unit: 'puntos', diamondUnit: 'diamantes',
       signIn: 'Iniciar sesión', greeting: '¡Buenos días!', greetingSubtitle: 'Cada invitación válida ayuda a aumentar tus ingresos.', notificationLabel: 'Ver movimientos de recompensas', hideBalance: 'Ocultar saldo', showBalance: 'Mostrar saldo',
-      growthTitle: 'Invitador Nueva Estrella', growthBefore: 'Invita a ', growthAfter: ' usuarios válidos más para alcanzar la meta de esta etapa', growthDone: '¡Meta alcanzada! Sigue creciendo.',
       inviteOverview: 'Resumen de invitaciones (esta semana)', invitedUsers: 'Usuarios invitados', actionsTitle: 'Impulsa tus ingresos hoy', actionsCount: '4 acciones clave',
       inviteAction: 'Invitar a nuevos usuarios', invitedCount: (count: number) => `${count} usuarios invitados hasta ahora`, goInvite: 'Invitar', bindAction: 'Vincular cuentas de plataforma', bindHint: 'Registra y verifica tu ID de Timo / Linky', goBind: 'Vincular',
       followAction: 'Dar seguimiento a usuarios válidos', effectiveCount: (count: number) => `${count} usuarios calificados`, viewTeam: 'Ver equipo', recordsCount: (count: number) => `${count} registros`, viewRecords: 'Ver registros', allRecords: 'Todos los registros',
@@ -2008,7 +2005,6 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
     id: {
       available: 'Poin tersedia aplikasi', frozen: 'Poin dibekukan aplikasi', total: 'Saldo imbalan aplikasi', withdraw: 'Kelola penarikan', income: 'Pendapatan undangan', direct: 'Undangan langsung', indirect: 'Undangan tidak langsung', release: 'Dibuka', revision: 'Penyesuaian pendapatan', records: 'Riwayat imbalan aplikasi', sourceUser: 'Dari pengguna', unit: 'poin', diamondUnit: 'berlian',
       signIn: 'Masuk', greeting: 'Selamat pagi!', greetingSubtitle: 'Setiap undangan yang valid membantu meningkatkan penghasilanmu.', notificationLabel: 'Lihat riwayat imbalan', hideBalance: 'Sembunyikan saldo', showBalance: 'Tampilkan saldo',
-      growthTitle: 'Pengundang Bintang Baru', growthBefore: 'Undang ', growthAfter: ' pengguna valid lagi untuk mencapai target tahap ini', growthDone: 'Target tahap ini tercapai. Terus berkembang!',
       inviteOverview: 'Ringkasan undangan (minggu ini)', invitedUsers: 'Pengguna yang diundang', actionsTitle: 'Tingkatkan penghasilan hari ini', actionsCount: '4 tindakan utama',
       inviteAction: 'Undang pengguna baru', invitedCount: (count: number) => `${count} pengguna sudah diundang`, goInvite: 'Undang', bindAction: 'Hubungkan akun platform', bindHint: 'Daftarkan dan verifikasi ID Timo / Linky', goBind: 'Hubungkan',
       followAction: 'Tindak lanjuti pengguna valid', effectiveCount: (count: number) => `${count} pengguna yang memenuhi syarat`, viewTeam: 'Lihat tim', recordsCount: (count: number) => `${count} catatan`, viewRecords: 'Lihat riwayat', allRecords: 'Semua catatan',
@@ -2018,7 +2014,6 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
     pt: {
       available: 'Pontos liberados do app', frozen: 'Congelados do app', total: 'Saldo de recompensas do app', withdraw: 'Gerenciar saques', income: 'Receita por convite', direct: 'Convite direto', indirect: 'Convite indireto', release: 'Liberados', revision: 'Ajuste de receita', records: 'Movimentações do app', sourceUser: 'Do usuário', unit: 'pontos', diamondUnit: 'diamantes',
       signIn: 'Entrar', greeting: 'Bom dia!', greetingSubtitle: 'Cada convite válido ajuda a aumentar seus ganhos.', notificationLabel: 'Ver movimentações de recompensas', hideBalance: 'Ocultar saldo', showBalance: 'Mostrar saldo',
-      growthTitle: 'Convidador Nova Estrela', growthBefore: 'Convide mais ', growthAfter: ' usuários válidos para atingir a meta desta etapa', growthDone: 'Meta desta etapa atingida. Continue crescendo!',
       inviteOverview: 'Visão geral dos convites (esta semana)', invitedUsers: 'Usuários convidados', actionsTitle: 'Como aumentar seus ganhos hoje', actionsCount: '4 ações importantes',
       inviteAction: 'Convidar novos usuários', invitedCount: (count: number) => `${count} usuários convidados até agora`, goInvite: 'Convidar', bindAction: 'Vincular contas da plataforma', bindHint: 'Cadastre e valide seu ID Timo / Linky', goBind: 'Vincular',
       followAction: 'Acompanhar usuários válidos', effectiveCount: (count: number) => `${count} usuários qualificados`, viewTeam: 'Ver equipe', recordsCount: (count: number) => `${count} registros`, viewRecords: 'Ver registros', allRecords: 'Todos os registros',
@@ -2116,9 +2111,6 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   const totalReward = wallet?.totalPoints ?? 0
   const frozenReward = wallet?.frozenPoints ?? 0
   const effectiveUsersThisView = effectiveTeamCount(team, teamError)
-  const growthTarget = 10
-  const growthProgress = Math.min(100, Math.round(((effectiveUsersThisView ?? 0) / growthTarget) * 100))
-  const growthRemaining = Math.max(0, growthTarget - (effectiveUsersThisView ?? 0))
 
   if (session && workspaceLoaded && !selectedPlatform) {
     return <div className="consumer-app-page"><main className="consumer-shell consumer-detail-page">
@@ -2248,15 +2240,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
               </div>
             </section>
 
-            <a className="consumer-growth-card" href="/earnings/effective-users">
-              <span className="consumer-growth-medal"><Medal weight="duotone" aria-hidden="true" /></span>
-              <span className="consumer-growth-copy">
-                <span><strong>{walletCopy.growthTitle}</strong><b>{effectiveUsersThisView ?? '—'}<small>/{growthTarget}</small></b></span>
-                {effectiveUsersThisView !== null ? <i><em style={{ width: `${growthProgress}%` }} /></i> : null}
-                <small>{teamError ? teamLoadCopy[locale].failed : effectiveUsersThisView === null ? copy.loading : growthRemaining > 0 ? <>{walletCopy.growthBefore}<strong>{growthRemaining}</strong>{walletCopy.growthAfter}</> : walletCopy.growthDone}</small>
-              </span>
-              <CaretRight weight="bold" aria-hidden="true" />
-            </a>
+            {selectedPlatform && selectedPlatformVerified ? <ConsumerGradeProgressCard key={`${session.userId}:${selectedPlatform}`} userId={session.userId} accessToken={session.accessToken} platformCode={selectedPlatform} locale={locale} /> : null}
 
             <a className="consumer-commission-entry" href="/earnings/commission">
               <span><strong>{commissionReportCopy[locale].title}</strong><small>{commissionReportCopy[locale].entryHint}</small></span>

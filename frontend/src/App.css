@@ -3616,6 +3616,42 @@ code {
   font-size: 12px;
 }
 
+.consumer-grade-progress,
+.consumer-verification-result {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.consumer-grade-progress {
+  margin-top: 16px;
+  padding: 20px;
+  border-radius: 20px;
+  background: #fff;
+}
+
+.consumer-grade-progress h2,
+.consumer-grade-progress p,
+.consumer-verification-result h3,
+.consumer-verification-result h4,
+.consumer-verification-result p { margin: 0; }
+.consumer-grade-progress h2,
+.consumer-verification-result h3 { font-size: 18px; }
+.consumer-grade-progress p,
+.consumer-verification-result p { font-size: 14px; line-height: 1.6; }
+.consumer-grade-progress progress { width: 100%; accent-color: #ff5b19; }
+.consumer-grade-progress a,
+.consumer-grade-progress button { color: #b73d09; font-weight: 700; }
+.consumer-grade-progress button { justify-self: start; min-height: 44px; }
+.consumer-verification-id { display: grid; gap: 4px; padding: 12px; background: #fff7f1; border-radius: 12px; }
+.consumer-verification-result .consumer-form-submit { margin-top: 0; width: 100%; min-height: 48px; white-space: normal; }
+.consumer-verification-result h4 { font-size: 14px; margin-bottom: 4px; }
+.consumer-verification-help summary { cursor: pointer; min-height: 44px; padding: 10px 0; color: #b73d09; font-weight: 700; }
+.consumer-verification-help p { margin-bottom: 10px; }
+.consumer-verification-help .consumer-primary-link { white-space: normal; }
+.consumer-invitation-progress { scroll-margin-top: 20px; }
+
 .consumer-result-card {
   display: grid;
   gap: 14px;
