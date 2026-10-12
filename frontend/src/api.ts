@@ -1696,6 +1696,18 @@ export function getAdminLinkyWebhookLogs(adminSessionToken: string, filters?: {
   })
 }
 
+export type ConsumerGradeProgressResponse = {
+  platformCode: 'TIMO' | 'LINKY'; state: 'IN_PROGRESS' | 'AWAITING_REVIEW' | 'ACHIEVED' | 'REVIEW_REQUIRED' | 'UNKNOWN'
+  currentGradeCode: string | null; qualifiedDirectInviteCount: number | null; requiredDirectInviteCount: number | null
+  gradeEvaluatedAt: string | null
+}
+
+export function getConsumerGradeProgress(userId: number, accessToken: string, platformCode: 'TIMO' | 'LINKY') {
+  return request<ConsumerGradeProgressResponse>(`/api/distribution/grade-progress/${userId}?platformCode=${platformCode}`, {
+    headers: { 'X-Distribution-Token': accessToken },
+  })
+}
+
 export function getAdminLinkyReplayRecords(adminSessionToken: string, filters?: {
   linkyOrderId?: string
   userId?: number

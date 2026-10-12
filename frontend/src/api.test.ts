@@ -1,9 +1,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiRequestError } from './api'
-import { getConsumerWorkspace, selectConsumerWorkspace, getDistributionHome, getDistributionEffectiveTeam, getDistributionInvitationAccount, getInvitationCommissionReport, getInvitationCommissionSources } from './api'
+import { getConsumerWorkspace, getConsumerGradeProgress, selectConsumerWorkspace, getDistributionHome, getDistributionEffectiveTeam, getDistributionInvitationAccount, getInvitationCommissionReport, getInvitationCommissionSources } from './api'
 
 describe('consumer app workspace api', () => {
   afterEach(() => vi.unstubAllGlobals())
+
+  it('reads grade qualification with the user token and an explicit app', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ platformCode: 'LINKY', state: 'UNKNOWN' }) })
+    vi.stubGlobal('fetch', fetchMock)
+    await getConsumerGradeProgress(42, 'own-token', 'LINKY')
+    expect(fetchMock).toHaveBeenCalledWith('/api/distribution/grade-progress/42?platformCode=LINKY', expect.objectContaining({
+      headers: expect.objectContaining({ 'X-Distribution-Token': 'own-token' }),
+    }))
+  })
 
   it('sends authenticated workspace selection and scopes all earnings reads', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ selected: 'TIMO', apps: [] }) })
