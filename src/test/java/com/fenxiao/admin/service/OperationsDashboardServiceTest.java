@@ -75,7 +75,7 @@ class OperationsDashboardServiceTest {
         JdbcTemplate db=database();seed(db);MutableClock clock=new MutableClock(fixed().instant());
         var service=new OperationsDashboardService(db,clock);
         var first=service.report("TIMO","ID",7,"today");
-        db.update("INSERT INTO user_distribution_profile VALUES(10,'ID','2026-10-12 08:59:00')");
+        db.update("INSERT INTO user_distribution_profile(user_id,country_code,registered_at) VALUES(10,'ID','2026-10-12 08:59:00')");
         assertThat(service.report("TIMO","ID",7,"today")).isSameAs(first);
         clock.at=clock.at.plusSeconds(60);
         assertThat(service.report("TIMO","ID",7,"today").summary().registered()).isEqualTo(6); // boundary user9 now included
@@ -113,10 +113,32 @@ class OperationsDashboardServiceTest {
         assertThat(service.users("TIMO","BR","today","REGISTERED",null,null,0,20).items())
                 .extracting(OperationsDashboardService.User::userId).containsExactly(8L);
     }
+    @Test void enrichesTheDistributorRatherThanTheInviteeWithoutChangingCountryFiltering() {
+        JdbcTemplate db=database();seed(db);
+        db.update("UPDATE user_distribution_profile SET country_code='BR',phone_number=? WHERE user_id=1","+5500000000000");
+        db.update("INSERT INTO admin_account VALUES(101,'Distributor operator'),(102,'Invitee operator')");
+        db.update("INSERT INTO user_operations_profile VALUES(1,101),(2,102)");
+        var rank=new OperationsDashboardService(db,fixed()).report("TIMO","ID",7,"today").ranks().getFirst();
+        assertThat(rank.inviterId()).isEqualTo(1);
+        assertThat(rank.countryCode()).isEqualTo("BR");assertThat(rank.phoneNumber()).isEqualTo("+5500000000000");
+        assertThat(rank.operatorName()).isEqualTo("Distributor operator");
+        assertThat(rank.registered()).isEqualTo(3);assertThat(rank.verified()).isEqualTo(2);
+    }
+    @Test void retainsTopTenOrderingAndNullableProfileFields() {
+        JdbcTemplate db=database();seed(db);
+        for(int i=0;i<12;i++) {
+            db.update("INSERT INTO user_distribution_profile(user_id,country_code,registered_at) VALUES(?,'BR','2026-09-01'),(?,'ID','2026-10-12 08:00:00')",20+i,100+i);
+            db.update("INSERT INTO invitation_relation_version VALUES(?,?,1,'INVITE_CODE')",100+i,20+i);
+        }
+        var ranks=new OperationsDashboardService(db,fixed()).report("TIMO","ID",7,"today").ranks();
+        assertThat(ranks).extracting(OperationsDashboardService.Rank::inviterId).containsExactly(1L,20L,21L,22L,23L,24L,25L,26L,27L,28L);
+        assertThat(ranks.getFirst().phoneNumber()).isNull();assertThat(ranks.getFirst().operatorName()).isNull();
+        assertThat(ranks.get(1).nickname()).isNull();assertThat(ranks.get(1).countryCode()).isEqualTo("BR");
+    }
     private static Clock fixed(){return Clock.fixed(Instant.parse("2026-10-12T09:00:00Z"),ZoneOffset.UTC);}
     @Test void shortcutsUseUtcCalendarDaysAndDoNotChangeTodayCardsOrInviterScope() {
         JdbcTemplate db=database();seed(db);
-        db.update("INSERT INTO user_distribution_profile VALUES(10,'ID','2026-10-09 23:59:59'),(11,'BR','2026-10-10 00:00:00')");
+        db.update("INSERT INTO user_distribution_profile(user_id,country_code,registered_at) VALUES(10,'ID','2026-10-09 23:59:59'),(11,'BR','2026-10-10 00:00:00')");
         db.update("INSERT INTO invitation_relation_version VALUES(4,1,1,'INVITE_CODE'),(7,1,1,'INVITE_CODE'),(10,1,1,'INVITE_CODE')");
         db.update("INSERT INTO platform_binding_history VALUES(4,7,7,'TIMO','VERIFYING','VERIFIED','MCN_TIMO','2026-10-11 23:59:59'),(5,6,6,'TIMO','VERIFYING','VERIFIED','MCN_TIMO','2026-10-10 00:00:00')");
         var service=new OperationsDashboardService(db,fixed());
@@ -141,7 +163,7 @@ class OperationsDashboardServiceTest {
     }
     private static final class MutableClock extends Clock {Instant at;MutableClock(Instant at){this.at=at;}public ZoneId getZone(){return ZoneOffset.UTC;}public Clock withZone(ZoneId zone){return this;}public Instant instant(){return at;}}
     private static void seed(JdbcTemplate db){
-        db.update("INSERT INTO user_distribution_profile VALUES(1,'ID','2026-09-01'),(2,'ID','2026-10-12 01:00:00'),(3,'ID','2026-10-12 02:00:00'),(4,'ID','2026-10-11 23:00:00'),(5,'ID','2026-10-12 03:00:00'),(6,'ID','2026-10-12 08:00:00'),(7,'ID','2026-10-10'),(8,'BR','2026-10-12 08:00:00'),(9,'ID','2026-10-12 09:00:00')");
+        db.update("INSERT INTO user_distribution_profile(user_id,country_code,registered_at) VALUES(1,'ID','2026-09-01'),(2,'ID','2026-10-12 01:00:00'),(3,'ID','2026-10-12 02:00:00'),(4,'ID','2026-10-11 23:00:00'),(5,'ID','2026-10-12 03:00:00'),(6,'ID','2026-10-12 08:00:00'),(7,'ID','2026-10-10'),(8,'BR','2026-10-12 08:00:00'),(9,'ID','2026-10-12 09:00:00')");
         db.update("INSERT INTO invitation_relation_version VALUES(2,1,1,'INVITE_CODE'),(3,1,1,'INVITE_CODE'),(5,1,1,'INVITE_CODE')");
         db.update("INSERT INTO user_public_profile VALUES(1,'Inviter')");
         db.update("INSERT INTO platform_account_binding VALUES(2,2,'TIMO','VERIFIED','MCN_TIMO','2026-10-12 01:00:00'),(3,3,'TIMO','VERIFIED','MCN_TIMO','2026-10-12 02:00:00'),(4,4,'TIMO','VERIFIED','MCN_TIMO','2026-10-11 23:00:00'),(5,5,'TIMO','REJECTED','MCN_TIMO','2026-10-12 03:00:00'),(6,6,'TIMO','VERIFYING','MCN_TIMO','2026-10-12 08:00:00'),(7,7,'TIMO','VERIFYING','MCN_TIMO','2026-10-10')");
@@ -151,7 +173,7 @@ class OperationsDashboardServiceTest {
     }
     private static JdbcTemplate database(){
         JdbcTemplate db=new JdbcTemplate(new DriverManagerDataSource("jdbc:h2:mem:ops_dashboard_"+System.nanoTime()+";MODE=MySQL;DB_CLOSE_DELAY=-1","sa",""));
-        db.execute("CREATE TABLE user_distribution_profile(user_id BIGINT PRIMARY KEY,country_code VARCHAR(10),registered_at TIMESTAMP)");
+        db.execute("CREATE TABLE user_distribution_profile(user_id BIGINT PRIMARY KEY,country_code VARCHAR(10),registered_at TIMESTAMP,phone_number VARCHAR(32))");
         db.execute("CREATE TABLE invitation_relation_version(user_id BIGINT,inviter_user_id BIGINT,version_no INT,source_type VARCHAR(40))");
         db.execute("CREATE TABLE platform_account_binding(id BIGINT,user_id BIGINT,platform_code VARCHAR(32),binding_status VARCHAR(32),verification_source VARCHAR(32),submitted_at TIMESTAMP)");
         db.execute("CREATE TABLE platform_binding_history(id BIGINT,binding_id BIGINT,user_id BIGINT,platform_code VARCHAR(32),from_status VARCHAR(32),to_status VARCHAR(32),source_system VARCHAR(32),occurred_at TIMESTAMP)");

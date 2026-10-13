@@ -2,10 +2,12 @@ import { afterEach,describe,expect,it,vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { canUseOperationsDashboard,legacyDashboardLanding } from './operationsDashboardAccess'
 import { DashboardBody } from './LegacyOperationsDashboard'
-import { dashboardRate } from './operationsDashboardFormatting'
+import { dashboardRate, trendDayDescription } from './operationsDashboardFormatting'
 import { getOperationsDashboard,getOperationsDashboardUsers } from './operationsDashboardApi'
+import DashboardAutoRefresh from './DashboardAutoRefresh'
+import OperationsTrendChart from './OperationsTrendChart'
 import type { OperationsDashboardReport } from './operationsDashboardApi'
-const fixture:OperationsDashboardReport={platformCode:'TIMO',countryCode:'ALL',generatedAt:'2026-10-12T09:00:00Z',refreshSeconds:60,summary:{registered:2,invited:2,cohortVerified:1,yesterdaySameTime:1,pending:3,overdue:4,rejected:5,waiting:2,unassigned:1},firstVerified:3,missingVerificationHistoryUsers:0,trend:[{date:'2026-10-12',registered:2,firstVerified:3}],period:'today',periodStart:'2026-10-12T00:00:00',periodEnd:'2026-10-12T09:00:00',ranks:[{inviterId:123,nickname:null,registered:2,verified:1}],countries:['ID','BR']}
+const fixture:OperationsDashboardReport={platformCode:'TIMO',countryCode:'ALL',generatedAt:'2026-10-12T09:00:00Z',refreshSeconds:60,summary:{registered:2,invited:2,cohortVerified:1,yesterdaySameTime:1,pending:3,overdue:4,rejected:5,waiting:2,unassigned:1},firstVerified:3,missingVerificationHistoryUsers:0,trend:[{date:'2026-10-12',registered:2,firstVerified:3}],period:'today',periodStart:'2026-10-12T00:00:00',periodEnd:'2026-10-12T09:00:00',ranks:[{inviterId:123,nickname:null,registered:2,verified:1,phoneNumber:null,countryCode:null,operatorName:null}],countries:['ID','BR']}
 afterEach(()=>vi.unstubAllGlobals())
 describe('legacy operations dashboard',()=>{
  it('defaults only legacy eligible sessions and preserves deep links',()=>{expect(legacyDashboardLanding('',true)).toBe('operationsDashboard');expect(legacyDashboardLanding('',false)).toBe('overview');expect(legacyDashboardLanding('#admin-users',true)).toBe('users');expect(legacyDashboardLanding('#admin-overview',true)).toBe('overview')})
@@ -28,5 +30,24 @@ describe('legacy operations dashboard',()=>{
   }
   await getOperationsDashboardUsers('test-session',{platformCode:'TIMO',countryCode:'ID',trendDays:7,period:'3'},{kind:'INVITER',title:'',inviterId:123},0);
   expect(String(fetch.mock.calls.at(-1)?.[0])).toContain('period=3&kind=INVITER');
+ })
+ it('renders a labelled switch in both states rather than a wrapping checkbox',()=>{
+  for(const checked of [true,false]){
+   const html=renderToStaticMarkup(<DashboardAutoRefresh checked={checked} onChange={()=>{}}/>);
+   expect(html).toContain('role="switch"');expect(html).toContain(`aria-checked="${checked}"`);expect(html).toContain('60秒自动刷新');expect(html).not.toContain('type="checkbox"');
+  }
+ })
+ it('uses current distributor metadata and keeps invitation numbers and detail action',()=>{
+  const report={...fixture,ranks:[{...fixture.ranks[0],nickname:'合成分销用户',phoneNumber:'+5500000000000',countryCode:'BR',operatorName:'合成运营'}]};
+  const html=renderToStaticMarkup(<DashboardBody report={report} onDetail={()=>{}} onTrendPeriod={()=>{}} onPeriod={()=>{}} trendPeriod="7"/>);
+  expect(html).toContain('<th>分销用户</th>');expect(html).not.toContain('<th>邀请人</th>');expect(html).toContain('+5500000000000');expect(html).toContain('巴西');expect(html).toContain('合成运营');expect(html).toContain('对接运营（当前）');expect(html).toContain('查看分销用户123的直属邀请');expect(html).toContain('50.0%');
+  const missing=renderToStaticMarkup(<DashboardBody report={fixture} onDetail={()=>{}} onTrendPeriod={()=>{}} onPeriod={()=>{}} trendPeriod="7"/>);
+  expect(missing).toContain('手机号 -');expect(missing).not.toContain('undefined');
+ })
+ it('provides focusable date hit areas for hover, zero data and unknown verification',()=>{
+  const days=[{date:'2026-10-12',registered:0,firstVerified:null},{date:'2026-10-13',registered:2,firstVerified:1}];
+  const html=renderToStaticMarkup(<OperationsTrendChart days={days} platform="Linky" label="最近3日"/>);
+  expect(html).toContain('tabindex="0"');expect(html).toContain('opsdash-chart-highlight');expect(html).toContain('2026-10-12：新增注册 0；Linky 首次核验成功 暂不可确认');expect(html).not.toContain('role="tooltip"');
+  expect(trendDayDescription(days[0],'Timo')).toContain('暂不可确认');expect(trendDayDescription({...days[0],firstVerified:0},'Timo')).toContain('首次核验成功 0');
  })
 })
