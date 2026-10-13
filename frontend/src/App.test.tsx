@@ -664,7 +664,8 @@ describe('Earnings landing page', () => {
     expect(markup).toContain('获取验证码')
     expect(markup).toContain('验证码')
     expect(markup).toContain('手机号登录')
-    expect(markup).toContain('邀请码（首次注册必填）')
+    expect(markup).toContain('<span>邀请码</span>')
+    expect(markup).toContain('首次注册必填；已有账号可留空。')
     expect(markup).not.toContain('立即生成邀请码')
     expect(markup).not.toContain('邀请好友')
     expect(markup).not.toContain('class="consumer-bottom-nav"')
@@ -691,7 +692,7 @@ describe('Earnings landing page', () => {
     expect(markup).toContain('Country / calling code')
     expect(markup).toContain('Brazil +55')
     expect(markup).toContain('Indonesia +62')
-    const callingCodeSelector = markup.match(/aria-label="Country \/ calling code"[^>]*>(.*?)<\/select>/)?.[1]
+    const callingCodeSelector = markup.match(/aria-label="Country \/ calling code:[^"]*"[^>]*>(.*?)<\/select>/)?.[1]
     expect(callingCodeSelector).toBeDefined()
     expect(callingCodeSelector?.match(/<option /g)).toHaveLength(5)
     expect(callingCodeSelector).toContain('China +86')
