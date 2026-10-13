@@ -69,6 +69,8 @@ import { isAvatarValidationError,prepareAvatarDataUrl } from './avatarUpload'
 import InvitationProgressPanel from './InvitationProgressPanel'
 import ConsumerGradeProgressCard from './ConsumerGradeProgressCard'
 import TimoVerificationResult from './TimoVerificationResult'
+import ConsumerPhoneCountrySelect from './ConsumerPhoneCountrySelect'
+import { consumerPhoneFormCopy,phoneCodeActionText,phoneCodePlaceholders } from './consumerPhoneFormCopy'
 import { ConsumerUnboundDialog,ConsumerUnboundGuidance } from './consumerWorkspaceGuidance'
 import { canOpenEarningsWorkspace,resolveConsumerAccountWorkspace } from './consumerWorkspaceView'
 import { effectiveTeamCount } from './consumerTeamState'
@@ -1096,7 +1098,7 @@ const passwordLoginCopyByLocale: Record<ConsumerLocale, {
   pt: { switchToPassword: 'Entrar com senha', switchToPhone: 'Voltar ao acesso e cadastro por telefone', title: 'Entrar com senha', hint: 'Somente para contas existentes habilitadas pela equipe. Não precisa de código SMS.', passwordLabel: 'Senha', passwordPlaceholder: 'Digite sua senha', submit: 'Entrar', failure: 'Telefone ou senha incorretos, ou acesso não habilitado. Contate o suporte.' },
 }
 
-const clientPhoneCountries = (['CN', 'ID', 'MX', 'BR', 'HK'] as const).map((code) => phoneCountries.find((country) => country.countryCode === code)!)
+const clientPhoneCountries = (['CN', 'ID', 'MX', 'BR', 'HK'] as const).map((code) => phoneCountries.find((country): country is (typeof phoneCountries)[number] & { countryCode: ClientCountryCode } => country.countryCode === code)!)
 
 function consumerCountryName(countryCode: string, locale: ConsumerLocale) {
   return phoneCountries.find((country) => country.countryCode === countryCode.toUpperCase())?.names[locale] ?? countryCode
@@ -1349,6 +1351,7 @@ function InviteCodePage() {
   const passwordCopy = passwordLoginCopyByLocale[locale]
   const loginHero = consumerLoginHero[locale]
   const selectedPhoneCountry = clientPhoneCountries.find((country) => country.countryCode === phoneForm.countryCode) ?? clientPhoneCountries[0]
+  const compactPhoneCopy = consumerPhoneFormCopy[locale]
   const phoneNumberForSubmission = formatPhoneNumber(selectedPhoneCountry.callingCode, phoneForm.phoneNumber)
 
   function changeLoginLocale(next: ConsumerLocale) {
@@ -1549,13 +1552,7 @@ function InviteCodePage() {
             <label className="consumer-field">
               <span>{inviteCopy.phoneLabel}</span>
               <div className="consumer-phone-input">
-                <select
-                  aria-label={inviteCopy.countryCallingCodeLabel}
-                  value={selectedPhoneCountry.countryCode}
-                  onChange={(event) => choosePhoneCountry(event.target.value as ClientCountryCode)}
-                >
-                  {clientPhoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names[locale]} {country.callingCode}</option>)}
-                </select>
+                <ConsumerPhoneCountrySelect countries={clientPhoneCountries} value={selectedPhoneCountry.countryCode} locale={locale} label={inviteCopy.countryCallingCodeLabel} onChange={choosePhoneCountry} />
                 <input
                   value={phoneForm.phoneNumber}
                   onChange={(event) => setPhoneForm({ ...phoneForm, phoneNumber: normalizeLocalPhoneNumber(event.target.value, selectedPhoneCountry.callingCode) })}
@@ -1566,18 +1563,16 @@ function InviteCodePage() {
               </div>
               <small className="consumer-phone-input-hint">{inviteCopy.phoneInputHint}</small>
             </label>
-            <label className="consumer-field"><span>{inviteCopy.verificationCodeLabel}</span><div className="consumer-code-row"><input value={phoneForm.verificationCode} onChange={(e) => setPhoneForm({ ...phoneForm, verificationCode: e.target.value.replace(/\D/g, '').slice(0, 6) })} placeholder={inviteCopy.verificationCodePlaceholder} inputMode="numeric" autoComplete="one-time-code" /><button type="button" onClick={handleIssuePhoneCode} disabled={phoneAuthLoading || !phoneNumberForSubmission || phoneCodeCooldownSeconds > 0}>{phoneCodeCooldownSeconds > 0 ? inviteCopy.resendCountdown(phoneCodeCooldownSeconds) : inviteCopy.requestVerificationCode}</button></div></label>
-            <label className="consumer-field"><span>{inviteCopy.inviteCodeRequiredLabel}</span><input value={phoneForm.inviteCode} onChange={(e) => setPhoneForm({ ...phoneForm, inviteCode: e.target.value.trim().toUpperCase() })} placeholder={inviteCopy.inviteCodePlaceholder} /></label>
+            <label className="consumer-field"><span>{inviteCopy.verificationCodeLabel}</span><div className="consumer-code-row"><input value={phoneForm.verificationCode} onChange={(e) => setPhoneForm({ ...phoneForm, verificationCode: e.target.value.replace(/\D/g, '').slice(0, 6) })} placeholder={phoneCodePlaceholders[locale]} inputMode="numeric" autoComplete="one-time-code" /><button type="button" onClick={handleIssuePhoneCode} aria-label={phoneCodeCooldownSeconds > 0 ? inviteCopy.resendCountdown(phoneCodeCooldownSeconds) : phoneAuthLoading ? compactPhoneCopy.sending : phoneCodeHint ? compactPhoneCopy.resend : inviteCopy.requestVerificationCode} disabled={phoneAuthLoading || !phoneNumberForSubmission || phoneCodeCooldownSeconds > 0}>{phoneCodeActionText(locale,phoneCodeCooldownSeconds,phoneAuthLoading,!!phoneCodeHint)}</button></div></label>
+            <label className="consumer-field"><span>{compactPhoneCopy.invite}</span><input value={phoneForm.inviteCode} onChange={(e) => setPhoneForm({ ...phoneForm, inviteCode: e.target.value.trim().toUpperCase() })} placeholder={inviteCopy.inviteCodePlaceholder} /><small className="consumer-phone-input-hint">{compactPhoneCopy.inviteHint}</small></label>
             {phoneCodeHint ? <p className="consumer-form-note">{phoneCodeHint}</p> : null}
-            <button className="consumer-form-submit" type="submit" disabled={phoneAuthLoading || !phoneNumberForSubmission || phoneForm.verificationCode.length < 6}><SignIn size={21} />{inviteCopy.signInWithPhone}</button>
+            <button className="consumer-form-submit" type="submit" disabled={phoneAuthLoading || !phoneNumberForSubmission || phoneForm.verificationCode.length < 6}><SignIn size={21} />{compactPhoneCopy.submit}</button>
           </form> : <form id="password-login" className="consumer-form-card" onSubmit={handlePasswordLogin}>
             <div className="consumer-form-card-heading"><div><h2>{passwordCopy.title}</h2><p>{passwordCopy.hint}</p></div><LockSimple size={28} weight="duotone" /></div>
             <label className="consumer-field">
               <span>{inviteCopy.phoneLabel}</span>
               <div className="consumer-phone-input">
-                <select aria-label={inviteCopy.countryCallingCodeLabel} value={selectedPhoneCountry.countryCode} onChange={(event) => choosePhoneCountry(event.target.value as ClientCountryCode)}>
-                  {clientPhoneCountries.map((country) => <option key={country.countryCode} value={country.countryCode}>{country.names[locale]} {country.callingCode}</option>)}
-                </select>
+                <ConsumerPhoneCountrySelect countries={clientPhoneCountries} value={selectedPhoneCountry.countryCode} locale={locale} label={inviteCopy.countryCallingCodeLabel} onChange={choosePhoneCountry} />
                 <input value={phoneForm.phoneNumber} onChange={(event) => setPhoneForm({ ...phoneForm, phoneNumber: normalizeLocalPhoneNumber(event.target.value, selectedPhoneCountry.callingCode) })} placeholder={inviteCopy.phonePlaceholder} inputMode="tel" autoComplete="username" />
               </div>
               <small className="consumer-phone-input-hint">{inviteCopy.phoneInputHint}</small>
