@@ -19,9 +19,10 @@ public class OperationsDashboardController {
     @GetMapping
     public OperationsDashboardService.Report report(@RequestHeader(value="X-Admin-Session",required=false) String session,
            @RequestParam String platformCode,@RequestParam(defaultValue="ALL") String countryCode,
-           @RequestParam(defaultValue="7") int trendDays,@RequestParam(defaultValue="today") String period){
+           @RequestParam(defaultValue="7") int trendDays,@RequestParam(defaultValue="today") String period,
+           @RequestParam(required=false) String trendPeriod){
         authorize(session);
-        return dashboard.report(platformCode,countryCode,trendDays,period);
+        return dashboard.report(platformCode,countryCode,trendDays,period,trendPeriod);
     }
     @GetMapping("/users")
     public OperationsDashboardService.Users users(@RequestHeader(value="X-Admin-Session",required=false) String session,

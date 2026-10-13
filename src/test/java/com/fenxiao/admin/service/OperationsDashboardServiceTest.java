@@ -114,6 +114,31 @@ class OperationsDashboardServiceTest {
                 .extracting(OperationsDashboardService.User::userId).containsExactly(8L);
     }
     private static Clock fixed(){return Clock.fixed(Instant.parse("2026-10-12T09:00:00Z"),ZoneOffset.UTC);}
+    @Test void shortcutsUseUtcCalendarDaysAndDoNotChangeTodayCardsOrInviterScope() {
+        JdbcTemplate db=database();seed(db);
+        db.update("INSERT INTO user_distribution_profile VALUES(10,'ID','2026-10-09 23:59:59'),(11,'BR','2026-10-10 00:00:00')");
+        db.update("INSERT INTO invitation_relation_version VALUES(4,1,1,'INVITE_CODE'),(7,1,1,'INVITE_CODE'),(10,1,1,'INVITE_CODE')");
+        db.update("INSERT INTO platform_binding_history VALUES(4,7,7,'TIMO','VERIFYING','VERIFIED','MCN_TIMO','2026-10-11 23:59:59'),(5,6,6,'TIMO','VERIFYING','VERIFIED','MCN_TIMO','2026-10-10 00:00:00')");
+        var service=new OperationsDashboardService(db,fixed());
+        var today=service.report("TIMO","ID",7,"today","today");
+        var yesterday=service.report("TIMO","ID",7,"today","yesterday");
+        var three=service.report("TIMO","ID",7,"3","3");
+        assertThat(today.trend()).extracting(OperationsDashboardService.Day::date).containsExactly(LocalDate.parse("2026-10-12"));
+        assertThat(today.trend().getFirst().registered()).isEqualTo(4);
+        assertThat(yesterday.trend()).extracting(OperationsDashboardService.Day::date).containsExactly(LocalDate.parse("2026-10-11"));
+        assertThat(yesterday.trend().getFirst().registered()).isEqualTo(1);
+        assertThat(yesterday.trend().getFirst().firstVerified()).isEqualTo(1);
+        assertThat(yesterday.firstVerified()).isEqualTo(today.firstVerified()).isEqualTo(3);
+        assertThat(yesterday.summary()).isEqualTo(today.summary());
+        assertThat(three.trend()).extracting(OperationsDashboardService.Day::registered).containsExactly(1L,1L,4L);
+        assertThat(three.periodStart()).isEqualTo(LocalDateTime.parse("2026-10-10T00:00:00"));
+        assertThat(three.ranks().getFirst().registered()).isEqualTo(5);
+        assertThat(service.users("TIMO","ID","3","INVITER",1L,null,0,20).items())
+                .extracting(OperationsDashboardService.User::userId).containsExactly(5L,3L,2L,4L,7L);
+        assertThat(service.report("LINKY","BR",7,"today","3").trend())
+                .extracting(OperationsDashboardService.Day::registered).containsExactly(1L,0L,1L);
+        assertThatThrownBy(()->service.report("TIMO","ID",7,"today","365")).isInstanceOf(IllegalArgumentException.class);
+    }
     private static final class MutableClock extends Clock {Instant at;MutableClock(Instant at){this.at=at;}public ZoneId getZone(){return ZoneOffset.UTC;}public Clock withZone(ZoneId zone){return this;}public Instant instant(){return at;}}
     private static void seed(JdbcTemplate db){
         db.update("INSERT INTO user_distribution_profile VALUES(1,'ID','2026-09-01'),(2,'ID','2026-10-12 01:00:00'),(3,'ID','2026-10-12 02:00:00'),(4,'ID','2026-10-11 23:00:00'),(5,'ID','2026-10-12 03:00:00'),(6,'ID','2026-10-12 08:00:00'),(7,'ID','2026-10-10'),(8,'BR','2026-10-12 08:00:00'),(9,'ID','2026-10-12 09:00:00')");

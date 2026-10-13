@@ -43,9 +43,13 @@ public class OperationsDashboardService {
 
     public OperationsDashboardService(JdbcTemplate jdbc, Clock clock) { this.jdbc=jdbc; this.clock=clock; }
 
+    /** Existing callers retain their 7/30-day trend when no explicit shortcut is selected. */
+    public Report report(String platformValue, String countryValue, int trendDays, String periodValue) {
+        return report(platformValue,countryValue,trendDays,periodValue,null);
+    }
     /** Bounded filter cache, at most 60s old. Controllers recheck permission before every hit. */
-    public synchronized Report report(String platformValue, String countryValue, int trendDays, String periodValue) {
-        Key key=key(platformValue,countryValue,trendDays,periodValue);
+    public synchronized Report report(String platformValue, String countryValue, int trendDays, String periodValue, String trendPeriod) {
+        Key key=key(platformValue,countryValue,trendDays,periodValue,trendPeriod);
         Instant instant=clock.instant();
         Cached cached=cache.get(key);
         if(cached!=null && !instant.isBefore(cached.at()) && instant.isBefore(cached.at().plusSeconds(60))
@@ -80,13 +84,15 @@ public class OperationsDashboardService {
                 summaryArgs.toArray());
         List<Day> days=new ArrayList<>();
         Map<LocalDate,Long> registrations=new HashMap<>();
-        List<Object> trendArgs=new ArrayList<>(List.of(ts(today.minusDays(key.days()-1).atStartOfDay()),ts(now)));countryArg(trendArgs,key.country());
+        LocalDate trendLastDay="yesterday".equals(key.trendPeriod())?today.minusDays(1):today;
+        // Read through now even for yesterday, so today's first-success card keeps its independent scope.
+        List<Object> trendArgs=new ArrayList<>(List.of(ts(trendLastDay.minusDays(key.days()-1).atStartOfDay()),ts(now)));countryArg(trendArgs,key.country());
         jdbc.query("SELECT CAST(u.registered_at AS DATE) day_at, COUNT(*) n FROM user_distribution_profile u WHERE u.registered_at>=? AND u.registered_at<?"+countryClause(key.country())+" GROUP BY CAST(u.registered_at AS DATE)",rs->{registrations.put(rs.getDate(1).toLocalDate(),rs.getLong(2));},trendArgs.toArray());
         Map<LocalDate,Long> successes=new HashMap<>();
         String events=firstEvents(key.platform());
         jdbc.query("SELECT CAST(v.event_at AS DATE),COUNT(*) FROM ("+events+") v JOIN user_distribution_profile u ON u.user_id=v.user_id WHERE v.event_at>=? AND v.event_at<?"+countryClause(key.country())+" GROUP BY CAST(v.event_at AS DATE)",rs->{successes.put(rs.getDate(1).toLocalDate(),rs.getLong(2));},trendArgs.toArray());
         long missing=jdbc.queryForObject("SELECT COUNT(*)"+FROM+where+" AND ("+state+")='VERIFIED' AND NOT EXISTS (SELECT 1 FROM ("+events+") evidence WHERE evidence.user_id=u.user_id)",Long.class,base.toArray());
-        for(int i=key.days()-1;i>=0;i--) { LocalDate d=today.minusDays(i); days.add(new Day(d,registrations.getOrDefault(d,0L),missing==0?successes.getOrDefault(d,0L):null)); }
+        for(int i=key.days()-1;i>=0;i--) { LocalDate d=trendLastDay.minusDays(i); days.add(new Day(d,registrations.getOrDefault(d,0L),missing==0?successes.getOrDefault(d,0L):null)); }
         Window window=window(key.period(),now);
         List<Object> rankArgs=new ArrayList<>(List.of(ts(window.start()),ts(window.end())));countryArg(rankArgs,key.country());
         List<Rank> ranks=jdbc.query("SELECT r.inviter_user_id,p.nickname,COUNT(*),SUM(CASE WHEN ("+state+")='VERIFIED' THEN 1 ELSE 0 END)"+FROM+" LEFT JOIN user_public_profile p ON p.user_id=r.inviter_user_id WHERE u.registered_at>=? AND u.registered_at<?"+countryClause(key.country())+" AND r.inviter_user_id IS NOT NULL GROUP BY r.inviter_user_id,p.nickname ORDER BY COUNT(*) DESC,r.inviter_user_id ASC LIMIT 10",(rs,n)->new Rank(rs.getLong(1),rs.getString(2),rs.getLong(3),rs.getLong(4)),rankArgs.toArray());
@@ -146,17 +152,23 @@ public class OperationsDashboardService {
     private static void countryArg(List<Object> args,String country){if(!"ALL".equals(country))args.add(country);}
     private static Timestamp ts(LocalDateTime at){return Timestamp.valueOf(at);}
     private static Key key(String platform,String country,int days,String period) {
+        return key(platform,country,days,period,null);
+    }
+    private static Key key(String platform,String country,int days,String period,String trendPeriod) {
         String p=platform==null?"":platform.trim().toUpperCase(Locale.ROOT);
         String c=country==null||country.isBlank()?"ALL":country.trim().toUpperCase(Locale.ROOT);
         String r=period==null?"today":period.toLowerCase(Locale.ROOT);
-        if(!Set.of("TIMO","LINKY").contains(p)||!(c.equals("ALL")||c.matches("[A-Z]{2}"))||!Set.of(7,30).contains(days)||!Set.of("today","yesterday","7","30").contains(r))throw new IllegalArgumentException("invalid dashboard filters");
-        return new Key(p,c,days,r);
+        String trend=trendPeriod==null?String.valueOf(days):trendPeriod.toLowerCase(Locale.ROOT);
+        Set<String> periods=Set.of("today","yesterday","3","7","30");
+        if(!Set.of("TIMO","LINKY").contains(p)||!(c.equals("ALL")||c.matches("[A-Z]{2}"))||!Set.of(7,30).contains(days)||!periods.contains(r)||!periods.contains(trend))throw new IllegalArgumentException("invalid dashboard filters");
+        int effectiveDays=switch(trend){case "today","yesterday"->1;case "3"->3;case "30"->30;default->7;};
+        return new Key(p,c,effectiveDays,r,trend);
     }
     private static Window window(String period,LocalDateTime now) {
         LocalDateTime start=now.toLocalDate().atStartOfDay();
-        return switch(period){case "yesterday"->new Window(start.minusDays(1),start);case "7"->new Window(start.minusDays(6),now);case "30"->new Window(start.minusDays(29),now);default->new Window(start,now);};
+        return switch(period){case "yesterday"->new Window(start.minusDays(1),start);case "3"->new Window(start.minusDays(2),now);case "7"->new Window(start.minusDays(6),now);case "30"->new Window(start.minusDays(29),now);default->new Window(start,now);};
     }
-    private record Key(String platform,String country,int days,String period){}
+    private record Key(String platform,String country,int days,String period,String trendPeriod){}
     private record Cached(Instant at,Report report){}
     private record Window(LocalDateTime start,LocalDateTime end){}
     public record Summary(long registered,long invited,long cohortVerified,long yesterdaySameTime,long pending,long overdue,long rejected,long waiting,long unassigned){}

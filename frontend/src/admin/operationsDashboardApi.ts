@@ -1,7 +1,7 @@
 import { request } from '../httpClient'
 export type DashboardPlatform = 'TIMO' | 'LINKY'
-export type DashboardPeriod = 'today' | 'yesterday' | '7' | '30'
-export type DashboardQuery = { platformCode: DashboardPlatform; countryCode: string; trendDays: 7 | 30; period: DashboardPeriod }
+export type DashboardPeriod = 'today' | 'yesterday' | '3' | '7' | '30'
+export type DashboardQuery = { platformCode: DashboardPlatform; countryCode: string; trendDays: 7 | 30; trendPeriod?: DashboardPeriod; period: DashboardPeriod }
 export type DashboardKind = 'REGISTERED'|'FIRST_VERIFIED'|'COHORT'|'PENDING'|'OVERDUE'|'REJECTED'|'WAITING'|'UNASSIGNED'|'INVITER'
 export type DashboardDetail = {kind:DashboardKind;title:string;inviterId?:number;date?:string}
 export type OperationsDashboardReport = {
@@ -15,6 +15,7 @@ export type OperationsDashboardReport = {
 export type DashboardUsers={items:Array<{userId:number;nickname:string|null;countryCode:string;registeredAt:string;bindingStatus:string;operatorName:string|null;registrationInviterId:number|null}>;total:number;page:number;size:number;generatedAt:string}
 export function getOperationsDashboard(sessionToken:string,query:DashboardQuery,signal?:AbortSignal){
  const search=new URLSearchParams({platformCode:query.platformCode,countryCode:query.countryCode,trendDays:String(query.trendDays),period:query.period});
+ if(query.trendPeriod)search.set('trendPeriod',query.trendPeriod);
  return request<OperationsDashboardReport>(`/admin/distribution/operations-dashboard?${search}`,{headers:{'X-Admin-Session':sessionToken},signal})
 }
 export function getOperationsDashboardUsers(sessionToken:string,query:DashboardQuery,detail:DashboardDetail,page:number,signal?:AbortSignal){

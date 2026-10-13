@@ -55,6 +55,12 @@ class OperationsDashboardHttpIntegrationTest {
      .andExpect(status().isOk()).andExpect(jsonPath("$.summary.registered").value(2))
      .andExpect(jsonPath("$.summary.invited").value(1)).andExpect(jsonPath("$.firstVerified").value(1))
      .andExpect(jsonPath("$.ranks[0].inviterId").value(80001));
+  mvc.perform(get("/admin/distribution/operations-dashboard").header("X-Admin-Session",session).param("platformCode","TIMO").param("trendPeriod","yesterday").param("period","3"))
+     .andExpect(status().isOk()).andExpect(jsonPath("$.trend.length()").value(1))
+     .andExpect(jsonPath("$.trend[0].date").value("2026-10-11")).andExpect(jsonPath("$.trend[0].registered").value(0))
+     .andExpect(jsonPath("$.firstVerified").value(1)).andExpect(jsonPath("$.summary.registered").value(2));
+  mvc.perform(get("/admin/distribution/operations-dashboard").header("X-Admin-Session",session).param("platformCode","TIMO").param("trendPeriod","365"))
+     .andExpect(status().isBadRequest());
   mvc.perform(get("/admin/distribution/operations-dashboard/users").header("X-Admin-Session",session).param("platformCode","TIMO").param("kind","INVITER").param("inviterId","80001"))
      .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(1)).andExpect(jsonPath("$.items[0].bindingStatus").value("VERIFIED"));
   mvc.perform(get("/admin/distribution/operations-dashboard").param("platformCode","TIMO")).andExpect(status().isForbidden());
