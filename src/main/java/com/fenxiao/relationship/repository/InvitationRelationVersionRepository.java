@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface InvitationRelationVersionRepository extends JpaRepository<InvitationRelationVersion,Long> {
     Optional<InvitationRelationVersion> findTopByUserIdOrderByVersionNoDesc(Long userId);
+    Optional<InvitationRelationVersion> findByUserIdAndVersionNo(Long userId, int versionNo);
     List<InvitationRelationVersion> findByInviterUserIdAndEffectiveToIsNull(Long inviterUserId);
 
     @Query("""

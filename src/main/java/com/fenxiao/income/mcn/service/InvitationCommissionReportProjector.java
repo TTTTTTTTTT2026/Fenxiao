@@ -26,9 +26,19 @@ public class InvitationCommissionReportProjector {
                            WHERE r.user_id=l.source_user_id AND r.effective_from<=e.occurred_at
                              AND (r.effective_to IS NULL OR r.effective_to>e.occurred_at)
                            ORDER BY r.version_no DESC LIMIT 1
+                       ),(
+                           SELECT r.inviter_user_id FROM invitation_relation_version r
+                           WHERE r.user_id=l.source_user_id AND r.version_no=1
+                             AND raw.fact_granularity='ACCOUNT_GUILD_DAY'
+                             AND raw.period_start=e.occurred_at
+                             AND r.effective_from>=raw.period_start AND r.effective_from<raw.period_end
+                           LIMIT 1
                        ),0) END
                 FROM invitation_reward_account_ledger l
                 JOIN invitation_reward_entry e ON e.id=l.entry_id
+                LEFT JOIN mcn_income_raw_ledger_event raw ON raw.source_system='MCN'
+                  AND raw.platform_code=e.platform_code AND raw.source_event_id=e.source_event_id
+                  AND raw.source_revision=e.source_revision
                 WHERE l.id=? AND l.reward_level IN (1,2)
                   AND l.event_type IN ('INVITATION_REWARD','MCN_INCREASE','MCN_REVISION')
                 """, (rs, row) -> new Event(rs.getLong(1), rs.getString(2),
