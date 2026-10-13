@@ -95,7 +95,24 @@ public class OperationsDashboardService {
         for(int i=key.days()-1;i>=0;i--) { LocalDate d=trendLastDay.minusDays(i); days.add(new Day(d,registrations.getOrDefault(d,0L),missing==0?successes.getOrDefault(d,0L):null)); }
         Window window=window(key.period(),now);
         List<Object> rankArgs=new ArrayList<>(List.of(ts(window.start()),ts(window.end())));countryArg(rankArgs,key.country());
-        List<Rank> ranks=jdbc.query("SELECT r.inviter_user_id,p.nickname,COUNT(*),SUM(CASE WHEN ("+state+")='VERIFIED' THEN 1 ELSE 0 END)"+FROM+" LEFT JOIN user_public_profile p ON p.user_id=r.inviter_user_id WHERE u.registered_at>=? AND u.registered_at<?"+countryClause(key.country())+" AND r.inviter_user_id IS NOT NULL GROUP BY r.inviter_user_id,p.nickname ORDER BY COUNT(*) DESC,r.inviter_user_id ASC LIMIT 10",(rs,n)->new Rank(rs.getLong(1),rs.getString(2),rs.getLong(3),rs.getLong(4)),rankArgs.toArray());
+        // Enrich only the ten ranked inviters. Country filtering above refers to invitees, not the inviter.
+        String rankSql="""
+                SELECT ranked.inviter_user_id,p.nickname,ranked.registered,ranked.verified,
+                       inviter.phone_number,inviter.country_code,operator_account.display_name
+                FROM (
+                    SELECT r.inviter_user_id,COUNT(*) registered,
+                           SUM(CASE WHEN (%s)='VERIFIED' THEN 1 ELSE 0 END) verified
+                    %s WHERE u.registered_at>=? AND u.registered_at<? %s
+                    AND r.inviter_user_id IS NOT NULL
+                    GROUP BY r.inviter_user_id ORDER BY COUNT(*) DESC,r.inviter_user_id ASC LIMIT 10
+                ) ranked
+                LEFT JOIN user_public_profile p ON p.user_id=ranked.inviter_user_id
+                LEFT JOIN user_distribution_profile inviter ON inviter.user_id=ranked.inviter_user_id
+                LEFT JOIN user_operations_profile inviter_op ON inviter_op.user_id=ranked.inviter_user_id
+                LEFT JOIN admin_account operator_account ON operator_account.id=inviter_op.operator_admin_id
+                ORDER BY ranked.registered DESC,ranked.inviter_user_id ASC
+                """.formatted(state,FROM,countryClause(key.country()));
+        List<Rank> ranks=jdbc.query(rankSql,(rs,n)->new Rank(rs.getLong(1),rs.getString(2),rs.getLong(3),rs.getLong(4),rs.getString(5),rs.getString(6),rs.getString(7)),rankArgs.toArray());
         List<String> countries=jdbc.queryForList("SELECT DISTINCT country_code FROM user_distribution_profile ORDER BY country_code",String.class);
         return new Report(key.platform(),key.country(),now.toInstant(ZoneOffset.UTC),60,summary,missing==0?successes.getOrDefault(today,0L):null,missing,days,key.period(),window.start(),window.end(),ranks,countries);
     }
@@ -173,7 +190,7 @@ public class OperationsDashboardService {
     private record Window(LocalDateTime start,LocalDateTime end){}
     public record Summary(long registered,long invited,long cohortVerified,long yesterdaySameTime,long pending,long overdue,long rejected,long waiting,long unassigned){}
     public record Day(LocalDate date,long registered,Long firstVerified){}
-    public record Rank(long inviterId,String nickname,long registered,long verified){}
+    public record Rank(long inviterId,String nickname,long registered,long verified,String phoneNumber,String countryCode,String operatorName){}
     public record Report(String platformCode,String countryCode,Instant generatedAt,int refreshSeconds,Summary summary,Long firstVerified,long missingVerificationHistoryUsers,List<Day> trend,String period,LocalDateTime periodStart,LocalDateTime periodEnd,List<Rank> ranks,List<String> countries){}
     public record User(long userId,String nickname,String countryCode,LocalDateTime registeredAt,String bindingStatus,String operatorName,Long registrationInviterId){}
     public record Users(List<User> items,long total,int page,int size,Instant generatedAt){}

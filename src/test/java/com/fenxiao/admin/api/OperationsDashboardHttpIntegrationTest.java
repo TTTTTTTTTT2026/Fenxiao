@@ -47,6 +47,8 @@ class OperationsDashboardHttpIntegrationTest {
   LocalDateTime now=LocalDateTime.ofInstant(clock.instant(),ZoneOffset.UTC);
   // Profile creation uses wall time; pin only these isolated fixtures to the test's UTC day.
   jdbc.update("UPDATE user_distribution_profile SET registered_at=? WHERE user_id IN (80001,80002)",java.sql.Timestamp.valueOf(now.minusHours(1)));
+  jdbc.update("UPDATE user_distribution_profile SET country_code='BR',phone_number=? WHERE user_id=80001","+5500000000000");
+  jdbc.update("INSERT INTO user_operations_profile(user_id,operator_admin_id,value_code,updated_at) VALUES(80001,?,'GENERAL',?)",admin.getId(),java.sql.Timestamp.valueOf(now));
   var binding=PlatformAccountBinding.submit(80002L,"TIMO","123456789012",now.minusMinutes(1));
   binding.verify("g1",now.minusDays(1),"MCN_TIMO","test-evidence",now.minusSeconds(30));binding=bindings.save(binding);
   history.save(PlatformBindingHistory.record(binding,PlatformBindingStatus.VERIFYING,"AUTHORITATIVE_VERIFIED",null,"MCN_TIMO",null,now.minusSeconds(30)));
@@ -54,7 +56,13 @@ class OperationsDashboardHttpIntegrationTest {
   mvc.perform(get("/admin/distribution/operations-dashboard").header("X-Admin-Session",session).param("platformCode","TIMO"))
      .andExpect(status().isOk()).andExpect(jsonPath("$.summary.registered").value(2))
      .andExpect(jsonPath("$.summary.invited").value(1)).andExpect(jsonPath("$.firstVerified").value(1))
-     .andExpect(jsonPath("$.ranks[0].inviterId").value(80001));
+     .andExpect(jsonPath("$.ranks[0].inviterId").value(80001))
+     .andExpect(jsonPath("$.ranks[0].phoneNumber").value("+5500000000000"))
+     .andExpect(jsonPath("$.ranks[0].countryCode").value("BR"))
+     .andExpect(jsonPath("$.ranks[0].operatorName").value("Dashboard admin"));
+  mvc.perform(get("/admin/distribution/operations-dashboard").header("X-Admin-Session",session).param("platformCode","TIMO").param("countryCode","ID"))
+     .andExpect(status().isOk()).andExpect(jsonPath("$.ranks[0].countryCode").value("BR"))
+     .andExpect(jsonPath("$.ranks[0].registered").value(1));
   mvc.perform(get("/admin/distribution/operations-dashboard").header("X-Admin-Session",session).param("platformCode","TIMO").param("trendPeriod","yesterday").param("period","3"))
      .andExpect(status().isOk()).andExpect(jsonPath("$.trend.length()").value(1))
      .andExpect(jsonPath("$.trend[0].date").value("2026-10-11")).andExpect(jsonPath("$.trend[0].registered").value(0))
