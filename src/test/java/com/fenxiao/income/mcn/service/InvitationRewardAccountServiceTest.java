@@ -238,6 +238,7 @@ class InvitationRewardAccountServiceTest {
     private static JdbcTemplate database(String name) {
         var source = new DriverManagerDataSource("jdbc:h2:mem:" + name + ";MODE=MySQL;DB_CLOSE_DELAY=-1", "sa", "");
         JdbcTemplate jdbc = new JdbcTemplate(source);
+        jdbc.execute("CREATE TABLE mcn_income_raw_ledger_event(source_system VARCHAR(32),platform_code VARCHAR(32),source_event_id VARCHAR(128),source_revision VARCHAR(512),fact_granularity VARCHAR(32),period_start TIMESTAMP,period_end TIMESTAMP)");
         jdbc.execute("""
                 CREATE TABLE mcn_income_reward_candidate_projection(id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 source_system VARCHAR(32),platform_code VARCHAR(32),source_event_id VARCHAR(128),reward_level INT,

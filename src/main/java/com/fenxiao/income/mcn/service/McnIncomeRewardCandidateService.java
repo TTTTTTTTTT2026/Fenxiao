@@ -61,14 +61,16 @@ public class McnIncomeRewardCandidateService {
         String platform = platform(platformCode);
         List<CandidateInput> inputs = jdbc.query("""
                 SELECT p.source_event_id,p.raw_ledger_event_id,p.source_revision,p.business_date,p.resolved_user_id,p.guild_id,p.shadow_status,
-                       r.occurred_at,r.amount,r.currency_code,r.amount_unit
+                       r.occurred_at,r.amount,r.currency_code,r.amount_unit,
+                       r.fact_granularity,r.source_timezone,r.period_start,r.period_end
                 FROM mcn_income_shadow_ledger_projection p
                 JOIN mcn_income_raw_ledger_event r ON r.id=p.raw_ledger_event_id
                 WHERE p.source_system=? AND p.platform_code=? AND p.business_date=?
                 ORDER BY p.source_event_id
                 """, (rs, row) -> new CandidateInput(rs.getString(1), rs.getLong(2), rs.getString(3),
                 rs.getObject(4, LocalDate.class), rs.getObject(5, Long.class), rs.getString(6), rs.getString(7),
-                rs.getTimestamp(8).toInstant(), rs.getBigDecimal(9), rs.getString(10), rs.getString(11)), SOURCE_SYSTEM, platform, businessDate);
+                rs.getTimestamp(8).toInstant(), rs.getBigDecimal(9), rs.getString(10), rs.getString(11),
+                rs.getString(12),rs.getString(13),rs.getTimestamp(14).toInstant(),rs.getTimestamp(15).toInstant()), SOURCE_SYSTEM, platform, businessDate);
         Counts counts = new Counts();
         Instant now = clock.instant();
         // A corrected MCN revision can move an event out of this business date. Rebuild the current
@@ -131,13 +133,22 @@ public class McnIncomeRewardCandidateService {
             counts.blocked++; return;
         }
         LocalDateTime occurredAt = LocalDateTime.ofInstant(input.occurredAt(), ZoneOffset.UTC);
-        boolean bindingEffective = verifiedAccounts.byUser(platform, input.sourceUserId())
-                .map(value -> value.verifiedAt() != null && !value.verifiedAt().isAfter(occurredAt)).orElse(false);
-        if (!bindingEffective) {
-            writeBase(platform, input, input.sourceUserId(), "BLOCKED_BINDING_NOT_EFFECTIVE", "binding was not verified at the income occurrence time", now);
+        IncomeQualificationTime qualification;
+        try {
+            qualification = IncomeQualificationTime.of(input.granularity(),input.sourceTimezone(),input.businessDate(),
+                    input.occurredAt(),input.periodStart(),input.periodEnd());
+        } catch (java.time.DateTimeException | IllegalArgumentException exception) {
+            writeBase(platform, input, input.sourceUserId(), "BLOCKED_INVALID_INCOME_DAY", "source daily income interval is invalid", now);
             counts.blocked++; return;
         }
-        writeBase(platform, input, input.sourceUserId(), "SOURCE_READY", "bound final fact with time-effective binding", now);
+        boolean bindingEffective = verifiedAccounts.byUser(platform, input.sourceUserId())
+                .map(value -> qualification.bindingEffective(value.verifiedAt())).orElse(false);
+        if (!bindingEffective) {
+            writeBase(platform, input, input.sourceUserId(), "BLOCKED_BINDING_NOT_EFFECTIVE", "binding was not verified by the income source day", now);
+            counts.blocked++; return;
+        }
+        writeBase(platform, input, input.sourceUserId(), "SOURCE_READY", qualification.dayEndExclusive() == null
+                ? "bound final fact with time-effective binding" : "bound final source-day fact; BINDING_DAY_V1", now);
         counts.sourceReady++;
         Optional<CommissionPolicy> policy = commissionPolicies.findEffective(platform, source.getCountryCode(), occurredAt);
         if (policy.isEmpty() || !policy.get().isCompanyIncomeInvitationV2()) {
@@ -159,6 +170,11 @@ public class McnIncomeRewardCandidateService {
         for (int level = 1; level <= 2; level++) {
             if (level > policy.get().getMaxRewardLevel() || !policy.get().level(level).enabled()) break;
             Optional<InvitationRelationVersion> relation = invitationRepository.findEffectiveAt(currentUserId, occurredAt);
+            // Only the initial invitation may start on this source day. Later transfers never rewrite the day-start owner.
+            if (relation.isEmpty() && qualification.dayEndExclusive() != null) {
+                relation = invitationRepository.findByUserIdAndVersionNo(currentUserId, 1)
+                        .filter(value -> qualification.includesFirstRelation(value.getEffectiveFrom()));
+            }
             if (relation.isEmpty() || relation.get().getInviterUserId() == null) {
                 if (level == 1) {
                     writeCandidate(platform, input, input.sourceUserId(), null, level, relation.map(InvitationRelationVersion::getVersionNo).orElse(null), policy.get().getId(), policy.get().getPolicyCode(), null,
@@ -289,7 +305,8 @@ public class McnIncomeRewardCandidateService {
     }
     private String platform(String value) { String v = value == null ? "" : value.trim().toUpperCase(Locale.ROOT); if (!"TIMO".equals(v) && !"LINKY".equals(v)) throw new IllegalArgumentException("income platform must be TIMO or LINKY"); return v; }
     static record CandidateInput(String sourceEventId, long rawLedgerEventId, String sourceRevision, LocalDate businessDate, Long sourceUserId,
-                                 String sourceGuildId, String shadowStatus, Instant occurredAt, BigDecimal amount, String currencyCode, String amountUnit) { }
+                                 String sourceGuildId, String shadowStatus, Instant occurredAt, BigDecimal amount, String currencyCode, String amountUnit,
+                                 String granularity, String sourceTimezone, Instant periodStart, Instant periodEnd) { }
     private static class Counts { int sourceReady; int candidates; int blocked; BigDecimal amount = BigDecimal.ZERO.setScale(6); String amountUnit; }
     private record RunScope(String platformCode, LocalDate businessDate) { }
 }

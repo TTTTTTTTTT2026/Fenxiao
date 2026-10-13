@@ -115,7 +115,7 @@ class McnIncomeRewardCandidateServiceTest {
         Fixture fixture = fixture();
         var changed = new McnIncomeRewardCandidateService.CandidateInput(
                 "event-1", 2L, "revision-2", DAY, 100L, "guild", "VOIDED",
-                OCCURRED, new BigDecimal("100.000000"), "XXX", "TIMO_DIAMOND");
+                OCCURRED, new BigDecimal("100.000000"), "XXX", "TIMO_DIAMOND", "EVENT", "UTC", OCCURRED, OCCURRED.plusSeconds(1));
         when(fixture.jdbc.query(anyString(), any(RowMapper.class), any(Object[].class))).thenReturn(List.of(changed));
 
         McnIncomeRewardCandidateSummaryResponse result = fixture.service.refresh("TIMO", DAY);
@@ -141,7 +141,7 @@ class McnIncomeRewardCandidateServiceTest {
 
     private McnIncomeRewardCandidateService.CandidateInput input(Long sourceUserId) {
         return new McnIncomeRewardCandidateService.CandidateInput("event-1", 1L, "revision-1", DAY, sourceUserId,
-                "guild", "BOUND_FINAL", OCCURRED, new BigDecimal("100.000000"), "XXX", "TIMO_DIAMOND");
+                "guild", "BOUND_FINAL", OCCURRED, new BigDecimal("100.000000"), "XXX", "TIMO_DIAMOND", "EVENT", "UTC", OCCURRED, OCCURRED.plusSeconds(1));
     }
 
     private Fixture fixture() {
