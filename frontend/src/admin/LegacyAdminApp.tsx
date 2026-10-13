@@ -192,6 +192,8 @@ import LegacyCommissionPolicySection from './LegacyCommissionPolicySection'
 import LegacyGuildDirectorySection from './LegacyGuildDirectorySection'
 import LegacyHighValueRankingSection from './LegacyHighValueRankingSection'
 import LegacyOverviewSection from './LegacyOverviewSection'
+import LegacyOperationsDashboard from './LegacyOperationsDashboard'
+import { canUseOperationsDashboard, legacyDashboardLanding } from './operationsDashboardAccess'
 import LegacyRiskQueueSection, { type RiskActionName, type RiskQuery } from './LegacyRiskQueueSection'
 import LegacyUserAccountSection from './LegacyUserAccountSection'
 import { DataTable,EmptyState,InfoCard,InfoRow,InlineHint,PanelSection,RelationItem,StatusBadge } from './LegacyPresentation'
@@ -351,7 +353,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [adminAccountForm, setAdminAccountForm] = useState({ username: '', displayName: '', role: 'operator', platformScope: '*', guildScope: '*', regionScope: '*' })
   const [adminPasswordForm, setAdminPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
   const [adminProduct, setAdminProduct] = useState<AdminProductKey>('ALL')
-  const [activeAdminSection, setActiveAdminSection] = useState<AdminSectionKey>(() => resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined))
+  const [activeAdminSection, setActiveAdminSection] = useState<AdminSectionKey>(() => legacyDashboardLanding(typeof window !== 'undefined' ? window.location.hash : undefined, canUseOperationsDashboard(initialAdminSession)))
   const [isUserGradeNavOpen, setIsUserGradeNavOpen] = useState(() => ['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [isUserManagementNavOpen, setIsUserManagementNavOpen] = useState(() => ['users', 'bindings', 'riskQueue', 'highValueRanking'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [isFinanceManagementNavOpen, setIsFinanceManagementNavOpen] = useState(() => ['rewards', 'commissionPolicies', 'tokenPointConversions'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
@@ -629,7 +631,10 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const operatingDividendGuildOptions = useMemo(() => (operatingDividendGuildDirectory ?? []).filter((item) => item.platformCode === operatingDividendForm.platformCode && directoryCountryCode(item.country) === operatingDividendForm.countryCode && item.directoryStatus === 'NORMAL' && ['ACTIVE', 'ENABLED'].includes(item.guildStatus.toUpperCase())), [operatingDividendGuildDirectory, operatingDividendForm.platformCode, operatingDividendForm.countryCode])
   const seedInviterCountry = phoneCountries.find((country) => country.countryCode === seedInviterForm.countryCode) ?? phoneCountries[0]
   const activeAdminProductCode = adminProduct === 'ALL' ? undefined : adminProduct
-  const adminSectionLinks = useMemo(() => buildAdminSectionLinks(adminSession?.role), [adminSession?.role])
+  const adminSectionLinks = useMemo(() => {
+    const links = buildAdminSectionLinks(adminSession?.role)
+    return canUseOperationsDashboard(adminSession) ? [{ label: '运营数据看板', description: '每日拉新、绑定和邀请进展。', href: ADMIN_SECTION_HASHES.operationsDashboard }, ...links] : links
+  }, [adminSession])
   const visibleFinanceSections = useMemo(() => getVisibleFinanceSections(adminSession?.role), [adminSession?.role])
   const canViewAdminSection = (section: AdminSectionKey) => adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES[section])
   const currentSettingsView = SYSTEM_CONFIG_SECTION_VIEWS[activeAdminSection] ?? (activeAdminSection === 'settings' ? 'experiment' : null)
@@ -652,11 +657,11 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined
-    const syncSection = () => setActiveAdminSection(resolveAdminSectionFromHash(window.location.hash))
+    const syncSection = () => setActiveAdminSection(legacyDashboardLanding(window.location.hash, canUseOperationsDashboard(adminSession)))
     syncSection()
     window.addEventListener('hashchange', syncSection)
     return () => window.removeEventListener('hashchange', syncSection)
-  }, [])
+  }, [adminSession])
 
   useEffect(() => {
     const isVisibleUserGradeChild = ['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(activeAdminSection) && adminSectionLinks.some((item) => item.href === ADMIN_SECTION_HASHES.userGradeList)
@@ -1592,6 +1597,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
       }
       setAdminPassword('')
       if (nextSession.mustChangePassword) return
+      // The landing dashboard owns its read-only queries; do not load the old financial overview as a login side effect.
+      if (canUseOperationsDashboard(nextSession) && !window.location.hash) return
       const [overviewResult, auditResult] = await Promise.all([
         getAdminOverview(nextSession.sessionToken, activeAdminProductCode),
         getAdminAuditLogs(nextSession.sessionToken, {
@@ -3652,6 +3659,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
               </div>
             </PanelSection>
           ) : null}
+
+          {activeAdminSection === 'operationsDashboard' && canUseOperationsDashboard(adminSession) ? <LegacyOperationsDashboard sessionToken={adminSession.sessionToken} product={activeAdminProductCode} onProductChange={setAdminProduct} /> : null}
 
           {activeAdminSection === 'overview' ? <LegacyOverviewSection
             roleLabel={formatAdminRole(adminSession.role)}
