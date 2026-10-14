@@ -1,0 +1,16 @@
+.pointfx { display: grid; gap: 18px; }
+.pointfx-notice, .pointfx-result { border: 1px solid #f2d9c8; border-radius: 10px; background: #fff8f2; padding: 14px; line-height: 1.7; margin: 0; }
+.pointfx-result { display: grid; gap: 5px; }
+.pointfx-error { color: #b42318; background: #fff2f0; padding: 12px; border-radius: 8px; overflow-wrap: anywhere; }
+.pointfx-preview { border-top: 1px solid #e8e0dc; padding-top: 12px; }
+.pointfx-preview p { color: #68615c; }
+.pointfx-fields { display: flex; flex-wrap: wrap; align-items: end; gap: 14px; }
+.pointfx-fields label { display: grid; gap: 7px; flex: 1 1 180px; }
+.pointfx fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.pointfx input, .pointfx select { width: 100%; min-width: 0; box-sizing: border-box; padding: 10px; border: 1px solid #dfd8d2; border-radius: 8px; background: #fff; }
+.pointfx-dialog::backdrop { background: #0006; }
+.pointfx-dialog { border: 0; background: #fff; border-radius: 14px; padding: 24px; width: min(720px, calc(100% - 40px)); max-height: calc(100vh - 40px); overflow-y: auto; box-sizing: border-box; box-shadow: 0 20px 60px #0003; }
+.pointfx-dialog p { line-height: 1.7; color: #68615c; }
+.pointfx-history { width: min(1000px, 100%); }
+.pointfx-history header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+@media (max-width: 640px) { .pointfx-dialog { padding: 18px; width: calc(100% - 20px); } .pointfx-fields label { flex-basis: 100%; } }
