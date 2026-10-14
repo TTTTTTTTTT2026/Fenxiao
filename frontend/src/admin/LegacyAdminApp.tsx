@@ -193,6 +193,7 @@ import LegacyGuildDirectorySection from './LegacyGuildDirectorySection'
 import LegacyHighValueRankingSection from './LegacyHighValueRankingSection'
 import LegacyOverviewSection from './LegacyOverviewSection'
 import LegacyOperationsDashboard from './LegacyOperationsDashboard'
+import LegacyPointCurrencySection from './LegacyPointCurrencySection'
 import { canUseOperationsDashboard, legacyDashboardLanding } from './operationsDashboardAccess'
 import LegacyRiskQueueSection, { type RiskActionName, type RiskQuery } from './LegacyRiskQueueSection'
 import LegacyUserAccountSection from './LegacyUserAccountSection'
@@ -356,7 +357,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [activeAdminSection, setActiveAdminSection] = useState<AdminSectionKey>(() => legacyDashboardLanding(typeof window !== 'undefined' ? window.location.hash : undefined, canUseOperationsDashboard(initialAdminSession)))
   const [isUserGradeNavOpen, setIsUserGradeNavOpen] = useState(() => ['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [isUserManagementNavOpen, setIsUserManagementNavOpen] = useState(() => ['users', 'bindings', 'riskQueue', 'highValueRanking'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
-  const [isFinanceManagementNavOpen, setIsFinanceManagementNavOpen] = useState(() => ['rewards', 'commissionPolicies', 'tokenPointConversions'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
+  const [isFinanceManagementNavOpen, setIsFinanceManagementNavOpen] = useState(() => ['rewards', 'commissionPolicies', 'tokenPointConversions', 'pointCurrencyRates'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [isSystemConfigNavOpen, setIsSystemConfigNavOpen] = useState(() => ['settings', 'systemExperiment', 'systemGuilds', 'systemPlatforms', 'systemIncomeControlled', 'systemIncomeShadow', 'systemMockVerification', 'systemAdvanced', 'systemSeedInviter', 'systemPhoneVerification', 'systemSmsWhitelist'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [isSystemManagementNavOpen, setIsSystemManagementNavOpen] = useState(() => ['accounts', 'accountManagement', 'mySecurity', 'securityRecords'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [showAdvancedOps, setShowAdvancedOps] = useState(false)
@@ -641,7 +642,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const isSystemConfigSection = activeAdminSection === 'settings' || currentSettingsView !== null
   const currentAccountView = SYSTEM_MANAGEMENT_SECTION_VIEWS[activeAdminSection] ?? (activeAdminSection === 'accounts' ? 'security' : null)
   const isSystemManagementSection = activeAdminSection === 'accounts' || currentAccountView !== null
-  const isFinanceManagementSection = ['rewards', 'userAccounts', 'commissionPolicies', 'tokenPointConversions'].includes(activeAdminSection)
+  const isFinanceManagementSection = ['rewards', 'userAccounts', 'commissionPolicies', 'tokenPointConversions', 'pointCurrencyRates'].includes(activeAdminSection)
   const canViewHighValueRanking = ['super_admin', 'admin', 'operations', 'finance'].includes(adminSession?.role?.toLowerCase() ?? '')
   const showingProductSpecificDiagnostics = adminProduct === 'LINKY'
   const channelEntryLinks = useMemo(
@@ -3540,6 +3541,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
           /> : null}
 
           {canViewHighValueRanking && activeAdminSection === 'highValueRanking' && adminSession ? <LegacyHighValueRankingSection sessionToken={adminSession.sessionToken} /> : null}
+
+          {activeAdminSection === 'pointCurrencyRates' && visibleFinanceSections.includes('pointCurrencyRates') && adminSession ? <LegacyPointCurrencySection sessionToken={adminSession.sessionToken} /> : null}
 
           {activeAdminSection === 'platformGuildDirectory' ? (
             <LegacyGuildDirectorySection

@@ -61,6 +61,7 @@ export default function LegacyAdminNavigation({ links, activeSection, visibleFin
             {visibleFinanceSections.includes('userAccounts') ? <a className={`admin-nav-subitem ${activeSection === 'userAccounts' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.userAccounts}>用户账户</a> : null}
             {visibleFinanceSections.includes('commissionPolicies') ? <a className={`admin-nav-subitem ${activeSection === 'commissionPolicies' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.commissionPolicies} onClick={() => onNavigate('commissionPolicies')}>邀请裂变分成</a> : null}
             {visibleFinanceSections.includes('tokenPointConversions') ? <a className={`admin-nav-subitem ${activeSection === 'tokenPointConversions' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.tokenPointConversions} onClick={() => onNavigate('tokenPointConversions')}>代币积分兑换</a> : null}
+            {visibleFinanceSections.includes('pointCurrencyRates') ? <a className={`admin-nav-subitem ${activeSection === 'pointCurrencyRates' ? 'is-active' : ''}`} href={ADMIN_SECTION_HASHES.pointCurrencyRates} onClick={() => onNavigate('pointCurrencyRates')}>积分货币汇率</a> : null}
           </div> : null}
         </div>
       ) : item.href === ADMIN_SECTION_HASHES.accounts ? (
