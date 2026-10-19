@@ -26,6 +26,8 @@ public class DemoLeaderboardService {
     private static final String VERSION = "demo-v1";
     private static final String[] NAMES = {"Ayu", "Maria", "Putri", "Ana", "Rina", "Julia", "Dewi", "Carla", "Indah", "Beatriz"};
     private static final String[] AVATARS = {"nature-001", "cartoon-001", "portrait-001", "food-001"};
+    // Visual catalogue is independent of published amounts. Preserve stored legacy IDs for rollback compatibility.
+    private static final String[] DISPLAY_AVATARS = {"id-001", "br-001", "id-002", "br-002", "id-003", "br-003", "id-004", "br-004", "id-005", "br-005"};
     private final JdbcTemplate jdbc;
     private final ObjectMapper json;
     private final Clock clock;
@@ -49,7 +51,18 @@ public class DemoLeaderboardService {
         return jdbc.query("SELECT payload FROM consumer_demo_leaderboard_snapshot ORDER BY as_of_date DESC LIMIT 1",
                 (rs, row) -> decode(rs.getString(1))).stream().findFirst().map(stored -> new Snapshot(
                 stored.mode(), stored.currency(), stored.asOfDate(), stored.publishedAt(), stored.nextUpdateAt(),
-                stored.asOfDate().isBefore(dueAsOfDate()), stored.boards()));
+                stored.asOfDate().isBefore(dueAsOfDate()), stored.boards().stream().map(board -> new Board(
+                        board.period(), board.startDate(), board.endDate(), board.items().stream().map(this::withCurrentAvatar).toList())).toList()));
+    }
+
+    private Entry withCurrentAvatar(Entry entry) {
+        for (int i = 0; i < DISPLAY_AVATARS.length; i++) {
+            if (("demo-" + i).equals(entry.personaId())) {
+                return new Entry(entry.rank(), entry.personaId(), entry.maskedNickname(), entry.countryCode(),
+                        DISPLAY_AVATARS[i], entry.amountUsd(), entry.invitationCount());
+            }
+        }
+        return entry;
     }
 
     /** Only the scheduled publisher/startup calls this. Public GET requests never generate or write data. */

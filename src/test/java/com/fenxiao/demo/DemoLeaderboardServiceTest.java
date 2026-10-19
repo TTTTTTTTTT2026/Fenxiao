@@ -102,4 +102,27 @@ class DemoLeaderboardServiceTest {
         String payload = json.writeValueAsString(service.generate(LocalDate.of(2026, 10, 18), Instant.EPOCH));
         assertThat(payload).doesNotContain("phone", "accessToken", "userId", "balance", "withdraw", "real");
     }
+
+    @Test void newAvatarsAreUniqueAndFixedAcrossPeriodsWithoutRewritingPublishedData() throws Exception {
+        service.publishDue();
+        String original = jdbc.queryForObject("SELECT payload FROM consumer_demo_leaderboard_snapshot", String.class);
+        var stored = json.readValue(original, DemoLeaderboardDtos.Snapshot.class);
+        var current = service.latest().orElseThrow();
+        var secondRead = service.latest().orElseThrow();
+        assertThat(secondRead).isEqualTo(current);
+        assertThat(jdbc.queryForObject("SELECT payload FROM consumer_demo_leaderboard_snapshot", String.class)).isEqualTo(original);
+        for (int index = 0; index < current.boards().size(); index++) {
+            var board = current.boards().get(index);
+            assertThat(board.items().stream().map(DemoLeaderboardDtos.Entry::avatarAssetId).distinct()).hasSize(10);
+            for (int row = 0; row < board.items().size(); row++) {
+                var entry = board.items().get(row);
+                assertThat(entry).usingRecursiveComparison().ignoringFields("avatarAssetId").isEqualTo(stored.boards().get(index).items().get(row));
+                assertThat(entry.avatarAssetId()).startsWith(entry.countryCode().toLowerCase() + "-");
+                assertThat(entry.avatarAssetId()).isEqualTo(current.boards().getFirst().items().stream()
+                        .filter(other -> other.personaId().equals(entry.personaId())).findFirst().orElseThrow().avatarAssetId());
+            }
+        }
+        // Stored v1 IDs still load in older releases if this visual change is rolled back.
+        assertThat(original).doesNotContain("id-00", "br-00");
+    }
 }

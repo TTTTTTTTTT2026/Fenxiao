@@ -2,6 +2,7 @@ import { useEffect, useState, type KeyboardEvent } from 'react'
 import { Info } from '@phosphor-icons/react'
 import { demoPeriods, getDemoLeaderboard, type DemoPeriod, type DemoSnapshot } from './consumerDemoLeaderboardApi'
 import type { ConsumerLocale } from './shared/catalog'
+import { isInternalLeaderboardPreview } from './consumerDemoLeaderboardPreview'
 import './ConsumerDemoLeaderboard.css'
 
 const words = {
@@ -12,11 +13,21 @@ const words = {
   pt: { title:'Ranking de recompensas', demo:'Ranking de exemplo · Não são ganhos reais', tabs:['Diário','Semanal','Mensal'], rank:'Posição', user:'Usuário', invites:'Convites', amount:'Prêmios (USD)', scope:'Exemplo misto Indonésia / Brasil · UTC', range:'Período', asOf:'Dados até', stale:'Atualização atrasada; mostrando o exemplo anterior', note:'Avatares, nomes, convites e valores são exemplos fictícios, não ganhos reais. Os valores em USD não estão disponíveis para saque.', loading:'Carregando ranking de exemplo…', failed:'Ranking de exemplo indisponível', retry:'Tentar novamente', ID:'Indonésia', BR:'Brasil' },
 } as const
 
-export function ConsumerDemoLeaderboardView({locale, data, period, loading, failed, onPeriod, onRetry}: {
+const internalWords = {
+  zh: { scope:'印尼、巴西 · UTC', loading:'榜单加载中…', failed:'榜单暂时无法加载', stale:'更新暂有延迟，当前为上一版数据' },
+  en: { scope:'Indonesia / Brazil · UTC', loading:'Loading leaderboard…', failed:'Leaderboard is unavailable', stale:'Update delayed; showing the previous version' },
+  es: { scope:'Indonesia / Brasil · UTC', loading:'Cargando clasificación…', failed:'Clasificación no disponible', stale:'Actualización retrasada; se muestra la versión anterior' },
+  id: { scope:'Indonesia / Brasil · UTC', loading:'Memuat peringkat…', failed:'Peringkat belum tersedia', stale:'Pembaruan tertunda; menampilkan versi sebelumnya' },
+  pt: { scope:'Indonésia / Brasil · UTC', loading:'Carregando ranking…', failed:'Ranking indisponível', stale:'Atualização atrasada; mostrando a versão anterior' },
+} as const
+
+export function ConsumerDemoLeaderboardView({locale, data, period, loading, failed, onPeriod, onRetry, internalPreview = false}: {
   locale: ConsumerLocale; data: DemoSnapshot | null; period: DemoPeriod; loading: boolean; failed: boolean
   onPeriod: (period: DemoPeriod) => void; onRetry: () => void
+  internalPreview?: boolean
 }) {
   const copy = words[locale]
+  const statusCopy = internalPreview ? internalWords[locale] : copy
   const board = data?.boards.find(board => board.period === period)
   const format = new Intl.NumberFormat(locale, {style:'currency', currency:'USD', minimumFractionDigits:2, maximumFractionDigits:2})
   function moveTab(event: KeyboardEvent<HTMLButtonElement>, index: number) {
@@ -28,16 +39,16 @@ export function ConsumerDemoLeaderboardView({locale, data, period, loading, fail
   }
   return <section className="consumer-demo-board" aria-labelledby="demo-board-title">
     <div className="demo-board-heading"><h2 id="demo-board-title">{copy.title}</h2><span className="demo-board-top">TOP 10</span></div>
-    <p className="demo-board-label">{copy.demo}</p>
+    {!internalPreview ? <p className="demo-board-label">{copy.demo}</p> : null}
     <div className="demo-board-tabs" role="tablist" aria-label={copy.range}>
       {demoPeriods.map((value,index) => <button type="button" role="tab" id={`demo-tab-${value}`} aria-controls="demo-board-panel" aria-selected={period === value}
         tabIndex={period === value ? 0 : -1} key={value} onClick={() => onPeriod(value)} onKeyDown={event => moveTab(event,index)}>{copy.tabs[index]}</button>)}
     </div>
-    <p className="demo-board-scope">{copy.scope}</p>
+    <p className="demo-board-scope">{statusCopy.scope}</p>
     <div id="demo-board-panel" role="tabpanel" tabIndex={0} aria-labelledby={`demo-tab-${period}`} aria-busy={loading}>
-      {loading ? <p className="demo-board-state" role="status">{copy.loading}</p> : failed || !board ? <p className="demo-board-state" role="alert">{copy.failed} <button type="button" onClick={onRetry}>{copy.retry}</button></p> : <>
+      {loading ? <p className="demo-board-state" role="status">{statusCopy.loading}</p> : failed || !board ? <p className="demo-board-state" role="alert">{statusCopy.failed} <button type="button" onClick={onRetry}>{copy.retry}</button></p> : <>
         <p className="demo-board-period">{copy.range}: {board.startDate === board.endDate ? board.endDate : `${board.startDate} – ${board.endDate}`}</p>
-        {data?.stale ? <p className="demo-board-stale" role="status">{copy.stale}</p> : null}
+        {data?.stale ? <p className="demo-board-stale" role="status">{statusCopy.stale}</p> : null}
         <table><colgroup><col className="demo-col-rank" /><col /><col className="demo-col-invites" /><col className="demo-col-amount" /></colgroup>
           <thead><tr><th scope="col">{copy.rank}</th><th scope="col">{copy.user}</th><th scope="col">{copy.invites}</th><th scope="col">{copy.amount}</th></tr></thead>
           <tbody>{board.items.map(entry => <tr key={entry.personaId}>
@@ -47,11 +58,12 @@ export function ConsumerDemoLeaderboardView({locale, data, period, loading, fail
           </tr>)}</tbody></table>
       </>}
     </div>
-    <p className="demo-board-note"><Info size={19} weight="regular" aria-hidden="true" /><span>{copy.note}</span></p>
+    {!internalPreview ? <p className="demo-board-note"><Info size={19} weight="regular" aria-hidden="true" /><span>{copy.note}</span></p> : null}
   </section>
 }
 
 export default function ConsumerDemoLeaderboard({locale}: {locale: ConsumerLocale}) {
+  const internalPreview = isInternalLeaderboardPreview(import.meta.env.VITE_LEADERBOARD_AUDIENCE)
   const [data,setData] = useState<DemoSnapshot | null>(null)
   const [period,setPeriod] = useState<DemoPeriod>('DAY')
   const [loading,setLoading] = useState(true)
@@ -63,6 +75,6 @@ export default function ConsumerDemoLeaderboard({locale}: {locale: ConsumerLocal
       .catch(() => { if (active) setFailed(true) }).finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   },[reload])
-  return <ConsumerDemoLeaderboardView locale={locale} data={data} period={period} loading={loading} failed={failed} onPeriod={setPeriod}
+  return <ConsumerDemoLeaderboardView locale={locale} data={data} period={period} loading={loading} failed={failed} onPeriod={setPeriod} internalPreview={internalPreview}
     onRetry={() => {setLoading(true);setFailed(false);setReload(value => value + 1)}} />
 }

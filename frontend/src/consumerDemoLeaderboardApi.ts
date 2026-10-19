@@ -9,7 +9,9 @@ export type DemoBoard = { period: DemoPeriod; startDate: string; endDate: string
 export type DemoSnapshot = {
   mode: 'DEMO'; currency: 'USD'; asOfDate: string; publishedAt: string; nextUpdateAt: string; stale: boolean; boards: DemoBoard[]
 }
-const avatars = new Set(['nature-001', 'cartoon-001', 'portrait-001', 'food-001'])
+// Keep v1 assets valid during a coordinated backend/frontend rollout or rollback.
+const avatars = new Set(['nature-001', 'cartoon-001', 'portrait-001', 'food-001',
+  'id-001','id-002','id-003','id-004','id-005','br-001','br-002','br-003','br-004','br-005'])
 export const demoPeriods: DemoPeriod[] = ['DAY', 'WEEK', 'MONTH']
 
 export function requireDemoSnapshot(value: DemoSnapshot): DemoSnapshot {
