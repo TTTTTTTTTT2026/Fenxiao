@@ -70,6 +70,7 @@ import InvitationProgressPanel from './InvitationProgressPanel'
 import ConsumerGradeProgressCard from './ConsumerGradeProgressCard'
 import TimoVerificationResult from './TimoVerificationResult'
 import ConsumerPhoneCountrySelect from './ConsumerPhoneCountrySelect'
+import ConsumerDemoLeaderboard from './ConsumerDemoLeaderboard'
 import { consumerPhoneFormCopy,phoneCodeActionText,phoneCodePlaceholders } from './consumerPhoneFormCopy'
 import { ConsumerUnboundDialog,ConsumerUnboundGuidance } from './consumerWorkspaceGuidance'
 import { canOpenEarningsWorkspace,resolveConsumerAccountWorkspace } from './consumerWorkspaceView'
@@ -1583,6 +1584,7 @@ function InviteCodePage() {
           <button type="button" className="consumer-login-switch" onClick={() => switchLoginMode(loginMode === 'phone' ? 'password' : 'phone')}>{loginMode === 'phone' ? passwordCopy.switchToPassword : passwordCopy.switchToPhone}</button>
         </>}
 
+        {!session ? <ConsumerDemoLeaderboard locale={locale} /> : null}
         {session ? <InvitationProgressPanel key={workspace?.selected || 'TIMO'} userId={session.userId} accessToken={session.accessToken} locale={locale} initialPlatform={workspace?.selected || 'TIMO'} /> : null}
 
         {session ? <ConsumerBottomNavigation locale={locale} active="invite" /> : null}

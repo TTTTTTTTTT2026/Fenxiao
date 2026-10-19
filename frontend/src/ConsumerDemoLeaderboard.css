@@ -1,0 +1,30 @@
+.consumer-demo-board{background:#fff;border-radius:24px;padding:24px 20px;margin-top:24px;color:#263850;box-shadow:0 12px 32px rgba(130,69,28,.045)}
+.consumer-demo-board .demo-board-heading{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.consumer-demo-board h2{margin:0;font-size:24px;line-height:1.35;color:#242424}
+.consumer-demo-board .demo-board-top{background:#fff0e6;color:#f34f14;border-radius:24px;padding:6px 11px;font-size:12px;font-weight:800;white-space:nowrap}
+.consumer-demo-board .demo-board-label{display:table;margin:0 0 14px;background:#fff0e5;color:#bd390b;font-size:15px;line-height:1.45;font-weight:750;padding:7px 11px;border-radius:18px;overflow-wrap:anywhere}
+.consumer-demo-board .demo-board-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;background:#f6f4f3;border-radius:14px;padding:3px}
+.consumer-demo-board .demo-board-tabs button{min-width:0;min-height:44px;border:0;border-radius:12px;color:#5e6876;background:transparent;font-size:14px;font-weight:700;line-height:1.3;padding:10px 5px;cursor:pointer;overflow-wrap:anywhere}
+.consumer-demo-board .demo-board-tabs button[aria-selected=true]{color:#fff;background:#f45119}
+.consumer-demo-board button:focus-visible,.consumer-demo-board [role=tabpanel]:focus-visible{outline:3px solid #ba542b;outline-offset:3px}
+.consumer-demo-board .demo-board-scope{font-size:12px;color:#53667e;margin:10px 0 6px}
+.consumer-demo-board .demo-board-period{font-size:11px;line-height:1.6;color:#64748b;margin:0 0 14px}
+.consumer-demo-board table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:14px}
+.consumer-demo-board .demo-col-rank{width:38px}.consumer-demo-board .demo-col-invites{width:64px}.consumer-demo-board .demo-col-amount{width:100px}
+.consumer-demo-board thead{background:#faf8f7}.consumer-demo-board th,.consumer-demo-board td{padding:6px 5px;border-bottom:1px solid #e5e9ee}
+.consumer-demo-board thead th{font-size:11px;line-height:1.5;font-weight:600;color:#53667e;text-align:center;overflow-wrap:anywhere}
+.consumer-demo-board thead th:nth-child(2){text-align:left}.consumer-demo-board thead th:last-child{text-align:right}
+.consumer-demo-board tbody th{text-align:left;font-weight:500;min-width:0;background:transparent}.consumer-demo-board tbody td:first-child{text-align:center}
+.consumer-demo-board .demo-rank{width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;font-size:15px;color:#52637e;font-weight:600;border-radius:50%}
+.consumer-demo-board .demo-rank-1{color:#b84c00;background:#ffe5c1}.consumer-demo-board .demo-rank-2{color:#4f6073;background:#edf0f3}.consumer-demo-board .demo-rank-3{color:#946143;background:#f7e1cf}
+.consumer-demo-board .demo-user{display:flex;align-items:center;gap:8px;min-width:0}.consumer-demo-board .demo-user>span{min-width:0}
+.consumer-demo-board .demo-avatar{border-radius:50%;object-fit:cover;object-position:50% 50%;width:32px;height:32px;flex-shrink:0;background:#f4f0ed}
+.consumer-demo-board .demo-nickname{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;line-height:1.15;color:#344c70}
+.consumer-demo-board .demo-flag{display:block;object-fit:cover;margin-top:3px;border-radius:2px}
+.consumer-demo-board .demo-invites{text-align:center;font-variant-numeric:tabular-nums;color:#536682}
+.consumer-demo-board .demo-amount{text-align:right;white-space:nowrap;font-size:13px;font-weight:650;font-variant-numeric:tabular-nums;color:#344c70}
+.consumer-demo-board .demo-board-note{display:flex;gap:8px;align-items:flex-start;margin:14px 0 0;padding:12px;border-radius:10px;background:#fff7ef;color:#77502e;font-size:12px;line-height:1.65}
+.consumer-demo-board .demo-board-note svg{flex-shrink:0;margin-top:2px}.consumer-demo-board .demo-board-state{font-size:14px;padding:22px 0;color:#586b82}
+.consumer-demo-board .demo-board-state button{min-height:44px;border:1px solid #de8e6f;border-radius:8px;padding:7px 13px;background:#fff5ec;color:#a43b13;cursor:pointer}
+.consumer-demo-board .demo-board-stale{font-size:12px;color:#895500;background:#fff7e8;padding:8px 10px;border-radius:7px}
+@media(max-width:380px){.consumer-demo-board{padding:19px 12px}.consumer-demo-board h2{font-size:21px}.consumer-demo-board .demo-col-rank{width:29px}.consumer-demo-board .demo-col-invites{width:48px}.consumer-demo-board .demo-col-amount{width:83px}.consumer-demo-board th,.consumer-demo-board td{padding:9px 3px}.consumer-demo-board .demo-avatar{width:30px;height:30px}.consumer-demo-board .demo-user{gap:5px}.consumer-demo-board .demo-nickname,.consumer-demo-board .demo-amount{font-size:12px}.consumer-demo-board .demo-rank{width:23px;height:23px}}
