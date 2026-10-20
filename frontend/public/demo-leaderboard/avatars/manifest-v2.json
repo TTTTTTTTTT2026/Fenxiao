@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "version": "daily-avatars-selected-10-v1",
+  "sourceManifestVersion": "v1-partial-15",
+  "source": "BANDEIRA UI delivery: daily-avatars-id-br-20261019",
+  "fictionalAdults": true,
+  "displayPixels": [
+    30,
+    32
+  ],
+  "variantPixels": [
+    128,
+    256
+  ],
+  "personaMapping": {
+    "demo-0": "id-001",
+    "demo-1": "br-001",
+    "demo-2": "id-002",
+    "demo-3": "br-002",
+    "demo-4": "id-003",
+    "demo-5": "br-003",
+    "demo-6": "id-004",
+    "demo-7": "br-004",
+    "demo-8": "id-005",
+    "demo-9": "br-005"
+  },
+  "assets": [
+    {
+      "id": "id-001",
+      "sourceFile": "avatar-id-001-v1.png",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "sourceSha256": "3c5d74656595dbc9bfac76c40be403beb163620eb27ea2002aa25b1b99ef3772",
+      "files": [
+        "id-001-128.webp",
+        "id-001-256.webp"
+      ]
+    },
+    {
+      "id": "id-002",
+      "sourceFile": "avatar-id-002-v1.png",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "sourceSha256": "88d76a3e3c40fc47fe0586fe94024594a8f23adc7364ee508b29512bd0941e7c",
+      "files": [
+        "id-002-128.webp",
+        "id-002-256.webp"
+      ]
+    },
+    {
+      "id": "id-003",
+      "sourceFile": "avatar-id-003-v1.png",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "sourceSha256": "b136fe2fb4429d24b60ec7b0c577087f966fc8f342561a872c311c819ec70eb5",
+      "files": [
+        "id-003-128.webp",
+        "id-003-256.webp"
+      ]
+    },
+    {
+      "id": "id-004",
+      "sourceFile": "avatar-id-004-v1.png",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "sourceSha256": "863261d3b497f076491edeeafc27be18147996e57d92e296ba9a02d0d2bce5a7",
+      "files": [
+        "id-004-128.webp",
+        "id-004-256.webp"
+      ]
+    },
+    {
+      "id": "id-005",
+      "sourceFile": "avatar-id-005-v1.png",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "sourceSha256": "a84b3ce62b0014eff8234505019854abcfff40708b6011756225958040b42cd1",
+      "files": [
+        "id-005-128.webp",
+        "id-005-256.webp"
+      ]
+    },
+    {
+      "id": "br-001",
+      "sourceFile": "avatar-br-001-v1.png",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "sourceSha256": "42730e1647805cb183051aa893ad67c21fc4c496ff2170703ab75b82795029da",
+      "files": [
+        "br-001-128.webp",
+        "br-001-256.webp"
+      ]
+    },
+    {
+      "id": "br-002",
+      "sourceFile": "avatar-br-002-v1.png",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "sourceSha256": "eaa95d5a1004446b9e7c73cade5e2af48897623a1fe6f7536a14cdd6573da299",
+      "files": [
+        "br-002-128.webp",
+        "br-002-256.webp"
+      ]
+    },
+    {
+      "id": "br-003",
+      "sourceFile": "avatar-br-003-v1.png",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "sourceSha256": "00f415ea9c26c10d8f1083994cfca349d7b7c7124bf9d68853d3ddbb7a086966",
+      "files": [
+        "br-003-128.webp",
+        "br-003-256.webp"
+      ]
+    },
+    {
+      "id": "br-004",
+      "sourceFile": "avatar-br-004-v1.png",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "sourceSha256": "20b988ee8f52191e86298540cc8c7739e6289371937f3e80ee149d07b8e2c5d3",
+      "files": [
+        "br-004-128.webp",
+        "br-004-256.webp"
+      ]
+    },
+    {
+      "id": "br-005",
+      "sourceFile": "avatar-br-005-v1.png",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "sourceSha256": "a26c7d86f5f5913b34948a6a3a872f5762e6ad26688720b3c04a5face8d3c1fa",
+      "files": [
+        "br-005-128.webp",
+        "br-005-256.webp"
+      ]
+    }
+  ]
+}
