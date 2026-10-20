@@ -32,6 +32,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doAnswer;
 
 class McnIncomeRewardCandidateServiceTest {
     private static final Instant OCCURRED = Instant.parse("2026-09-11T12:00:00Z");
@@ -152,10 +153,13 @@ class McnIncomeRewardCandidateServiceTest {
         CommissionPolicyService policies = mock(CommissionPolicyService.class);
         UserDistributionProfileRepository users = mock(UserDistributionProfileRepository.class);
         PlatformGuildCompanyShareService companyShares = mock(PlatformGuildCompanyShareService.class);
+        CandidateRunSnapshotStore snapshots = mock(CandidateRunSnapshotStore.class);
+        doAnswer(call -> { ((Runnable)call.getArgument(4)).run(); return null; }).when(snapshots)
+                .snapshot(anyString(),anyString(),any(),any(),any());
         return new Fixture(jdbc, bindings, relations, policies, users, companyShares,
                 new McnIncomeRewardCandidateService(jdbc,
                         new McnIncomeVerifiedAccounts(bindings, mock(com.fenxiao.distribution.repository.LinkyAccountBindingRepository.class)),
-                        relations, policies, users, companyShares, Clock.fixed(Instant.parse("2026-09-14T00:00:00Z"), ZoneOffset.UTC)));
+                        relations, policies, users, companyShares, Clock.fixed(Instant.parse("2026-09-14T00:00:00Z"), ZoneOffset.UTC), snapshots));
     }
 
     private CommissionPolicy policy(int maxLevel) {

@@ -68,11 +68,20 @@ public class PlatformGuildCompanyShareService {
 
     @Transactional(readOnly = true)
     public Optional<BigDecimal> findEffective(String platformCode, String guildId, LocalDateTime occurredAt) {
+        return findEffectiveEvidence(platformCode,guildId,occurredAt).map(EffectiveShare::rate);
+    }
+
+    /** Exact selected version, including equal-rate revisions, for immutable candidate audit identity. */
+    @Transactional(readOnly = true)
+    public Optional<EffectiveShare> findEffectiveEvidence(String platformCode, String guildId, LocalDateTime occurredAt) {
         if (guildId == null || guildId.isBlank()) return Optional.empty();
-        List<BigDecimal> rows = jdbc.query("select share_rate from platform_guild_company_share_version where platform_code=? and guild_id=? and rule_status='ACTIVE' and effective_from<=? and (effective_to is null or effective_to>?) order by effective_from desc,id desc limit 1",
-                (rs, row) -> rs.getBigDecimal(1), platform(platformCode), guildId.trim(), occurredAt, occurredAt);
+        List<EffectiveShare> rows = jdbc.query("select id,share_version,share_rate,effective_from,effective_to,rule_status from platform_guild_company_share_version where platform_code=? and guild_id=? and rule_status='ACTIVE' and effective_from<=? and (effective_to is null or effective_to>?) order by effective_from desc,id desc limit 1",
+                (rs, row) -> new EffectiveShare(rs.getLong(1),rs.getInt(2),rs.getBigDecimal(3),rs.getTimestamp(4).toLocalDateTime(),
+                        rs.getTimestamp(5)==null ? null : rs.getTimestamp(5).toLocalDateTime(),rs.getString(6)), platform(platformCode), guildId.trim(), occurredAt, occurredAt);
         return rows.stream().findFirst();
     }
+
+    public record EffectiveShare(long id,int version,BigDecimal rate,LocalDateTime from,LocalDateTime to,String status) { }
 
     @Transactional(readOnly = true)
     public List<PlatformGuildCompanyShareRuleResponse> history(String platformCode, String guildId) {

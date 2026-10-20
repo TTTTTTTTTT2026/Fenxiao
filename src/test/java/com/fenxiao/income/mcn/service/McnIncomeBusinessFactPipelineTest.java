@@ -26,6 +26,7 @@ class McnIncomeBusinessFactPipelineTest {
         pipeline.refresh("timo", new LinkedHashSet<>(java.util.List.of(second, first)));
 
         InOrder order = inOrder(ledger, invitations, accounts, effectiveUsers, grades);
+        order.verify(invitations).lockPlatform("TIMO");
         order.verify(ledger).refresh("TIMO", first);
         order.verify(invitations).refresh("TIMO", first);
         order.verify(accounts).reconcile("TIMO", first);

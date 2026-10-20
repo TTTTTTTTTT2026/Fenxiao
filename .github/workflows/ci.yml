@@ -18,6 +18,19 @@ jobs:
     name: Backend tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      snapshot-mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+          MYSQL_DATABASE: bandeira_snapshot_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+    env:
+      BANDEIRA_MYSQL_TEST_URL: jdbc:mysql://127.0.0.1:3306/bandeira_snapshot_test?serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
     steps:
       - uses: actions/checkout@v4
         with:

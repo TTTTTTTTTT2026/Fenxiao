@@ -188,6 +188,22 @@ CREATE TABLE IF NOT EXISTS mcn_income_reward_candidate_run (
 CREATE INDEX IF NOT EXISTS idx_mcn_income_reward_candidate_run_day
     ON mcn_income_reward_candidate_run(platform_code, business_date, completed_at);
 
+CREATE TABLE IF NOT EXISTS mcn_candidate_snapshot_lock (platform_code VARCHAR(32) PRIMARY KEY);
+INSERT INTO mcn_candidate_snapshot_lock(platform_code) SELECT 'TIMO' WHERE NOT EXISTS (SELECT 1 FROM mcn_candidate_snapshot_lock WHERE platform_code='TIMO');
+INSERT INTO mcn_candidate_snapshot_lock(platform_code) SELECT 'LINKY' WHERE NOT EXISTS (SELECT 1 FROM mcn_candidate_snapshot_lock WHERE platform_code='LINKY');
+CREATE TABLE IF NOT EXISTS mcn_candidate_snapshot_owner (
+    owner_run_id VARCHAR(64) PRIMARY KEY,platform_code VARCHAR(32) NOT NULL,business_date DATE NOT NULL,
+    format_version VARCHAR(32) NOT NULL,fingerprint CHAR(64) NOT NULL,item_count INT NOT NULL,dependency_evidence_gzip LONGBLOB NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_mcn_candidate_snapshot_content UNIQUE(platform_code,business_date,format_version,fingerprint),
+    CONSTRAINT fk_mcn_snapshot_owner_run FOREIGN KEY(owner_run_id) REFERENCES mcn_income_reward_candidate_run(run_id)
+);
+CREATE TABLE IF NOT EXISTS mcn_candidate_snapshot_ref (
+    run_id VARCHAR(64) PRIMARY KEY,owner_run_id VARCHAR(64) NOT NULL,
+    CONSTRAINT fk_mcn_snapshot_ref_run FOREIGN KEY(run_id) REFERENCES mcn_income_reward_candidate_run(run_id),
+    CONSTRAINT fk_mcn_snapshot_ref_owner FOREIGN KEY(owner_run_id) REFERENCES mcn_candidate_snapshot_owner(owner_run_id)
+);
+
 CREATE TABLE IF NOT EXISTS mcn_income_data_quality_review (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     source_system VARCHAR(32) NOT NULL,

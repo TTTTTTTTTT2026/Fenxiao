@@ -40,6 +40,7 @@ public class McnIncomeBusinessFactPipeline {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void refresh(String platformCode, Set<LocalDate> businessDates) {
         String platform = platform(platformCode);
+        invitations.lockPlatform(platform);
         businessDates.stream().filter(java.util.Objects::nonNull).sorted(Comparator.naturalOrder()).forEach(date -> {
             ledger.refresh(platform, date);
             invitations.refresh(platform, date);

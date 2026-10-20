@@ -12,6 +12,10 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
+import org.springframework.aop.framework.ProxyFactory;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
+import org.springframework.transaction.interceptor.TransactionInterceptor;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.*;
@@ -116,15 +120,27 @@ class InvitationBindingDayIntegrationTest {
         assertThat(f.jdbc.queryForObject("SELECT direct_invitee_user_id FROM invitation_commission_report_daily WHERE user_id=300",Long.class)).isEqualTo(200);
     }
 
-    private Fixture fixture() {
+    private Fixture fixture() { return fixture(false); }
+
+    Fixture fixture(boolean reuse) {
         var ds=new DriverManagerDataSource("jdbc:h2:mem:binding_day_"+UUID.randomUUID()+";MODE=MySQL;DB_CLOSE_DELAY=-1","sa","");
+        return fixture(reuse,ds);
+    }
+
+    Fixture fixture(boolean reuse,DriverManagerDataSource ds) {
+        return fixture(reuse,ds,true);
+    }
+
+    Fixture fixture(boolean reuse,DriverManagerDataSource ds,boolean migrateSnapshot) {
         var jdbc=new JdbcTemplate(ds);
+        if (ds.getUrl().startsWith("jdbc:h2:")) jdbc.execute("CREATE ALIAS SHA2 FOR 'com.fenxiao.income.mcn.service.CandidateSnapshotTestSql.sha2'");
         jdbc.execute("CREATE TABLE platform_target_guild(platform_code VARCHAR(32),official_guild_id VARCHAR(64),operating_share_rate DECIMAL(8,6))");
         jdbc.execute("CREATE TABLE token_point_conversion_version(id BIGINT PRIMARY KEY,platform_code VARCHAR(32),token_unit VARCHAR(32),points_per_token DECIMAL(18,6),rule_status VARCHAR(16),effective_from TIMESTAMP,effective_to TIMESTAMP)");
         jdbc.execute("CREATE TABLE invitation_relation_version(user_id BIGINT,inviter_user_id BIGINT,version_no INT,effective_from TIMESTAMP,effective_to TIMESTAMP)");
         for(String file:new String[]{"V35__add_mcn_income_reward_candidate_shadow.sql","V36__add_commission_policy_configuration.sql","V42__add_mcn_income_reward_candidate_run_snapshot.sql","V66__add_invitation_reward_account.sql","V74__add_invitation_commission_report_projection.sql"}) {
             new ResourceDatabasePopulator(new ClassPathResource("db/migration/"+file)).execute(ds);
         }
+        if(migrateSnapshot) new ResourceDatabasePopulator(new ClassPathResource("db/migration/V81__add_candidate_snapshot_reuse.sql")).execute(ds);
         // H2 cannot run V51's multi-column MySQL AFTER syntax; preserve the production migration unchanged.
         for(String table:new String[]{"mcn_income_reward_candidate_projection","mcn_income_reward_candidate_run_item"}) {
             jdbc.execute("ALTER TABLE "+table+" ADD COLUMN calculation_version VARCHAR(32) DEFAULT 'LEGACY_V1'");
@@ -160,11 +176,16 @@ class InvitationBindingDayIntegrationTest {
         var policy=CommissionPolicy.draft("SYNTHETIC","TIMO","ID",2,true,new BigDecimal("0.10"),7,true,new BigDecimal("0.03"),7,false,null,null,utc(START.minusSeconds(86400)),null,1L);
         var policies=mock(CommissionPolicyService.class);when(policies.findEffective("TIMO","ID",utc(START))).thenReturn(Optional.of(policy));
         var shares=mock(PlatformGuildCompanyShareService.class);when(shares.findEffective("TIMO","guild",utc(START))).thenReturn(Optional.of(new BigDecimal("0.25")));
-        var candidates=new McnIncomeRewardCandidateService(jdbc,verified,relations,policies,users,shares,CLOCK);
+        when(shares.findEffectiveEvidence("TIMO","guild",utc(START))).thenReturn(Optional.of(
+                new PlatformGuildCompanyShareService.EffectiveShare(1,1,new BigDecimal("0.25"),utc(START.minusSeconds(86400)),null,"ACTIVE")));
+        var target=new McnIncomeRewardCandidateService(jdbc,verified,relations,policies,users,shares,CLOCK,new CandidateRunSnapshotStore(jdbc,reuse));
+        var factory=new ProxyFactory(target);
+        factory.addAdvice(new TransactionInterceptor(new DataSourceTransactionManager(ds),new AnnotationTransactionAttributeSource()));
+        var candidates=(McnIncomeRewardCandidateService)factory.getProxy();
         var accounts=new InvitationRewardAccountService(jdbc,CLOCK,7,new InvitationCommissionReportProjector(jdbc));
-        return new Fixture(jdbc,candidates,accounts,verified,relations,policies,shares);
+        return new Fixture(jdbc,candidates,accounts,verified,relations,policies,shares,users);
     }
     private static LocalDateTime utc(Instant at){return LocalDateTime.ofInstant(at,ZoneOffset.UTC);}
     private static BigDecimal points(JdbcTemplate jdbc,long id){return jdbc.queryForObject("SELECT frozen_points FROM invitation_reward_account WHERE user_id=?",BigDecimal.class,id);}
-    private record Fixture(JdbcTemplate jdbc,McnIncomeRewardCandidateService candidates,InvitationRewardAccountService accounts,McnIncomeVerifiedAccounts verified,InvitationRelationVersionRepository relations,CommissionPolicyService policies,PlatformGuildCompanyShareService shares){}
+    record Fixture(JdbcTemplate jdbc,McnIncomeRewardCandidateService candidates,InvitationRewardAccountService accounts,McnIncomeVerifiedAccounts verified,InvitationRelationVersionRepository relations,CommissionPolicyService policies,PlatformGuildCompanyShareService shares,UserDistributionProfileRepository users){}
 }
