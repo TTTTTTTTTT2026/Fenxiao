@@ -45,6 +45,7 @@ public class McnIncomeRewardCandidateService {
     private final UserDistributionProfileRepository userRepository;
     private final PlatformGuildCompanyShareService companyShares;
     private final Clock clock;
+    private final CandidateRunSnapshotStore snapshots;
 
     public McnIncomeRewardCandidateService(JdbcTemplate jdbc,
                                            McnIncomeVerifiedAccounts verifiedAccounts,
@@ -52,13 +53,25 @@ public class McnIncomeRewardCandidateService {
                                            CommissionPolicyService commissionPolicies,
                                            UserDistributionProfileRepository userRepository,
                                            PlatformGuildCompanyShareService companyShares,
-                                           Clock clock) {
+                                           Clock clock, CandidateRunSnapshotStore snapshots) {
         this.jdbc = jdbc; this.verifiedAccounts = verifiedAccounts; this.invitationRepository = invitationRepository;
         this.commissionPolicies = commissionPolicies; this.userRepository = userRepository; this.companyShares = companyShares; this.clock = clock;
+        this.snapshots = snapshots;
     }
+
+    /** Also taken by the pipeline before rebuilding source facts, until its outer transaction commits. */
+    public void lockPlatform(String platformCode) { snapshots.lockPlatform(platform(platformCode)); }
 
     public McnIncomeRewardCandidateSummaryResponse refresh(String platformCode, LocalDate businessDate) {
         String platform = platform(platformCode);
+        snapshots.lockPlatform(platform);
+        try (CandidateSnapshotFingerprint evidence = new CandidateSnapshotFingerprint(snapshots.reuseEnabled())) {
+            return refreshLocked(platform,businessDate,evidence);
+        }
+    }
+
+    private McnIncomeRewardCandidateSummaryResponse refreshLocked(String platform, LocalDate businessDate, CandidateSnapshotFingerprint evidence) {
+        evidence.row("scope",SOURCE_SYSTEM,platform,businessDate,CALCULATION_VERSION,"BINDING_DAY_V1",TEAM_REWARD_RESERVE_RATE);
         List<CandidateInput> inputs = jdbc.query("""
                 SELECT p.source_event_id,p.raw_ledger_event_id,p.source_revision,p.business_date,p.resolved_user_id,p.guild_id,p.shadow_status,
                        r.occurred_at,r.amount,r.currency_code,r.amount_unit,
@@ -79,12 +92,18 @@ public class McnIncomeRewardCandidateService {
         // A formerly eligible fact can be voided or removed. The non-payable 2% reserve must
         // follow the same current-evidence rebuild rather than survive as a stale record.
         jdbc.update("DELETE FROM mcn_income_team_reward_reserve_fact WHERE source_system=? AND platform_code=? AND business_date=?", SOURCE_SYSTEM, platform, businessDate);
-        for (CandidateInput input : inputs) project(platform, input, now, counts);
+        for (CandidateInput input : inputs) {
+            evidence.row("input",input.sourceEventId(),input.rawLedgerEventId(),input.sourceRevision(),input.businessDate(),
+                    input.sourceUserId(),input.sourceGuildId(),input.shadowStatus(),input.occurredAt(),input.amount(),input.currencyCode(),
+                    input.amountUnit(),input.granularity(),input.sourceTimezone(),input.periodStart(),input.periodEnd());
+            project(platform, input, now, counts, evidence);
+        }
         String runId = UUID.randomUUID().toString();
         jdbc.update("INSERT INTO mcn_income_reward_candidate_run (run_id,platform_code,business_date,source_fact_count,source_ready_count,candidate_count,blocked_count,candidate_amount,amount_unit,started_at,completed_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                 runId, platform, businessDate, inputs.size(), counts.sourceReady, counts.candidates, counts.blocked,
                 counts.amount, counts.amountUnit, Timestamp.from(now), Timestamp.from(now));
-        snapshotRun(runId, platform, businessDate);
+        evidence.row("summary",inputs.size(),counts.sourceReady,counts.candidates,counts.blocked,counts.amount,counts.amountUnit);
+        snapshots.snapshot(runId,platform,businessDate,evidence,() -> snapshotRun(runId, platform, businessDate));
         return response(platform, businessDate, inputs.size(), counts, runId);
     }
 
@@ -115,7 +134,7 @@ public class McnIncomeRewardCandidateService {
                 rs.getString(14), rs.getString(15), rs.getBigDecimal(16), rs.getBigDecimal(17)), SOURCE_SYSTEM, platform, businessDate, safeLimit);
     }
 
-    private void project(String platform, CandidateInput input, Instant now, Counts counts) {
+    private void project(String platform, CandidateInput input, Instant now, Counts counts, CandidateSnapshotFingerprint evidence) {
         jdbc.update("DELETE FROM mcn_income_reward_candidate_projection WHERE source_system=? AND platform_code=? AND source_event_id=?", SOURCE_SYSTEM, platform, input.sourceEventId());
         // Also covers a corrected event whose business date moved out of the previous day.
         jdbc.update("DELETE FROM mcn_income_team_reward_reserve_fact WHERE source_system=? AND platform_code=? AND source_event_id=?", SOURCE_SYSTEM, platform, input.sourceEventId());
@@ -128,6 +147,7 @@ public class McnIncomeRewardCandidateService {
             counts.blocked++; return;
         }
         UserDistributionProfile source = userRepository.findById(input.sourceUserId()).orElse(null);
+        userEvidence(evidence,"source-user",source);
         if (source == null || source.getAccountStatus() != AccountStatus.ACTIVE) {
             writeBase(platform, input, input.sourceUserId(), "BLOCKED_SOURCE_INACTIVE", "source user is not currently active", now);
             counts.blocked++; return;
@@ -141,8 +161,10 @@ public class McnIncomeRewardCandidateService {
             writeBase(platform, input, input.sourceUserId(), "BLOCKED_INVALID_INCOME_DAY", "source daily income interval is invalid", now);
             counts.blocked++; return;
         }
-        boolean bindingEffective = verifiedAccounts.byUser(platform, input.sourceUserId())
-                .map(value -> qualification.bindingEffective(value.verifiedAt())).orElse(false);
+        Optional<McnIncomeVerifiedAccounts.Account> binding = verifiedAccounts.byUser(platform, input.sourceUserId());
+        binding.ifPresentOrElse(value -> evidence.row("binding",value.userId(),value.platformUserId(),value.verifiedAt()),
+                () -> evidence.row("binding",(Object)null));
+        boolean bindingEffective = binding.map(value -> qualification.bindingEffective(value.verifiedAt())).orElse(false);
         if (!bindingEffective) {
             writeBase(platform, input, input.sourceUserId(), "BLOCKED_BINDING_NOT_EFFECTIVE", "binding was not verified by the income source day", now);
             counts.blocked++; return;
@@ -151,13 +173,20 @@ public class McnIncomeRewardCandidateService {
                 ? "bound final fact with time-effective binding" : "bound final source-day fact; BINDING_DAY_V1", now);
         counts.sourceReady++;
         Optional<CommissionPolicy> policy = commissionPolicies.findEffective(platform, source.getCountryCode(), occurredAt);
+        policyEvidence(evidence,policy.orElse(null));
         if (policy.isEmpty() || !policy.get().isCompanyIncomeInvitationV2()) {
             writeCandidate(platform, input, input.sourceUserId(), null, 1, null, null, null, null,
                     "BLOCKED_NO_POLICY", "no active V2 invitation policy at income occurrence time", now);
             counts.blocked++;
             return;
         }
-        Optional<BigDecimal> companyShareRate = companyShares.findEffective(platform, input.sourceGuildId(), occurredAt);
+        Optional<BigDecimal> companyShareRate;
+        if (snapshots.reuseEnabled()) {
+            var share = companyShares.findEffectiveEvidence(platform,input.sourceGuildId(),occurredAt);
+            share.ifPresentOrElse(value -> evidence.row("share",value.id(),value.version(),value.rate(),value.from(),value.to(),value.status()),
+                    () -> evidence.row("share",(Object)null));
+            companyShareRate = share.map(PlatformGuildCompanyShareService.EffectiveShare::rate);
+        } else companyShareRate = companyShares.findEffective(platform, input.sourceGuildId(), occurredAt);
         if (companyShareRate.isEmpty()) {
             writeCandidate(platform, input, input.sourceUserId(), null, 1, null, policy.get().getId(), policy.get().getPolicyCode(), null,
                     "BLOCKED_NO_GUILD_COMPANY_SHARE", "source guild has no time-effective company share rate", now);
@@ -170,10 +199,12 @@ public class McnIncomeRewardCandidateService {
         for (int level = 1; level <= 2; level++) {
             if (level > policy.get().getMaxRewardLevel() || !policy.get().level(level).enabled()) break;
             Optional<InvitationRelationVersion> relation = invitationRepository.findEffectiveAt(currentUserId, occurredAt);
+            relationEvidence(evidence,"effective-relation",currentUserId,relation.orElse(null));
             // Only the initial invitation may start on this source day. Later transfers never rewrite the day-start owner.
             if (relation.isEmpty() && qualification.dayEndExclusive() != null) {
-                relation = invitationRepository.findByUserIdAndVersionNo(currentUserId, 1)
-                        .filter(value -> qualification.includesFirstRelation(value.getEffectiveFrom()));
+                var first = invitationRepository.findByUserIdAndVersionNo(currentUserId, 1);
+                relationEvidence(evidence,"first-relation",currentUserId,first.orElse(null));
+                relation = first.filter(value -> qualification.includesFirstRelation(value.getEffectiveFrom()));
             }
             if (relation.isEmpty() || relation.get().getInviterUserId() == null) {
                 if (level == 1) {
@@ -186,6 +217,7 @@ public class McnIncomeRewardCandidateService {
             InvitationRelationVersion snapshot = relation.get();
             Long recipientId = snapshot.getInviterUserId();
             UserDistributionProfile recipient = userRepository.findById(recipientId).orElse(null);
+            userEvidence(evidence,"recipient-user",recipient);
             if (recipient == null || recipient.getAccountStatus() != AccountStatus.ACTIVE) {
                 writeCandidate(platform, input, input.sourceUserId(), recipientId, level, snapshot.getVersionNo(), policy.get().getId(), policy.get().getPolicyCode(), null,
                         "BLOCKED_RECIPIENT_INACTIVE", "recipient is not currently active", now);
@@ -198,6 +230,26 @@ public class McnIncomeRewardCandidateService {
             counts.candidates++; counts.amount = counts.amount.add(amount); counts.amountUnit = input.amountUnit();
             updateCandidateAmount(platform, input.sourceEventId(), level, amount, companyShareRate.get(), companyIncomeBase);
             currentUserId = recipientId;
+        }
+    }
+
+    private void userEvidence(CandidateSnapshotFingerprint evidence,String label,UserDistributionProfile user) {
+        if (user==null) evidence.row(label,(Object)null);
+        else evidence.row(label,user.getUserId(),user.getCountryCode(),user.getAccountStatus());
+    }
+
+    private void relationEvidence(CandidateSnapshotFingerprint evidence,String label,Long userId,InvitationRelationVersion relation) {
+        if (relation==null) evidence.row(label,userId,(Object)null);
+        else evidence.row(label,userId,relation.getUserId(),relation.getInviterUserId(),relation.getVersionNo(),relation.getEffectiveFrom(),relation.getEffectiveTo());
+    }
+
+    private void policyEvidence(CandidateSnapshotFingerprint evidence,CommissionPolicy policy) {
+        if (policy==null) { evidence.row("policy",(Object)null); return; }
+        evidence.row("policy",policy.getId(),policy.getPolicyCode(),policy.getCommissionType(),policy.getPlatformCode(),policy.getCountryCode(),
+                policy.getMaxRewardLevel(),policy.getStatus(),policy.getEffectiveFrom(),policy.getEffectiveTo(),policy.getApprovedAt());
+        for (int i=1;i<=3;i++) {
+            var level=policy.level(i);
+            evidence.row("policy-level",i,level.enabled(),level.rate(),level.freezeDays());
         }
     }
 
@@ -238,14 +290,15 @@ public class McnIncomeRewardCandidateService {
         String normalizedRunId = requiredRunId(runId);
         int requested = Math.max(1, Math.min(limit, 50));
         RunScope scope = runScope(normalizedRunId);
-        int candidateAvailable = countRunItems(normalizedRunId, "candidate_status='CANDIDATE'");
-        int blockedAvailable = countRunItems(normalizedRunId, "candidate_status<>'SOURCE_READY' AND candidate_status<>'CANDIDATE'");
+        String ownerRunId = snapshots.ownerFor(normalizedRunId,scope.platformCode(),scope.businessDate());
+        int candidateAvailable = countRunItems(ownerRunId, "candidate_status='CANDIDATE'");
+        int blockedAvailable = countRunItems(ownerRunId, "candidate_status<>'SOURCE_READY' AND candidate_status<>'CANDIDATE'");
         int available = candidateAvailable + blockedAvailable;
         int candidateLimit = sampleQuota(requested, candidateAvailable, blockedAvailable);
         int blockedLimit = Math.min(blockedAvailable, requested - candidateLimit);
         candidateLimit = Math.min(candidateAvailable, requested - blockedLimit);
-        List<McnIncomeRewardCandidateItemResponse> items = new java.util.ArrayList<>(candidateItems(normalizedRunId, "candidate_status='CANDIDATE'", candidateLimit));
-        items.addAll(candidateItems(normalizedRunId, "candidate_status<>'SOURCE_READY' AND candidate_status<>'CANDIDATE'", blockedLimit));
+        List<McnIncomeRewardCandidateItemResponse> items = new java.util.ArrayList<>(candidateItems(ownerRunId, "candidate_status='CANDIDATE'", candidateLimit));
+        items.addAll(candidateItems(ownerRunId, "candidate_status<>'SOURCE_READY' AND candidate_status<>'CANDIDATE'", blockedLimit));
         return new McnIncomeRewardCandidateSampleResponse(normalizedRunId, scope.platformCode(), scope.businessDate(), requested,
                 available, candidateAvailable, blockedAvailable, List.copyOf(items));
     }

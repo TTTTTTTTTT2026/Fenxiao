@@ -55,6 +55,9 @@ app:
     freeze-days: ${INVITATION_REWARD_FREEZE_DAYS:7}
     release-cron: ${INVITATION_REWARD_RELEASE_CRON:0 * * * * *}
     backfill-cron: ${INVITATION_REWARD_BACKFILL_CRON:0 10 10 * * *}
+  mcn-candidate-snapshot:
+    # Stage 1 deploys the compatible reader only. Enabling reuse needs separate release approval.
+    reuse-enabled: ${MCN_CANDIDATE_SNAPSHOT_REUSE_ENABLED:false}
   mcn-income-facts:
     # The V2 reader runs once after MCN's daily income update and is disabled by default.
     sync-cron: ${MCN_INCOME_FACTS_SYNC_CRON:0 15 17 * * *}
