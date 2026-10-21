@@ -32,6 +32,7 @@ describe('compact consumer phone controls', () => {
 
   it.each([
     ['CO', '+57', '3001234567'], ['CL', '+56', '912345678'], ['VE', '+58', '4121234567'],
+    ['PE', '+51', '912345678'],
   ] as const)('offers %s in all supported languages and submits its local digits with one prefix', (code, prefix, local) => {
     const country = clientPhoneCountries.find(country => country.countryCode === code)!
     for (const locale of ['zh', 'en', 'es', 'id', 'pt'] as const) {

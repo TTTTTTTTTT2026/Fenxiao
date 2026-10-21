@@ -1,7 +1,7 @@
 import { phoneCountries, type ConsumerLocale } from './catalog'
 import { EXTERNAL_LOCALE_KEY } from './legacySession'
 
-export const CLIENT_COUNTRY_CODES = ['CN', 'ID', 'MX', 'CO', 'CL', 'VE', 'BR', 'HK'] as const
+export const CLIENT_COUNTRY_CODES = ['CN', 'ID', 'MX', 'CO', 'CL', 'VE', 'PE', 'BR', 'HK'] as const
 export type ClientCountryCode = (typeof CLIENT_COUNTRY_CODES)[number]
 export const clientPhoneCountries = CLIENT_COUNTRY_CODES.map(code =>
   phoneCountries.find((country): country is (typeof phoneCountries)[number] & { countryCode: ClientCountryCode } => country.countryCode === code)!)

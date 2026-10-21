@@ -47,7 +47,7 @@ class LatinAmericaPhoneAuthFlowTest {
     @MockBean SwitchableSmsSender sms;
 
     @ParameterizedTest
-    @CsvSource({"CO,+573001234567,5999757", "CL,+56912345678,5999756", "VE,+584121234567,5999758"})
+    @CsvSource({"CO,+573001234567,5999757", "CL,+56912345678,5999756", "VE,+584121234567,5999758", "PE,+51912345678,5999751"})
     void newCountriesCanRegisterUnderBrazilInviterAndLoginWithoutChangingCountry(String country, String phone, long inviterId) throws Exception {
         var inviter = bindings.createProfile(inviterId, "BR", "pt-br", null);
         when(sms.deliveryChannel(phone)).thenReturn("CHUANGLAN");

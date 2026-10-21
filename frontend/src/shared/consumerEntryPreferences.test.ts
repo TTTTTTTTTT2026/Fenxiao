@@ -17,13 +17,13 @@ describe('consumer entry country suggestion', () => {
     expect(languageForLocale('es')).toBe('es-mx')
   })
 
-  it('only opens the eight agreed regions, including their correct calling codes', () => {
+  it('only opens the nine agreed regions, including their correct calling codes', () => {
     expect(clientPhoneCountries.map(({ countryCode, callingCode }) => [countryCode, callingCode])).toEqual([
-      ['CN', '+86'], ['ID', '+62'], ['MX', '+52'], ['CO', '+57'], ['CL', '+56'], ['VE', '+58'], ['BR', '+55'], ['HK', '+852'],
+      ['CN', '+86'], ['ID', '+62'], ['MX', '+52'], ['CO', '+57'], ['CL', '+56'], ['VE', '+58'], ['PE', '+51'], ['BR', '+55'], ['HK', '+852'],
     ])
   })
 
-  it.each(['CO', 'CL', 'VE'] as const)('recognizes browser, saved choice and session country for %s', code => {
+  it.each(['CO', 'CL', 'VE', 'PE'] as const)('recognizes browser, saved choice and session country for %s', code => {
     expect(suggestedClientCountry('es', [`es-${code}`])).toBe(code)
     expect(suggestedClientCountry('es', [`es_${code}`])).toBe(code)
     vi.stubGlobal('window', { localStorage: { getItem: () => null }, navigator: { languages: [`es-${code}`] } })

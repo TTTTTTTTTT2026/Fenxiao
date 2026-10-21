@@ -694,12 +694,13 @@ describe('Earnings landing page', () => {
     expect(markup).toContain('Indonesia +62')
     const callingCodeSelector = markup.match(/aria-label="Country \/ calling code:[^"]*"[^>]*>(.*?)<\/select>/)?.[1]
     expect(callingCodeSelector).toBeDefined()
-    expect(callingCodeSelector?.match(/<option /g)).toHaveLength(8)
+    expect(callingCodeSelector?.match(/<option /g)).toHaveLength(9)
     expect(callingCodeSelector).toContain('China +86')
     expect(callingCodeSelector).toContain('Mexico +52')
     expect(callingCodeSelector).toContain('Colombia +57')
     expect(callingCodeSelector).toContain('Chile +56')
     expect(callingCodeSelector).toContain('Venezuela +58')
+    expect(callingCodeSelector).toContain('Peru +51')
     expect(callingCodeSelector).toContain('Hong Kong +852')
     expect(callingCodeSelector).not.toContain('United States +1')
     expect(markup).toContain('Enter local number')
@@ -707,7 +708,7 @@ describe('Earnings landing page', () => {
     expect(markup).not.toContain('class="consumer-bottom-nav"')
   })
 
-  it.each(['CO', 'CL', 'VE'] as const)('preserves %s in both consumer login modes after a saved selection', country => {
+  it.each(['CO', 'CL', 'VE', 'PE'] as const)('preserves %s in both consumer login modes after a saved selection', country => {
     for (const hash of ['#phone-login', '#password-login']) {
       const localStorage = createStorage()
       localStorage.setItem('fenxiao-external-locale', 'es')

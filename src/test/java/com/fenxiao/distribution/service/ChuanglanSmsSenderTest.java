@@ -135,7 +135,7 @@ class ChuanglanSmsSenderTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"+573001234567", "+56912345678", "+584121234567"})
+    @ValueSource(strings = {"+573001234567", "+56912345678", "+584121234567", "+51912345678"})
     void submitsNewSpanishDestinationsWithLocalizedMessageAndUnchangedSigning(String phone) throws Exception {
         HttpClient http = mock(HttpClient.class);
         @SuppressWarnings("unchecked") HttpResponse<String> response = mock(HttpResponse.class);

@@ -23,15 +23,18 @@ public class PlatformIntegrationConfigService {
     private final PlatformTargetGuildRepository targetGuilds;
     private final PlatformGuildDirectoryRepository authoritativeGuilds;
     private final PlatformGuildCompanyShareService companyShares;
+    private final TimoGuildCountryAccessService countryAccess;
 
     public PlatformIntegrationConfigService(PlatformIntegrationConfigRepository platforms,
                                             PlatformTargetGuildRepository targetGuilds,
                                             PlatformGuildDirectoryRepository authoritativeGuilds,
-                                            PlatformGuildCompanyShareService companyShares) {
+                                            PlatformGuildCompanyShareService companyShares,
+                                            TimoGuildCountryAccessService countryAccess) {
         this.platforms = platforms;
         this.targetGuilds = targetGuilds;
         this.authoritativeGuilds = authoritativeGuilds;
         this.companyShares = companyShares;
+        this.countryAccess = countryAccess;
     }
 
     @Transactional(readOnly = true)
@@ -45,6 +48,7 @@ public class PlatformIntegrationConfigService {
 
     /** The MCN directory is the display authority. Target-guild rows only retain BANDEIRA business configuration. */
     private List<PlatformIntegrationResponse.TargetGuild> guilds(String platform) {
+        Map<String, List<String>> acceptedCountries = "TIMO".equals(platform) ? countryAccess.acceptedCountriesByGuild() : Map.of();
         List<PlatformGuildDirectory> directoryEntries = authoritativeGuilds.findByPlatformCodeOrderByExternalGuildIdAsc(platform);
         Map<String, com.fenxiao.platform.dto.PlatformGuildCompanyShareRuleResponse> pendingShares = directoryEntries.isEmpty()
                 ? Map.of()
@@ -52,12 +56,14 @@ public class PlatformIntegrationConfigService {
         Map<String, PlatformTargetGuild> configured = targetGuilds.findByPlatformCodeOrderByCountryCodeAscOfficialGuildIdAsc(platform).stream()
                 .collect(Collectors.toMap(PlatformTargetGuild::getOfficialGuildId, Function.identity(), (first, ignored) -> first));
         List<PlatformIntegrationResponse.TargetGuild> result = new java.util.ArrayList<>(directoryEntries.stream()
-                .map(directory -> toResponse(directory, configured.remove(directory.getExternalGuildId()), pendingShares.get(directory.getExternalGuildId())))
+                .map(directory -> toResponse(directory, configured.remove(directory.getExternalGuildId()), pendingShares.get(directory.getExternalGuildId()),
+                        "TIMO".equals(platform) ? acceptedCountries.getOrDefault(directory.getExternalGuildId(), List.of()) : null))
                 .toList());
         // Keep old configured targets visible until their first authoritative directory snapshot arrives.
         configured.values().forEach(target -> result.add(new PlatformIntegrationResponse.TargetGuild(target.getCountryCode(),
                 target.getOfficialGuildId(), target.getOfficialGuildSid(), target.getGuildName(), target.isEnabled(),
-                false, "AWAITING_MCN_DIRECTORY", target.isEnabled() ? "ENABLED" : "DISABLED", target.getOperatingShareRate(), null, null)));
+                false, "AWAITING_MCN_DIRECTORY", target.isEnabled() ? "ENABLED" : "DISABLED", target.getOperatingShareRate(), null, null,
+                "TIMO".equals(platform) ? acceptedCountries.getOrDefault(target.getOfficialGuildId(), List.of()) : null)));
         result.sort(java.util.Comparator.comparing(PlatformIntegrationResponse.TargetGuild::countryCode).thenComparing(PlatformIntegrationResponse.TargetGuild::officialGuildId));
         return List.copyOf(result);
     }
@@ -79,12 +85,14 @@ public class PlatformIntegrationConfigService {
     }
 
     private PlatformIntegrationResponse.TargetGuild toResponse(PlatformGuildDirectory directory, PlatformTargetGuild configured,
-                                                               com.fenxiao.platform.dto.PlatformGuildCompanyShareRuleResponse pendingShare) {
+                                                               com.fenxiao.platform.dto.PlatformGuildCompanyShareRuleResponse pendingShare,
+                                                               List<String> acceptedCountryCodes) {
         return new PlatformIntegrationResponse.TargetGuild(countryCode(directory.getCountry()), directory.getExternalGuildId(),
                 configured == null ? null : configured.getOfficialGuildSid(), directory.getGuildName(),
                 configured == null || configured.isEnabled(), true, directory.getDirectoryStatus(), directory.getGuildStatus(),
                 companyShares.findEffective(directory.getPlatformCode(), directory.getExternalGuildId(), LocalDateTime.now()).orElse(configured == null ? null : configured.getOperatingShareRate()),
-                pendingShare == null ? null : pendingShare.shareRate(), pendingShare == null ? null : pendingShare.shareVersion());
+                pendingShare == null ? null : pendingShare.shareRate(), pendingShare == null ? null : pendingShare.shareVersion(),
+                acceptedCountryCodes);
     }
 
     private String countryCode(String country) {

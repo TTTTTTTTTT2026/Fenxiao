@@ -132,7 +132,7 @@ public class ChuanglanSmsSender implements SmsSender {
         // Indonesia's registered wording is exact: do not append punctuation or expiry instructions.
         if (mobile.startsWith("62")) return "[BANDEIRA] kode verifikasi anda adalah " + code;
         if (mobile.startsWith("852")) return "[BANDEIRA] 您的驗證碼是 " + code;
-        if (mobile.startsWith("52") || mobile.startsWith("57") || mobile.startsWith("56") || mobile.startsWith("58")) {
+        if (mobile.startsWith("52") || mobile.startsWith("57") || mobile.startsWith("56") || mobile.startsWith("58") || mobile.startsWith("51")) {
             return "[BANDEIRA] Su código de verificación es " + code;
         }
         if (mobile.startsWith("55")) return "[BANDEIRA] Seu código de verificação é " + code;
