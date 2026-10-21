@@ -694,14 +694,34 @@ describe('Earnings landing page', () => {
     expect(markup).toContain('Indonesia +62')
     const callingCodeSelector = markup.match(/aria-label="Country \/ calling code:[^"]*"[^>]*>(.*?)<\/select>/)?.[1]
     expect(callingCodeSelector).toBeDefined()
-    expect(callingCodeSelector?.match(/<option /g)).toHaveLength(5)
+    expect(callingCodeSelector?.match(/<option /g)).toHaveLength(9)
     expect(callingCodeSelector).toContain('China +86')
     expect(callingCodeSelector).toContain('Mexico +52')
+    expect(callingCodeSelector).toContain('Colombia +57')
+    expect(callingCodeSelector).toContain('Chile +56')
+    expect(callingCodeSelector).toContain('Venezuela +58')
+    expect(callingCodeSelector).toContain('Peru +51')
     expect(callingCodeSelector).toContain('Hong Kong +852')
     expect(callingCodeSelector).not.toContain('United States +1')
     expect(markup).toContain('Enter local number')
     expect(markup).not.toContain('邀请好友')
     expect(markup).not.toContain('class="consumer-bottom-nav"')
+  })
+
+  it.each(['CO', 'CL', 'VE', 'PE'] as const)('preserves %s in both consumer login modes after a saved selection', country => {
+    for (const hash of ['#phone-login', '#password-login']) {
+      const localStorage = createStorage()
+      localStorage.setItem('fenxiao-external-locale', 'es')
+      localStorage.setItem('fenxiao-client-country', country)
+      Object.defineProperty(globalThis, 'window', {
+        configurable: true,
+        value: { location: { pathname: '/invite', search: '', hash, origin: 'http://127.0.0.1:4173' }, localStorage },
+      })
+      const markup = renderToStaticMarkup(<App />)
+      expect(markup).toContain(`id="${hash.substring(1)}"`)
+      expect(markup).toContain(`value="${country}" selected=""`)
+      expect(markup).not.toContain('value="CN" selected=""')
+    }
   })
 
   it('renders a task-first earnings home instead of console language', () => {

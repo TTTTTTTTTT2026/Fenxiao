@@ -79,7 +79,7 @@ import PartnerPortal from './PartnerPortal'
 import { internalPhoneCodeNotice } from './phoneCodeNotice'
 import { consumerEntryOrigin } from './publicEntries'
 import { formatConsumerUserGrade,phoneCountries,type ConsumerLocale } from './shared/catalog'
-import { CLIENT_COUNTRY_KEY,initialClientCountry,languageForLocale,suggestedClientCountry,type ClientCountryCode } from './shared/consumerEntryPreferences'
+import { CLIENT_COUNTRY_KEY,clientPhoneCountries,initialClientCountry,languageForLocale,suggestedClientCountry,type ClientCountryCode } from './shared/consumerEntryPreferences'
 import { formatMoney,formatPhoneNumber,normalizeLocalPhoneNumber } from './shared/legacyFormatting'
 import { EXTERNAL_LOCALE_KEY,loadExternalLocale,loadJsonState,saveUserSession,STORAGE_KEY,type SessionState } from './shared/legacySession'
 
@@ -1099,7 +1099,6 @@ const passwordLoginCopyByLocale: Record<ConsumerLocale, {
   pt: { switchToPassword: 'Entrar com senha', switchToPhone: 'Voltar ao acesso e cadastro por telefone', title: 'Entrar com senha', hint: 'Somente para contas existentes habilitadas pela equipe. Não precisa de código SMS.', passwordLabel: 'Senha', passwordPlaceholder: 'Digite sua senha', submit: 'Entrar', failure: 'Telefone ou senha incorretos, ou acesso não habilitado. Contate o suporte.' },
 }
 
-const clientPhoneCountries = (['CN', 'ID', 'MX', 'BR', 'HK'] as const).map((code) => phoneCountries.find((country): country is (typeof phoneCountries)[number] & { countryCode: ClientCountryCode } => country.countryCode === code)!)
 
 function consumerCountryName(countryCode: string, locale: ConsumerLocale) {
   return phoneCountries.find((country) => country.countryCode === countryCode.toUpperCase())?.names[locale] ?? countryCode

@@ -2,6 +2,8 @@ package com.fenxiao.distribution.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -31,6 +33,12 @@ class ChuanglanSmsSenderTest {
         assertThat(ChuanglanSmsSender.verificationMessage("85250000001", "123123", 10))
                 .isEqualTo("[BANDEIRA] 您的驗證碼是 123123");
         assertThat(ChuanglanSmsSender.verificationMessage("525512345678", "123123", 10))
+                .isEqualTo("[BANDEIRA] Su código de verificación es 123123");
+        assertThat(ChuanglanSmsSender.verificationMessage("573001234567", "123123", 10))
+                .isEqualTo("[BANDEIRA] Su código de verificación es 123123");
+        assertThat(ChuanglanSmsSender.verificationMessage("56912345678", "123123", 10))
+                .isEqualTo("[BANDEIRA] Su código de verificación es 123123");
+        assertThat(ChuanglanSmsSender.verificationMessage("584121234567", "123123", 10))
                 .isEqualTo("[BANDEIRA] Su código de verificación es 123123");
         assertThat(ChuanglanSmsSender.verificationMessage("5511999999999", "123123", 10))
                 .isEqualTo("[BANDEIRA] Seu código de verificação é 123123");
@@ -124,6 +132,33 @@ class ChuanglanSmsSenderTest {
         assertThatThrownBy(() -> sender.sendVerificationCode("+8613800000000", "123456", 10))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("internal audit only");
         verifyNoInteractions(http);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"+573001234567", "+56912345678", "+584121234567", "+51912345678"})
+    void submitsNewSpanishDestinationsWithLocalizedMessageAndUnchangedSigning(String phone) throws Exception {
+        HttpClient http = mock(HttpClient.class);
+        @SuppressWarnings("unchecked") HttpResponse<String> response = mock(HttpResponse.class);
+        when(response.statusCode()).thenReturn(200);
+        when(response.body()).thenReturn("{\"code\":\"0\"}");
+        doReturn(response).when(http).send(any(), any());
+        var sender = new ChuanglanSmsSender(properties(), new ObjectMapper(), http, FIXED_CLOCK);
+
+        sender.sendVerificationCode(phone, "123123", 10);
+
+        var captured = org.mockito.ArgumentCaptor.forClass(HttpRequest.class);
+        verify(http).send(captured.capture(), any());
+        HttpRequest request = captured.getValue();
+        var body = new ObjectMapper().readTree(requestBody(request));
+        String mobile = phone.substring(1);
+        assertThat(request.uri().toString()).isEqualTo("https://sg-intapi.tig253.com/send/sms");
+        assertThat(body.path("mobile").asText()).isEqualTo(mobile);
+        assertThat(body.path("msg").asText()).isEqualTo("[BANDEIRA] Su código de verificación es 123123");
+        assertThat(body.has("senderId")).isFalse();
+        String nonce = request.headers().firstValue("nonce").orElseThrow();
+        assertThat(request.headers().firstValue("sign")).contains(ChuanglanSmsSender.sign(nonce, Map.of(
+                "account", "I1234567", "mobile", mobile,
+                "msg", "[BANDEIRA] Su código de verificación es 123123"), "test-password"));
     }
 
     private ChuanglanSmsProperties properties() {

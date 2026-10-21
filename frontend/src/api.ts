@@ -274,7 +274,22 @@ export type PlatformIntegrationResponse = {
   revenueIngestionMode: string
   rewardMode: string
   enabled: boolean
-  targetGuilds: Array<{ countryCode: string; officialGuildId: string; officialGuildSid: string | null; guildName: string; enabled: boolean; authoritative: boolean; directoryStatus: string; guildStatus: string; operatingShareRate: number | null; pendingOperatingShareRate: number | null; pendingShareVersion: number | null }>
+  targetGuilds: Array<{ countryCode: string; officialGuildId: string; officialGuildSid: string | null; guildName: string; enabled: boolean; authoritative: boolean; directoryStatus: string; guildStatus: string; operatingShareRate: number | null; pendingOperatingShareRate: number | null; pendingShareVersion: number | null; acceptedCountryCodes?: string[] | null }>
+}
+export type TimoGuildCountryAccessResponse = {
+  guildId: string; guildName: string; mcnCountry: string | null; version: number; managed: boolean
+  countryCodes: string[]; countryOptions: Array<{ code: string; name: string }>
+}
+
+export function getAdminTimoGuildCountries(token: string, guildId: string) {
+  return request<TimoGuildCountryAccessResponse>(`/admin/platform-integrations/TIMO/guilds/${encodeURIComponent(guildId)}/accepted-countries`, {
+    headers: { 'X-Admin-Session': token },
+  })
+}
+export function saveAdminTimoGuildCountries(token: string, guildId: string, expectedVersion: number, countryCodes: string[]) {
+  return request<TimoGuildCountryAccessResponse>(`/admin/platform-integrations/TIMO/guilds/${encodeURIComponent(guildId)}/accepted-countries`, {
+    method: 'PUT', headers: { 'X-Admin-Session': token }, body: JSON.stringify({ expectedVersion, countryCodes }),
+  })
 }
 export type PlatformGuildCompanyShareRuleResponse = {
   id: number; platformCode: string; guildId: string; shareVersion: number; shareRate: number

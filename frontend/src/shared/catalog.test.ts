@@ -6,6 +6,9 @@ describe('shared user catalog presentation', () => {
     expect(phoneCountries.find((country) => country.countryCode === 'ID')?.callingCode).toBe('+62')
     expect(formatCountryNameZh(' id ')).toBe('印度尼西亚')
     expect(formatCountryNameZh('HK')).toBe('香港')
+    expect(formatCountryNameZh('CO')).toBe('哥伦比亚')
+    expect(formatCountryNameZh('CL')).toBe('智利')
+    expect(formatCountryNameZh('VE')).toBe('委内瑞拉')
     expect(formatCountryNameZh('ZZ')).toBe('未识别国家')
   })
 

@@ -2,6 +2,9 @@ import {
 UserCircle
 } from '@phosphor-icons/react'
 import { useCallback,useEffect,useMemo,useRef,useState,type FormEvent } from 'react'
+import ConfirmDialog from './LegacyConfirmDialog'
+import LegacyTimoGuildCountriesDialog from './LegacyTimoGuildCountriesDialog'
+import LegacyPlatformGuildTable from './LegacyPlatformGuildTable'
 import {
 activateAdminOperatingDividendPolicy,
 activateAdminUserGradeLevel,
@@ -427,6 +430,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [withdrawViewName, setWithdrawViewName] = useState('')
   const [selectedWithdrawViewId, setSelectedWithdrawViewId] = useState('')
   const [platformIntegrations, setPlatformIntegrations] = useState<PlatformIntegrationResponse[] | null>(null)
+  const [timoCountryGuild, setTimoCountryGuild] = useState<string | null>(null)
   const [platformGuildShareDialogTarget, setPlatformGuildShareDialogTarget] = useState<{ platformCode: string; guildId: string; guildName: string } | null>(null)
   const [platformGuildShareRules, setPlatformGuildShareRules] = useState<PlatformGuildCompanyShareRuleResponse[]>([])
   const [platformGuildShareForm, setPlatformGuildShareForm] = useState({ rate: '' })
@@ -3083,19 +3087,10 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                       <RelationItem label="奖励模式" value={platform.rewardMode} />
                     </div>
                     <InlineHint text={platform.accountIdentifierNote} />
-                    <DataTable
-                      headers={['国家', '官方公会 ID', '公会名称', 'MCN 目录状态', '当前公司比例', '操作']}
-                      rows={platform.targetGuilds.map((guild) => {
-                        const editable = guild.authoritative && guild.directoryStatus === 'NORMAL' && ['ACTIVE', 'ENABLED'].includes(guild.guildStatus.toUpperCase())
-                        const activeShare = guild.operatingShareRate == null ? null : `${(guild.operatingShareRate * 100).toFixed(2)}%`
-                        const pendingShare = guild.pendingOperatingShareRate == null ? null : `${(guild.pendingOperatingShareRate * 100).toFixed(2)}%`
-                        const shareLabel = pendingShare
-                          ? `${activeShare ? `当前 ${activeShare} · ` : ''}待审批 V${guild.pendingShareVersion}：${pendingShare}`
-                          : activeShare ?? '未配置'
-                        return [guild.countryCode, guild.officialGuildId, guild.guildName, `${guild.directoryStatus} / ${guild.guildStatus}`, shareLabel, editable ? <button key={`${platform.platformCode}:${guild.officialGuildId}-edit`} className="ghost-btn small-btn" disabled={loading || !canRunControlledIncome} onClick={() => void openPlatformGuildShareDialog(platform.platformCode, guild.officialGuildId, guild.guildName)}>编辑分成</button> : '仅可配置 MCN 正常且启用的公会']
-                      })}
-                      emptyText="MCN 权威公会目录暂无数据；请检查公会目录同步状态。"
-                    />
+                    <LegacyPlatformGuildTable platform={platform} loading={loading} canEditShare={canRunControlledIncome}
+                      canEditCountries={adminSession?.role?.toLowerCase() === 'super_admin'}
+                      onEditShare={(guildId, guildName) => void openPlatformGuildShareDialog(platform.platformCode, guildId, guildName)}
+                      onEditCountries={setTimoCountryGuild} />
                     <InlineHint text="此处显示 MCN 权威公会目录。公司分成比例按版本、审批与生效时间管理；收入候选只会读取收入发生时已启用的比例快照。它不改变 MCN 原始收入，也不会产生发奖。" />
                   </InfoCard>
                 ))}
@@ -4356,6 +4351,16 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
         </ConfirmDialog>
       ) : null}
 
+      {timoCountryGuild && adminSession?.role?.toLowerCase() === 'super_admin' ? <LegacyTimoGuildCountriesDialog
+        key={timoCountryGuild} token={adminSession.sessionToken} guildId={timoCountryGuild} onClose={() => setTimoCountryGuild(null)}
+        onSaved={value => {
+          setPlatformIntegrations(current => current?.map(platform => platform.platformCode !== 'TIMO' ? platform : {
+            ...platform, targetGuilds: platform.targetGuilds.map(guild => guild.officialGuildId !== value.guildId ? guild : { ...guild, acceptedCountryCodes: value.countryCodes }),
+          }) ?? null)
+          setTimoCountryGuild(null)
+          setSuccessMessage('接纳国家已保存，仅用于后续绑定核验；未更改已通过绑定、分佣规则或历史收益。')
+        }} /> : null}
+
       {userNicknameDraft ? (
         <ConfirmDialog
           title={`修改用户昵称 · 用户 #${userNicknameDraft.userId}`}
@@ -4601,80 +4606,6 @@ function RoadmapList({ items }: { items: Array<{ title: string; desc: string }> 
 }
 void DiagnosticBanner
 void RoadmapList
-
-function ConfirmDialog({
-  title,
-  tone,
-  confirmText,
-  loading,
-  confirmDisabled,
-  children,
-  onCancel,
-  onConfirm,
-}: {
-  title: string
-  tone: 'primary' | 'warning' | 'success' | 'neutral'
-  confirmText: string
-  loading?: boolean
-  confirmDisabled?: boolean
-  children: React.ReactNode
-  onCancel: () => void
-  onConfirm: () => void
-}) {
-  const dialogRef = useRef<HTMLDivElement>(null)
-  const onCancelRef = useRef(onCancel)
-  const loadingRef = useRef(loading)
-
-  useEffect(() => {
-    onCancelRef.current = onCancel
-  }, [onCancel])
-
-  useEffect(() => {
-    loadingRef.current = loading
-  }, [loading])
-
-  useEffect(() => {
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    dialogRef.current?.querySelector<HTMLButtonElement>('button')?.focus()
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !loadingRef.current) onCancelRef.current()
-      if (event.key !== 'Tab' || !dialogRef.current) return
-      const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])'))
-      if (!focusable.length) return
-      const first = focusable[0]
-      const last = focusable[focusable.length - 1]
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = previousOverflow
-      previousFocus?.focus()
-    }
-  }, [])
-
-  return (
-    <div className="dialog-backdrop" role="presentation">
-      <div ref={dialogRef} className={`dialog-card tone-${tone}`} role="dialog" aria-modal="true" aria-label={title}>
-        <div className="dialog-head">
-          <div>
-            <p className="panel-eyebrow">确认操作</p>
-            <h3>{title}</h3>
-          </div>
-          <button className="ghost-btn small-btn" onClick={onCancel} disabled={loading}>关闭</button>
-        </div>
-        <div className="stack-gap small">{children}</div>
-        <div className="dialog-actions">
-          <button className="ghost-btn" onClick={onCancel} disabled={loading}>取消</button>
-          <button className="primary-btn" onClick={onConfirm} disabled={loading || confirmDisabled}>{loading ? '处理中...' : confirmText}</button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 function renderEligibilityStatusBadge(status: string) {
   const badgeMap: Record<string, { label: string; tone: 'primary' | 'neutral' | 'success' }> = {
