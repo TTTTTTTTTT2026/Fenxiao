@@ -34,6 +34,8 @@ describe('legacy Timo guild country administration', () => {
   it('does not expose the editor to read-only users, Linky, inactive or non-authoritative guilds', () => {
     expect(table(platform, false)).not.toContain('配置接纳国家')
     expect(table({ ...platform, platformCode: 'LINKY' })).not.toContain('配置接纳国家')
+    expect(table({ ...platform, targetGuilds: [{ ...platform.targetGuilds[0], authoritative: false }] })).toContain('待MCN同步')
+    expect(table({ ...platform, targetGuilds: [{ ...platform.targetGuilds[0], countryCode: 'UNKNOWN' }] })).toContain('MCN未提供')
     for (const changes of [{ directoryStatus: 'MISSING_ON_MCN' }, { guildStatus: 'DISABLED' }, { authoritative: false }]) {
       expect(table({ ...platform, targetGuilds: [{ ...platform.targetGuilds[0], ...changes }] })).not.toContain('配置接纳国家')
     }

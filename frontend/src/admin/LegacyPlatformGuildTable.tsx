@@ -14,7 +14,8 @@ export default function LegacyPlatformGuildTable({ platform, loading, canEditSha
       const shareLabel = pendingShare ? `${activeShare ? `当前 ${activeShare} · ` : ''}待审批 V${guild.pendingShareVersion}：${pendingShare}` : activeShare ?? '未配置'
       const acceptedCountries = guild.acceptedCountryCodes == null ? '-' : guild.acceptedCountryCodes.length
         ? guild.acceptedCountryCodes.map(code => phoneCountries.find(country => country.countryCode === code)?.names.zh ?? code).join('、') : '不接纳新绑定'
-      return [guild.countryCode, guild.officialGuildId, guild.guildName, acceptedCountries, `${guild.directoryStatus} / ${guild.guildStatus}`, shareLabel,
+      const mcnCountry = !guild.authoritative ? '待MCN同步' : guild.countryCode === 'UNKNOWN' ? 'MCN未提供' : guild.countryCode
+      return [mcnCountry, guild.officialGuildId, guild.guildName, acceptedCountries, `${guild.directoryStatus} / ${guild.guildStatus}`, shareLabel,
         editable ? <div className="dialog-actions" key={`${platform.platformCode}:${guild.officialGuildId}-actions`}>
           <button className="ghost-btn small-btn" disabled={loading || !canEditShare} onClick={() => onEditShare(guild.officialGuildId, guild.guildName)}>编辑分成</button>
           {platform.platformCode === 'TIMO' && canEditCountries ? <button className="ghost-btn small-btn" disabled={loading}
