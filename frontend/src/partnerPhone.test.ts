@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { formatPartnerPhone, normalizePartnerLocalPhone, partnerPhoneCountries } from './partnerPhone'
 
 describe('partner phone login', () => {
-  it('offers the same five country and region calling codes as client login', () => {
+  it('keeps the partner entry country list unchanged by the consumer rollout', () => {
     expect(partnerPhoneCountries.map(({ countryCode, callingCode }) => [countryCode, callingCode])).toEqual([
       ['CN', '+86'], ['ID', '+62'], ['MX', '+52'], ['BR', '+55'], ['HK', '+852'],
     ])

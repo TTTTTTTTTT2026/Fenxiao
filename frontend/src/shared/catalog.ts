@@ -11,6 +11,7 @@ export const phoneCountries = [
   { countryCode: 'CO', callingCode: '+57', names: { zh: '哥伦比亚', en: 'Colombia', es: 'Colombia', id: 'Kolombia', pt: 'Colômbia' } },
   { countryCode: 'AR', callingCode: '+54', names: { zh: '阿根廷', en: 'Argentina', es: 'Argentina', id: 'Argentina', pt: 'Argentina' } },
   { countryCode: 'CL', callingCode: '+56', names: { zh: '智利', en: 'Chile', es: 'Chile', id: 'Cile', pt: 'Chile' } },
+  { countryCode: 'VE', callingCode: '+58', names: { zh: '委内瑞拉', en: 'Venezuela', es: 'Venezuela', id: 'Venezuela', pt: 'Venezuela' } },
   { countryCode: 'PE', callingCode: '+51', names: { zh: '秘鲁', en: 'Peru', es: 'Perú', id: 'Peru', pt: 'Peru' } },
   { countryCode: 'PH', callingCode: '+63', names: { zh: '菲律宾', en: 'Philippines', es: 'Filipinas', id: 'Filipina', pt: 'Filipinas' } },
   { countryCode: 'TH', callingCode: '+66', names: { zh: '泰国', en: 'Thailand', es: 'Tailandia', id: 'Thailand', pt: 'Tailândia' } },
