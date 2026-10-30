@@ -375,7 +375,7 @@ function BindLandingPage() {
     <div className="consumer-app-page">
       <main className="consumer-shell consumer-form-shell">
         <header className="consumer-topbar">
-          <a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />BANDEIRA</a>
+          <a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />Bandeira</a>
           <div className="consumer-topbar-actions">
             <select className="consumer-language" aria-label={copy.languageLabel} value={locale} onChange={(event) => setLocale(event.target.value as keyof typeof copyByLocale)}>
               <option value="zh">中文</option>
@@ -390,7 +390,7 @@ function BindLandingPage() {
 
         <section className="consumer-commercial-hero consumer-bind-hero">
           <span className="consumer-visually-hidden">{accountCopy.bindingTitle}</span>
-          <div className="consumer-commercial-kicker"><Diamond weight="fill" aria-hidden="true" /> BANDEIRA REWARDS</div>
+          <div className="consumer-commercial-kicker"><Diamond weight="fill" aria-hidden="true" /> Bandeira Rewards</div>
           <h1>{accountCopy.bindingTitle}</h1>
           <p>{copy.productLabel} · Linky · {accountCopy.bindingSubtitle}</p>
           <div className="consumer-commercial-proof">
@@ -926,8 +926,8 @@ function timoPendingState(binding: PlatformBindingResponse, locale: ConsumerLoca
 
 const invitePageCopyByLocale = {
   zh: {
-    shareTitle: 'BANDEIRA 邀请',
-    shareText: (inviteCode: string) => `使用邀请码 ${inviteCode} 注册并加入 BANDEIRA 奖励计划`,
+    shareTitle: 'Bandeira 邀请',
+    shareText: (inviteCode: string) => `使用邀请码 ${inviteCode} 注册并加入 Bandeira 奖励计划`,
     shareCopied: '邀请链接已复制。',
     shareFailure: '分享失败，请稍后重试。',
     phoneCodeHint: (verificationCode: string | undefined, ttlMinutes: number) => verificationCode
@@ -960,8 +960,8 @@ const invitePageCopyByLocale = {
     navigationLabel: '主要导航',
   },
   en: {
-    shareTitle: 'BANDEIRA invitation',
-    shareText: (inviteCode: string) => `Use invite code ${inviteCode} to register for the BANDEIRA rewards program`,
+    shareTitle: 'Bandeira invitation',
+    shareText: (inviteCode: string) => `Use invite code ${inviteCode} to register for the Bandeira rewards program`,
     shareCopied: 'Invite link copied.',
     shareFailure: 'Sharing failed. Please try again.',
     phoneCodeHint: (_verificationCode: string | undefined, ttlMinutes: number) => `Verification code sent. It is valid for ${ttlMinutes} minutes.`,
@@ -992,8 +992,8 @@ const invitePageCopyByLocale = {
     navigationLabel: 'Main navigation',
   },
   es: {
-    shareTitle: 'Invitación BANDEIRA',
-    shareText: (inviteCode: string) => `Usa el código ${inviteCode} para registrarte en el programa de recompensas BANDEIRA`,
+    shareTitle: 'Invitación Bandeira',
+    shareText: (inviteCode: string) => `Usa el código ${inviteCode} para registrarte en el programa de recompensas Bandeira`,
     shareCopied: 'Enlace de invitación copiado.',
     shareFailure: 'No se pudo compartir. Inténtalo de nuevo.',
     phoneCodeHint: (_verificationCode: string | undefined, ttlMinutes: number) => `Código enviado. Válido durante ${ttlMinutes} minutos.`,
@@ -1024,8 +1024,8 @@ const invitePageCopyByLocale = {
     navigationLabel: 'Navegación principal',
   },
   id: {
-    shareTitle: 'Undangan BANDEIRA',
-    shareText: (inviteCode: string) => `Gunakan kode undangan ${inviteCode} untuk mendaftar ke program reward BANDEIRA`,
+    shareTitle: 'Undangan Bandeira',
+    shareText: (inviteCode: string) => `Gunakan kode undangan ${inviteCode} untuk mendaftar ke program reward Bandeira`,
     shareCopied: 'Tautan undangan disalin.',
     shareFailure: 'Gagal membagikan. Coba lagi nanti.',
     phoneCodeHint: (_verificationCode: string | undefined, ttlMinutes: number) => `Kode verifikasi terkirim dan berlaku ${ttlMinutes} menit.`,
@@ -1056,8 +1056,8 @@ const invitePageCopyByLocale = {
     navigationLabel: 'Navigasi utama',
   },
   pt: {
-    shareTitle: 'Convite BANDEIRA',
-    shareText: (inviteCode: string) => `Use o código ${inviteCode} para se cadastrar no programa de recompensas BANDEIRA`,
+    shareTitle: 'Convite Bandeira',
+    shareText: (inviteCode: string) => `Use o código ${inviteCode} para se cadastrar no programa de recompensas Bandeira`,
     shareCopied: 'Link de convite copiado.',
     shareFailure: 'Não foi possível compartilhar. Tente novamente.',
     phoneCodeHint: (_verificationCode: string | undefined, ttlMinutes: number) => `Código enviado. Ele é válido por ${ttlMinutes} minutos.`,
@@ -1498,7 +1498,7 @@ function InviteCodePage() {
     <div className="consumer-app-page">
       <main className={`consumer-shell consumer-form-shell${session ? '' : ' consumer-login-shell'}`}>
         <header className="consumer-topbar">
-          <a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />BANDEIRA</a>
+          <a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />Bandeira</a>
           <div className="consumer-topbar-actions">
             <label className="consumer-language-select">
               <select aria-label={copy.languageLabel} value={locale} onChange={(event) => changeLoginLocale(event.target.value as ConsumerLocale)}>
@@ -1526,7 +1526,7 @@ function InviteCodePage() {
         </section> : null}
 
         {session ? <section className="consumer-commercial-heading">
-          <p><Diamond weight="fill" aria-hidden="true" /> BANDEIRA REWARDS</p>
+          <p><Diamond weight="fill" aria-hidden="true" /> Bandeira Rewards</p>
           <h1>{copy.inviteTitle}</h1>
           <span>{copy.inviteSubtitle}</span>
         </section> : null}
@@ -1701,7 +1701,7 @@ function AccountPage() {
     <div className="consumer-app-page">
       <main className="consumer-shell consumer-form-shell">
         <header className="consumer-topbar">
-          <a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />BANDEIRA</a>
+          <a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />Bandeira</a>
           <div className="consumer-topbar-actions">
             <label className="consumer-language-select"><select aria-label={externalPageCopyByLocale[locale].languageLabel} value={locale} onChange={(event) => setLocale(event.target.value as ConsumerLocale)}><option value="zh">中文</option><option value="en">English</option><option value="es">Español</option><option value="id">Bahasa Indonesia</option><option value="pt">Português</option></select></label>
           </div>
@@ -1709,7 +1709,7 @@ function AccountPage() {
 
         {session ? (
           <>
-            <section className="consumer-commercial-heading"><p><Diamond weight="fill" aria-hidden="true" /> BANDEIRA REWARDS</p><h1>{copy.title}</h1><span>{copy.subtitle}</span></section>
+            <section className="consumer-commercial-heading"><p><Diamond weight="fill" aria-hidden="true" /> Bandeira Rewards</p><h1>{copy.title}</h1><span>{copy.subtitle}</span></section>
             {workspace && !accountWorkspace.selected ? <ConsumerUnboundGuidance locale={locale} bindHref="#consumer-platform-bindings" /> : null}
             {workspace?.apps.some((app) => app.code === workspace.selected && app.earningsAccessGranted && !app.verified)
               ? <p className="consumer-workspace-banner" role="status">{consumerEarningsAccessCopy[locale]}</p> : null}
@@ -1810,7 +1810,7 @@ function PublicProfilePage() {
   }
 
   return <div className="consumer-app-page"><main className="consumer-shell consumer-form-shell">
-    <header className="consumer-topbar"><a className="consumer-brand" href="/earnings">BANDEIRA</a></header>
+    <header className="consumer-topbar"><a className="consumer-brand" href="/earnings">Bandeira</a></header>
     <a className="consumer-detail-back" href="/earnings">← {copy.back}</a>
     <section className="consumer-commercial-heading"><h1>{copy.title}</h1></section>
     {!session ? <a className="consumer-primary-link" href="/invite#phone-login">{consumerAccountCopy[locale].signIn}</a> :
@@ -1911,7 +1911,7 @@ function TimoBindingPage() {
     <div className="consumer-app-page">
       <main className="consumer-shell consumer-form-shell">
         <header className="consumer-topbar">
-          <a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />BANDEIRA</a>
+          <a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />Bandeira</a>
           <div className="consumer-topbar-actions">
             <select className="consumer-language" aria-label={externalPageCopyByLocale[locale].languageLabel} value={locale} onChange={(event) => setLocale(event.target.value as ConsumerLocale)}><option value="zh">中文</option><option value="en">EN</option><option value="es">ES</option><option value="id">ID</option><option value="pt">PT</option></select>
             {session ? <ConsumerAccountLink locale={locale} /> : null}
@@ -2118,7 +2118,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
 
   if (session && workspaceLoaded && !selectedPlatform) {
     return <div className="consumer-app-page"><main className="consumer-shell consumer-detail-page">
-      <header className="consumer-topbar"><a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />BANDEIRA</a><ConsumerAccountLink locale={locale} /></header>
+      <header className="consumer-topbar"><a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />Bandeira</a><ConsumerAccountLink locale={locale} /></header>
       <ConsumerUnboundGuidance locale={locale} variant="gate" />
       <ConsumerBottomNavigation locale={locale} active="earnings" />
     </main></div>
@@ -2127,7 +2127,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   if (session && selectedPlatform && !selectedEarningsReadable) {
     const appName = consumerAppName(selectedPlatform)
     return <div className="consumer-app-page"><main className="consumer-shell consumer-detail-page">
-      <header className="consumer-topbar"><a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />BANDEIRA</a><ConsumerAccountLink locale={locale} /></header>
+      <header className="consumer-topbar"><a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />Bandeira</a><ConsumerAccountLink locale={locale} /></header>
       <div className="consumer-workspace-banner"><strong>{appName}</strong><span>{workspaceCopy[locale].bannerDescription(appName)}</span><a href="/account">{workspaceCopy[locale].switchOtherApp}</a></div>
       <section className="consumer-auth-gate"><div className="consumer-auth-icon"><LinkSimple weight="duotone" aria-hidden="true" /></div><h1>{workspaceCopy[locale].emptyTitle(appName)}</h1><p>{workspaceCopy[locale].emptyHint(appName)}</p><a className="consumer-primary-link" href={selectedPlatform === 'TIMO' ? '/account/timo' : '/account/linky'}>{workspaceCopy[locale].bind}<ArrowRight weight="bold" aria-hidden="true" /></a></section>
       <ConsumerBottomNavigation locale={locale} active="earnings" />
@@ -2137,7 +2137,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   if (view !== 'overview') {
     const detailTitle = view === 'effective' ? walletCopy.followAction : walletCopy.records
     return <div className="consumer-app-page"><main className="consumer-shell consumer-detail-page">
-      <header className="consumer-topbar"><a className="consumer-brand" href="/earnings">BANDEIRA</a></header>
+      <header className="consumer-topbar"><a className="consumer-brand" href="/earnings">Bandeira</a></header>
       <a className="consumer-detail-back" href="/earnings">← {consumerNavigationCopy[locale].earnings}</a>
       <section className="consumer-commercial-heading"><h1>{detailTitle}</h1></section>
       {selectedPlatform ? <p className="consumer-workspace-banner">{workspaceCopy[locale].appSummary(consumerAppName(selectedPlatform))}</p> : null}
@@ -2172,7 +2172,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
     <div className="consumer-app-page">
       <main className="consumer-shell">
         <header className="consumer-topbar">
-          <a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />BANDEIRA</a>
+          <a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />Bandeira</a>
           <div className="consumer-topbar-actions">
             {!session ? (
               <select className="consumer-language" aria-label={copy.languageLabel} value={locale} onChange={(event) => setLocale(event.target.value as keyof typeof externalPageCopyByLocale)}>
@@ -2427,7 +2427,7 @@ function CommissionReportPage({ directInviteeUserId }: { directInviteeUserId?: n
 
   const reportUrl = `/earnings/commission?${new URLSearchParams({ startDate, endDate })}`
   return <div className="consumer-app-page"><main className="consumer-shell consumer-detail-page" lang={pageLanguage}>
-    <header className="consumer-topbar"><a className="consumer-brand" href="/earnings">BANDEIRA</a><ConsumerAccountLink locale={locale} /></header>
+    <header className="consumer-topbar"><a className="consumer-brand" href="/earnings">Bandeira</a><ConsumerAccountLink locale={locale} /></header>
     <a className="consumer-detail-back" href={directInviteeUserId ? reportUrl : '/earnings'}>← {directInviteeUserId ? copy.back : consumerNavigationCopy[locale].earnings}</a>
     <section className="consumer-commercial-heading"><h1>{copy.title}</h1></section>
     {!session ? <a className="consumer-primary-link" href="/invite#phone-login">{copy.signIn}</a> : !workspaceLoaded ? <p>{workspaceCopy[locale].loading}</p> : !platform || !earningsReadable ? <ConsumerUnboundGuidance locale={locale} variant="gate" /> : <>

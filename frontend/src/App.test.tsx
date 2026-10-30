@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
 import { renderToStaticMarkup } from 'react-dom/server'
 import App, { ConsoleApp, formatBusinessRewardLevel, isLinkyGuildMismatch, localizeInviteOperationError, localizeLinkyBindingError, localizeTimoBindingError } from './App'
 import type { ConsumerWorkspaceResponse } from './api'
@@ -93,6 +94,19 @@ describe('App external landing pages', () => {
     const markup = renderToStaticMarkup(<App />)
     expect(markup).toContain('consumer-app-page')
     expect(markup).not.toContain('运营中心')
+  })
+
+  it.each(['/bind', '/invite', '/account', '/earnings', '/account/timo', '/earnings/commission'])('uses initial-capital brand text on %s', (pathname) => {
+    Object.assign(window.location, { pathname, hostname: 'app.bandeira.fandodo.online' })
+    const markup = renderToStaticMarkup(<App />)
+    expect(markup).toContain('Bandeira</a>')
+    expect(markup).not.toContain('>BANDEIRA</a>')
+    expect(markup).not.toContain('BANDEIRA REWARDS')
+    if (pathname === '/invite') expect(markup).toContain('Bandeira Rewards')
+  })
+
+  it('uses the same casing for the browser page title', () => {
+    expect(readFileSync(new URL('../index.html', import.meta.url), 'utf8')).toContain('<title>Bandeira</title>')
   })
 
   it('keeps the language selector accessible without rendering a visible language label in the bind topbar', () => {
