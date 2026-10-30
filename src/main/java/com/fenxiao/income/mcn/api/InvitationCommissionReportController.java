@@ -49,7 +49,7 @@ public class InvitationCommissionReportController {
     }
 
     private String selectedPlatform(long userId, String platformCode) {
-        String verified = workspaces.requireVerified(userId, platformCode);
+        String verified = workspaces.requireEarningsRead(userId, platformCode);
         if (!verified.equals(workspaces.get(userId).selected()))
             throw new IllegalArgumentException("platform is not the selected workspace");
         return verified;

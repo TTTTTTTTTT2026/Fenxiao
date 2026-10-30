@@ -202,6 +202,7 @@ import LegacyRiskQueueSection, { type RiskActionName, type RiskQuery } from './L
 import LegacyUserAccountSection from './LegacyUserAccountSection'
 import { DataTable,EmptyState,InfoCard,InfoRow,InlineHint,PanelSection,RelationItem,StatusBadge } from './LegacyPresentation'
 import LegacyUserDirectorySection, { type UserPlatformQuery } from './LegacyUserDirectorySection'
+import LegacyEarningsReadAccessDialog from './LegacyEarningsReadAccessDialog'
 import {
 ADMIN_SECTION_HASHES,
 SYSTEM_CONFIG_SECTION_VIEWS,
@@ -544,6 +545,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [userPlatformQuery, setUserPlatformQuery] = useState<UserPlatformQuery>({ userId: '', operatorAdminId: '', valueCode: '', countryCode: '', localPhone: '', linkyGuildId: '', timoGuildId: '', page: '0', size: '20' })
   const [userPlatformAppliedQuery, setUserPlatformAppliedQuery] = useState<UserPlatformQuery>(userPlatformQuery)
   const [userDirectoryOptions, setUserDirectoryOptions] = useState<UserDirectoryOptions | null>(null)
+  const [earningsAccessUserId, setEarningsAccessUserId] = useState<number | null>(null)
   const [userOperationsDraft, setUserOperationsDraft] = useState<{ userId: number; field: 'operator' | 'value'; target: string; current: string; reason: string } | null>(null)
   const [userNicknameDraft, setUserNicknameDraft] = useState<{ userId: number; current: string; target: string } | null>(null)
   const [userCountryDraft, setUserCountryDraft] = useState<{ userId: number; currentCountryCode: string; targetCountryCode: string } | null>(null)
@@ -626,6 +628,8 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const canManageUserNickname = canManageUserCountry
   const canManageUserPasswordLogin = adminSession?.role?.toLowerCase() === 'super_admin'
   const canManageUserOperations = adminSession?.role?.toLowerCase() === 'super_admin'
+  const canManageEarningsReadAccess = canManageUserOperations && [adminSession?.platformScope, adminSession?.guildScope, adminSession?.regionScope]
+    .every(scope => !scope?.trim() || scope.trim() === '*')
   const linkyGuildOptions = useMemo(() => {
     return (linkyInvitationGuildOptions ?? [])
       .filter((item) => item.directoryStatus === 'NORMAL' && ['ACTIVE', 'ENABLED'].includes(item.guildStatus.toUpperCase()))
@@ -3533,7 +3537,14 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             onPasswordLogin={openUserPasswordDialog}
             onEditOperations={openUserOperationsDialog}
             onEditNickname={openUserNicknameDialog}
+            onEarningsReadAccess={(item) => setEarningsAccessUserId(item.userId)}
+            canManageEarningsReadAccess={canManageEarningsReadAccess}
           /> : null}
+
+          {earningsAccessUserId !== null && adminSession && canManageEarningsReadAccess ? <LegacyEarningsReadAccessDialog
+            key={`${adminSession.sessionToken}:${earningsAccessUserId}`}
+            token={adminSession.sessionToken} userId={earningsAccessUserId} onClose={() => setEarningsAccessUserId(null)}
+            onSaved={() => { void loadUserPlatformProfiles() }} /> : null}
 
           {canViewHighValueRanking && activeAdminSection === 'highValueRanking' && adminSession ? <LegacyHighValueRankingSection sessionToken={adminSession.sessionToken} /> : null}
 
