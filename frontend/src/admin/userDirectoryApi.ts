@@ -37,6 +37,7 @@ export type UserPlatformProfileItem = {
   operatorAdminId?: number | null
   operatorName?: string | null
   valueCode?: 'GENERAL' | 'HIGH_VALUE'
+  earningsReadPlatforms?: string[]
 }
 
 export type UserPlatformProfileListResponse = {
@@ -101,5 +102,18 @@ export function updateAdminUserNickname(adminSessionToken: string, userId: numbe
   return request<{ userId: number; nickname: string | null }>(`/admin/distribution/user-platform-profiles/${userId}/nickname`, {
     method: 'POST', headers: { 'X-Admin-Session': adminSessionToken },
     body: JSON.stringify({ nickname }),
+  })
+}
+
+export type EarningsReadAccessState = { platformCode: 'TIMO' | 'LINKY'; enabled: boolean; version: number }
+export function getAdminEarningsReadAccess(token: string, userId: number) {
+  return request<EarningsReadAccessState[]>(`/admin/distribution/user-platform-profiles/${userId}/earnings-read-access`, {
+    headers: { 'X-Admin-Session': token },
+  })
+}
+export function saveAdminEarningsReadAccess(token: string, userId: number, state: EarningsReadAccessState, reason: string) {
+  return request<EarningsReadAccessState[]>(`/admin/distribution/user-platform-profiles/${userId}/earnings-read-access/${state.platformCode}`, {
+    method: 'PUT', headers: { 'X-Admin-Session': token },
+    body: JSON.stringify({ enabled: !state.enabled, expectedVersion: state.version, reason }),
   })
 }

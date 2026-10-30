@@ -201,7 +201,7 @@ public class DistributionController {
                                          @PathVariable Long userId,
                                          @RequestParam(required = false) String platformCode) {
         distributionAccessGuard.assertUserAccess(userId, accessToken);
-        return distributionFrontendService.getHome(userId, platformCode == null ? null : workspaces.requireVerified(userId, platformCode));
+        return distributionFrontendService.getHome(userId, platformCode == null ? null : workspaces.requireEarningsRead(userId, platformCode));
     }
 
     @GetMapping("/team/{userId}/effective")
@@ -209,7 +209,7 @@ public class DistributionController {
                                                 @PathVariable Long userId,
                                                 @RequestParam(required = false) String platformCode) {
         distributionAccessGuard.assertUserAccess(userId, accessToken);
-        return distributionFrontendService.getEffectiveTeam(userId, platformCode == null ? null : workspaces.requireVerified(userId, platformCode));
+        return distributionFrontendService.getEffectiveTeam(userId, platformCode == null ? null : workspaces.requireEarningsRead(userId, platformCode));
     }
 
     @GetMapping("/team/{userId}")

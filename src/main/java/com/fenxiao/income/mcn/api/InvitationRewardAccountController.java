@@ -40,7 +40,7 @@ public class InvitationRewardAccountController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String platformCode) {
         access.assertUserAccess(userId, token);
-        return accounts.get(userId, page, size, platformCode == null ? null : workspaces.requireVerified(userId, platformCode));
+        return accounts.get(userId, page, size, platformCode == null ? null : workspaces.requireEarningsRead(userId, platformCode));
     }
 
     @GetMapping("/admin/invitation-accounts/{userId}")

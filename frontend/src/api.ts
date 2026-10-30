@@ -384,7 +384,7 @@ export type DistributionHomeResponse = {
 export type ConsumerWorkspaceResponse = {
   selected: 'TIMO' | 'LINKY' | null
   preferred: 'TIMO' | 'LINKY' | null
-  apps: Array<{ code: 'TIMO' | 'LINKY'; verified: boolean; verifiedAt: string | null }>
+  apps: Array<{ code: 'TIMO' | 'LINKY'; verified: boolean; verifiedAt: string | null; earningsReadable?: boolean; earningsAccessGranted?: boolean }>
 }
 
 export type InvitationRewardAccountResponse = {

@@ -29,12 +29,14 @@ type Props = {
   onPasswordLogin: (item: UserPlatformProfileItem, mode: 'set' | 'disable') => void
   onEditOperations: (item: UserPlatformProfileItem, field: 'operator' | 'value') => void
   onEditNickname: (item: UserPlatformProfileItem) => void
+  onEarningsReadAccess?: (item: UserPlatformProfileItem) => void
+  canManageEarningsReadAccess?: boolean
 }
 
 export default function LegacyUserDirectorySection({
   query, options, onQueryChange, onSearch, onPageChange, onPageSizeChange, profiles, loading,
   canManageCountry, canManageLinkyInvitationGuild, canManagePasswordLogin, canManageOperations, canManageNickname,
-  onCopyInviteCode, onAdjustCountry, onAdjustLinkyInvitationGuild, onPasswordLogin, onEditOperations, onEditNickname,
+  onCopyInviteCode, onAdjustCountry, onAdjustLinkyInvitationGuild, onPasswordLogin, onEditOperations, onEditNickname, onEarningsReadAccess, canManageEarningsReadAccess = false,
 }: Props) {
   const page = profiles?.page ?? 0
   const size = profiles?.size ?? Number(query.size || 20)
@@ -69,7 +71,7 @@ export default function LegacyUserDirectorySection({
         <InlineHint text="多个条件同时生效；手机号只输入完整本地号码。公会筛选依据实际平台绑定，不依据 Linky 邀请链归属。" />
       </InfoCard>
       <InfoCard title="用户与平台核验信息" tone="neutral">
-        <DataTable headers={['用户', '对接运营', '用户价值', '邀请码', '归属国家', '用户等级', '手机号', '密码登录', '注册时间', '直接邀请人', 'Linky 实际绑定', 'Timo 实际绑定', 'Linky 邀请链归属', '操作']}
+        <DataTable headers={['用户', '对接运营', '用户价值', '邀请码', '归属国家', '用户等级', '手机号', '密码登录', '注册时间', '直接邀请人', 'Linky 实际绑定', 'Timo 实际绑定', 'Linky 邀请链归属', '未绑定收益查看', '操作']}
           rows={(profiles?.items ?? []).map((item) => [
             <div className="stack-gap small"><strong>#{item.userId}</strong><span>{item.nickname?.trim() || '-'}</span></div>,
             item.operatorAdminId == null ? '未分配' : `${item.operatorName || '运营账号'} #${item.operatorAdminId}`,
@@ -82,8 +84,10 @@ export default function LegacyUserDirectorySection({
             item.linky ? <div className="stack-gap small"><strong>{item.linky.accountId}</strong><span>{item.linky.status} · {item.linky.guildName || item.linky.guildId || '未返回公会'}{item.linky.expectedGuildSource ? ` · 目标来源 ${item.linky.expectedGuildSource}` : ''}</span></div> : '-',
             item.timo ? <div className="stack-gap small"><strong>{item.timo.accountId}</strong><span>{item.timo.status} · {item.timo.guildId || '未返回公会'}</span></div> : '-',
             item.invitationGuild ? <div className="stack-gap small"><strong>{item.invitationGuild.guildName} · {item.invitationGuild.guildId}</strong><span>{item.invitationGuild.source}{item.invitationGuild.inheritedFromUserId ? ` · 继承自 #${item.invitationGuild.inheritedFromUserId}` : ''}</span></div> : '-',
+            item.earningsReadPlatforms?.length ? item.earningsReadPlatforms.map(code => code === 'TIMO' ? 'Timo' : code === 'LINKY' ? 'Linky' : code).join('、') : '未授权',
             canManageCountry || canManageLinkyInvitationGuild || canManagePasswordLogin || canManageOperations || canManageNickname ? <div className="action-row">
               {canManageNickname ? <button className="ghost-btn small-btn" onClick={() => onEditNickname(item)}>修改昵称</button> : null}
+              {canManageEarningsReadAccess && onEarningsReadAccess ? <button className="ghost-btn small-btn" onClick={() => onEarningsReadAccess(item)}>收益查看权限</button> : null}
               {canManageOperations ? <button className="ghost-btn small-btn" onClick={() => onEditOperations(item, 'operator')}>设置对接运营</button> : null}
               {canManageOperations ? <button className="ghost-btn small-btn" onClick={() => onEditOperations(item, 'value')}>设置用户价值</button> : null}
               {canManageCountry ? <button className="ghost-btn small-btn" onClick={() => onAdjustCountry(item)}>调整国家</button> : null}

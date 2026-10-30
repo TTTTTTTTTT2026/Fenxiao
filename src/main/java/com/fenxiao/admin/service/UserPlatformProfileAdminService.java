@@ -90,8 +90,14 @@ public class UserPlatformProfileAdminService {
         Map<Long, String> gradesByUser = gradesByUser(ids);
         Map<Long, UserPasswordCredential> passwordsByUser = index(passwordCredentials.findByUserIdIn(ids), UserPasswordCredential::getUserId);
         Map<Long, UserOperationsAdminService.Current> operationsByUser = new HashMap<>();
+        Map<Long, List<String>> earningsReadByUser = new HashMap<>();
         if (!ids.isEmpty()) {
             String placeholders = ids.stream().map(value -> "?").collect(Collectors.joining(","));
+            // One small indexed query per page, never one query per user or an income-table scan.
+            jdbc.query("select user_id,platform_code from user_earnings_read_access where enabled=true and user_id in ("
+                    + placeholders + ") order by platform_code", rs -> {
+                earningsReadByUser.computeIfAbsent(rs.getLong("user_id"), ignored -> new ArrayList<>()).add(rs.getString("platform_code"));
+            }, ids.toArray());
             jdbc.query("""
                     select p.user_id, p.operator_admin_id, p.value_code, a.display_name
                     from user_operations_profile p left join admin_account a on a.id = p.operator_admin_id
@@ -124,7 +130,8 @@ public class UserPlatformProfileAdminService {
                     passwordsByUser.containsKey(profile.getUserId()) && passwordsByUser.get(profile.getUserId()).isEnabled(),
                     linky(linkyByUser.get(profile.getUserId())), timo(timoByUser.get(profile.getUserId())),
                     invitationGuild(guildByUser.get(profile.getUserId()), legacyGuildByUser.get(profile.getUserId())),
-                    operations.operatorAdminId(), operations.operatorName(), operations.valueCode());
+                    operations.operatorAdminId(), operations.operatorName(), operations.valueCode(),
+                    earningsReadByUser.getOrDefault(profile.getUserId(), List.of()));
         }).toList();
         return new UserPlatformProfileListResponse(items, searchPage.total(), safePage, safeSize);
     }

@@ -46,6 +46,22 @@ function findElement(node: unknown, matches: (element: ReactElement<Record<strin
 }
 
 describe('legacy user directory filters and operations', () => {
+  it('shows per-app read grants separately from bindings, with a root-only manage action', () => {
+    const onEarningsReadAccess = vi.fn()
+    const grantedProfiles = { ...profiles, items: profiles.items.map(item => ({ ...item, earningsReadPlatforms: ['TIMO'] })) }
+    const markup = renderToStaticMarkup(<LegacyUserDirectorySection query={query} options={options} profiles={grantedProfiles} loading={false}
+      canManageCountry canManageLinkyInvitationGuild canManagePasswordLogin canManageOperations canManageNickname
+      canManageEarningsReadAccess onEarningsReadAccess={onEarningsReadAccess} {...callbacks} />)
+    expect(markup).toContain('未绑定收益查看')
+    expect(markup).toContain('收益查看权限')
+    const element = LegacyUserDirectorySection({ query, options, profiles: grantedProfiles, loading: false,
+      canManageCountry: true, canManageLinkyInvitationGuild: true, canManagePasswordLogin: true, canManageOperations: true,
+      canManageNickname: true, canManageEarningsReadAccess: true, onEarningsReadAccess, ...callbacks })
+    const button = findElement(element, node => node.type === 'button' && node.props.children === '收益查看权限')
+    expect(button).toBeDefined()
+    ;(button?.props.onClick as () => void)()
+    expect(onEarningsReadAccess).toHaveBeenCalledWith(grantedProfiles.items[0])
+  })
   it('shows both new dimensions, all requested filters and bottom pagination without refresh', () => {
     const markup = renderToStaticMarkup(<LegacyUserDirectorySection
       query={query} options={options} profiles={profiles} loading={false}
