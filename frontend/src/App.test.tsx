@@ -98,6 +98,9 @@ describe('App external landing pages', () => {
 
   it.each(['/bind', '/invite', '/account', '/earnings', '/account/timo', '/earnings/commission'])('uses initial-capital brand text on %s', (pathname) => {
     Object.assign(window.location, { pathname, hostname: 'app.bandeira.fandodo.online' })
+    if (pathname === '/invite') window.localStorage.setItem('fenxiao-web-session', JSON.stringify({
+      userId: 10001, inviteCode: 'ABCD1234', countryCode: 'BR', languageCode: 'zh', accessToken: 'brand-test-token',
+    }))
     const markup = renderToStaticMarkup(<App />)
     expect(markup).toContain('Bandeira</a>')
     expect(markup).not.toContain('>BANDEIRA</a>')
