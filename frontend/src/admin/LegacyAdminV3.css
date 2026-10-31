@@ -491,6 +491,22 @@
 }
 .admin-console-v3 .table-shell tr:last-child td { border-bottom: 0; }
 .admin-console-v3 .table-shell tbody tr:hover td { background: #fafaf9; }
+.admin-console-v3 .admin-user-directory-table .table-shell { max-height: 65vh; }
+.admin-console-v3 .admin-user-directory-table th { white-space: nowrap; }
+.admin-console-v3 .admin-user-directory-table th:last-child,
+.admin-console-v3 .admin-user-directory-table td:last-child:not([colspan]) {
+  position: sticky;
+  right: 0;
+  background: #fff;
+  box-shadow: -3px 0 6px rgba(28,25,23,0.08);
+}
+.admin-console-v3 .admin-user-directory-table th:last-child { z-index: 3; background: #fafaf9; }
+.admin-console-v3 .admin-user-directory-table td:last-child:not([colspan]) { z-index: 1; min-width: 150px; }
+.admin-user-actions { display: flex; align-items: flex-start; gap: 6px; }
+.admin-user-more summary { cursor: pointer; padding: 6px 8px; color: #c2410c; white-space: nowrap; }
+.admin-user-more summary:focus-visible { outline: 2px solid #c2410c; outline-offset: 2px; }
+.admin-user-more-actions { display: grid; gap: 4px; padding-top: 6px; }
+.admin-user-more-actions button { white-space: nowrap; }
 .admin-console-v3 .admin-pagination {
   min-height: 42px;
   margin-top: 8px;

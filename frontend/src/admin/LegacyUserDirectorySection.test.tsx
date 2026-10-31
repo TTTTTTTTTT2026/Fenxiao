@@ -86,13 +86,30 @@ describe('legacy user directory filters and operations', () => {
     expect(markup).not.toContain('修改昵称')
   })
 
+  it('shows the grant action when it is the only available management permission', () => {
+    const markup = renderToStaticMarkup(<LegacyUserDirectorySection query={query} options={options} profiles={profiles} loading={false}
+      canManageCountry={false} canManageLinkyInvitationGuild={false} canManagePasswordLogin={false}
+      canManageOperations={false} canManageNickname={false} canManageEarningsReadAccess onEarningsReadAccess={vi.fn()} {...callbacks} />)
+    expect(markup).toContain('收益查看权限')
+    expect(markup).not.toContain('设置对接运营')
+  })
+
   it('shows a dash for users without a nickname', () => {
     const markup = renderToStaticMarkup(<LegacyUserDirectorySection
       query={query} options={options} profiles={{ ...profiles, items: [{ ...profiles.items[0], nickname: null }] }} loading={false}
       canManageCountry={false} canManageLinkyInvitationGuild={false} canManagePasswordLogin={false}
       canManageOperations={false} canManageNickname={false} {...callbacks}
     />)
-    expect(markup).toContain('<strong>#1001</strong><span>-</span>')
+    expect(markup).toContain('<strong>#1001</strong></td><td>-</td>')
+  })
+
+  it('keeps the requested column order and places secondary actions in more', () => {
+    const markup = renderToStaticMarkup(<LegacyUserDirectorySection query={query} options={options} profiles={profiles} loading={false}
+      canManageCountry canManageLinkyInvitationGuild canManagePasswordLogin canManageOperations canManageNickname {...callbacks} />)
+    const headers = [...markup.matchAll(/<th>(.*?)<\/th>/g)].map(match => match[1])
+    expect(headers).toEqual(['用户 ID', '昵称', '归属国家', '用户等级', '手机号', '邀请码', '注册时间', '对接运营', '用户价值', '直接邀请人', 'Linky 实际绑定', 'Timo 实际绑定', 'Linky 邀请链归属', '密码登录', '未绑定收益查看', '操作'])
+    expect(markup.indexOf('修改昵称</button>')).toBeLessThan(markup.indexOf('<summary>更多</summary>'))
+    expect(markup.indexOf('设置对接运营</button>')).toBeGreaterThan(markup.indexOf('<summary>更多</summary>'))
   })
 
   it('does not query on input change; search, edit and pagination use explicit callbacks', () => {
