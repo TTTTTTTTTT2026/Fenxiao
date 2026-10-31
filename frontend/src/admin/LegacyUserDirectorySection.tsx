@@ -71,22 +71,23 @@ export default function LegacyUserDirectorySection({
         <InlineHint text="多个条件同时生效；手机号只输入完整本地号码。公会筛选依据实际平台绑定，不依据 Linky 邀请链归属。" />
       </InfoCard>
       <InfoCard title="用户与平台核验信息" tone="neutral">
-        <DataTable headers={['用户', '对接运营', '用户价值', '邀请码', '归属国家', '用户等级', '手机号', '密码登录', '注册时间', '直接邀请人', 'Linky 实际绑定', 'Timo 实际绑定', 'Linky 邀请链归属', '未绑定收益查看', '操作']}
+        <div className="admin-user-directory-table"><DataTable headers={['用户 ID', '昵称', '归属国家', '用户等级', '手机号', '邀请码', '注册时间', '对接运营', '用户价值', '直接邀请人', 'Linky 实际绑定', 'Timo 实际绑定', 'Linky 邀请链归属', '密码登录', '未绑定收益查看', '操作']}
           rows={(profiles?.items ?? []).map((item) => [
-            <div className="stack-gap small"><strong>#{item.userId}</strong><span>{item.nickname?.trim() || '-'}</span></div>,
+            <strong>#{item.userId}</strong>, item.nickname?.trim() || '-',
+            formatCountryNameZh(item.countryCode), formatConsumerUserGrade(item.userGradeCode, 'zh'), item.phoneNumber || '-',
+            item.inviteCode ? <div className="invite-code-cell"><span>{item.inviteCode}</span><button className="ghost-btn small-btn invite-code-copy-btn" type="button" onClick={() => onCopyInviteCode(item.inviteCode)} aria-label={`复制邀请码 ${item.inviteCode}`} title="复制邀请码"><Copy size={15} weight="bold" aria-hidden="true" /></button></div> : '-',
+            formatDateTime(item.registeredAt),
             item.operatorAdminId == null ? '未分配' : `${item.operatorName || '运营账号'} #${item.operatorAdminId}`,
             item.valueCode === 'HIGH_VALUE' ? '高价值用户' : '一般用户',
-            item.inviteCode ? <div className="invite-code-cell"><span>{item.inviteCode}</span><button className="ghost-btn small-btn invite-code-copy-btn" type="button" onClick={() => onCopyInviteCode(item.inviteCode)} aria-label={`复制邀请码 ${item.inviteCode}`} title="复制邀请码"><Copy size={15} weight="bold" aria-hidden="true" /></button></div> : '-',
-            formatCountryNameZh(item.countryCode), formatConsumerUserGrade(item.userGradeCode, 'zh'),
-            item.phoneNumber || '-', item.passwordLoginEnabled ? '已开通' : '未开通',
-            formatDateTime(item.registeredAt),
             item.directInviterUserId == null ? '根节点' : <div className="stack-gap small"><strong>#{item.directInviterUserId}</strong>{item.directInviterNickname ? <span>{item.directInviterNickname}</span> : null}</div>,
             item.linky ? <div className="stack-gap small"><strong>{item.linky.accountId}</strong><span>{item.linky.status} · {item.linky.guildName || item.linky.guildId || '未返回公会'}{item.linky.expectedGuildSource ? ` · 目标来源 ${item.linky.expectedGuildSource}` : ''}</span></div> : '-',
             item.timo ? <div className="stack-gap small"><strong>{item.timo.accountId}</strong><span>{item.timo.status} · {item.timo.guildId || '未返回公会'}</span></div> : '-',
             item.invitationGuild ? <div className="stack-gap small"><strong>{item.invitationGuild.guildName} · {item.invitationGuild.guildId}</strong><span>{item.invitationGuild.source}{item.invitationGuild.inheritedFromUserId ? ` · 继承自 #${item.invitationGuild.inheritedFromUserId}` : ''}</span></div> : '-',
+            item.passwordLoginEnabled ? '已开通' : '未开通',
             item.earningsReadPlatforms?.length ? item.earningsReadPlatforms.map(code => code === 'TIMO' ? 'Timo' : code === 'LINKY' ? 'Linky' : code).join('、') : '未授权',
-            canManageCountry || canManageLinkyInvitationGuild || canManagePasswordLogin || canManageOperations || canManageNickname ? <div className="action-row">
+            canManageCountry || canManageLinkyInvitationGuild || canManagePasswordLogin || canManageOperations || canManageNickname || (canManageEarningsReadAccess && onEarningsReadAccess) ? <div className="admin-user-actions">
               {canManageNickname ? <button className="ghost-btn small-btn" onClick={() => onEditNickname(item)}>修改昵称</button> : null}
+              {canManageCountry || canManageLinkyInvitationGuild || canManageOperations || (canManagePasswordLogin && (item.phoneNumber || item.passwordLoginEnabled)) || (canManageEarningsReadAccess && onEarningsReadAccess) ? <details className="admin-user-more"><summary>更多</summary><div className="admin-user-more-actions">
               {canManageEarningsReadAccess && onEarningsReadAccess ? <button className="ghost-btn small-btn" onClick={() => onEarningsReadAccess(item)}>收益查看权限</button> : null}
               {canManageOperations ? <button className="ghost-btn small-btn" onClick={() => onEditOperations(item, 'operator')}>设置对接运营</button> : null}
               {canManageOperations ? <button className="ghost-btn small-btn" onClick={() => onEditOperations(item, 'value')}>设置用户价值</button> : null}
@@ -94,8 +95,9 @@ export default function LegacyUserDirectorySection({
               {canManageLinkyInvitationGuild ? <button className="ghost-btn small-btn" onClick={() => onAdjustLinkyInvitationGuild(item)}>调整 Linky 归属</button> : null}
               {canManagePasswordLogin && item.phoneNumber ? <button className="ghost-btn small-btn" onClick={() => onPasswordLogin(item, 'set')}>{item.passwordLoginEnabled ? '重设登录密码' : '开通密码登录'}</button> : null}
               {canManagePasswordLogin && item.passwordLoginEnabled ? <button className="ghost-btn small-btn" onClick={() => onPasswordLogin(item, 'disable')}>关闭密码登录</button> : null}
+              </div></details> : null}
             </div> : '只读',
-          ])} emptyText="没有符合条件的用户。" />
+          ])} emptyText="没有符合条件的用户。" /></div>
         <div className="action-row admin-user-directory-pagination">
           <span role="status">共 {profiles?.total ?? 0} 位用户 · 第 {page + 1} / {Math.max(1, totalPages)} 页</span>
           <button type="button" className="ghost-btn small-btn" disabled={loading || page === 0} onClick={() => onPageChange(page - 1)}>上一页</button>
