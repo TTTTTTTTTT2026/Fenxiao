@@ -7,6 +7,14 @@ import java.time.*;
 import static org.assertj.core.api.Assertions.*;
 
 class OperationsDashboardServiceTest {
+    @Test void validInviteDetailUsesFirstVerificationTimeAndInitialInviter() {
+        JdbcTemplate db=database();seed(db);
+        db.update("INSERT INTO platform_binding_history VALUES(20,2,2,'TIMO','VERIFIED','VERIFIED','MCN_TIMO','2026-10-12 06:00:00')");
+        var service=new OperationsDashboardService(db,fixed());
+        assertThat(service.users("TIMO","ID","today","VERIFIED_INVITER",1L,null,0,20).items())
+                .extracting(OperationsDashboardService.User::userId).containsExactly(3L,2L);
+        assertThatThrownBy(()->service.users("TIMO","ID","today","VERIFIED_INVITER",null,null,0,20)).isInstanceOf(IllegalArgumentException.class);
+    }
     @Test void countsUtcEventsCohortsAndCurrentQueuesWithoutMixingApps() {
         JdbcTemplate db=database();seed(db);
         var service=new OperationsDashboardService(db,fixed());

@@ -15,7 +15,7 @@ public class OperationsDashboardService {
     private final JdbcTemplate jdbc;
     private final Clock clock;
     private final Map<Key, Cached> cache = new LinkedHashMap<>();
-    private static final Set<String> KINDS = Set.of("REGISTERED", "FIRST_VERIFIED", "COHORT", "PENDING", "OVERDUE", "REJECTED", "WAITING", "UNASSIGNED", "INVITER");
+    private static final Set<String> KINDS = Set.of("REGISTERED", "FIRST_VERIFIED", "COHORT", "PENDING", "OVERDUE", "REJECTED", "WAITING", "UNASSIGNED", "INVITER", "VERIFIED_INVITER");
 
     // The first version is immutable: later transfers must not rewrite acquisition results.
     private static final String FROM = """
@@ -121,7 +121,7 @@ public class OperationsDashboardService {
         Key key=key(platformValue,countryValue,7,periodValue);
         String kind=kindValue==null?"":kindValue.toUpperCase(Locale.ROOT);
         if(!KINDS.contains(kind)||page<0||page>1000||size<1||size>50) throw new IllegalArgumentException("invalid dashboard user query");
-        if("INVITER".equals(kind)&&(inviterId==null||inviterId<=0))throw new IllegalArgumentException("inviter is required");
+        if(("INVITER".equals(kind)||"VERIFIED_INVITER".equals(kind))&&(inviterId==null||inviterId<=0))throw new IllegalArgumentException("inviter is required");
         LocalDateTime now=LocalDateTime.ofInstant(clock.instant(),ZoneOffset.UTC);
         LocalDate date;
         try {date=dateValue==null||dateValue.isBlank()?now.toLocalDate():LocalDate.parse(dateValue);}
@@ -139,6 +139,7 @@ public class OperationsDashboardService {
             case "WAITING" -> {predicate+=" AND ("+state+")='VERIFYING' AND ("+pendingSince(key.platform())+")<?";args.add(ts(now.minusHours(24)));}
             case "UNASSIGNED" -> predicate+=" AND op.operator_admin_id IS NULL";
             case "INVITER" -> {Window w=window(key.period(),now);predicate+=" AND r.inviter_user_id=? AND u.registered_at>=? AND u.registered_at<?";args.add(inviterId);args.add(ts(w.start()));args.add(ts(w.end()));}
+            case "VERIFIED_INVITER" -> {Window w=window(key.period(),now);predicate+=" AND r.inviter_user_id=? AND EXISTS (SELECT 1 FROM ("+firstEvents(key.platform())+") v WHERE v.user_id=u.user_id AND v.event_at>=u.registered_at AND v.event_at>=? AND v.event_at<?)";args.add(inviterId);args.add(ts(w.start()));args.add(ts(w.end()));}
             default -> throw new IllegalArgumentException("unsupported dashboard query");
         }
         long total=jdbc.queryForObject("SELECT COUNT(*)"+FROM+predicate,Long.class,args.toArray());
@@ -149,7 +150,7 @@ public class OperationsDashboardService {
 
     private static String status(String platform) {return "TIMO".equals(platform)?TIMO_STATUS:LINKY_STATUS;}
     private static String pendingSince(String platform) {return "TIMO".equals(platform)?"COALESCE((SELECT MAX(h.occurred_at) FROM platform_binding_history h WHERE h.binding_id=t.id AND h.to_status='VERIFYING' AND (h.from_status IS NULL OR h.from_status<>'VERIFYING')),t.submitted_at)":"l.created_at";}
-    private static String firstEvents(String platform) {
+    static String firstEvents(String platform) {
         // Retained successful evidence, not mutable verified_at. Mock successes are not operating results.
         return "TIMO".equals(platform)?"""
                 SELECT h.user_id,h.occurred_at event_at FROM platform_binding_history h

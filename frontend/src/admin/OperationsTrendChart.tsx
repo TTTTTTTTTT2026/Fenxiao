@@ -27,10 +27,11 @@ export default function OperationsTrendChart({ days, platform, label }: {
             <text x="25" y={136 - value * 105} textAnchor="end" fill="#a8a29e" fontSize="11">{Math.round(maximum * value)}</text>
           </g>
         ))}
+        <polyline fill="none" stroke="#ed702e" strokeWidth="2" points={days.map((day,index)=>`${40+(index+.5)*930/count},${132-day.registered/maximum*105}`).join(' ')} />
+        {days.every(day=>day.firstVerified!=null)&&<polyline fill="none" stroke="#17a4a1" strokeWidth="2" points={days.map((day,index)=>`${40+(index+.5)*930/count},${132-(day.firstVerified??0)/maximum*105}`).join(' ')} />}
         {days.map((day, index) => {
           const step = 930 / count
-          const width = Math.min(28, step * .3)
-          const x = 40 + index * step + (step - 2 * width - 3) / 2
+          const x = 40 + (index + .5) * step
           const selected = activeDate === day.date
           return (
             <g key={day.date} className="opsdash-chart-day" tabIndex={0} role="button"
@@ -46,9 +47,9 @@ export default function OperationsTrendChart({ days, platform, label }: {
                 }
               }}>
               <rect className="opsdash-chart-highlight" x={40 + index * step} y="18" width={step} height="119" fill={selected ? '#fff1e9' : 'transparent'} />
-              <rect x={x} y={132 - day.registered / maximum * 105} width={width} height={day.registered / maximum * 105} fill="#e95f2f" rx="2" />
-              {day.firstVerified != null && <rect x={x + width + 3} y={132 - day.firstVerified / maximum * 105} width={width} height={day.firstVerified / maximum * 105} fill="#4caaa1" rx="2" />}
-              {(count <= 7 || index % 5 === 0 || index === count - 1) && <text x={x + width} y="153" textAnchor="middle" fill="#78716c" fontSize="11">{day.date.slice(5)}</text>}
+              <circle cx={x} cy={132 - day.registered / maximum * 105} r="4" fill="#e95f2f" />
+              {day.firstVerified != null && <circle cx={x} cy={132 - day.firstVerified / maximum * 105} r="4" fill="#4caaa1" />}
+              {(count <= 7 || index % 5 === 0 || index === count - 1) && <text x={x} y="153" textAnchor="middle" fill="#78716c" fontSize="11">{day.date.slice(5)}</text>}
             </g>
           )
         })}
