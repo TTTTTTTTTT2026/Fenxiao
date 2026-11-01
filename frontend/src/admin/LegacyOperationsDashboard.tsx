@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { PanelSection } from './LegacyPresentation'
-import { getOperationsDashboard, getOperationsDashboardUsers } from './operationsDashboardApi'
+import { UserPlus, UsersThree, LinkSimple, ShieldCheck, Coins, WarningCircle, ClockCounterClockwise, UserCircle } from '@phosphor-icons/react'
+import { getOperationsDashboard, getOperationsDashboardUsers, getGrowthDashboard } from './operationsDashboardApi'
+import type { GrowthReport } from './operationsDashboardApi'
 import type { DashboardDetail, DashboardPeriod, DashboardPlatform, DashboardQuery, DashboardUsers, OperationsDashboardReport } from './operationsDashboardApi'
 import './LegacyOperationsDashboard.css'
 import { dashboardRate } from './operationsDashboardFormatting'
-import DashboardAutoRefresh from './DashboardAutoRefresh'
 import OperationsTrendChart from './OperationsTrendChart'
 
 const COUNTRIES:Record<string,string>={ALL:'全部国家',ID:'印度尼西亚',BR:'巴西',HK:'中国香港',CN:'中国大陆',US:'美国',MX:'墨西哥'}
@@ -13,29 +13,67 @@ function utc(at:string){return at.replace('T',' ').replace(/(?:\.\d+)?Z$/,'').sl
 function stateLabel(state:string){return ({UNBOUND:'未绑定',VERIFIED:'核验成功',VERIFYING:'核验中',REJECTED:'核验失败',UNKNOWN:'状态待确认'} as Record<string,string>)[state]||'状态待确认'}
 
 export default function LegacyOperationsDashboard({sessionToken,product,onProductChange}:{sessionToken:string;product?:string;onProductChange:(product:DashboardPlatform)=>void}){
- const [country,setCountry]=useState('ALL');const [trendPeriod,setTrendPeriod]=useState<DashboardPeriod>('7');const [period,setPeriod]=useState<DashboardPeriod>('today');
- const [auto,setAuto]=useState(true);
+ const [country,setCountry]=useState('ALL');const [trendPeriod,setTrendPeriod]=useState<DashboardPeriod>('7');const [period,setPeriod]=useState<DashboardPeriod>('7');
  const platform:DashboardPlatform=product==='LINKY'?'LINKY':'TIMO';
  const query:DashboardQuery={platformCode:platform,countryCode:country,trendDays:trendPeriod==='30'?30:7,trendPeriod,period};
- return <DashboardContent key={`${sessionToken}:${platform}:${country}:${trendPeriod}:${period}`} sessionToken={sessionToken} query={query} onCountry={setCountry} onTrendPeriod={setTrendPeriod} onPeriod={setPeriod} onProductChange={onProductChange} auto={auto} onAutoChange={setAuto}/>
+ return <DashboardContent key={`${sessionToken}:${platform}:${country}:${trendPeriod}:${period}`} sessionToken={sessionToken} query={query} onCountry={setCountry} onTrendPeriod={setTrendPeriod} onPeriod={setPeriod} onProductChange={onProductChange}/>
 }
-function DashboardContent({sessionToken,query,onCountry,onTrendPeriod,onPeriod,onProductChange,auto,onAutoChange}:{sessionToken:string;query:DashboardQuery;onCountry:(country:string)=>void;onTrendPeriod:(period:DashboardPeriod)=>void;onPeriod:(period:DashboardPeriod)=>void;onProductChange:(product:DashboardPlatform)=>void;auto:boolean;onAutoChange:(auto:boolean)=>void}){
+function DashboardContent({sessionToken,query,onCountry,onTrendPeriod,onPeriod,onProductChange}:{sessionToken:string;query:DashboardQuery;onCountry:(country:string)=>void;onTrendPeriod:(period:DashboardPeriod)=>void;onPeriod:(period:DashboardPeriod)=>void;onProductChange:(product:DashboardPlatform)=>void}){
  const [result,setResult]=useState<{data:OperationsDashboardReport|null;error:string}>({data:null,error:''});
  const [revision,setRevision]=useState(0);const [detail,setDetail]=useState<DashboardDetail|null>(null);
+ const [growth,setGrowth]=useState<{data:GrowthReport|null;error:string}>({data:null,error:''});
  const {platformCode,countryCode,trendDays,trendPeriod='7',period}=query;
  useEffect(()=>{const abort=new AbortController();void getOperationsDashboard(sessionToken,{platformCode,countryCode,trendDays,trendPeriod,period},abort.signal).then(data=>{if(!abort.signal.aborted)setResult({data,error:''})}).catch(()=>{if(!abort.signal.aborted)setResult({data:null,error:'运营数据暂时无法加载，请刷新重试。'})});return()=>abort.abort()},[sessionToken,platformCode,countryCode,trendDays,trendPeriod,period,revision]);
- useEffect(()=>{if(!auto)return;const timer=window.setInterval(()=>{if(document.visibilityState==='visible')setRevision(n=>n+1)},60000);return()=>window.clearInterval(timer)},[auto]);
+ useEffect(()=>{const abort=new AbortController();void getGrowthDashboard(sessionToken,{platformCode,countryCode,trendDays,period},abort.signal).then(data=>{if(!abort.signal.aborted)setGrowth({data,error:''})}).catch(()=>{if(!abort.signal.aborted)setGrowth({data:null,error:'增长数据暂时无法加载，请刷新重试。'})});return()=>abort.abort()},[sessionToken,platformCode,countryCode,trendDays,period,revision]);
  function refresh(){setResult({data:null,error:''});setRevision(n=>n+1)}
  const report=result.data;
  const countries=[...new Set(['ALL','ID','BR','HK',countryCode,...(report?.countries||[])])];
- return <PanelSection sectionId="admin-operations-dashboard" eyebrow="Operations dashboard" title="运营数据看板" description="UTC每日拉新、绑定与邀请进展；点击数字查看同口径用户。" action={<div className="opsdash-tools"><DashboardAutoRefresh checked={auto} onChange={onAutoChange}/><button className="primary-btn" type="button" onClick={refresh}>刷新看板</button></div>}>
+ return <section id="admin-operations-dashboard" className="opsdash-panel">
   <div className="opsdash">
-   <div className="opsdash-filters"><label>归属国家<select aria-label="看板归属国家" value={countryCode} onChange={e=>onCountry(e.target.value)}>{countries.map(code=><option key={code} value={code}>{COUNTRIES[code]||code}</option>)}</select></label><label>绑定应用<select aria-label="看板绑定应用" value={platformCode} onChange={e=>onProductChange(e.target.value as DashboardPlatform)}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label><span>注册为全局口径；应用仅筛选核验和绑定。统计时区 UTC+0。</span></div>
+   <div className="opsdash-filters"><label>归属国家<select aria-label="看板归属国家" value={countryCode} onChange={e=>onCountry(e.target.value)}>{countries.map(code=><option key={code} value={code}>{COUNTRIES[code]||code}</option>)}</select></label><label>绑定应用<select aria-label="看板绑定应用" value={platformCode} onChange={e=>onProductChange(e.target.value as DashboardPlatform)}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label><span>注册为全局口径；应用筛选核验。统计时区 UTC+0。</span><div className="opsdash-tools"><button className="primary-btn" type="button" onClick={refresh}>刷新看板</button></div></div>
    <div className="opsdash-meta">{report?`数据更新时间：${utc(report.generatedAt)}（最长60秒缓存）`:result.error?'数据未加载':'正在读取运营数据…'}</div>
-   {result.error?<div className="opsdash-error" role="alert">{result.error} 未把异常显示为0。<button className="ghost-btn" onClick={refresh}>重新加载</button></div>:!report?<div className="opsdash-empty" role="status">正在加载看板…</div>:<DashboardBody report={report} onDetail={setDetail} onTrendPeriod={onTrendPeriod} onPeriod={onPeriod} trendPeriod={trendPeriod}/>}
+   {growth.error||result.error?<div className="opsdash-error" role="alert">{growth.error||result.error} 未把异常显示为0。<button className="ghost-btn" onClick={refresh}>重新加载</button></div>:!report||!growth.data?<div className="opsdash-empty" role="status">正在加载看板…</div>:<UnifiedDashboard growth={growth.data} report={report} period={period} trendPeriod={trendPeriod} onPeriod={p=>{onPeriod(p);onTrendPeriod(p)}} onDetail={setDetail}/>}
    {detail&&<DashboardUserDialog key={`${detail.kind}:${detail.inviterId||''}:${detail.date||''}`} sessionToken={sessionToken} query={query} detail={detail} onClose={()=>setDetail(null)}/>}
   </div>
- </PanelSection>
+ </section>
+}
+
+export function UnifiedDashboard({growth,report,period,trendPeriod,onPeriod,onDetail}:{growth:GrowthReport;report:OperationsDashboardReport;period:DashboardPeriod;trendPeriod:DashboardPeriod;onPeriod:(p:DashboardPeriod)=>void;onDetail:(detail:DashboardDetail)=>void}) {
+ const [rankingMode,setRankingMode]=useState<'effective'|'withdrawal'|'output'>('effective');
+ const d=growth.data; const unknown=growth.missingVerificationHistoryUsers>0;
+ const platform=report.platformCode==='TIMO'?'Timo':'Linky';
+ const cards=[
+  {label:'参与邀请人数',value:d.participatingInviters,caption:'周期内至少邀请一人注册',Icon:UserPlus,tone:'orange'},
+  {label:'新增注册',value:d.registered,caption:'按注册时间统计',Icon:UsersThree,tone:'blue'},
+  {label:'已提交核验',value:d.submitted,caption:'本期注册用户 · 截至目前',Icon:LinkSimple,tone:'teal'},
+  {label:'已经通过核验',value:unknown?'—':d.verified??'—',caption:'本期注册用户 · 截至目前',Icon:ShieldCheck,tone:'blue'},
+  {label:'首次提现',value:'Null',caption:'数据暂未接入',Icon:Coins,tone:'orange'},
+  {label:'待发奖励',value:'Null',caption:'邀请核验奖励尚未上线',Icon:Coins,tone:'amber'},
+ ];
+ const queues=[{kind:'OVERDUE',title:'注册超24小时未绑定',n:report.summary.overdue,Icon:UserPlus},{kind:'REJECTED',title:'核验失败或异常',n:report.summary.rejected,Icon:WarningCircle},{kind:'WAITING',title:'核验等待超24小时',n:report.summary.waiting,Icon:ClockCounterClockwise},{kind:'UNASSIGNED',title:'尚未分配对接运营',n:report.summary.unassigned,Icon:UserCircle}] as const;
+ return <div className="growth-board">
+  <div className="growth-board-heading"><div><h2>裂变增长总览</h2><p>跟踪邀请、注册、核验与积分进展</p></div><div className="opsdash-tabs growth-periods" role="group" aria-label="增长统计周期">{PERIODS.map(p=><button key={p.value} aria-pressed={period===p.value} className={period===p.value?'is-active':''} onClick={()=>onPeriod(p.value)}>{p.label}</button>)}</div></div>
+  {unknown&&<div className="opsdash-warning" role="status">存在 {growth.missingVerificationHistoryUsers} 位用户的首次核验历史缺失，相关人数及排行暂不可确认。</div>}
+  <div className="growth-cards">{cards.map(({label,value,caption,Icon,tone})=><div className="growth-stat" key={label}><span className={`growth-icon ${tone}`}><Icon size={23} weight="duotone"/></span><div><span>{label}</span><strong>{value}</strong><small>{caption}</small></div></div>)}</div>
+  <div className="growth-main-grid"><section className="opsdash-card growth-trend"><header><div><h3>增长趋势</h3><p>每日新增注册与首次通过 {platform} 核验，按各自事件发生时间统计</p></div></header><div className="opsdash-card-body"><div className="opsdash-legend"><span>新增注册</span><span>{platform} 首次核验成功</span></div><OperationsTrendChart days={report.trend} platform={platform} label={PERIODS.find(p=>p.value===trendPeriod)?.label||''}/><details><summary>查看每日数字</summary><div className="opsdash-days">{report.trend.map(day=><button key={day.date} onClick={()=>onDetail({kind:'REGISTERED',title:`${day.date} 新增注册`,date:day.date})}>{day.date} · {day.registered} 注册 / {day.firstVerified??'—'} 首次核验</button>)}</div></details></div></section>
+  <section className="opsdash-card growth-pending"><header><div><h3>待处理事项</h3><p>当前存量 · 点击查看名单</p></div></header><div className="opsdash-card-body">{queues.map(({kind,title,n,Icon})=><button key={kind} className="growth-queue" onClick={()=>onDetail({kind,title})}><span className="growth-queue-icon"><Icon size={19}/></span><span>{title}</span><strong>{n}</strong><span className="growth-queue-action">查看</span></button>)}</div></section></div>
+  <section className="opsdash-card growth-funnel"><header><div><h3>新用户转化流程</h3><p>同一批在所选周期注册的用户，截至目前的进展</p></div></header><div className="growth-funnel-body"><div><span>注册</span><strong>{d.registered} 人</strong></div><span className="growth-rate">{dashboardRate(d.submitted,d.registered)} →</span><div><span>已提交核验</span><strong>{d.submitted} 人</strong></div><span className="growth-rate">注册至核验 {unknown||d.verified===null?'—':dashboardRate(d.verified,d.registered)} →</span><div><span>已经通过核验</span><strong>{unknown?'—':d.verified} 人</strong></div></div><p className="opsdash-note">提交根据当前保留的绑定记录，历史缺失可能影响结果；两项比例均以注册人数为分母。</p></section>
+  <section className="opsdash-card growth-ranking"><header><div><h3>邀请贡献排行榜</h3><p>按被邀请人首次通过 {platform} 核验的时间排序 · Top 10</p></div><div className="opsdash-tabs" role="group" aria-label="排行依据">{([{key:'effective',label:'按有效邀请'},{key:'withdrawal',label:'按首提人数'},{key:'output',label:'按产出'}] as const).map(({key,label})=><button key={key} type="button" aria-pressed={rankingMode===key} className={rankingMode===key?'is-active':''} onClick={()=>setRankingMode(key)}>{label}</button>)}</div></header><div className="opsdash-card-body">{rankingMode!=='effective'?<div className="opsdash-empty" role="status">此排行开发中，敬请期待。</div>:<><div className="opsdash-table"><table><thead><tr><th>排名</th><th>分销用户</th><th>国家</th><th>对接运营（当前）</th><th>邀请注册</th><th>已提交核验</th><th>已经通过核验</th><th>首提人数</th><th>核验通过率</th><th>奖励</th><th>操作</th></tr></thead><tbody>{growth.ranks.map((r,i)=><tr key={r.inviterId}><td><span className="growth-rank">{i+1}</span></td><td><strong>{r.nickname||'—'}</strong><small>ID {r.inviterId}</small></td><td>{r.country?(COUNTRIES[r.country]||r.country):'—'}</td><td>{r.operator||'未分配'}</td><td>{r.registered}</td><td>{r.submitted}</td><td>{r.cohortVerified}</td><td>Null</td><td>{dashboardRate(r.cohortVerified,r.registered)}</td><td>Null</td><td><button className="opsdash-number" onClick={()=>onDetail({kind:'VERIFIED_INVITER',inviterId:r.inviterId,title:`${r.nickname||r.inviterId} 的有效邀请`})}>查看详情</button></td></tr>)}</tbody></table></div>{!unknown&&!growth.ranks.length&&<div className="opsdash-empty">本周期暂无有效邀请记录</div>}<p className="opsdash-note">邀请注册、提交和核验通过率均以所选周期注册的同批直属用户统计；有效邀请按首次通过核验时间统计，两者周期口径不同。首提和邀请核验奖励尚未接入，显示 Null。奖励指邀请绑定并通过平台核验后给予的奖励，不包含现有分佣积分。</p></>}</div></section>
+ </div>
+}
+
+export function GrowthPanel({report,period,onPeriod}:{report:GrowthReport;period:DashboardPeriod;onPeriod:(period:DashboardPeriod)=>void}){
+ const d=report.data;const unknown=report.missingVerificationHistoryUsers>0;
+ return <section className="opsdash-card"><header><div><h3>裂变增长与有效邀请</h3><p>UTC · 每个周期按首次通过核验时间统计有效邀请</p></div><div className="opsdash-tabs" role="group" aria-label="增长统计周期">{PERIODS.map(p=><button key={p.value} aria-pressed={period===p.value} className={period===p.value?'is-active':''} onClick={()=>onPeriod(p.value)}>{p.label}</button>)}</div></header><div className="opsdash-card-body">
+  <p className="opsdash-note">{utc(d.start)} 至 {utc(d.end)}（不含终点）；国家按被邀请人当前归属筛选。</p>
+  {unknown&&<div className="opsdash-warning" role="status">存在 {report.missingVerificationHistoryUsers} 位用户的首次核验历史缺失，相关人数及排名暂不可确认。</div>}
+  <div className="opsdash-metrics"><div className="opsdash-metric"><span>参与邀请人数</span><strong>{d.participatingInviters}</strong><small>周期内至少邀请一人注册</small></div><div className="opsdash-metric"><span>新增注册</span><strong>{d.registered}</strong><small>所选周期注册用户</small></div><div className="opsdash-metric"><span>已提交平台 ID</span><strong>{d.submitted}</strong><small>本期注册用户，截至目前有提交记录</small></div><div className="opsdash-metric"><span>通过平台核验</span><strong>{unknown?'—':d.verified}</strong><small>本期注册用户，截至目前首次核验通过</small></div></div>
+  <p className="opsdash-note">同批新用户：注册 → 提交 {dashboardRate(d.submitted,d.registered)}；注册 → 通过核验 {unknown||d.verified===null?'—':dashboardRate(d.verified,d.registered)}。提交依据当前保留的绑定记录，历史记录缺失可能影响结果。</p>
+  <p>周期奖励积分：<strong>{report.rewardPoints ?? '无积分查看权限'}</strong>（按收益人当前国家；含待解冻，按业务日期。仅统计已入账记录，数据完整性以同步与核对结果为准。）</p>
+  <h3>新增有效邀请排行</h3><p className="opsdash-note">有效邀请指成功注册并通过所选平台核验，不等同等级有效用户。积分按收入业务日期归期，含待解冻；补算或冲正会更新历史数据。积分为该邀请人的所选应用总奖励，国家筛选不限制奖励来源。</p>
+  <div className="opsdash-table"><table><thead><tr><th>排名</th><th>分销用户</th><th>国家</th><th>对接运营（当前）</th><th>新增有效邀请</th><th>奖励积分</th></tr></thead><tbody>{report.ranks.map((r,i)=><tr key={r.inviterId}><td>{i+1}</td><td>{r.nickname||'—'}<small>ID {r.inviterId}</small></td><td>{r.country?(COUNTRIES[r.country]||r.country):'—'}</td><td>{r.operator||'未分配'}</td><td>{r.newlyVerifiedInvitees}</td><td>{r.rewardPoints??'无积分查看权限'}</td></tr>)}</tbody></table></div>
+  {!unknown&&!report.ranks.length&&<div className="opsdash-empty">本周期暂无有效邀请记录</div>}
+ </div></section>
 }
 
 export function DashboardBody({report,onDetail,onTrendPeriod,onPeriod,trendPeriod}:{report:OperationsDashboardReport;onDetail:(detail:DashboardDetail)=>void;onTrendPeriod:(period:DashboardPeriod)=>void;onPeriod:(period:DashboardPeriod)=>void;trendPeriod:DashboardPeriod}){

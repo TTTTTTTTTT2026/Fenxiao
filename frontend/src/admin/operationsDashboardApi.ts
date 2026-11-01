@@ -2,7 +2,7 @@ import { request } from '../httpClient'
 export type DashboardPlatform = 'TIMO' | 'LINKY'
 export type DashboardPeriod = 'today' | 'yesterday' | '3' | '7' | '30'
 export type DashboardQuery = { platformCode: DashboardPlatform; countryCode: string; trendDays: 7 | 30; trendPeriod?: DashboardPeriod; period: DashboardPeriod }
-export type DashboardKind = 'REGISTERED'|'FIRST_VERIFIED'|'COHORT'|'PENDING'|'OVERDUE'|'REJECTED'|'WAITING'|'UNASSIGNED'|'INVITER'
+export type DashboardKind = 'REGISTERED'|'FIRST_VERIFIED'|'COHORT'|'PENDING'|'OVERDUE'|'REJECTED'|'WAITING'|'UNASSIGNED'|'INVITER'|'VERIFIED_INVITER'
 export type DashboardDetail = {kind:DashboardKind;title:string;inviterId?:number;date?:string}
 export type OperationsDashboardReport = {
  platformCode:DashboardPlatform;countryCode:string;generatedAt:string;refreshSeconds:number;
@@ -13,6 +13,11 @@ export type OperationsDashboardReport = {
  ranks:Array<{inviterId:number;nickname:string|null;registered:number;verified:number;phoneNumber:string|null;countryCode:string|null;operatorName:string|null}>;countries:string[];
 }
 export type DashboardUsers={items:Array<{userId:number;nickname:string|null;countryCode:string;registeredAt:string;bindingStatus:string;operatorName:string|null;registrationInviterId:number|null}>;total:number;page:number;size:number;generatedAt:string}
+export type GrowthReport={data:{start:string;end:string;participatingInviters:number;registered:number;submitted:number;verified:number|null};ranks:Array<{inviterId:number;nickname:string|null;country:string|null;operator:string|null;newlyVerifiedInvitees:number;registered:number;submitted:number;cohortVerified:number;firstWithdrawal:number|null;rewardPoints:string|null}>;missingVerificationHistoryUsers:number;canSeePoints:boolean;rewardPoints:string|null}
+export function getGrowthDashboard(sessionToken:string,query:DashboardQuery,signal?:AbortSignal){
+ const search=new URLSearchParams({platformCode:query.platformCode,countryCode:query.countryCode,period:query.period});
+ return request<GrowthReport>(`/admin/distribution/operations-dashboard/growth?${search}`,{headers:{'X-Admin-Session':sessionToken},signal})
+}
 export function getOperationsDashboard(sessionToken:string,query:DashboardQuery,signal?:AbortSignal){
  const search=new URLSearchParams({platformCode:query.platformCode,countryCode:query.countryCode,trendDays:String(query.trendDays),period:query.period});
  if(query.trendPeriod)search.set('trendPeriod',query.trendPeriod);

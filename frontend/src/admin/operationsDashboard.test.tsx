@@ -1,7 +1,7 @@
 import { afterEach,describe,expect,it,vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { canUseOperationsDashboard,legacyDashboardLanding } from './operationsDashboardAccess'
-import { DashboardBody } from './LegacyOperationsDashboard'
+import { DashboardBody, GrowthPanel, UnifiedDashboard } from './LegacyOperationsDashboard'
 import { dashboardRate, trendDayDescription } from './operationsDashboardFormatting'
 import { getOperationsDashboard,getOperationsDashboardUsers } from './operationsDashboardApi'
 import DashboardAutoRefresh from './DashboardAutoRefresh'
@@ -10,6 +10,17 @@ import type { OperationsDashboardReport } from './operationsDashboardApi'
 const fixture:OperationsDashboardReport={platformCode:'TIMO',countryCode:'ALL',generatedAt:'2026-10-12T09:00:00Z',refreshSeconds:60,summary:{registered:2,invited:2,cohortVerified:1,yesterdaySameTime:1,pending:3,overdue:4,rejected:5,waiting:2,unassigned:1},firstVerified:3,missingVerificationHistoryUsers:0,trend:[{date:'2026-10-12',registered:2,firstVerified:3}],period:'today',periodStart:'2026-10-12T00:00:00',periodEnd:'2026-10-12T09:00:00',ranks:[{inviterId:123,nickname:null,registered:2,verified:1,phoneNumber:null,countryCode:null,operatorName:null}],countries:['ID','BR']}
 afterEach(()=>vi.unstubAllGlobals())
 describe('legacy operations dashboard',()=>{
+ it('shows cohort metrics alongside event-time valid invites and explicit missing withdrawal data',()=>{
+  const growth={data:{start:'2026-10-12T00:00:00',end:'2026-10-12T09:00:00',participatingInviters:1,registered:2,submitted:1,verified:1},ranks:[{inviterId:123,nickname:'测试',country:'BR',operator:null,newlyVerifiedInvitees:3,registered:2,submitted:1,cohortVerified:1,firstWithdrawal:null,rewardPoints:'12.500000'}],missingVerificationHistoryUsers:0,canSeePoints:true,rewardPoints:'12.500000'};
+  const html=renderToStaticMarkup(<UnifiedDashboard growth={growth} report={fixture} period="today" trendPeriod="today" onPeriod={()=>{}} onDetail={()=>{}}/>);
+  for(const label of ['邀请注册','已提交核验','已经通过核验','核验通过率','首次提现','首提人数','待发奖励','奖励','Null','50.0%','按有效邀请','按首提人数','按产出'])expect(html).toContain(label);
+  expect(html).not.toContain('<th>新增有效邀请</th>');expect(html).toContain('两者周期口径不同');expect(html).not.toContain('>12.5<');expect(html).toContain('不包含现有分佣积分');
+ })
+ it('labels event-time ranking and hides numbers when verification history is missing',()=>{
+  const report={data:{start:'2026-10-30T00:00:00',end:'2026-10-31T00:00:00',participatingInviters:2,registered:4,submitted:3,verified:null},ranks:[],missingVerificationHistoryUsers:1,canSeePoints:false,rewardPoints:null};
+  const html=renderToStaticMarkup(<GrowthPanel report={report} period="yesterday" onPeriod={()=>{}}/>);
+  expect(html).toContain('已提交平台 ID');expect(html).toContain('通过平台核验');expect(html).toContain('暂不可确认');expect(html).toContain('收入业务日期');expect(html).not.toContain('本周期暂无有效邀请记录');
+ })
  it('defaults only legacy eligible sessions and preserves deep links',()=>{expect(legacyDashboardLanding('',true)).toBe('operationsDashboard');expect(legacyDashboardLanding('',false)).toBe('overview');expect(legacyDashboardLanding('#admin-users',true)).toBe('users');expect(legacyDashboardLanding('#admin-overview',true)).toBe('overview')})
  it('mirrors restricted-scope and role gates without expanding permissions',()=>{expect(canUseOperationsDashboard({role:'super_admin',platformScope:'*',guildScope:'*',regionScope:'*'})).toBe(true);expect(canUseOperationsDashboard({role:'operations',platformScope:'TIMO'})).toBe(false);expect(canUseOperationsDashboard({role:'admin',guildScope:'g1'})).toBe(false);expect(canUseOperationsDashboard({role:'admin',regionScope:'ID'})).toBe(false);expect(canUseOperationsDashboard({role:'mentor'})).toBe(false);expect(canUseOperationsDashboard(null)).toBe(false)})
  it('renders correct cohort denominator instead of first-success / registrations',()=>{const html=renderToStaticMarkup(<DashboardBody report={fixture} onDetail={()=>{}} onTrendPeriod={()=>{}} onPeriod={()=>{}} trendPeriod="7"/>);expect(html).toContain('50.0%');expect(html).not.toContain('150.0%');expect(html).toContain('邀请 Top 10');expect(html).toContain('同一用户可能进入多个待办');expect(html).not.toContain('虚拟数据')})
