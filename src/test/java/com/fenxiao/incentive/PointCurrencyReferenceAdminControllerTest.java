@@ -29,6 +29,8 @@ class PointCurrencyReferenceAdminControllerTest {
     @BeforeEach void schema() {
         if(jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.tables WHERE LOWER(table_name)='point_currency_country'",Integer.class)==0)
             new ResourceDatabasePopulator(new ClassPathResource("db/migration/V79__add_point_currency_reference_rates.sql")).execute(jdbc.getDataSource());
+        if(jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.tables WHERE LOWER(table_name)='invitation_points_manual_adjustment'",Integer.class)==0)
+            new ResourceDatabasePopulator(new ClassPathResource("db/migration/V84__manual_points_and_latam_currencies.sql")).execute(jdbc.getDataSource());
     }
     @Test void requiresFinanceSessionForEveryEndpointAndDoesNotAcceptLegacyTokens()throws Exception {
         mvc.perform(get(BASE)).andExpect(status().isForbidden());
@@ -43,7 +45,7 @@ class PointCurrencyReferenceAdminControllerTest {
     }
     @Test void financeCanSavePreviewAndReadAuditableHistoryButCannotChooseUsd()throws Exception {
         String token=login("finance");long auditBefore=audits.count();
-        mvc.perform(get(BASE).header("X-Admin-Session",token)).andExpect(status().isOk()).andExpect(jsonPath("$.referenceOnly").value(true)).andExpect(jsonPath("$.settings.length()").value(5));
+        mvc.perform(get(BASE).header("X-Admin-Session",token)).andExpect(status().isOk()).andExpect(jsonPath("$.referenceOnly").value(true)).andExpect(jsonPath("$.settings.length()").value(9));
         mvc.perform(put(BASE+"/ID").header("X-Admin-Session",token).contentType("application/json")
                 .content("{\"enabled\":true,\"currencyPerPoint\":\"150.25\",\"expectedVersion\":0,\"currencyCode\":\"USD\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.country.currencyCode").value("IDR")).andExpect(jsonPath("$.current.currencyPerPoint").value("150.25"));

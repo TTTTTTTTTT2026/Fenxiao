@@ -49,7 +49,9 @@ class ConsumerWorkspaceServiceTest {
                 new ClassPathResource("db/migration/V49__add_token_point_conversion_governance.sql"),
                 new ClassPathResource("db/migration/V52__add_effective_user_qualification_facts.sql"),
                 new ClassPathResource("db/migration/V66__add_invitation_reward_account.sql"),
-                new ClassPathResource("db/migration/V73__add_consumer_workspace_preference.sql"))
+                new ClassPathResource("db/migration/V73__add_consumer_workspace_preference.sql"),
+                new ClassPathResource("db/migration/V79__add_point_currency_reference_rates.sql"),
+                new ClassPathResource("db/migration/V84__manual_points_and_latam_currencies.sql"))
                 .execute(dataSource);
     }
 
