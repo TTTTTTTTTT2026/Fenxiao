@@ -1783,7 +1783,6 @@ export type VerificationCampaign = { id:number; name:string; platformCode:string
 export type VerificationAward = { id:number; campaignId:number; invitedUserId:number; inviterUserId:number; platformCode:string; rewardPoints:number; verifiedAt:string; awardedAt:string|null; unlockAt:string|null; releasedAt:string|null }
 export function getVerificationCampaigns(token:string) { return request<VerificationCampaign[]>('/admin/verification-campaigns',{headers:{'X-Admin-Session':token}}) }
 export function getVerificationCampaignAwards(token:string) { return request<VerificationAward[]>('/admin/verification-campaigns/awards',{headers:{'X-Admin-Session':token}}) }
-export function createVerificationCampaign(token:string,data:{name:string;platformCode:string;rewardPoints:string}) { return request('/admin/verification-campaigns',{method:'POST',headers:{'X-Admin-Session':token,'Content-Type':'application/json'},body:JSON.stringify(data)}) }
 export function setVerificationCampaignEnabled(token:string,id:number,enabled:boolean) { return request(`/admin/verification-campaigns/${id}/enabled`,{method:'PUT',headers:{'X-Admin-Session':token,'Content-Type':'application/json'},body:JSON.stringify({enabled})}) }
 
 export function updateVerificationCampaignPoints(token:string,id:number,rewardPoints:string) { return request(`/admin/verification-campaigns/${id}/points`,{method:'PUT',headers:{'X-Admin-Session':token,'Content-Type':'application/json'},body:JSON.stringify({rewardPoints})}) }

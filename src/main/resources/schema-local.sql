@@ -441,3 +441,8 @@ CREATE TABLE IF NOT EXISTS invitation_verification_campaign_award (
 CREATE INDEX IF NOT EXISTS idx_verification_award_processing ON invitation_verification_campaign_award(awarded_at, id);
 CREATE INDEX IF NOT EXISTS idx_verification_award_release ON invitation_verification_campaign_award(released_at, unlock_at);
 CREATE INDEX IF NOT EXISTS idx_verification_award_user ON invitation_verification_campaign_award(inviter_user_id, platform_code, id);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_verification_campaign_platform ON invitation_verification_campaign(platform_code);
+INSERT INTO invitation_verification_campaign(name,platform_code,reward_points,enabled,created_by,updated_by,created_at,updated_at)
+SELECT 'Timo 邀请核验奖励','TIMO',0,FALSE,0,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP WHERE NOT EXISTS (SELECT 1 FROM invitation_verification_campaign WHERE platform_code='TIMO');
+INSERT INTO invitation_verification_campaign(name,platform_code,reward_points,enabled,created_by,updated_by,created_at,updated_at)
+SELECT 'Linky 邀请核验奖励','LINKY',0,FALSE,0,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP WHERE NOT EXISTS (SELECT 1 FROM invitation_verification_campaign WHERE platform_code='LINKY');

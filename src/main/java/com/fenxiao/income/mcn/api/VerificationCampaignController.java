@@ -17,11 +17,6 @@ public class VerificationCampaignController {
     public List<VerificationCampaignService.Campaign> list(@RequestHeader(value="X-Admin-Session",required=false) String session) {
         return service.campaigns(access.assertFinanceAccess(null,session));
     }
-    @PostMapping
-    public void create(@RequestHeader(value="X-Admin-Session",required=false) String session,
-                       @RequestBody VerificationCampaignService.CreateRequest request) {
-        service.create(request,access.assertFinanceAccess(null,session));
-    }
     public record ToggleRequest(Boolean enabled) { }
     public record PointsRequest(java.math.BigDecimal rewardPoints) { }
     @PutMapping("/{id}/enabled")

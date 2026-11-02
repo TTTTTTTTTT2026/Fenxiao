@@ -7,10 +7,6 @@ import com.fenxiao.audit.repository.OperationAuditLogRepository;
 import java.time.LocalDateTime;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
-import org.springframework.jdbc.support.KeyHolder;
-import java.sql.PreparedStatement;
-import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,7 +33,6 @@ public class VerificationCampaignService {
     }
     public record Campaign(long id, String name, String platformCode, BigDecimal rewardPoints,
                            boolean enabled, Instant createdAt, Instant updatedAt) { }
-    public record CreateRequest(String name, String platformCode, BigDecimal rewardPoints) { }
     public record Award(long id, long campaignId, long invitedUserId, long inviterUserId, String platformCode,
                         BigDecimal rewardPoints, Instant verifiedAt, Instant awardedAt, Instant unlockAt, Instant releasedAt) { }
     private void authorize(AdminPrincipal actor) {
@@ -53,28 +48,11 @@ public class VerificationCampaignService {
                 (r,n)->new Campaign(r.getLong(1),r.getString(2),r.getString(3),r.getBigDecimal(4),r.getBoolean(5),r.getTimestamp(6).toInstant(),r.getTimestamp(7).toInstant()));
     }
     @Transactional
-    public void create(CreateRequest request, AdminPrincipal actor) {
-        authorize(actor);
-        if (request == null) throw new IllegalArgumentException("请填写活动信息");
-        String name = request.name() == null ? "" : request.name().trim();
-        String platform = request.platformCode() == null ? "" : request.platformCode().trim().toUpperCase(Locale.ROOT);
-        BigDecimal points = request.rewardPoints();
-        if (name.isEmpty() || name.length() > 128 || !Set.of("TIMO", "LINKY").contains(platform)
-                || points == null || points.signum() <= 0 || points.scale() > 6 || points.precision()-points.scale() > 12)
-            throw new IllegalArgumentException("活动名称、应用或奖励积分无效");
-        Timestamp now=Timestamp.from(clock.instant());
-        KeyHolder key = new GeneratedKeyHolder();
-        jdbc.update(connection -> {
-            PreparedStatement ps = connection.prepareStatement("INSERT INTO invitation_verification_campaign(name,platform_code,reward_points,enabled,created_by,updated_by,created_at,updated_at) VALUES (?,?,?,FALSE,?,?,?,?)", new String[]{"id"});
-            ps.setString(1,name); ps.setString(2,platform); ps.setBigDecimal(3,points);
-            ps.setLong(4,actor.accountId()); ps.setLong(5,actor.accountId()); ps.setTimestamp(6,now); ps.setTimestamp(7,now); return ps;
-        },key);
-        long id=Objects.requireNonNull(key.getKey()).longValue();
-        audit.save(OperationAuditLog.create(actor.accountId(),actor.role(),"verification_campaign","campaign",id,"CREATE",null,platform+":"+points.toPlainString(),null,"创建默认关闭活动："+name,LocalDateTime.now(clock)));
-    }
-    @Transactional
     public void setEnabled(long id, boolean enabled, AdminPrincipal actor) {
         authorize(actor);
+        List<BigDecimal> current = jdbc.query("SELECT reward_points FROM invitation_verification_campaign WHERE id=? FOR UPDATE",(r,n)->r.getBigDecimal(1),id);
+        if (current.isEmpty()) throw new IllegalArgumentException("活动不存在");
+        if (enabled && current.getFirst().signum() <= 0) throw new IllegalArgumentException("请先设置大于 0 的奖励积分");
         int updated = jdbc.update("UPDATE invitation_verification_campaign SET enabled=?,updated_by=?,updated_at=? WHERE id=?",
                 enabled,actor.accountId(),Timestamp.from(clock.instant()),id);
         if (updated != 1) throw new IllegalArgumentException("活动不存在");
@@ -85,8 +63,8 @@ public class VerificationCampaignService {
         authorize(actor);
         if (points == null || points.signum() <= 0 || points.scale() > 6 || points.precision()-points.scale() > 12)
             throw new IllegalArgumentException("奖励积分无效");
-        List<BigDecimal> prior=jdbc.query("SELECT reward_points FROM invitation_verification_campaign WHERE id=? AND enabled=FALSE FOR UPDATE",(r,n)->r.getBigDecimal(1),id);
-        if (prior.isEmpty()) throw new IllegalArgumentException("活动不存在或仍处于开启状态，请先关闭");
+        List<BigDecimal> prior=jdbc.query("SELECT reward_points FROM invitation_verification_campaign WHERE id=? FOR UPDATE",(r,n)->r.getBigDecimal(1),id);
+        if (prior.isEmpty()) throw new IllegalArgumentException("活动不存在");
         jdbc.update("UPDATE invitation_verification_campaign SET reward_points=?,updated_by=?,updated_at=? WHERE id=?",points,actor.accountId(),Timestamp.from(clock.instant()),id);
         audit.save(OperationAuditLog.create(actor.accountId(),actor.role(),"verification_campaign","campaign",id,"UPDATE_POINTS",prior.getFirst().toPlainString(),points.toPlainString(),null,"修改活动奖励积分",LocalDateTime.now(clock)));
     }

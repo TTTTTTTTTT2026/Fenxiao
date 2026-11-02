@@ -64,7 +64,7 @@ export const SYSTEM_MANAGEMENT_SECTION_VIEWS: Partial<Record<AdminSectionKey, Ad
 
 export function getVisibleFinanceSections(role?: string): AdminSectionKey[] {
   const normalizedRole = role?.toLowerCase()
-  if (normalizedRole === 'super_admin') return ['rewards', 'userAccounts', 'accountMaintenance', 'verificationCampaigns', 'commissionPolicies', 'tokenPointConversions', 'pointCurrencyRates']
+  if (normalizedRole === 'super_admin') return ['rewards', 'userAccounts', 'accountMaintenance', 'commissionPolicies', 'tokenPointConversions', 'pointCurrencyRates']
   if (normalizedRole === 'admin' || !normalizedRole) return ['rewards', 'userAccounts', 'commissionPolicies', 'tokenPointConversions']
   if (normalizedRole === 'finance') return ['rewards', 'userAccounts', 'accountMaintenance', 'commissionPolicies', 'pointCurrencyRates']
   if (normalizedRole === 'operations') return ['tokenPointConversions']
