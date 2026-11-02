@@ -27,6 +27,11 @@ class InvitationRewardAccountServiceTest {
     @Test
     void manualAdjustmentIsIdempotentAndOnlyAffectsSelectedWorkspace() {
         JdbcTemplate jdbc=database("manual_points");
+        jdbc.execute("CREATE TABLE user_distribution_profile(user_id BIGINT PRIMARY KEY,country_code VARCHAR(10))");
+        jdbc.execute("CREATE TABLE admin_account(id BIGINT PRIMARY KEY,display_name VARCHAR(100))");
+        jdbc.update("INSERT INTO user_distribution_profile VALUES (2,'BR')");
+        jdbc.update("INSERT INTO user_public_profile VALUES (2,'测试用户')");
+        jdbc.update("INSERT INTO admin_account VALUES (1,'测试财务')");
         MutableClock clock=new MutableClock(Instant.parse("2026-09-24T12:00:00Z"));
         var users=mock(UserDistributionProfileRepository.class);
         when(users.findById(2L)).thenReturn(Optional.of(UserDistributionProfile.create(2L,"BR","pt","TEST")));
@@ -51,6 +56,9 @@ class InvitationRewardAccountServiceTest {
         assertThat(query.get(2L,0,20).availablePoints()).isEqualByComparingTo("75");
         assertThat(query.get(2L,0,20,"TIMO").availablePoints()).isEqualByComparingTo("-25");
         assertThat(query.get(2L,0,20,"LINKY").availablePoints()).isEqualByComparingTo("100");
+        assertThat(service.userInfo(2,actor).nickname()).isEqualTo("测试用户");
+        assertThat(service.records(0,actor).items()).hasSize(2);
+        assertThat(service.records(0,restricted).items()).extracting(ManualPointsAdjustmentService.Record::platformCode).containsExactly("LINKY");
     }
     @Test
     void sourceCorrectionMayProduceNegativeAvailableBalance() {

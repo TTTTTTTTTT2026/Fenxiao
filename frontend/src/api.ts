@@ -1146,6 +1146,14 @@ export function getAdminAdjustmentPreview(adminSessionToken: string, userId: num
   })
 }
 
+export type ManualAdjustmentRecord = { id:number;userId:number;nickname:string|null;countryCode:string;platformCode:string;deltaPoints:number;reason:string;actorName:string|null;beforeAvailable:number;afterAvailable:number;createdAt:string }
+export function getManualAdjustmentRecords(token:string,page:number) {
+  return request<{items:ManualAdjustmentRecord[];page:number;size:number;hasMore:boolean}>(`/admin/invitation-account-adjustments?page=${page}`,{headers:{'X-Admin-Session':token}})
+}
+export function getManualAdjustmentUser(token:string,userId:string) {
+  return request<{userId:number;nickname:string|null;countryCode:string}>(`/admin/invitation-account-adjustments/users/${encodeURIComponent(userId)}`,{headers:{'X-Admin-Session':token}})
+}
+
 export function getDistributionTeam(userId: number, accessToken: string) {
   return request<TeamListResponse>(`/api/distribution/team/${userId}`, {
     headers: {

@@ -84,6 +84,18 @@ public class InvitationRewardAccountController {
         return manualAdjustments.preview(userId, platformCode, access.assertFinanceAccess(null, session));
     }
 
+    @GetMapping("/admin/invitation-account-adjustments")
+    public ManualPointsAdjustmentService.RecordPage adjustmentRecords(@RequestHeader(value="X-Admin-Session", required=false) String session,
+            @RequestParam(defaultValue="0") int page) {
+        return manualAdjustments.records(page, access.assertFinanceAccess(null, session));
+    }
+
+    @GetMapping("/admin/invitation-account-adjustments/users/{userId}")
+    public ManualPointsAdjustmentService.UserInfo adjustmentUser(@RequestHeader(value="X-Admin-Session", required=false) String session,
+            @PathVariable long userId) {
+        return manualAdjustments.userInfo(userId, access.assertFinanceAccess(null, session));
+    }
+
     @GetMapping("/api/distribution/accounts/{userId}")
     public InvitationRewardAccountResponse consumer(@RequestHeader("X-Distribution-Token") String token,
             @PathVariable long userId, @RequestParam(defaultValue = "0") int page,
