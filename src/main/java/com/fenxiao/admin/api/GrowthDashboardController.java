@@ -36,17 +36,19 @@ public class GrowthDashboardController {
             throw new ForbiddenException("global operations dashboard requires unrestricted user data scope");
         var current = existing.report(platformCode, countryCode, 7, period);
         var data = growth.report(platformCode, countryCode, period);
+        boolean canSeePoints = "super_admin".equalsIgnoreCase(p.role());
         var ranks = current.missingVerificationHistoryUsers() > 0 ? List.<GrowthDashboardMetrics.RankDetail>of()
-                : growth.enrich(data.ranks(), platformCode.toUpperCase(Locale.ROOT), countryCode.toUpperCase(Locale.ROOT), data.start(), data.end(), false);
+                : growth.enrich(data.ranks(), platformCode.toUpperCase(Locale.ROOT), countryCode.toUpperCase(Locale.ROOT), data.start(), data.end(), canSeePoints);
         var summary = new Summary(data.start(), data.end(), data.participatingInviters(), data.registered(), data.submitted(),
                 current.missingVerificationHistoryUsers() > 0 ? null : data.verified());
-        // Invite-verification bonuses are not implemented; commission points are a different metric.
-        return new Response(summary, ranks, current.missingVerificationHistoryUsers(), false, null);
+        String rewardPoints = canSeePoints ? growth.campaignPoints(platformCode.toUpperCase(Locale.ROOT), countryCode.toUpperCase(Locale.ROOT), data.start(), data.end()) : null;
+        String pendingPoints = canSeePoints ? growth.pendingCampaignPoints(platformCode.toUpperCase(Locale.ROOT), countryCode.toUpperCase(Locale.ROOT), data.start(), data.end()) : null;
+        return new Response(summary, ranks, current.missingVerificationHistoryUsers(), canSeePoints, rewardPoints, pendingPoints);
     }
 
     private static boolean full(String scope) { return scope == null || scope.isBlank() || "*".equals(scope.trim()); }
     public record Summary(java.time.LocalDateTime start, java.time.LocalDateTime end, long participatingInviters,
                           long registered, long submitted, Long verified) { }
     public record Response(Summary data, List<GrowthDashboardMetrics.RankDetail> ranks,
-                           long missingVerificationHistoryUsers, boolean canSeePoints, String rewardPoints) { }
+                           long missingVerificationHistoryUsers, boolean canSeePoints, String rewardPoints, String pendingRewardPoints) { }
 }

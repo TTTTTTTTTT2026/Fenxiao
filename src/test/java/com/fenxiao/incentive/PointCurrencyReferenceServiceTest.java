@@ -28,14 +28,15 @@ class PointCurrencyReferenceServiceTest {
     @BeforeEach void setup() {
         var ds=new DriverManagerDataSource("jdbc:h2:mem:point_fx_"+UUID.randomUUID()+";MODE=MySQL;DB_CLOSE_DELAY=-1","sa","");
         new ResourceDatabasePopulator(new ClassPathResource("db/migration/V79__add_point_currency_reference_rates.sql")).execute(ds);
+        new ResourceDatabasePopulator(new ClassPathResource("db/migration/V84__manual_points_and_latam_currencies.sql")).execute(ds);
         jdbc=new JdbcTemplate(ds);audits=mock(OperationAuditLogRepository.class);users=mock(UserDistributionProfileRepository.class);
         clock=new MutableClock(Instant.parse("2026-10-14T00:00:00Z"));
         service=new PointCurrencyReferenceService(jdbc,audits,users,clock);
         jdbc.execute("CREATE TABLE invitation_reward_account(user_id BIGINT PRIMARY KEY,frozen_points DECIMAL(18,6),available_points DECIMAL(18,6))");
         jdbc.update("INSERT INTO invitation_reward_account VALUES(100,123.456789,20)");
     }
-    @Test void migrationSeedsOnlyTheFiveLoginCurrenciesAndNoGuessedPrices() {
-        assertThat(service.dashboard().settings()).extracting(s->s.country().currencyCode()).containsExactly("CNY","IDR","MXN","BRL","HKD");
+    @Test void migrationSeedsSupportedCurrenciesAndNoGuessedPrices() {
+        assertThat(service.dashboard().settings()).extracting(s->s.country().currencyCode()).containsExactly("CNY","IDR","MXN","BRL","HKD","COP","CLP","VES","PEN");
         assertThat(service.dashboard().settings()).allMatch(s->s.current()==null&&s.scheduled()==null&&s.latestVersion()==0);
         assertThat(quote("ID","0").amount()).isNull();assertThat(quote("ID","100").status()).isEqualTo("NOT_CONFIGURED");
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM point_currency_rate_version",Integer.class)).isZero();
@@ -49,6 +50,14 @@ class PointCurrencyReferenceServiceTest {
         assertThat(jdbc.queryForObject("SELECT frozen_points FROM invitation_reward_account WHERE user_id=100",BigDecimal.class)).isEqualByComparingTo("123.456789");
         assertThat(jdbc.queryForObject("SELECT available_points FROM invitation_reward_account WHERE user_id=100",BigDecimal.class)).isEqualByComparingTo("20");
         verify(audits).save(any());
+    }
+    @Test void consumerQuoteSupportsNegativeBalanceAndUnconfiguredFallback() {
+        var user=UserDistributionProfile.create(100L,"BR","pt","SYNTHETIC");when(users.findById(100L)).thenReturn(Optional.of(user));
+        assertThat(service.quoteForUser(100L,new BigDecimal("-10")).amount()).isNull();
+        save("BR","0.5",true,null,0);
+        assertThat(service.quoteForUser(100L,new BigDecimal("-10")).amount()).isEqualTo("-5.00");
+        user.changeCountry("PE");
+        assertThat(service.quoteForUser(100L,new BigDecimal("-10")).status()).isEqualTo("NOT_CONFIGURED");
     }
     @Test void roundsOnlyTheFinalMoneyValueAndHandlesLargeDecimalsWithoutFloats() {
         save("CN","0.005",true,null,0);assertThat(quote("CN","1").amount()).isEqualTo("0.01");

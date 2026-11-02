@@ -197,6 +197,8 @@ import LegacyHighValueRankingSection from './LegacyHighValueRankingSection'
 import LegacyOverviewSection from './LegacyOverviewSection'
 import LegacyOperationsDashboard from './LegacyOperationsDashboard'
 import LegacyPointCurrencySection from './LegacyPointCurrencySection'
+import LegacyAccountMaintenance from './LegacyAccountMaintenance'
+import LegacyVerificationCampaigns from './LegacyVerificationCampaigns'
 import { canUseOperationsDashboard, legacyDashboardLanding } from './operationsDashboardAccess'
 import LegacyRiskQueueSection, { type RiskActionName, type RiskQuery } from './LegacyRiskQueueSection'
 import LegacyUserAccountSection from './LegacyUserAccountSection'
@@ -361,7 +363,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [activeAdminSection, setActiveAdminSection] = useState<AdminSectionKey>(() => legacyDashboardLanding(typeof window !== 'undefined' ? window.location.hash : undefined, canUseOperationsDashboard(initialAdminSession)))
   const [isUserGradeNavOpen, setIsUserGradeNavOpen] = useState(() => ['userGradeList', 'advancedGradeAcceptance', 'userGradeFacts'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [isUserManagementNavOpen, setIsUserManagementNavOpen] = useState(() => ['users', 'bindings', 'riskQueue', 'highValueRanking'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
-  const [isFinanceManagementNavOpen, setIsFinanceManagementNavOpen] = useState(() => ['rewards', 'commissionPolicies', 'tokenPointConversions', 'pointCurrencyRates'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
+  const [isFinanceManagementNavOpen, setIsFinanceManagementNavOpen] = useState(() => ['rewards', 'userAccounts', 'accountMaintenance', 'commissionPolicies', 'tokenPointConversions', 'pointCurrencyRates'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [isSystemConfigNavOpen, setIsSystemConfigNavOpen] = useState(() => ['settings', 'systemExperiment', 'systemGuilds', 'systemPlatforms', 'systemIncomeControlled', 'systemIncomeShadow', 'systemMockVerification', 'systemAdvanced', 'systemSeedInviter', 'systemPhoneVerification', 'systemSmsWhitelist'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [isSystemManagementNavOpen, setIsSystemManagementNavOpen] = useState(() => ['accounts', 'accountManagement', 'mySecurity', 'securityRecords'].includes(resolveAdminSectionFromHash(typeof window !== 'undefined' ? window.location.hash : undefined)))
   const [showAdvancedOps, setShowAdvancedOps] = useState(false)
@@ -642,6 +644,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const activeAdminProductCode = adminProduct === 'ALL' ? undefined : adminProduct
   const adminSectionLinks = useMemo(() => {
     const links = buildAdminSectionLinks(adminSession?.role)
+    if (adminSession?.role?.toLowerCase() === 'super_admin') links.push({ label: '活动任务管理', description: '配置邀请核验活动奖励。', href: ADMIN_SECTION_HASHES.verificationCampaigns })
     return canUseOperationsDashboard(adminSession) ? [{ label: '运营数据看板', description: '每日拉新、绑定和邀请进展。', href: ADMIN_SECTION_HASHES.operationsDashboard }, ...links] : links
   }, [adminSession])
   const visibleFinanceSections = useMemo(() => getVisibleFinanceSections(adminSession?.role), [adminSession?.role])
@@ -650,7 +653,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const isSystemConfigSection = activeAdminSection === 'settings' || currentSettingsView !== null
   const currentAccountView = SYSTEM_MANAGEMENT_SECTION_VIEWS[activeAdminSection] ?? (activeAdminSection === 'accounts' ? 'security' : null)
   const isSystemManagementSection = activeAdminSection === 'accounts' || currentAccountView !== null
-  const isFinanceManagementSection = ['rewards', 'userAccounts', 'commissionPolicies', 'tokenPointConversions', 'pointCurrencyRates'].includes(activeAdminSection)
+  const isFinanceManagementSection = ['rewards', 'userAccounts', 'accountMaintenance', 'commissionPolicies', 'tokenPointConversions', 'pointCurrencyRates'].includes(activeAdminSection)
   const canViewHighValueRanking = ['super_admin', 'admin', 'operations', 'finance'].includes(adminSession?.role?.toLowerCase() ?? '')
   const showingProductSpecificDiagnostics = adminProduct === 'LINKY'
   const channelEntryLinks = useMemo(
@@ -3694,6 +3697,9 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             onOpen={openExternalLandingPage}
             onCopy={(url) => { void copyPublicEntryLink(url) }}
           /> : null}
+
+          {activeAdminSection === 'verificationCampaigns' && adminSession?.role?.toLowerCase() === 'super_admin' ? <LegacyVerificationCampaigns sessionToken={adminSession.sessionToken} /> : null}
+          {activeAdminSection === 'accountMaintenance' && visibleFinanceSections.includes('accountMaintenance') && adminSession ? <LegacyAccountMaintenance sessionToken={adminSession.sessionToken} /> : null}
 
           {activeAdminSection === 'userAccounts' ? <LegacyUserAccountSection
             userId={accountSearchUserId}

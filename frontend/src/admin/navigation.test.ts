@@ -21,7 +21,7 @@ describe('legacy admin navigation contract', () => {
   })
 
   it('preserves finance navigation visibility', () => {
-    expect(getVisibleFinanceSections('finance')).toEqual(['rewards', 'userAccounts', 'commissionPolicies', 'pointCurrencyRates'])
+    expect(getVisibleFinanceSections('finance')).toEqual(['rewards', 'userAccounts', 'accountMaintenance', 'commissionPolicies', 'pointCurrencyRates'])
     expect(getVisibleFinanceSections('operations')).toEqual(['tokenPointConversions'])
     expect(getVisibleFinanceSections('operator')).toEqual([])
     expect(getVisibleFinanceSections('super_admin')).toContain('pointCurrencyRates')

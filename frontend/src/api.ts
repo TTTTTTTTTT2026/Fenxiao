@@ -1119,6 +1119,41 @@ export function getAdminInvitationAccount(adminSessionToken: string, userId: num
   })
 }
 
+export type AccountCurrencyReference = { points: string; amount: string | null; currencyCode: string | null; status: string }
+export type AccountReferenceValues = { available: AccountCurrencyReference; frozen: AccountCurrencyReference; total: AccountCurrencyReference; income: AccountCurrencyReference; direct: AccountCurrencyReference; indirect: AccountCurrencyReference }
+export function getAccountReferenceValues(userId: number, accessToken: string, platformCode: string) {
+  return request<AccountReferenceValues>(`/api/distribution/accounts/${userId}/reference-values?${new URLSearchParams({platformCode})}`, {
+    headers: { 'X-Distribution-Token': accessToken },
+  })
+}
+
+export function quoteAccountPoints(userId: number, accessToken: string, platformCode: string, points: string[]) {
+  return request<AccountCurrencyReference[]>(`/api/distribution/accounts/${userId}/reference-quotes`, {
+    method: 'POST', headers: { 'X-Distribution-Token': accessToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({platformCode,points}),
+  })
+}
+
+export function adjustAdminInvitationAccount(adminSessionToken: string, userId: number, data: { requestId: string; platformCode: string; deltaPoints: string; reason: string }) {
+  return request(`/admin/invitation-accounts/${userId}/adjustments`, {
+    method: 'POST', headers: { 'X-Admin-Session': adminSessionToken, 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+  })
+}
+
+export function getAdminAdjustmentPreview(adminSessionToken: string, userId: number, platformCode: string) {
+  return request<{platformCode:string;availablePoints:number}>(`/admin/invitation-accounts/${userId}/adjustment-preview?${new URLSearchParams({platformCode})}`, {
+    headers: { 'X-Admin-Session': adminSessionToken },
+  })
+}
+
+export type ManualAdjustmentRecord = { id:number;userId:number;nickname:string|null;countryCode:string;platformCode:string;deltaPoints:number;reason:string;actorName:string|null;beforeAvailable:number;afterAvailable:number;createdAt:string }
+export function getManualAdjustmentRecords(token:string,page:number) {
+  return request<{items:ManualAdjustmentRecord[];page:number;size:number;hasMore:boolean}>(`/admin/invitation-account-adjustments?page=${page}`,{headers:{'X-Admin-Session':token}})
+}
+export function getManualAdjustmentUser(token:string,userId:string) {
+  return request<{userId:number;nickname:string|null;countryCode:string}>(`/admin/invitation-account-adjustments/users/${encodeURIComponent(userId)}`,{headers:{'X-Admin-Session':token}})
+}
+
 export function getDistributionTeam(userId: number, accessToken: string) {
   return request<TeamListResponse>(`/api/distribution/team/${userId}`, {
     headers: {
@@ -1743,3 +1778,11 @@ export function getAdminLinkyReplayRecords(adminSessionToken: string, filters?: 
     },
   })
 }
+
+export type VerificationCampaign = { id:number; name:string; platformCode:string; rewardPoints:number; enabled:boolean; createdAt:string; updatedAt:string }
+export type VerificationAward = { id:number; campaignId:number; invitedUserId:number; inviterUserId:number; platformCode:string; rewardPoints:number; verifiedAt:string; awardedAt:string|null; unlockAt:string|null; releasedAt:string|null }
+export function getVerificationCampaigns(token:string) { return request<VerificationCampaign[]>('/admin/verification-campaigns',{headers:{'X-Admin-Session':token}}) }
+export function getVerificationCampaignAwards(token:string) { return request<VerificationAward[]>('/admin/verification-campaigns/awards',{headers:{'X-Admin-Session':token}}) }
+export function setVerificationCampaignEnabled(token:string,id:number,enabled:boolean) { return request(`/admin/verification-campaigns/${id}/enabled`,{method:'PUT',headers:{'X-Admin-Session':token,'Content-Type':'application/json'},body:JSON.stringify({enabled})}) }
+
+export function updateVerificationCampaignPoints(token:string,id:number,rewardPoints:string) { return request(`/admin/verification-campaigns/${id}/points`,{method:'PUT',headers:{'X-Admin-Session':token,'Content-Type':'application/json'},body:JSON.stringify({rewardPoints})}) }

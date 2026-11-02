@@ -254,7 +254,7 @@ describe('consumer locale coverage', () => {
     }
   }
 
-  it('uses Portuguese labels and number formatting on the earnings page', () => {
+  it('uses Portuguese labels and does not show a false zero before the account loads', () => {
     const localStorage = createStorage()
     localStorage.setItem('fenxiao-external-locale', 'pt')
     localStorage.setItem('fenxiao-web-session', JSON.stringify({
@@ -268,7 +268,7 @@ describe('consumer locale coverage', () => {
     const markup = renderToStaticMarkup(<App />)
     expect(markup).not.toContain('Visão geral dos convites (esta semana)')
     expect(markup).toContain('Como aumentar seus ganhos hoje')
-    expect(markup).toContain('0,00 pontos')
+    expect(markup).toContain('—')
     expect(markup).toContain('href="/earnings/effective-users"')
     expect(markup.indexOf('consumer-commission-entry')).toBeLessThan(markup.indexOf('consumer-task-section'))
   })

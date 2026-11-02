@@ -96,10 +96,14 @@ public class GrowthDashboardMetrics {
                 rs -> { cohorts.put(rs.getLong(1), new long[]{rs.getLong(2), rs.getLong(3), rs.getLong(4)}); }, cohortArgs.toArray());
         Map<Long, BigDecimal> points = new HashMap<>();
         if (includePoints) {
-            LocalDate endExclusive = end.toLocalDate().plusDays(end.toLocalTime().equals(java.time.LocalTime.MIDNIGHT) ? 0 : 1);
-            List<Object> args = new ArrayList<>(List.of(platform, start.toLocalDate(), endExclusive));
+            List<Object> args = new ArrayList<>(List.of(platform, Timestamp.valueOf(start), Timestamp.valueOf(end)));
+            if (!"ALL".equals(country)) args.add(country);
             args.addAll(java.util.Arrays.asList(ids));
-            jdbc.query("SELECT user_id,SUM(reward_points) FROM invitation_reward_entry WHERE platform_code=? AND business_date>=? AND business_date<? AND user_id IN (" + placeholders + ") GROUP BY user_id",
+            jdbc.query("SELECT a.inviter_user_id,SUM(a.reward_points) FROM invitation_verification_campaign_award a "
+                    + "JOIN user_distribution_profile u ON u.user_id=a.invited_user_id "
+                    + "WHERE a.platform_code=? AND a.awarded_at>=? AND a.awarded_at<?"
+                    + ("ALL".equals(country) ? "" : " AND u.country_code=?")
+                    + " AND a.inviter_user_id IN (" + placeholders + ") GROUP BY a.inviter_user_id",
                     rs -> { points.put(rs.getLong(1), rs.getBigDecimal(2)); }, args.toArray());
         }
         return ranks.stream().map(rank -> {
@@ -150,6 +154,26 @@ public class GrowthDashboardMetrics {
         String filter = "ALL".equals(country) ? "" : " AND u.country_code=?";
         Object[] args = "ALL".equals(country) ? new Object[]{platform,start,endExclusive} : new Object[]{platform,start,endExclusive,country};
         BigDecimal total = jdbc.queryForObject("SELECT COALESCE(SUM(e.reward_points),0) FROM invitation_reward_entry e JOIN user_distribution_profile u ON u.user_id=e.user_id WHERE e.platform_code=? AND e.business_date>=? AND e.business_date<?"+filter, BigDecimal.class, args);
+        return total.toPlainString();
+    }
+
+    /** Activity awards booked in the selected UTC period; country follows the invited user. */
+    public String campaignPoints(String platform, String country, LocalDateTime start, LocalDateTime end) {
+        if (!Set.of("TIMO", "LINKY").contains(platform) || !("ALL".equals(country) || country.matches("[A-Z]{2}"))
+                || !start.isBefore(end) || start.plusDays(61).isBefore(end)) throw new IllegalArgumentException("invalid points range");
+        String filter = "ALL".equals(country) ? "" : " AND u.country_code=?";
+        Object[] args = "ALL".equals(country) ? new Object[]{platform,Timestamp.valueOf(start),Timestamp.valueOf(end)} : new Object[]{platform,Timestamp.valueOf(start),Timestamp.valueOf(end),country};
+        BigDecimal total = jdbc.queryForObject("SELECT COALESCE(SUM(a.reward_points),0) FROM invitation_verification_campaign_award a JOIN user_distribution_profile u ON u.user_id=a.invited_user_id WHERE a.platform_code=? AND a.awarded_at>=? AND a.awarded_at<?"+filter, BigDecimal.class, args);
+        return total.toPlainString();
+    }
+
+    /** Outstanding frozen activity points booked during the selected period, as of now. */
+    public String pendingCampaignPoints(String platform, String country, LocalDateTime start, LocalDateTime end) {
+        if (!Set.of("TIMO", "LINKY").contains(platform) || !("ALL".equals(country) || country.matches("[A-Z]{2}"))
+                || !start.isBefore(end) || start.plusDays(61).isBefore(end)) throw new IllegalArgumentException("invalid points range");
+        String filter = "ALL".equals(country) ? "" : " AND u.country_code=?";
+        Object[] args = "ALL".equals(country) ? new Object[]{platform,Timestamp.valueOf(start),Timestamp.valueOf(end)} : new Object[]{platform,Timestamp.valueOf(start),Timestamp.valueOf(end),country};
+        BigDecimal total = jdbc.queryForObject("SELECT COALESCE(SUM(a.reward_points),0) FROM invitation_verification_campaign_award a JOIN user_distribution_profile u ON u.user_id=a.invited_user_id WHERE a.platform_code=? AND a.awarded_at>=? AND a.awarded_at<? AND a.released_at IS NULL"+filter, BigDecimal.class, args);
         return total.toPlainString();
     }
 
