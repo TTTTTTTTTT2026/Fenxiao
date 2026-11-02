@@ -11,10 +11,10 @@ const fixture:OperationsDashboardReport={platformCode:'TIMO',countryCode:'ALL',g
 afterEach(()=>vi.unstubAllGlobals())
 describe('legacy operations dashboard',()=>{
  it('shows cohort metrics alongside event-time valid invites and explicit missing withdrawal data',()=>{
-  const growth={data:{start:'2026-10-12T00:00:00',end:'2026-10-12T09:00:00',participatingInviters:1,registered:2,submitted:1,verified:1},ranks:[{inviterId:123,nickname:'测试',country:'BR',operator:null,newlyVerifiedInvitees:3,registered:2,submitted:1,cohortVerified:1,firstWithdrawal:null,rewardPoints:'12.500000'}],missingVerificationHistoryUsers:0,canSeePoints:true,rewardPoints:'12.500000'};
+  const growth={data:{start:'2026-10-12T00:00:00',end:'2026-10-12T09:00:00',participatingInviters:1,registered:2,submitted:1,verified:1},ranks:[{inviterId:123,nickname:'测试',country:'BR',operator:null,newlyVerifiedInvitees:3,registered:2,submitted:1,cohortVerified:1,firstWithdrawal:null,rewardPoints:'12.500000'}],missingVerificationHistoryUsers:0,canSeePoints:true,rewardPoints:'12.500000',pendingRewardPoints:'7.500000'};
   const html=renderToStaticMarkup(<UnifiedDashboard growth={growth} report={fixture} period="today" trendPeriod="today" onPeriod={()=>{}} onDetail={()=>{}}/>);
   for(const label of ['邀请注册','已提交核验','已经通过核验','核验通过率','首次提现','首提人数','待发奖励','奖励','Null','50.0%','按有效邀请','按首提人数','按产出'])expect(html).toContain(label);
-  expect(html).not.toContain('<th>新增有效邀请</th>');expect(html).toContain('两者周期口径不同');expect(html).toContain('12.500000');expect(html).toContain('不包含现有分佣');
+  expect(html).not.toContain('<th>新增有效邀请</th>');expect(html).toContain('两者周期口径不同');expect(html).toContain('12.500000');expect(html).toContain('7.500000');expect(html).toContain('不包含现有分佣');
  })
  it('labels event-time ranking and hides numbers when verification history is missing',()=>{
   const report={data:{start:'2026-10-30T00:00:00',end:'2026-10-31T00:00:00',participatingInviters:2,registered:4,submitted:3,verified:null},ranks:[],missingVerificationHistoryUsers:1,canSeePoints:false,rewardPoints:null};

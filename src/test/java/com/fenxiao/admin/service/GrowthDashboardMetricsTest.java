@@ -15,7 +15,7 @@ class GrowthDashboardMetricsTest {
         db.update("INSERT INTO platform_account_binding VALUES(2,'TIMO','2026-10-30 02:00:00'),(3,'TIMO','2026-10-30 03:00:00')");
         db.update("INSERT INTO platform_binding_history VALUES (1,1,'TIMO','VERIFIED','MCN_TIMO','2026-10-30 04:00:00'),(2,2,'TIMO','VERIFIED','MCN_TIMO','2026-10-30 05:00:00')");
         db.update("INSERT INTO invitation_reward_entry VALUES (11,'TIMO','2026-10-30',12.5),(11,'LINKY','2026-10-30',100)");
-        db.update("INSERT INTO invitation_verification_campaign_award VALUES (11,1,'TIMO',12.5,'2026-10-30 05:00:00'),(11,1,'LINKY',100,'2026-10-30 05:00:00')");
+        db.update("INSERT INTO invitation_verification_campaign_award VALUES (11,1,'TIMO',12.5,'2026-10-30 05:00:00',NULL),(11,1,'LINKY',100,'2026-10-30 05:00:00',NULL)");
         var now=java.time.Instant.parse("2026-10-30T10:00:00Z");
         var service=new GrowthDashboardMetrics(db,java.time.Clock.fixed(now,java.time.ZoneOffset.UTC));
         var start=LocalDateTime.parse("2026-10-30T00:00:00"); var end=start.plusHours(10);
@@ -26,6 +26,10 @@ class GrowthDashboardMetricsTest {
         assertThat(item.registered()).isEqualTo(2); assertThat(item.submitted()).isEqualTo(2);
         assertThat(item.cohortVerified()).isEqualTo(1); assertThat(item.firstWithdrawal()).isNull();
         assertThat(item.rewardPoints()).isEqualTo("12.500000");
+        assertThat(service.pendingCampaignPoints("TIMO","BR",start,end)).isEqualTo("12.500000");
+        assertThat(new java.math.BigDecimal(service.pendingCampaignPoints("TIMO","ID",start,end))).isZero();
+        db.update("UPDATE invitation_verification_campaign_award SET released_at='2026-10-30 09:00:00' WHERE platform_code='TIMO'");
+        assertThat(new java.math.BigDecimal(service.pendingCampaignPoints("TIMO","BR",start,end))).isZero();
         assertThat(service.enrich(service.ranks("TIMO","BR",start,end),"TIMO","BR",start,end,false).getFirst().rewardPoints()).isNull();
     }
     @Test void cohortAndParticipantsUseRegistrationWindowWithoutMixingEvents() {
@@ -74,7 +78,7 @@ class GrowthDashboardMetricsTest {
         db.execute("CREATE TABLE linky_account_binding(user_id BIGINT,created_at TIMESTAMP)");
         db.execute("CREATE TABLE linky_verification_attempt(id BIGINT,user_id BIGINT,result_status VARCHAR(32),membership_status VARCHAR(64),verification_source VARCHAR(32),attempted_at TIMESTAMP)");
         db.execute("CREATE TABLE invitation_reward_entry(user_id BIGINT,platform_code VARCHAR(32),business_date DATE,reward_points DECIMAL(24,6))");
-        db.execute("CREATE TABLE invitation_verification_campaign_award(inviter_user_id BIGINT,invited_user_id BIGINT,platform_code VARCHAR(32),reward_points DECIMAL(24,6),awarded_at TIMESTAMP)");
+        db.execute("CREATE TABLE invitation_verification_campaign_award(inviter_user_id BIGINT,invited_user_id BIGINT,platform_code VARCHAR(32),reward_points DECIMAL(24,6),awarded_at TIMESTAMP,released_at TIMESTAMP)");
         db.execute("CREATE TABLE user_public_profile(user_id BIGINT,nickname VARCHAR(40))");
         db.execute("CREATE TABLE user_operations_profile(user_id BIGINT,operator_admin_id BIGINT)");
         db.execute("CREATE TABLE admin_account(id BIGINT,display_name VARCHAR(40))");

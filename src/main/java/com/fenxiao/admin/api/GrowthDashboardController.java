@@ -42,12 +42,13 @@ public class GrowthDashboardController {
         var summary = new Summary(data.start(), data.end(), data.participatingInviters(), data.registered(), data.submitted(),
                 current.missingVerificationHistoryUsers() > 0 ? null : data.verified());
         String rewardPoints = canSeePoints ? growth.campaignPoints(platformCode.toUpperCase(Locale.ROOT), countryCode.toUpperCase(Locale.ROOT), data.start(), data.end()) : null;
-        return new Response(summary, ranks, current.missingVerificationHistoryUsers(), canSeePoints, rewardPoints);
+        String pendingPoints = canSeePoints ? growth.pendingCampaignPoints(platformCode.toUpperCase(Locale.ROOT), countryCode.toUpperCase(Locale.ROOT), data.start(), data.end()) : null;
+        return new Response(summary, ranks, current.missingVerificationHistoryUsers(), canSeePoints, rewardPoints, pendingPoints);
     }
 
     private static boolean full(String scope) { return scope == null || scope.isBlank() || "*".equals(scope.trim()); }
     public record Summary(java.time.LocalDateTime start, java.time.LocalDateTime end, long participatingInviters,
                           long registered, long submitted, Long verified) { }
     public record Response(Summary data, List<GrowthDashboardMetrics.RankDetail> ranks,
-                           long missingVerificationHistoryUsers, boolean canSeePoints, String rewardPoints) { }
+                           long missingVerificationHistoryUsers, boolean canSeePoints, String rewardPoints, String pendingRewardPoints) { }
 }

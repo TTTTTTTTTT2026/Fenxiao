@@ -48,7 +48,7 @@ export function UnifiedDashboard({growth,report,period,trendPeriod,onPeriod,onDe
   {label:'已提交核验',value:d.submitted,caption:'本期注册用户 · 截至目前',Icon:LinkSimple,tone:'teal'},
   {label:'已经通过核验',value:unknown?'—':d.verified??'—',caption:'本期注册用户 · 截至目前',Icon:ShieldCheck,tone:'blue'},
   {label:'首次提现',value:'Null',caption:'数据暂未接入',Icon:Coins,tone:'orange'},
-  {label:'待发奖励',value:'Null',caption:'邀请核验奖励尚未上线',Icon:Coins,tone:'amber'},
+  {label:'待发奖励',value:growth.pendingRewardPoints ?? 'Null',caption:growth.pendingRewardPoints == null ? '无积分查看权限' : '周期内入账、当前仍冻结的活动积分',Icon:Coins,tone:'amber'},
  ];
  const queues=[{kind:'OVERDUE',title:'注册超24小时未绑定',n:report.summary.overdue,Icon:UserPlus},{kind:'REJECTED',title:'核验失败或异常',n:report.summary.rejected,Icon:WarningCircle},{kind:'WAITING',title:'核验等待超24小时',n:report.summary.waiting,Icon:ClockCounterClockwise},{kind:'UNASSIGNED',title:'尚未分配对接运营',n:report.summary.unassigned,Icon:UserCircle}] as const;
  return <div className="growth-board">

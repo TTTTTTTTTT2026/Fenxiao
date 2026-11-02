@@ -167,6 +167,16 @@ public class GrowthDashboardMetrics {
         return total.toPlainString();
     }
 
+    /** Outstanding frozen activity points booked during the selected period, as of now. */
+    public String pendingCampaignPoints(String platform, String country, LocalDateTime start, LocalDateTime end) {
+        if (!Set.of("TIMO", "LINKY").contains(platform) || !("ALL".equals(country) || country.matches("[A-Z]{2}"))
+                || !start.isBefore(end) || start.plusDays(61).isBefore(end)) throw new IllegalArgumentException("invalid points range");
+        String filter = "ALL".equals(country) ? "" : " AND u.country_code=?";
+        Object[] args = "ALL".equals(country) ? new Object[]{platform,Timestamp.valueOf(start),Timestamp.valueOf(end)} : new Object[]{platform,Timestamp.valueOf(start),Timestamp.valueOf(end),country};
+        BigDecimal total = jdbc.queryForObject("SELECT COALESCE(SUM(a.reward_points),0) FROM invitation_verification_campaign_award a JOIN user_distribution_profile u ON u.user_id=a.invited_user_id WHERE a.platform_code=? AND a.awarded_at>=? AND a.awarded_at<? AND a.released_at IS NULL"+filter, BigDecimal.class, args);
+        return total.toPlainString();
+    }
+
     public record Rank(long inviterId, long newlyVerifiedInvitees) { }
     public record Report(LocalDateTime start, LocalDateTime end, long participatingInviters, long registered,
                          long submitted, long verified, List<Rank> ranks) { }
