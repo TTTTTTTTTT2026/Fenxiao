@@ -1,6 +1,6 @@
 export type AdminSettingsView = 'experiment' | 'guilds' | 'platforms' | 'incomeControlled' | 'incomeShadow' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification' | 'smsWhitelist'
 export type AdminAccountView = 'security' | 'staff' | 'audit'
-export type AdminSectionKey = 'operationsDashboard' | 'overview' | 'channel' | 'bindings' | 'riskQueue' | 'users' | 'highValueRanking' | 'platformGuildDirectory' | 'rewards' | 'userAccounts' | 'accountMaintenance' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'teams' | 'operatingDividends' | 'userGrades' | 'userGradeList' | 'advancedGradeAcceptance' | 'userGradeFacts' | 'tokenPointConversions' | 'pointCurrencyRates' | 'accounts' | 'accountManagement' | 'mySecurity' | 'securityRecords' | 'settings' | 'systemExperiment' | 'systemGuilds' | 'systemPlatforms' | 'systemIncomeControlled' | 'systemIncomeShadow' | 'systemMockVerification' | 'systemAdvanced' | 'systemSeedInviter' | 'systemPhoneVerification' | 'systemSmsWhitelist'
+export type AdminSectionKey = 'operationsDashboard' | 'overview' | 'channel' | 'bindings' | 'riskQueue' | 'users' | 'highValueRanking' | 'platformGuildDirectory' | 'rewards' | 'userAccounts' | 'accountMaintenance' | 'verificationCampaigns' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'teams' | 'operatingDividends' | 'userGrades' | 'userGradeList' | 'advancedGradeAcceptance' | 'userGradeFacts' | 'tokenPointConversions' | 'pointCurrencyRates' | 'accounts' | 'accountManagement' | 'mySecurity' | 'securityRecords' | 'settings' | 'systemExperiment' | 'systemGuilds' | 'systemPlatforms' | 'systemIncomeControlled' | 'systemIncomeShadow' | 'systemMockVerification' | 'systemAdvanced' | 'systemSeedInviter' | 'systemPhoneVerification' | 'systemSmsWhitelist'
 
 export const ADMIN_SECTION_HASHES: Record<AdminSectionKey, string> = {
   operationsDashboard: '#admin-operations-dashboard',
@@ -14,6 +14,7 @@ export const ADMIN_SECTION_HASHES: Record<AdminSectionKey, string> = {
   rewards: '#admin-rewards',
   userAccounts: '#admin-user-accounts',
   accountMaintenance: '#admin-account-maintenance',
+  verificationCampaigns: '#admin-verification-campaigns',
   commissionPolicies: '#admin-commission-policies',
   mentorDirectory: '#admin-mentors',
   mentorIncentives: '#admin-mentor-incentives',
@@ -63,7 +64,7 @@ export const SYSTEM_MANAGEMENT_SECTION_VIEWS: Partial<Record<AdminSectionKey, Ad
 
 export function getVisibleFinanceSections(role?: string): AdminSectionKey[] {
   const normalizedRole = role?.toLowerCase()
-  if (normalizedRole === 'super_admin') return ['rewards', 'userAccounts', 'accountMaintenance', 'commissionPolicies', 'tokenPointConversions', 'pointCurrencyRates']
+  if (normalizedRole === 'super_admin') return ['rewards', 'userAccounts', 'accountMaintenance', 'verificationCampaigns', 'commissionPolicies', 'tokenPointConversions', 'pointCurrencyRates']
   if (normalizedRole === 'admin' || !normalizedRole) return ['rewards', 'userAccounts', 'commissionPolicies', 'tokenPointConversions']
   if (normalizedRole === 'finance') return ['rewards', 'userAccounts', 'accountMaintenance', 'commissionPolicies', 'pointCurrencyRates']
   if (normalizedRole === 'operations') return ['tokenPointConversions']

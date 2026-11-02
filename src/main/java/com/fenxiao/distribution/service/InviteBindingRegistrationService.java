@@ -1,6 +1,8 @@
 package com.fenxiao.distribution.service;
 
 import com.fenxiao.distribution.api.dto.RegisterLinkyAccountRequest;
+import com.fenxiao.distribution.domain.LinkyVerificationSource;
+import com.fenxiao.income.mcn.service.VerificationCampaignService;
 import com.fenxiao.distribution.entity.DistributionRelation;
 import com.fenxiao.distribution.entity.InviteBindingRegistration;
 import com.fenxiao.distribution.repository.DistributionRelationRepository;
@@ -23,6 +25,8 @@ public class InviteBindingRegistrationService {
     private final LinkyRegistrationEligibilityService linkyRegistrationEligibilityService;
     private final LinkyBindingVerificationService linkyBindingVerificationService;
     private final LinkyInvitationGuildAttributionService invitationGuildAttributionService;
+    private final LinkyVerificationModeService verificationMode;
+    private final VerificationCampaignService campaigns;
 
     public InviteBindingRegistrationService(UserDistributionProfileRepository userDistributionProfileRepository,
                                             InviteBindingRegistrationRepository inviteBindingRegistrationRepository,
@@ -30,7 +34,8 @@ public class InviteBindingRegistrationService {
                                             UserProductOwnershipService userProductOwnershipService,
                                             LinkyRegistrationEligibilityService linkyRegistrationEligibilityService,
                                             LinkyBindingVerificationService linkyBindingVerificationService,
-                                            LinkyInvitationGuildAttributionService invitationGuildAttributionService) {
+                                            LinkyInvitationGuildAttributionService invitationGuildAttributionService,
+                                            LinkyVerificationModeService verificationMode, VerificationCampaignService campaigns) {
         this.userDistributionProfileRepository = userDistributionProfileRepository;
         this.inviteBindingRegistrationRepository = inviteBindingRegistrationRepository;
         this.distributionRelationRepository = distributionRelationRepository;
@@ -38,6 +43,7 @@ public class InviteBindingRegistrationService {
         this.linkyRegistrationEligibilityService = linkyRegistrationEligibilityService;
         this.linkyBindingVerificationService = linkyBindingVerificationService;
         this.invitationGuildAttributionService = invitationGuildAttributionService;
+        this.verificationMode = verificationMode; this.campaigns = campaigns;
     }
 
     public InviteBindingRegistration registerForUser(Long userId, RegisterLinkyAccountRequest request) {
@@ -97,6 +103,7 @@ public class InviteBindingRegistrationService {
         );
         invitationGuildAttributionService.recordVerifiedBinding(userId, verifiedBinding.getGuildId(),
                 verifiedBinding.getGuildName(), expectedGuild.guildInviteCode());
+        if (verificationMode.source() == LinkyVerificationSource.MCN) campaigns.capture(userId, "LINKY");
         return saved;
     }
 

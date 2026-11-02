@@ -68,7 +68,7 @@ public class ManualPointsAdjustmentService {
         String platform=platformValue==null?"":platformValue.trim().toUpperCase(Locale.ROOT);
         if (!Set.of("TIMO","LINKY").contains(platform)) throw new IllegalArgumentException("请选择应用");
         authorize(userId,platform,actor);
-        BigDecimal available=jdbc.queryForObject("SELECT COALESCE((SELECT SUM(available_delta) FROM invitation_reward_account_ledger WHERE user_id=? AND platform_code=?),0)+COALESCE((SELECT SUM(delta_points) FROM invitation_points_manual_adjustment WHERE user_id=? AND platform_code=?),0)",BigDecimal.class,userId,platform,userId,platform);
+        BigDecimal available=jdbc.queryForObject("SELECT COALESCE((SELECT SUM(available_delta) FROM invitation_reward_account_ledger WHERE user_id=? AND platform_code=?),0)+COALESCE((SELECT SUM(delta_points) FROM invitation_points_manual_adjustment WHERE user_id=? AND platform_code=?),0)+COALESCE((SELECT SUM(reward_points) FROM invitation_verification_campaign_award WHERE inviter_user_id=? AND platform_code=? AND released_at IS NOT NULL),0)",BigDecimal.class,userId,platform,userId,platform,userId,platform);
         return new Preview(platform,available);
     }
     @Transactional
@@ -93,7 +93,7 @@ public class ManualPointsAdjustmentService {
                 throw new IllegalArgumentException("操作编号已用于其他调整");
             return previous;
         }
-        BigDecimal before=jdbc.queryForObject("SELECT COALESCE((SELECT SUM(available_delta) FROM invitation_reward_account_ledger WHERE user_id=? AND platform_code=?),0)+COALESCE((SELECT SUM(delta_points) FROM invitation_points_manual_adjustment WHERE user_id=? AND platform_code=?),0)",BigDecimal.class,userId,platform,userId,platform);
+        BigDecimal before=jdbc.queryForObject("SELECT COALESCE((SELECT SUM(available_delta) FROM invitation_reward_account_ledger WHERE user_id=? AND platform_code=?),0)+COALESCE((SELECT SUM(delta_points) FROM invitation_points_manual_adjustment WHERE user_id=? AND platform_code=?),0)+COALESCE((SELECT SUM(reward_points) FROM invitation_verification_campaign_award WHERE inviter_user_id=? AND platform_code=? AND released_at IS NOT NULL),0)",BigDecimal.class,userId,platform,userId,platform,userId,platform);
         BigDecimal after=before.add(delta);
         jdbc.update("INSERT INTO invitation_points_manual_adjustment(request_id,user_id,platform_code,delta_points,reason,actor_id,before_available,after_available,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
                 request.requestId(),userId,platform,delta,reason,actor.accountId(),before,after,Timestamp.from(clock.instant()));

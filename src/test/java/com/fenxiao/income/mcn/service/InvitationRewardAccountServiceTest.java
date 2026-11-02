@@ -61,6 +61,32 @@ class InvitationRewardAccountServiceTest {
         assertThat(service.records(0,restricted).items()).extracting(ManualPointsAdjustmentService.Record::platformCode).containsExactly("LINKY");
     }
     @Test
+    void campaignFreezesOnceAndStaysIsolatedToItsApplication() {
+        JdbcTemplate jdbc=database("verification_campaign");
+        MutableClock clock=new MutableClock(Instant.parse("2026-11-03T00:00:00Z"));
+        var actor=new AdminSessionService.AdminPrincipal(1,"admin","admin","super_admin",false,1,false,LocalDateTime.now().plusDays(1),"*","*","*");
+        var service=new VerificationCampaignService(jdbc,clock,mock(com.fenxiao.audit.repository.OperationAuditLogRepository.class),7);
+        jdbc.update("INSERT INTO invitation_relation_version(user_id,inviter_user_id,version_no) VALUES (3,2,1)");
+        service.create(new VerificationCampaignService.CreateRequest("Timo test","TIMO",new BigDecimal("25")),actor);
+        service.capture(3,"TIMO");
+        assertThat(service.awards(actor)).isEmpty();
+        long id=service.campaigns(actor).getFirst().id(); service.setEnabled(id,true,actor);
+        service.capture(3,"TIMO");
+        assertThatThrownBy(()->service.updatePoints(id,new BigDecimal("30"),actor)).isInstanceOf(IllegalArgumentException.class);
+        service.setEnabled(id,false,actor); service.updatePoints(id,new BigDecimal("30"),actor);
+        assertThat(service.processPending()).isEqualTo(1);
+        assertThat(service.processPending()).isZero();
+        assertThat(balance(jdbc,"frozen_points")).isEqualByComparingTo("25");
+        var users=mock(UserDistributionProfileRepository.class); when(users.existsById(2L)).thenReturn(true);
+        var query=new InvitationRewardAccountQueryService(jdbc,users);
+        assertThat(query.get(2L,0,20,"TIMO").frozenPoints()).isEqualByComparingTo("25");
+        assertThat(query.get(2L,0,20,"LINKY").totalPoints()).isZero();
+        assertThat(query.get(2L,0,20,"TIMO").items().getFirst().type()).isEqualTo("ACTIVITY_REWARD");
+        clock.advanceDays(7); assertThat(service.releaseDue()).isEqualTo(1); assertThat(service.releaseDue()).isZero();
+        assertThat(query.get(2L,0,20,"TIMO").availablePoints()).isEqualByComparingTo("25");
+        assertThat(balance(jdbc,"frozen_points")).isZero();
+    }
+    @Test
     void sourceCorrectionMayProduceNegativeAvailableBalance() {
         JdbcTemplate jdbc = database("account_negative_revision");
         MutableClock clock = new MutableClock(Instant.parse("2026-09-24T12:00:00Z"));
@@ -314,6 +340,7 @@ class InvitationRewardAccountServiceTest {
         jdbc.execute("CREATE TABLE invitation_relation_version(user_id BIGINT,inviter_user_id BIGINT,version_no INT,effective_from TIMESTAMP,effective_to TIMESTAMP)");
         jdbc.execute("CREATE TABLE user_public_profile(user_id BIGINT PRIMARY KEY,nickname VARCHAR(40))");
         new ResourceDatabasePopulator(new ClassPathResource("db/migration/V74__add_invitation_commission_report_projection.sql")).execute(source);
+        new ResourceDatabasePopulator(new ClassPathResource("db/migration/V85__invitation_verification_campaign.sql")).execute(source);
         jdbc.execute("ALTER TABLE invitation_commission_report_event ADD COLUMN business_date DATE");
         jdbc.execute("ALTER TABLE invitation_commission_report_event ADD COLUMN source_guild_id VARCHAR(64)");
         jdbc.execute("ALTER TABLE invitation_commission_report_event ADD COLUMN occurred_at TIMESTAMP");

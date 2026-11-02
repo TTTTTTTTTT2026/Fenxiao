@@ -2103,7 +2103,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   }
 
   const rewardItems = wallet?.items ?? []
-  const quoteFlow=usePointReferenceQuotes(session,selectedPlatform,rewardItems.map(item=>item.type==='UNFREEZE' ? item.availableDelta : item.frozenDelta+item.availableDelta))
+  const quoteFlow=usePointReferenceQuotes(session,selectedPlatform,rewardItems.map(item=>(item.type==='UNFREEZE' || item.type==='ACTIVITY_UNFREEZE') ? item.availableDelta : item.frozenDelta+item.availableDelta))
 
   function getRewardActivityTitle(level?: number | null) {
     return level === 1 ? walletCopy.direct : walletCopy.indirect
@@ -2123,6 +2123,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   const totalReward = wallet?.totalPoints ?? 0
   const frozenReward = wallet?.frozenPoints ?? 0
   const referenceCopy = { zh: '参考金额', en: 'Reference value', es: 'Valor de referencia', id: 'Nilai referensi', pt: 'Valor de referência' }[locale]
+  const activityCopy = { zh: '邀请活动奖励', en: 'Invitation campaign reward', es: 'Recompensa de invitación', id: 'Hadiah kampanye undangan', pt: 'Recompensa de convite' }[locale]
   const manualCopy = { zh: '人工积分调整', en: 'Manual points adjustment', es: 'Ajuste manual de puntos', id: 'Penyesuaian poin manual', pt: 'Ajuste manual de pontos' }[locale]
   function hasReference(key: keyof AccountReferenceValues, points: number) {
     const value=referenceValues?.[key]
@@ -2179,7 +2180,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
             <div><span>{walletCopy.available}</span><strong>{displayedValue('available',availableReward)}</strong></div>
           </div>
           {rewardItems.length ? <div className="consumer-withdraw-list">{rewardItems.map((item) =>
-            <div key={item.id}><span>{item.type === 'MANUAL_ADJUSTMENT' ? manualCopy : item.type === 'UNFREEZE' ? walletCopy.release : item.type === 'MCN_REVISION' ? walletCopy.revision : getRewardActivityTitle(item.rewardLevel)}<small>{item.platformCode} · {item.type === 'MANUAL_ADJUSTMENT' ? '' : `${formatMoney(item.rewardDiamonds, locale)} ${walletCopy.diamondUnit} · `}{formatRewardDate(item.recordedAt)}</small></span><strong>{quoteFlow(item.type === 'UNFREEZE' ? item.availableDelta : item.frozenDelta + item.availableDelta,locale,walletCopy.unit)}</strong></div>)}</div> :
+            <div key={item.id}><span>{item.type === 'MANUAL_ADJUSTMENT' ? manualCopy : item.type === 'ACTIVITY_REWARD' ? activityCopy : (item.type === 'UNFREEZE' || item.type === 'ACTIVITY_UNFREEZE') ? walletCopy.release : item.type === 'MCN_REVISION' ? walletCopy.revision : getRewardActivityTitle(item.rewardLevel)}<small>{item.platformCode} · {(item.type === 'MANUAL_ADJUSTMENT' || item.type.startsWith('ACTIVITY_')) ? '' : `${formatMoney(item.rewardDiamonds, locale)} ${walletCopy.diamondUnit} · `}{formatRewardDate(item.recordedAt)}</small></span><strong>{quoteFlow((item.type === 'UNFREEZE' || item.type === 'ACTIVITY_UNFREEZE') ? item.availableDelta : item.frozenDelta + item.availableDelta,locale,walletCopy.unit)}</strong></div>)}</div> :
             <div className="consumer-empty-state"><Wallet weight="duotone" aria-hidden="true" /><p>{copy.emptyRewardsTitle}</p></div>}
           {wallet && wallet.items.length < wallet.totalRecords ? <button className="consumer-detail-load-more" type="button" onClick={() => void loadMoreWallet()} disabled={loading}>{loading ? copy.loading : walletCopy.loadMore}</button> : null}
         </section>}
@@ -2300,20 +2301,20 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
               ) : rewardItems.length ? (
                 <div className="consumer-activity-list">
                   {rewardItems.slice(0, 3).map((item) => {
-                    const isAvailable = item.type === 'UNFREEZE' || item.type === 'MANUAL_ADJUSTMENT'
-                    const amount = item.type === 'UNFREEZE' ? item.availableDelta : item.frozenDelta + item.availableDelta
+                    const isAvailable = item.type === 'UNFREEZE' || item.type === 'ACTIVITY_UNFREEZE' || item.type === 'MANUAL_ADJUSTMENT'
+                    const amount = (item.type === 'UNFREEZE' || item.type === 'ACTIVITY_UNFREEZE') ? item.availableDelta : item.frozenDelta + item.availableDelta
                     return (
                       <article className="consumer-activity-row" key={item.id}>
                         <span className={`consumer-activity-icon ${isAvailable ? 'is-available' : 'is-frozen'}`}>
                           {isAvailable ? <CheckCircle weight="fill" aria-hidden="true" /> : <LockSimple weight="fill" aria-hidden="true" />}
                         </span>
                         <div className="consumer-activity-copy">
-                          <strong>{item.type === 'MANUAL_ADJUSTMENT' ? manualCopy : item.type === 'UNFREEZE' ? walletCopy.release : item.type === 'MCN_REVISION' ? walletCopy.revision : getRewardActivityTitle(item.rewardLevel)}</strong>
+                          <strong>{item.type === 'MANUAL_ADJUSTMENT' ? manualCopy : item.type === 'ACTIVITY_REWARD' ? activityCopy : (item.type === 'UNFREEZE' || item.type === 'ACTIVITY_UNFREEZE') ? walletCopy.release : item.type === 'MCN_REVISION' ? walletCopy.revision : getRewardActivityTitle(item.rewardLevel)}</strong>
                           <span>{item.platformCode}{item.type === 'MANUAL_ADJUSTMENT' ? '' : ` · ${walletCopy.sourceUser} #${item.sourceUserId}`}</span>
                         </div>
                         <div className={`consumer-activity-amount ${isAvailable ? 'is-available' : 'is-frozen'}`}>
                           <strong>{amount > 0 ? '+' : ''}{quoteFlow(amount,locale,walletCopy.unit)}</strong>
-                          <span>{item.type === 'MANUAL_ADJUSTMENT' ? manualCopy : item.type === 'UNFREEZE' ? walletCopy.available : item.type === 'MCN_REVISION' ? walletCopy.revision : walletCopy.frozen} · {formatRewardDate(item.recordedAt)}</span>
+                          <span>{item.type === 'MANUAL_ADJUSTMENT' ? manualCopy : (item.type === 'UNFREEZE' || item.type === 'ACTIVITY_UNFREEZE') ? walletCopy.available : item.type === 'MCN_REVISION' ? walletCopy.revision : walletCopy.frozen} · {formatRewardDate(item.recordedAt)}</span>
                         </div>
                       </article>
                     )
