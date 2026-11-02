@@ -394,3 +394,21 @@ CREATE TABLE IF NOT EXISTS user_operations_profile_change (
 
 CREATE INDEX IF NOT EXISTS idx_local_user_operations_change_history
     ON user_operations_profile_change(user_id, changed_at, id);
+
+-- Local profile skips Flyway; these mirror the reference-rate and manual adjustment tables.
+CREATE TABLE IF NOT EXISTS invitation_points_manual_adjustment (
+ id BIGINT AUTO_INCREMENT PRIMARY KEY, request_id VARCHAR(64) NOT NULL UNIQUE,
+ user_id BIGINT NOT NULL, platform_code VARCHAR(32) NOT NULL, delta_points DECIMAL(24,6) NOT NULL,
+ reason VARCHAR(128) NOT NULL, actor_id BIGINT NOT NULL, before_available DECIMAL(24,6) NOT NULL,
+ after_available DECIMAL(24,6) NOT NULL, created_at TIMESTAMP NOT NULL
+);
+CREATE TABLE IF NOT EXISTS point_currency_country (country_code VARCHAR(2) PRIMARY KEY, currency_code VARCHAR(3) NOT NULL);
+MERGE INTO point_currency_country (country_code,currency_code) KEY (country_code) VALUES
+ ('CN','CNY'),('ID','IDR'),('MX','MXN'),('BR','BRL'),('HK','HKD'),('CO','COP'),('CL','CLP'),('VE','VES'),('PE','PEN');
+CREATE TABLE IF NOT EXISTS point_currency_rate_version (
+ id BIGINT AUTO_INCREMENT PRIMARY KEY, country_code VARCHAR(2) NOT NULL, version_no INT NOT NULL,
+ currency_per_point DECIMAL(20,8), enabled BOOLEAN NOT NULL, effective_at TIMESTAMP(6) NOT NULL,
+ cancelled BOOLEAN NOT NULL DEFAULT FALSE, cancelled_at TIMESTAMP(6), cancelled_by BIGINT,
+ created_by BIGINT NOT NULL, created_at TIMESTAMP(6) NOT NULL,
+ UNIQUE (country_code,version_no)
+);

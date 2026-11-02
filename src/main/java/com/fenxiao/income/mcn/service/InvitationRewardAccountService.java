@@ -171,11 +171,7 @@ public class InvitationRewardAccountService {
             frozenDebit = frozenDebit.add(debit);
         }
         Instant now = clock.instant();
-        BigDecimal available = jdbc.queryForObject("SELECT available_points FROM invitation_reward_account WHERE user_id=?",
-                BigDecimal.class, userId);
-        if (available == null || available.compareTo(remaining) < 0) {
-            throw new IllegalStateException("invitation account correction exceeds available points; manual reconciliation required");
-        }
+        // A source correction can create debt; never consume another reward's frozen lot.
         jdbc.update("UPDATE invitation_reward_account SET frozen_points=frozen_points-?,available_points=available_points-?,updated_at=? WHERE user_id=?",
                 frozenDebit, remaining, Timestamp.from(now), userId);
         ledger(userId, entryId, "MCN_REVISION", frozenDebit.negate(), remaining.negate(), "source income reduced or invalidated");

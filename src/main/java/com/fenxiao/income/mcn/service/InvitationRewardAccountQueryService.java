@@ -35,6 +35,10 @@ public class InvitationRewardAccountQueryService {
                     (rs, row) -> new BigDecimal[]{rs.getBigDecimal(1), rs.getBigDecimal(2)}, userId, platformCode);
         BigDecimal frozen = balances.isEmpty() ? BigDecimal.ZERO : balances.getFirst()[0];
         BigDecimal available = balances.isEmpty() ? BigDecimal.ZERO : balances.getFirst()[1];
+        if (platformCode != null) {
+            BigDecimal manual = jdbc.queryForObject("SELECT COALESCE(SUM(delta_points),0) FROM invitation_points_manual_adjustment WHERE user_id=? AND platform_code=?", BigDecimal.class, userId, platformCode);
+            available = available.add(manual == null ? BigDecimal.ZERO : manual);
+        }
         BigDecimal cumulative = platformCode == null
                 ? jdbc.queryForObject("SELECT COALESCE(SUM(frozen_delta+available_delta),0) FROM invitation_reward_account_ledger WHERE user_id=?", BigDecimal.class, userId)
                 : jdbc.queryForObject("SELECT COALESCE(SUM(frozen_delta+available_delta),0) FROM invitation_reward_account_ledger WHERE user_id=? AND platform_code=?", BigDecimal.class, userId, platformCode);
@@ -43,25 +47,32 @@ public class InvitationRewardAccountQueryService {
         Long total = platformCode == null
                 ? jdbc.queryForObject("SELECT COUNT(*) FROM invitation_reward_account_ledger WHERE user_id=?", Long.class, userId)
                 : jdbc.queryForObject("SELECT COUNT(*) FROM invitation_reward_account_ledger WHERE user_id=? AND platform_code=?", Long.class, userId, platformCode);
+        Long manualCount = platformCode == null
+                ? jdbc.queryForObject("SELECT COUNT(*) FROM invitation_points_manual_adjustment WHERE user_id=?", Long.class, userId)
+                : jdbc.queryForObject("SELECT COUNT(*) FROM invitation_points_manual_adjustment WHERE user_id=? AND platform_code=?", Long.class, userId, platformCode);
         String flowQuery = """
                 SELECT l.id,l.event_type,l.frozen_delta,l.available_delta,l.reason,l.created_at,
                        l.platform_code,l.source_event_id,l.reward_level,l.source_user_id,l.raw_diamonds,
                        l.company_share_rate,l.company_income_diamonds,l.invitation_rate,l.reward_diamonds,
                        l.points_per_diamond,l.conversion_id
-                FROM invitation_reward_account_ledger l
-                WHERE l.user_id=? %s ORDER BY l.id DESC LIMIT ? OFFSET ?
-                """.formatted(platformCode == null ? "" : "AND l.platform_code=?");
+                FROM (
+                  SELECT id,event_type,frozen_delta,available_delta,reason,created_at,platform_code,source_event_id,reward_level,source_user_id,raw_diamonds,company_share_rate,company_income_diamonds,invitation_rate,reward_diamonds,points_per_diamond,conversion_id,user_id FROM invitation_reward_account_ledger WHERE user_id=? %s
+                  UNION ALL
+                  SELECT -id,'MANUAL_ADJUSTMENT',0,delta_points,reason,created_at,platform_code,request_id,0,0,0,0,0,0,0,0,0,user_id FROM invitation_points_manual_adjustment WHERE user_id=? %s
+                ) l
+                ORDER BY l.created_at DESC,l.id DESC LIMIT ? OFFSET ?
+                """.formatted(platformCode == null ? "" : "AND platform_code=?",platformCode == null ? "" : "AND platform_code=?");
         List<InvitationRewardAccountResponse.Flow> items = jdbc.query(flowQuery, (rs, row) -> new InvitationRewardAccountResponse.Flow(rs.getLong(1), rs.getString(2),
                 rs.getBigDecimal(3), rs.getBigDecimal(4), rs.getString(5), rs.getTimestamp(6).toInstant(),
                 rs.getString(7), rs.getString(8), rs.getInt(9), rs.getLong(10), rs.getBigDecimal(11),
                 rs.getBigDecimal(12), rs.getBigDecimal(13), rs.getBigDecimal(14), rs.getBigDecimal(15),
                 rs.getBigDecimal(16), rs.getLong(17)), platformCode == null
-                    ? new Object[]{userId, safeSize, safePage * safeSize}
-                    : new Object[]{userId, platformCode, safeSize, safePage * safeSize});
+                    ? new Object[]{userId, userId, safeSize, safePage * safeSize}
+                    : new Object[]{userId, platformCode, userId, platformCode, safeSize, safePage * safeSize});
         return new InvitationRewardAccountResponse(userId, "POINT", frozen, available,
                 frozen.add(available), cumulative == null ? BigDecimal.ZERO : cumulative,
                 direct, indirect,
-                false, total == null ? 0 : total, safePage, safeSize, items);
+                false, (total == null ? 0 : total) + (manualCount == null ? 0 : manualCount), safePage, safeSize, items);
     }
 
     private BigDecimal incomeForLevel(long userId, int level, String platformCode) {

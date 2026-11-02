@@ -1119,6 +1119,33 @@ export function getAdminInvitationAccount(adminSessionToken: string, userId: num
   })
 }
 
+export type AccountCurrencyReference = { points: string; amount: string | null; currencyCode: string | null; status: string }
+export type AccountReferenceValues = { available: AccountCurrencyReference; frozen: AccountCurrencyReference; total: AccountCurrencyReference; income: AccountCurrencyReference; direct: AccountCurrencyReference; indirect: AccountCurrencyReference }
+export function getAccountReferenceValues(userId: number, accessToken: string, platformCode: string) {
+  return request<AccountReferenceValues>(`/api/distribution/accounts/${userId}/reference-values?${new URLSearchParams({platformCode})}`, {
+    headers: { 'X-Distribution-Token': accessToken },
+  })
+}
+
+export function quoteAccountPoints(userId: number, accessToken: string, platformCode: string, points: string[]) {
+  return request<AccountCurrencyReference[]>(`/api/distribution/accounts/${userId}/reference-quotes`, {
+    method: 'POST', headers: { 'X-Distribution-Token': accessToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({platformCode,points}),
+  })
+}
+
+export function adjustAdminInvitationAccount(adminSessionToken: string, userId: number, data: { requestId: string; platformCode: string; deltaPoints: string; reason: string }) {
+  return request(`/admin/invitation-accounts/${userId}/adjustments`, {
+    method: 'POST', headers: { 'X-Admin-Session': adminSessionToken, 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+  })
+}
+
+export function getAdminAdjustmentPreview(adminSessionToken: string, userId: number, platformCode: string) {
+  return request<{platformCode:string;availablePoints:number}>(`/admin/invitation-accounts/${userId}/adjustment-preview?${new URLSearchParams({platformCode})}`, {
+    headers: { 'X-Admin-Session': adminSessionToken },
+  })
+}
+
 export function getDistributionTeam(userId: number, accessToken: string) {
   return request<TeamListResponse>(`/api/distribution/team/${userId}`, {
     headers: {

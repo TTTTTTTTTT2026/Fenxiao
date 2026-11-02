@@ -28,6 +28,7 @@ getConsumerWorkspace,
 getDistributionEffectiveTeam,
 getDistributionHome,
 getDistributionInvitationAccount,
+getAccountReferenceValues,
 getInvitationCommissionReport,
 getInvitationCommissionSources,
 getPlatformBinding,
@@ -49,6 +50,7 @@ type EffectiveTeamResponse,
 type InvitationCommissionReportResponse,
 type InvitationCommissionSourceResponse,
 type InvitationRewardAccountResponse,
+type AccountReferenceValues,
 type InviteBindingResponse,
 type LinkyAccountBindingResponse,
 type PlatformBindingResponse,
@@ -80,6 +82,7 @@ import PartnerPortal from './PartnerPortal'
 import { internalPhoneCodeNotice } from './phoneCodeNotice'
 import { consumerEntryOrigin } from './publicEntries'
 import { formatConsumerUserGrade,phoneCountries,type ConsumerLocale } from './shared/catalog'
+import { usePointReferenceQuotes } from './shared/usePointReferenceQuotes'
 import { CLIENT_COUNTRY_KEY,clientPhoneCountries,initialClientCountry,languageForLocale,suggestedClientCountry,type ClientCountryCode } from './shared/consumerEntryPreferences'
 import { formatMoney,formatPhoneNumber,normalizeLocalPhoneNumber } from './shared/legacyFormatting'
 import { EXTERNAL_LOCALE_KEY,loadExternalLocale,loadJsonState,saveUserSession,STORAGE_KEY,type SessionState } from './shared/legacySession'
@@ -1965,6 +1968,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   const [teamError, setTeamError] = useState(false)
   const [teamReload, setTeamReload] = useState(0)
   const [wallet, setWallet] = useState<InvitationRewardAccountResponse | null>(null)
+  const [referenceValues, setReferenceValues] = useState<AccountReferenceValues | null>(null)
   const [profile, setProfile] = useState<UserPublicProfileResponse | null>(null)
   const [selectedPlatform, setSelectedPlatform] = useState<'TIMO' | 'LINKY' | null>(null)
   const [selectedPlatformVerified, setSelectedPlatformVerified] = useState(false)
@@ -2047,22 +2051,25 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
         setWorkspaceLoaded(true)
         if (!workspace.selected) { setSelectedPlatform(null); return }
         const platformCode = workspace.selected
+        setReferenceValues(null)
         setSelectedPlatform(platformCode)
         const verified = workspace.apps.some((app) => app.code === platformCode && app.verified)
         setSelectedPlatformVerified(verified)
         const readable = workspace.apps.some((app) => app.code === platformCode && canReadAppEarnings(app))
         setSelectedEarningsReadable(readable)
         if (!readable) return
-        const [homeData, teamData, walletData, profileData] = await Promise.all([
+        const [homeData, teamData, walletData, profileData, referenceData] = await Promise.all([
           getDistributionHome(session.userId, session.accessToken, platformCode),
           getDistributionEffectiveTeam(session.userId, session.accessToken, platformCode).catch(() => { setTeamError(true); return null }),
           getDistributionInvitationAccount(session.userId, session.accessToken, 0, 20, platformCode),
           getUserPublicProfile(session.userId, session.accessToken).catch(() => null),
+          getAccountReferenceValues(session.userId, session.accessToken, platformCode).catch(() => null),
         ])
         setHome(homeData)
         setTeam(teamData)
         if (teamData) setTeamError(false)
         setWallet(walletData)
+        setReferenceValues(referenceData)
         setProfile(profileData)
       } catch (err) {
         const message = err instanceof Error ? err.message : ''
@@ -2096,6 +2103,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   }
 
   const rewardItems = wallet?.items ?? []
+  const quoteFlow=usePointReferenceQuotes(session,selectedPlatform,rewardItems.map(item=>item.type==='UNFREEZE' ? item.availableDelta : item.frozenDelta+item.availableDelta))
 
   function getRewardActivityTitle(level?: number | null) {
     return level === 1 ? walletCopy.direct : walletCopy.indirect
@@ -2114,6 +2122,18 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   const availableReward = wallet?.availablePoints ?? 0
   const totalReward = wallet?.totalPoints ?? 0
   const frozenReward = wallet?.frozenPoints ?? 0
+  const referenceCopy = { zh: '参考金额', en: 'Reference value', es: 'Valor de referencia', id: 'Nilai referensi', pt: 'Valor de referência' }[locale]
+  const manualCopy = { zh: '人工积分调整', en: 'Manual points adjustment', es: 'Ajuste manual de puntos', id: 'Penyesuaian poin manual', pt: 'Ajuste manual de pontos' }[locale]
+  function hasReference(key: keyof AccountReferenceValues, points: number) {
+    const value=referenceValues?.[key]
+    return value?.status==='CONFIGURED' && value.amount!==null && !!value.currencyCode && Number(value.points)===points
+  }
+  function displayedValue(key: keyof AccountReferenceValues, points: number) {
+    if (!wallet) return '—'
+    const value=referenceValues?.[key]
+    return hasReference(key,points) && value
+      ? `${value.amount} ${value.currencyCode}` : `${formatMoney(points, locale)} ${walletCopy.unit}`
+  }
   const effectiveUsersThisView = effectiveTeamCount(team, teamError)
 
   if (session && workspaceLoaded && !selectedPlatform) {
@@ -2154,12 +2174,12 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
         </section> : <section className="consumer-settings-card">
           <h2>{walletCopy.recordsCount(wallet?.totalRecords ?? 0)}</h2>
           <div className="consumer-detail-grid">
-            <div><span>{walletCopy.income}</span><strong>{formatMoney(wallet?.cumulativeIncomePoints, locale)} {walletCopy.unit}</strong></div>
-            <div><span>{walletCopy.frozen}</span><strong>{formatMoney(frozenReward, locale)} {walletCopy.unit}</strong></div>
-            <div><span>{walletCopy.available}</span><strong>{formatMoney(availableReward, locale)} {walletCopy.unit}</strong></div>
+            <div><span>{walletCopy.income}</span><strong>{displayedValue('income',wallet?.cumulativeIncomePoints ?? 0)}</strong></div>
+            <div><span>{walletCopy.frozen}</span><strong>{displayedValue('frozen',frozenReward)}</strong></div>
+            <div><span>{walletCopy.available}</span><strong>{displayedValue('available',availableReward)}</strong></div>
           </div>
           {rewardItems.length ? <div className="consumer-withdraw-list">{rewardItems.map((item) =>
-            <div key={item.id}><span>{item.type === 'UNFREEZE' ? walletCopy.release : item.type === 'MCN_REVISION' ? walletCopy.revision : getRewardActivityTitle(item.rewardLevel)}<small>{item.platformCode} · {formatMoney(item.rewardDiamonds, locale)} {walletCopy.diamondUnit} · {formatRewardDate(item.recordedAt)}</small></span><strong>{formatMoney(item.type === 'UNFREEZE' ? item.availableDelta : item.frozenDelta + item.availableDelta, locale)} {walletCopy.unit}</strong></div>)}</div> :
+            <div key={item.id}><span>{item.type === 'MANUAL_ADJUSTMENT' ? manualCopy : item.type === 'UNFREEZE' ? walletCopy.release : item.type === 'MCN_REVISION' ? walletCopy.revision : getRewardActivityTitle(item.rewardLevel)}<small>{item.platformCode} · {item.type === 'MANUAL_ADJUSTMENT' ? '' : `${formatMoney(item.rewardDiamonds, locale)} ${walletCopy.diamondUnit} · `}{formatRewardDate(item.recordedAt)}</small></span><strong>{quoteFlow(item.type === 'UNFREEZE' ? item.availableDelta : item.frozenDelta + item.availableDelta,locale,walletCopy.unit)}</strong></div>)}</div> :
             <div className="consumer-empty-state"><Wallet weight="duotone" aria-hidden="true" /><p>{copy.emptyRewardsTitle}</p></div>}
           {wallet && wallet.items.length < wallet.totalRecords ? <button className="consumer-detail-load-more" type="button" onClick={() => void loadMoreWallet()} disabled={loading}>{loading ? copy.loading : walletCopy.loadMore}</button> : null}
         </section>}
@@ -2214,7 +2234,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
             <section className="consumer-balance-card" aria-label={walletCopy.available}>
               <div className="consumer-balance-top">
                 <div className="consumer-balance-label">
-                  <span>{walletCopy.available}</span>
+                  <span>{walletCopy.available}{hasReference('available',availableReward) ? ` · ${referenceCopy}` : ''}</span>
                   <button type="button" className="consumer-icon-button" onClick={() => setShowBalance((value) => !value)} aria-label={showBalance ? walletCopy.hideBalance : walletCopy.showBalance}>
                     {showBalance ? <Eye weight="regular" aria-hidden="true" /> : <EyeSlash weight="regular" aria-hidden="true" />}
                   </button>
@@ -2222,20 +2242,20 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
                 <button className="consumer-hero-withdraw" type="button" onClick={() => setWithdrawalDialogOpen(true)}>{withdrawalCopy.title}</button>
               </div>
               <div className="consumer-balance-value">
-                <strong>{showBalance ? formatMoney(availableReward, locale) : '••••••'} {walletCopy.unit}</strong>
+                <strong>{showBalance ? displayedValue('available',availableReward) : '••••••'}</strong>
               </div>
               <div className="consumer-balance-metrics">
                 <div>
                   <span>{walletCopy.frozen}</span>
-                  <strong>{showBalance ? formatMoney(frozenReward, locale) : '••••'}</strong>
+                  <strong>{showBalance ? displayedValue('frozen',frozenReward) : '••••'}</strong>
                 </div>
                 <div>
                   <span>{walletCopy.total}</span>
-                  <strong>{showBalance ? formatMoney(totalReward, locale) : '••••'}</strong>
+                  <strong>{showBalance ? displayedValue('total',totalReward) : '••••'}</strong>
                 </div>
                 <div>
                   <span>{walletCopy.income}</span>
-                  <strong>{showBalance ? formatMoney(wallet?.cumulativeIncomePoints, locale) : '••••'}</strong>
+                  <strong>{showBalance ? displayedValue('income',wallet?.cumulativeIncomePoints ?? 0) : '••••'}</strong>
                 </div>
                 <div>
                   <span>{copy.effectiveUsers}</span>
@@ -2280,7 +2300,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
               ) : rewardItems.length ? (
                 <div className="consumer-activity-list">
                   {rewardItems.slice(0, 3).map((item) => {
-                    const isAvailable = item.type === 'UNFREEZE'
+                    const isAvailable = item.type === 'UNFREEZE' || item.type === 'MANUAL_ADJUSTMENT'
                     const amount = item.type === 'UNFREEZE' ? item.availableDelta : item.frozenDelta + item.availableDelta
                     return (
                       <article className="consumer-activity-row" key={item.id}>
@@ -2288,12 +2308,12 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
                           {isAvailable ? <CheckCircle weight="fill" aria-hidden="true" /> : <LockSimple weight="fill" aria-hidden="true" />}
                         </span>
                         <div className="consumer-activity-copy">
-                          <strong>{item.type === 'UNFREEZE' ? walletCopy.release : item.type === 'MCN_REVISION' ? walletCopy.revision : getRewardActivityTitle(item.rewardLevel)}</strong>
-                          <span>{item.platformCode} · {walletCopy.sourceUser} #{item.sourceUserId}</span>
+                          <strong>{item.type === 'MANUAL_ADJUSTMENT' ? manualCopy : item.type === 'UNFREEZE' ? walletCopy.release : item.type === 'MCN_REVISION' ? walletCopy.revision : getRewardActivityTitle(item.rewardLevel)}</strong>
+                          <span>{item.platformCode}{item.type === 'MANUAL_ADJUSTMENT' ? '' : ` · ${walletCopy.sourceUser} #${item.sourceUserId}`}</span>
                         </div>
                         <div className={`consumer-activity-amount ${isAvailable ? 'is-available' : 'is-frozen'}`}>
-                          <strong>{amount > 0 ? '+' : ''}{formatMoney(amount, locale)} {walletCopy.unit}</strong>
-                          <span>{item.type === 'UNFREEZE' ? walletCopy.available : item.type === 'MCN_REVISION' ? walletCopy.revision : walletCopy.frozen} · {formatRewardDate(item.recordedAt)}</span>
+                          <strong>{amount > 0 ? '+' : ''}{quoteFlow(amount,locale,walletCopy.unit)}</strong>
+                          <span>{item.type === 'MANUAL_ADJUSTMENT' ? manualCopy : item.type === 'UNFREEZE' ? walletCopy.available : item.type === 'MCN_REVISION' ? walletCopy.revision : walletCopy.frozen} · {formatRewardDate(item.recordedAt)}</span>
                         </div>
                       </article>
                     )
@@ -2367,6 +2387,10 @@ function CommissionReportPage({ directInviteeUserId }: { directInviteeUserId?: n
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const valid = validCommissionPeriod(startDate, endDate)
+  const reportAmounts = report ? [report.directPoints,report.indirectPoints,report.totalPoints,report.unattributedPoints,...report.items.flatMap(item=>[item.directPoints,item.indirectPoints,item.totalPoints])] : []
+  const sourceAmounts = sources ? [sources.indirectPoints,...sources.items.map(item=>item.points)] : []
+  const quotePoints=usePointReferenceQuotes(session,platform,[...reportAmounts,...sourceAmounts])
+  const monetaryNotice={zh:'货币金额仅供参考',en:'Currency values are for reference',es:'Importes solo de referencia',id:'Nilai mata uang hanya sebagai referensi',pt:'Valores em moeda são apenas referência'}[locale]
 
   useEffect(() => {
     if (!session) return
@@ -2432,6 +2456,7 @@ function CommissionReportPage({ directInviteeUserId }: { directInviteeUserId?: n
     <section className="consumer-commercial-heading"><h1>{copy.title}</h1></section>
     {!session ? <a className="consumer-primary-link" href="/invite#phone-login">{copy.signIn}</a> : !workspaceLoaded ? <p>{workspaceCopy[locale].loading}</p> : !platform || !earningsReadable ? <ConsumerUnboundGuidance locale={locale} variant="gate" /> : <>
       <p className="consumer-workspace-banner">{copy.app(consumerAppName(platform))}</p>
+      <p>{monetaryNotice}</p>
       <section className="consumer-settings-card consumer-commission-filters">
         <h2>{copy.period}</h2>
         <div className="consumer-commission-quick">{(['yesterday', 3, 7] as const).map((days) =>
@@ -2446,12 +2471,12 @@ function CommissionReportPage({ directInviteeUserId }: { directInviteeUserId?: n
       {error ? <div className="consumer-banner is-error" role="alert">{error}</div> : null}
       {valid && directInviteeUserId && sources?.platformCode === platform && sources.startDate === startDate && sources.endDate === endDate ? <section className="consumer-settings-card">
         <h2>{sources.directInviteeNickname || copy.unknown} · #{sources.directInviteeUserId}</h2>
-        <p>{copy.indirect}{metricSeparator}{formatMoney(sources.indirectPoints, locale)} {copy.points}</p>
-        {sources.items.length ? <div className="consumer-commission-list">{sources.items.map((item) => <div className="consumer-commission-row" key={item.userId}><span><strong>{item.nickname || copy.unknown}</strong><small>#{item.userId}</small></span><span><small>{copy.indirect}</small><strong>{formatMoney(item.points, locale)} {copy.points}</strong></span></div>)}</div> : !loading ? <p>{copy.empty}</p> : null}
+        <p>{copy.indirect}{metricSeparator}{quotePoints(sources.indirectPoints,locale,copy.points)}</p>
+        {sources.items.length ? <div className="consumer-commission-list">{sources.items.map((item) => <div className="consumer-commission-row" key={item.userId}><span><strong>{item.nickname || copy.unknown}</strong><small>#{item.userId}</small></span><span><small>{copy.indirect}</small><strong>{quotePoints(item.points,locale,copy.points)}</strong></span></div>)}</div> : !loading ? <p>{copy.empty}</p> : null}
       </section> : valid && !directInviteeUserId && report?.platformCode === platform && report.startDate === startDate && report.endDate === endDate ? <section className="consumer-settings-card">
-        <div className="consumer-detail-grid consumer-commission-summary"><div><span>{copy.direct}</span><strong>{formatMoney(report.directPoints, locale)} {copy.points}</strong></div><div><span>{copy.indirect}</span><strong>{formatMoney(report.indirectPoints, locale)} {copy.points}</strong></div><div><span>{copy.total}</span><strong>{formatMoney(report.totalPoints, locale)} {copy.points}</strong></div></div>
-        {report.unattributedPoints !== 0 ? <p className="consumer-commission-warning">{copy.unresolved}{metricSeparator}{formatMoney(report.unattributedPoints, locale)} {copy.points}</p> : null}
-        {report.items.length ? <div className="consumer-commission-list">{report.items.map((item) => item.userId > 0 ? <a className="consumer-commission-row" key={item.userId} href={`/earnings/commission/invitees/${item.userId}?${new URLSearchParams({ startDate, endDate })}`}><span><strong>{item.nickname || copy.unknown}</strong><small>#{item.userId} · {copy.details}</small></span><span><small>{copy.direct} {formatMoney(item.directPoints, locale)}</small><small>{copy.indirect} {formatMoney(item.indirectPoints, locale)}</small><strong>{copy.total} {formatMoney(item.totalPoints, locale)} {copy.points}</strong></span><CaretRight weight="bold" /></a> : <div className="consumer-commission-row" key="unresolved"><strong>{copy.unresolved}</strong><strong>{formatMoney(item.totalPoints, locale)} {copy.points}</strong></div>)}</div> : !loading ? <p>{copy.empty}</p> : null}
+        <div className="consumer-detail-grid consumer-commission-summary"><div><span>{copy.direct}</span><strong>{quotePoints(report.directPoints,locale,copy.points)}</strong></div><div><span>{copy.indirect}</span><strong>{quotePoints(report.indirectPoints,locale,copy.points)}</strong></div><div><span>{copy.total}</span><strong>{quotePoints(report.totalPoints,locale,copy.points)}</strong></div></div>
+        {report.unattributedPoints !== 0 ? <p className="consumer-commission-warning">{copy.unresolved}{metricSeparator}{quotePoints(report.unattributedPoints,locale,copy.points)}</p> : null}
+        {report.items.length ? <div className="consumer-commission-list">{report.items.map((item) => item.userId > 0 ? <a className="consumer-commission-row" key={item.userId} href={`/earnings/commission/invitees/${item.userId}?${new URLSearchParams({ startDate, endDate })}`}><span><strong>{item.nickname || copy.unknown}</strong><small>#{item.userId} · {copy.details}</small></span><span><small>{copy.direct} {quotePoints(item.directPoints,locale,copy.points)}</small><small>{copy.indirect} {quotePoints(item.indirectPoints,locale,copy.points)}</small><strong>{copy.total} {quotePoints(item.totalPoints,locale,copy.points)}</strong></span><CaretRight weight="bold" /></a> : <div className="consumer-commission-row" key="unresolved"><strong>{copy.unresolved}</strong><strong>{quotePoints(item.totalPoints,locale,copy.points)}</strong></div>)}</div> : !loading ? <p>{copy.empty}</p> : null}
       </section> : null}
       {loading ? <p>{workspaceCopy[locale].loading}</p> : null}
       {(directInviteeUserId

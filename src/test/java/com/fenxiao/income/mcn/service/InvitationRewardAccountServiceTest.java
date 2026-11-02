@@ -1,6 +1,8 @@
 package com.fenxiao.income.mcn.service;
 
 import com.fenxiao.user.repository.UserDistributionProfileRepository;
+import com.fenxiao.user.entity.UserDistributionProfile;
+import com.fenxiao.admin.service.AdminSessionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -13,6 +15,8 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.LocalDateTime;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -20,6 +24,50 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class InvitationRewardAccountServiceTest {
+    @Test
+    void manualAdjustmentIsIdempotentAndOnlyAffectsSelectedWorkspace() {
+        JdbcTemplate jdbc=database("manual_points");
+        MutableClock clock=new MutableClock(Instant.parse("2026-09-24T12:00:00Z"));
+        var users=mock(UserDistributionProfileRepository.class);
+        when(users.findById(2L)).thenReturn(Optional.of(UserDistributionProfile.create(2L,"BR","pt","TEST")));
+        when(users.existsById(2L)).thenReturn(true);
+        var actor=new AdminSessionService.AdminPrincipal(1,"admin","admin","super_admin",false,1,false,LocalDateTime.now().plusDays(1),"*","*","*");
+        var service=new ManualPointsAdjustmentService(jdbc,users,clock);
+        var request=new ManualPointsAdjustmentService.Request("c977b8b8-1e0c-442b-b50b-7005e07c6392","TIMO",new BigDecimal("-25"),"测试调整");
+        service.adjust(2L,request,actor);
+        service.adjust(2L,request,actor);
+        assertThatThrownBy(()->service.adjust(2L,new ManualPointsAdjustmentService.Request(request.requestId(),"TIMO",new BigDecimal("-50"),"测试调整"),actor))
+                .isInstanceOf(IllegalArgumentException.class);
+        var restricted=new AdminSessionService.AdminPrincipal(2,"finance","finance","finance",false,2,false,LocalDateTime.now().plusDays(1),"LINKY","*","*");
+        assertThatThrownBy(()->service.adjust(2L,new ManualPointsAdjustmentService.Request("a85d73bb-a8b0-420f-a8b2-2a4506dca469","TIMO",BigDecimal.ONE,"测试限制"),restricted))
+                .isInstanceOf(com.fenxiao.common.api.ForbiddenException.class);
+        assertThat(balance(jdbc,"available_points")).isEqualByComparingTo("-25");
+        var query=new InvitationRewardAccountQueryService(jdbc,users);
+        assertThat(query.get(2L,0,20,"TIMO").availablePoints()).isEqualByComparingTo("-25");
+        assertThat(query.get(2L,0,20,"LINKY").availablePoints()).isZero();
+        assertThat(query.get(2L,0,20,"TIMO").items().getFirst().type()).isEqualTo("MANUAL_ADJUSTMENT");
+        assertThat(query.get(2L,0,20,"TIMO").directIncomePoints()).isZero();
+        service.adjust(2L,new ManualPointsAdjustmentService.Request("4f1505de-bd6e-48d4-88e3-c99c8f1adea0","LINKY",new BigDecimal("100"),"测试增加"),actor);
+        assertThat(query.get(2L,0,20).availablePoints()).isEqualByComparingTo("75");
+        assertThat(query.get(2L,0,20,"TIMO").availablePoints()).isEqualByComparingTo("-25");
+        assertThat(query.get(2L,0,20,"LINKY").availablePoints()).isEqualByComparingTo("100");
+    }
+    @Test
+    void sourceCorrectionMayProduceNegativeAvailableBalance() {
+        JdbcTemplate jdbc = database("account_negative_revision");
+        MutableClock clock = new MutableClock(Instant.parse("2026-09-24T12:00:00Z"));
+        InvitationRewardAccountService service = new InvitationRewardAccountService(jdbc, clock, 7, new InvitationCommissionReportProjector(jdbc));
+        jdbc.update("INSERT INTO token_point_conversion_version(id,platform_code,token_unit,points_per_token,rule_status,effective_from) VALUES (1,'TIMO','TIMO_DIAMOND',2,'ACTIVE',?)", Timestamp.from(clock.instant().minusSeconds(60)));
+        candidate(jdbc, "v1", "25.000000", "2.500000");
+        service.reconcile("TIMO", LocalDate.of(2026, 9, 24));
+        clock.advanceDays(7);
+        service.releaseDue();
+        jdbc.update("UPDATE invitation_reward_account SET available_points=1 WHERE user_id=2");
+        jdbc.update("UPDATE mcn_income_reward_candidate_projection SET candidate_status='BLOCKED_SOURCE_REVOKED' WHERE source_event_id='event-1'");
+        service.reconcile("TIMO", LocalDate.of(2026, 9, 24));
+        assertThat(balance(jdbc, "available_points")).isEqualByComparingTo("-4");
+        assertThat(jdbc.queryForObject("SELECT available_delta FROM invitation_reward_account_ledger WHERE event_type='MCN_REVISION'", BigDecimal.class)).isEqualByComparingTo("-5");
+    }
     @Test
     void postsOnlyInvitationShareOfCompanyIncomeAndReconcilesSevenDayFreezeAndRevisions() {
         JdbcTemplate jdbc = database("account_flow");
@@ -202,6 +250,7 @@ class InvitationRewardAccountServiceTest {
         jdbc.execute("CREATE TABLE token_point_conversion_version(id BIGINT PRIMARY KEY)");
         jdbc.update("INSERT INTO token_point_conversion_version VALUES (1)");
         new ResourceDatabasePopulator(new ClassPathResource("db/migration/V66__add_invitation_reward_account.sql")).execute(source);
+
         jdbc.execute("CREATE TABLE invitation_relation_version(user_id BIGINT,inviter_user_id BIGINT,version_no INT,effective_from TIMESTAMP,effective_to TIMESTAMP)");
         jdbc.update("INSERT INTO invitation_relation_version VALUES (3,1,1,'2026-09-01 00:00:00',NULL)");
         jdbc.update("""
@@ -253,6 +302,7 @@ class InvitationRewardAccountServiceTest {
                 effective_from TIMESTAMP,effective_to TIMESTAMP)
                 """);
         new ResourceDatabasePopulator(new ClassPathResource("db/migration/V66__add_invitation_reward_account.sql")).execute(source);
+        jdbc.execute("CREATE TABLE invitation_points_manual_adjustment(id BIGINT AUTO_INCREMENT PRIMARY KEY,request_id VARCHAR(64) UNIQUE,user_id BIGINT,platform_code VARCHAR(32),delta_points DECIMAL(24,6),reason VARCHAR(128),actor_id BIGINT,before_available DECIMAL(24,6),after_available DECIMAL(24,6),created_at TIMESTAMP)");
         jdbc.execute("CREATE TABLE invitation_relation_version(user_id BIGINT,inviter_user_id BIGINT,version_no INT,effective_from TIMESTAMP,effective_to TIMESTAMP)");
         jdbc.execute("CREATE TABLE user_public_profile(user_id BIGINT PRIMARY KEY,nickname VARCHAR(40))");
         new ResourceDatabasePopulator(new ClassPathResource("db/migration/V74__add_invitation_commission_report_projection.sql")).execute(source);

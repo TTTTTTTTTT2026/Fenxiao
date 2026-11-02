@@ -3697,6 +3697,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
 
           {activeAdminSection === 'userAccounts' ? <LegacyUserAccountSection
             userId={accountSearchUserId}
+            sessionToken={adminSession?.sessionToken}
             account={adminInvitationAccount}
             loading={loading}
             onUserIdChange={(value) => { setAccountSearchUserId(value); setAdminInvitationAccount(null) }}

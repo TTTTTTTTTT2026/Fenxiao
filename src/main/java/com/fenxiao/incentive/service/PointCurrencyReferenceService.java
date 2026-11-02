@@ -28,7 +28,9 @@ import java.util.*;
 public class PointCurrencyReferenceService {
     private static final List<Country> COUNTRIES=List.of(
             new Country("CN","中国","CNY",2),new Country("ID","印度尼西亚","IDR",2),
-            new Country("MX","墨西哥","MXN",2),new Country("BR","巴西","BRL",2),new Country("HK","香港","HKD",2));
+            new Country("MX","墨西哥","MXN",2),new Country("BR","巴西","BRL",2),new Country("HK","香港","HKD",2),
+            new Country("CO","哥伦比亚","COP",2),new Country("CL","智利","CLP",0),
+            new Country("VE","委内瑞拉","VES",2),new Country("PE","秘鲁","PEN",2));
     private static final String SELECT="SELECT id,version_no,currency_per_point,enabled,effective_at,cancelled,created_by,created_at FROM point_currency_rate_version";
     private final JdbcTemplate jdbc;
     private final OperationAuditLogRepository audits;
@@ -106,6 +108,24 @@ public class PointCurrencyReferenceService {
         String amount=stored!=null&&stored.enabled()?points.multiply(stored.value()).setScale(country.fractionDigits(),RoundingMode.HALF_UP).toPlainString():null;
         return new Quote(true,status,country.countryCode(),country.currencyCode(),plain(points),stored==null?null:plain(stored.value()),amount,
                 stored==null?null:stored.id(),stored==null?null:stored.effectiveAt(),now);
+    }
+
+    /** Caller must first authenticate the user and determine the amount server-side. */
+    public Quote quoteForUser(long userId, BigDecimal points) {
+        String country=users.findById(userId).orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"用户不存在")).getCountryCode();
+        return quote(points,country);
+    }
+
+    /** Values in one response share the same country, rate version and evaluation time. */
+    public List<Quote> quotesForUser(long userId, List<BigDecimal> points) {
+        String code=normalize(users.findById(userId).orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"用户不存在")).getCountryCode());
+        Instant evaluated=now();
+        Country c=COUNTRIES.stream().filter(country->country.countryCode().equals(code)).findFirst().orElse(null);
+        Stored stored=c==null?null:current(c.countryCode(),evaluated);
+        String status=c==null?"UNSUPPORTED_COUNTRY":stored==null?"NOT_CONFIGURED":!stored.enabled()?"DISABLED":"CONFIGURED";
+        return points.stream().map(value->new Quote(true,status,code,c==null?null:c.currencyCode(),plain(value),
+                stored==null?null:plain(stored.value()),stored!=null&&stored.enabled()?value.multiply(stored.value()).setScale(c.fractionDigits(),RoundingMode.HALF_UP).toPlainString():null,
+                stored==null?null:stored.id(),stored==null?null:stored.effectiveAt(),evaluated)).toList();
     }
 
     private Setting setting(Country country,Instant now) {
