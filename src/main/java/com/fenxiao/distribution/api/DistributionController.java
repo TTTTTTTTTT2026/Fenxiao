@@ -229,6 +229,15 @@ public class DistributionController {
         return invitationProgress.get(userId, platformCode, page, size);
     }
 
+    public record VerifiedInviteCount(String platformCode, long count) { }
+    @GetMapping("/team/{userId}/verified-invite-count")
+    public VerifiedInviteCount verifiedInviteCount(@RequestHeader("X-Distribution-Token") String accessToken,
+            @PathVariable Long userId, @RequestParam String platformCode) {
+        distributionAccessGuard.assertUserAccess(userId, accessToken);
+        String platform = workspaces.requireEarningsRead(userId, platformCode);
+        return new VerifiedInviteCount(platform, invitationProgress.countVerified(userId, platform));
+    }
+
     @GetMapping("/team/{userId}/weekly-income")
     public TeamWeeklyIncomeResponse teamWeeklyIncome(@RequestHeader("X-Distribution-Token") String accessToken,
                                                      @PathVariable Long userId) {
