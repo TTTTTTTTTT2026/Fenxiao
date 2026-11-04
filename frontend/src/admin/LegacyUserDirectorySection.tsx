@@ -31,12 +31,13 @@ type Props = {
   onEditNickname: (item: UserPlatformProfileItem) => void
   onEarningsReadAccess?: (item: UserPlatformProfileItem) => void
   canManageEarningsReadAccess?: boolean
+  onLinkyBindingTarget?: (item: UserPlatformProfileItem) => void
 }
 
 export default function LegacyUserDirectorySection({
   query, options, onQueryChange, onSearch, onPageChange, onPageSizeChange, profiles, loading,
   canManageCountry, canManageLinkyInvitationGuild, canManagePasswordLogin, canManageOperations, canManageNickname,
-  onCopyInviteCode, onAdjustCountry, onAdjustLinkyInvitationGuild, onPasswordLogin, onEditOperations, onEditNickname, onEarningsReadAccess, canManageEarningsReadAccess = false,
+  onCopyInviteCode, onAdjustCountry, onAdjustLinkyInvitationGuild, onPasswordLogin, onEditOperations, onEditNickname, onEarningsReadAccess, canManageEarningsReadAccess = false, onLinkyBindingTarget,
 }: Props) {
   const page = profiles?.page ?? 0
   const size = profiles?.size ?? Number(query.size || 20)
@@ -85,9 +86,10 @@ export default function LegacyUserDirectorySection({
             item.invitationGuild ? <div className="stack-gap small"><strong>{item.invitationGuild.guildName} · {item.invitationGuild.guildId}</strong><span>{item.invitationGuild.source}{item.invitationGuild.inheritedFromUserId ? ` · 继承自 #${item.invitationGuild.inheritedFromUserId}` : ''}</span></div> : '-',
             item.passwordLoginEnabled ? '已开通' : '未开通',
             item.earningsReadPlatforms?.length ? item.earningsReadPlatforms.map(code => code === 'TIMO' ? 'Timo' : code === 'LINKY' ? 'Linky' : code).join('、') : '未授权',
-            canManageCountry || canManageLinkyInvitationGuild || canManagePasswordLogin || canManageOperations || canManageNickname || (canManageEarningsReadAccess && onEarningsReadAccess) ? <div className="admin-user-actions">
+            canManageCountry || canManageLinkyInvitationGuild || canManagePasswordLogin || canManageOperations || canManageNickname || onLinkyBindingTarget || (canManageEarningsReadAccess && onEarningsReadAccess) ? <div className="admin-user-actions">
               {canManageNickname ? <button className="ghost-btn small-btn" onClick={() => onEditNickname(item)}>修改昵称</button> : null}
-              {canManageCountry || canManageLinkyInvitationGuild || canManageOperations || (canManagePasswordLogin && (item.phoneNumber || item.passwordLoginEnabled)) || (canManageEarningsReadAccess && onEarningsReadAccess) ? <details className="admin-user-more"><summary>更多</summary><div className="admin-user-more-actions">
+              {canManageCountry || canManageLinkyInvitationGuild || canManageOperations || (canManagePasswordLogin && (item.phoneNumber || item.passwordLoginEnabled)) || onLinkyBindingTarget || (canManageEarningsReadAccess && onEarningsReadAccess) ? <details className="admin-user-more"><summary>更多</summary><div className="admin-user-more-actions">
+              {onLinkyBindingTarget ? <button className="ghost-btn small-btn" onClick={() => onLinkyBindingTarget(item)}>设置本人 Linky 绑定目标</button> : null}
               {canManageEarningsReadAccess && onEarningsReadAccess ? <button className="ghost-btn small-btn" onClick={() => onEarningsReadAccess(item)}>收益查看权限</button> : null}
               {canManageOperations ? <button className="ghost-btn small-btn" onClick={() => onEditOperations(item, 'operator')}>设置对接运营</button> : null}
               {canManageOperations ? <button className="ghost-btn small-btn" onClick={() => onEditOperations(item, 'value')}>设置用户价值</button> : null}

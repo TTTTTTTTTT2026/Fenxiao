@@ -204,6 +204,7 @@ import LegacyRiskQueueSection, { type RiskActionName, type RiskQuery } from './L
 import LegacyUserAccountSection from './LegacyUserAccountSection'
 import { DataTable,EmptyState,InfoCard,InfoRow,InlineHint,PanelSection,RelationItem,StatusBadge } from './LegacyPresentation'
 import LegacyUserDirectorySection, { type UserPlatformQuery } from './LegacyUserDirectorySection'
+import LinkyBindingTargetDialog from './LinkyBindingTargetDialog'
 import LegacyEarningsReadAccessDialog from './LegacyEarningsReadAccessDialog'
 import {
 ADMIN_SECTION_HASHES,
@@ -549,6 +550,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [userDirectoryOptions, setUserDirectoryOptions] = useState<UserDirectoryOptions | null>(null)
   const [earningsAccessUserId, setEarningsAccessUserId] = useState<number | null>(null)
   const [userOperationsDraft, setUserOperationsDraft] = useState<{ userId: number; field: 'operator' | 'value'; target: string; current: string; reason: string } | null>(null)
+  const [linkyBindingTargetUserId, setLinkyBindingTargetUserId] = useState<number | null>(null)
   const [userNicknameDraft, setUserNicknameDraft] = useState<{ userId: number; current: string; target: string } | null>(null)
   const [userCountryDraft, setUserCountryDraft] = useState<{ userId: number; currentCountryCode: string; targetCountryCode: string } | null>(null)
   const [userPasswordDraft, setUserPasswordDraft] = useState<{ userId: number; nickname: string | null; phoneNumber: string; mode: 'set' | 'disable'; alreadyEnabled: boolean; password: string; confirmPassword: string } | null>(null)
@@ -3542,7 +3544,10 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             onEditNickname={openUserNicknameDialog}
             onEarningsReadAccess={(item) => setEarningsAccessUserId(item.userId)}
             canManageEarningsReadAccess={canManageEarningsReadAccess}
+            onLinkyBindingTarget={adminSession?.role?.toLowerCase() === 'super_admin' ? (item) => setLinkyBindingTargetUserId(item.userId) : undefined}
           /> : null}
+
+          {linkyBindingTargetUserId !== null && adminSession ? <LinkyBindingTargetDialog token={adminSession.sessionToken} userId={linkyBindingTargetUserId} onClose={()=>setLinkyBindingTargetUserId(null)} onSaved={()=>{setLinkyBindingTargetUserId(null);setSuccessMessage('本人 Linky 绑定目标已保存；仍需用户提交账号完成正式核验。')}} /> : null}
 
           {earningsAccessUserId !== null && adminSession && canManageEarningsReadAccess ? <LegacyEarningsReadAccessDialog
             key={`${adminSession.sessionToken}:${earningsAccessUserId}`}

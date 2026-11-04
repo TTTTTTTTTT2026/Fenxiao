@@ -70,7 +70,7 @@ public class InviteBindingRegistrationService {
             throw new IllegalStateException("linky account already registered");
         }
         LinkyInvitationGuildAttributionService.ResolvedGuild expectedGuild = invitationGuildAttributionService
-                .resolveExpectedGuildForBinding(userId);
+                .resolveExpectedGuildForBinding(userId, normalizedLinkyAccount);
         linkyBindingVerificationService.assertEligibleForExpectedGuild(
                 userId,
                 normalizedLinkyAccount,
