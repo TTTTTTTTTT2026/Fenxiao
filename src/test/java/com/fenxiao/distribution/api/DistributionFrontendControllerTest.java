@@ -1,6 +1,9 @@
 package com.fenxiao.distribution.api;
 
 import com.fenxiao.distribution.service.DistributionBindingService;
+import com.fenxiao.distribution.service.InvitationProgressService;
+import com.fenxiao.platform.entity.PlatformAccountBinding;
+import com.fenxiao.platform.repository.PlatformAccountBindingRepository;
 import com.fenxiao.distribution.service.LinkyRegistrationEligibilityService;
 import com.fenxiao.reward.service.RewardCalculationService;
 import com.fenxiao.rule.entity.RewardRule;
@@ -34,6 +37,8 @@ class DistributionFrontendControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+    @Autowired private InvitationProgressService invitationProgressService;
+    @Autowired private PlatformAccountBindingRepository platformAccountBindings;
 
     @Autowired
     private DistributionBindingService distributionBindingService;
@@ -55,6 +60,23 @@ class DistributionFrontendControllerTest {
 
     @Autowired
     private JdbcTemplate jdbc;
+
+    @Test
+    void verifiedInviteCountIsDirectAndPlatformSpecific() {
+        var root = distributionBindingService.createProfile(24001L, "ID", "id", null);
+        var direct = distributionBindingService.createProfile(24002L, "ID", "id", root.getInviteCode());
+        distributionBindingService.createProfile(24003L, "ID", "id", root.getInviteCode());
+        distributionBindingService.createProfile(24004L, "ID", "id", direct.getInviteCode());
+        var at = LocalDateTime.now();
+        var verified = PlatformAccountBinding.submit(24002L, "TIMO", "123456789012", at);
+        verified.verify("11003905", at, "TEST", "test", at);
+        platformAccountBindings.saveAndFlush(verified);
+        var indirect = PlatformAccountBinding.submit(24004L, "TIMO", "123456789013", at);
+        indirect.verify("11003905", at, "TEST", "test", at);
+        platformAccountBindings.saveAndFlush(indirect);
+        org.junit.jupiter.api.Assertions.assertEquals(1, invitationProgressService.countVerified(24001L, "TIMO"));
+        org.junit.jupiter.api.Assertions.assertEquals(0, invitationProgressService.countVerified(24001L, "LINKY"));
+    }
 
     @Test
     void shouldReturnDistributionHomeSummary() throws Exception {

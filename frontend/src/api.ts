@@ -1786,3 +1786,7 @@ export function getVerificationCampaignAwards(token:string) { return request<Ver
 export function setVerificationCampaignEnabled(token:string,id:number,enabled:boolean) { return request(`/admin/verification-campaigns/${id}/enabled`,{method:'PUT',headers:{'X-Admin-Session':token,'Content-Type':'application/json'},body:JSON.stringify({enabled})}) }
 
 export function updateVerificationCampaignPoints(token:string,id:number,rewardPoints:string) { return request(`/admin/verification-campaigns/${id}/points`,{method:'PUT',headers:{'X-Admin-Session':token,'Content-Type':'application/json'},body:JSON.stringify({rewardPoints})}) }
+
+export function getVerifiedInviteCount(userId: number, accessToken: string, platformCode: 'TIMO' | 'LINKY') {
+  return request<{platformCode: 'TIMO' | 'LINKY'; count: number}>(`/api/distribution/team/${userId}/verified-invite-count?${new URLSearchParams({platformCode})}`, {headers: {'X-Distribution-Token': accessToken}})
+}

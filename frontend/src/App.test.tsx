@@ -745,7 +745,7 @@ describe('Earnings landing page', () => {
     const markup = renderToStaticMarkup(<App />)
 
     expect(markup).toContain('我的收益')
-    expect(markup).toContain('管理收益提现')
+    expect(markup).toContain('提现说明')
     expect(markup).toContain('全部记录')
     expect(markup).toContain('主要导航')
     expect(markup).not.toContain('控制台')
@@ -899,9 +899,9 @@ describe('Earnings landing page', () => {
   it('renders frozen and unlocked points without enabling withdrawals', () => {
     const markup = renderToStaticMarkup(<App />)
 
-    expect(markup).toContain('已解冻积分')
+    expect(markup).toContain('可用余额')
     expect(markup).toContain('冻结中')
-    expect(markup).toContain('管理收益提现')
+    expect(markup).toContain('提现说明')
     expect(markup).not.toContain('申请提现')
     expect(markup).toContain('还没有收益记录')
     expect(markup).toContain('先去生成邀请码并完成绑定，后续有收益会自动显示在这里。')
@@ -911,7 +911,7 @@ describe('Earnings landing page', () => {
   it('removes the educational earnings board from the primary journey', () => {
     const markup = renderToStaticMarkup(<App />)
 
-    expect(markup).toContain('已解冻积分')
+    expect(markup).toContain('可用余额')
     expect(markup).toContain('我的收益')
     expect(markup).not.toContain('你的收益会在这里持续更新')
     expect(markup).not.toContain('邀请码固定不变')
@@ -929,9 +929,11 @@ describe('Earnings landing page', () => {
   it('prioritizes balances over explanatory summary cards', () => {
     const markup = renderToStaticMarkup(<App />)
 
-    expect(markup).toContain('已解冻积分')
+    expect(markup).toContain('可用余额')
     expect(markup).toContain('冻结中')
-    expect(markup).toContain('本应用奖励净额')
+    expect(markup).toContain('奖励总余额')
+    expect(markup).toContain('下级收入分佣')
+    expect(markup).toContain('已包含在邀请收入中')
     expect(markup).not.toContain('来自你的下线成员累计确认收益。')
   })
 

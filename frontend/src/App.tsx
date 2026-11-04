@@ -25,6 +25,7 @@ Wallet,
 import { useEffect,useRef,useState,type FormEvent,type MouseEvent as ReactMouseEvent } from 'react'
 import {
 getConsumerWorkspace,
+getVerifiedInviteCount,
 getDistributionEffectiveTeam,
 getDistributionHome,
 getDistributionInvitationAccount,
@@ -1969,11 +1970,13 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   const [teamReload, setTeamReload] = useState(0)
   const [wallet, setWallet] = useState<InvitationRewardAccountResponse | null>(null)
   const [referenceValues, setReferenceValues] = useState<AccountReferenceValues | null>(null)
-  const [profile, setProfile] = useState<UserPublicProfileResponse | null>(null)
   const [selectedPlatform, setSelectedPlatform] = useState<'TIMO' | 'LINKY' | null>(null)
   const [selectedPlatformVerified, setSelectedPlatformVerified] = useState(false)
   const [selectedEarningsReadable, setSelectedEarningsReadable] = useState(false)
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false)
+  const [earningsWorkspace, setEarningsWorkspace] = useState<ConsumerWorkspaceResponse | null>(null)
+  const [verifiedInviteCount, setVerifiedInviteCount] = useState<number | null>(null)
+  const [switchingEarningsWorkspace, setSwitchingEarningsWorkspace] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showBalance, setShowBalance] = useState(true)
@@ -2049,6 +2052,8 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
       try {
         const workspace = await getConsumerWorkspace(session.userId, session.accessToken)
         setWorkspaceLoaded(true)
+        setEarningsWorkspace(workspace)
+        setVerifiedInviteCount(null)
         if (!workspace.selected) { setSelectedPlatform(null); return }
         const platformCode = workspace.selected
         setReferenceValues(null)
@@ -2058,19 +2063,19 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
         const readable = workspace.apps.some((app) => app.code === platformCode && canReadAppEarnings(app))
         setSelectedEarningsReadable(readable)
         if (!readable) return
-        const [homeData, teamData, walletData, profileData, referenceData] = await Promise.all([
+        const [homeData, teamData, walletData, referenceData, inviteCountData] = await Promise.all([
           getDistributionHome(session.userId, session.accessToken, platformCode),
           getDistributionEffectiveTeam(session.userId, session.accessToken, platformCode).catch(() => { setTeamError(true); return null }),
           getDistributionInvitationAccount(session.userId, session.accessToken, 0, 20, platformCode),
-          getUserPublicProfile(session.userId, session.accessToken).catch(() => null),
           getAccountReferenceValues(session.userId, session.accessToken, platformCode).catch(() => null),
+          getVerifiedInviteCount(session.userId, session.accessToken, platformCode).catch(() => null),
         ])
         setHome(homeData)
         setTeam(teamData)
         if (teamData) setTeamError(false)
         setWallet(walletData)
         setReferenceValues(referenceData)
-        setProfile(profileData)
+        setVerifiedInviteCount(inviteCountData?.platformCode === platformCode ? inviteCountData.count : null)
       } catch (err) {
         const message = err instanceof Error ? err.message : ''
         if (/access denied|unauthorized|session/i.test(message)) {
@@ -2103,7 +2108,8 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   }
 
   const rewardItems = wallet?.items ?? []
-  const quoteFlow=usePointReferenceQuotes(session,selectedPlatform,rewardItems.map(item=>(item.type==='UNFREEZE' || item.type==='ACTIVITY_UNFREEZE') ? item.availableDelta : item.frozenDelta+item.availableDelta))
+  const commissionPoints = (wallet?.directIncomePoints ?? 0) + (wallet?.indirectIncomePoints ?? 0)
+  const quoteFlow=usePointReferenceQuotes(session,selectedPlatform,[commissionPoints, ...rewardItems.map(item=>(item.type==='UNFREEZE' || item.type==='ACTIVITY_UNFREEZE') ? item.availableDelta : item.frozenDelta+item.availableDelta)])
 
   function getRewardActivityTitle(level?: number | null) {
     return level === 1 ? walletCopy.direct : walletCopy.indirect
@@ -2129,13 +2135,37 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
     const value=referenceValues?.[key]
     return value?.status==='CONFIGURED' && value.amount!==null && !!value.currencyCode && Number(value.points)===points
   }
+  function formatReferenceAmount(amount: string, currency: string) {
+    const number = Number(amount)
+    if (!Number.isFinite(number)) return amount + ' ' + currency
+    const numberLocale = { zh: 'zh-CN', en: 'en-US', es: 'es-ES', id: 'id-ID', pt: 'pt-BR' }[locale]
+    try { return new Intl.NumberFormat(numberLocale, { style: 'currency', currency, minimumFractionDigits: currency === 'CLP' ? 0 : 2, maximumFractionDigits: currency === 'CLP' ? 0 : 2 }).format(number) }
+    catch { return amount + ' ' + currency }
+  }
+  function formatCommissionQuote(value: string) {
+    const match = value.match(/^(-?\d+(?:\.\d+)?) ([A-Z]{3})$/)
+    return match ? formatReferenceAmount(match[1], match[2]) : value
+  }
   function displayedValue(key: keyof AccountReferenceValues, points: number) {
     if (!wallet) return '—'
     const value=referenceValues?.[key]
     return hasReference(key,points) && value
-      ? `${value.amount} ${value.currencyCode}` : `${formatMoney(points, locale)} ${walletCopy.unit}`
+      ? formatReferenceAmount(value.amount!, value.currencyCode!) : `${formatMoney(points, locale)} ${walletCopy.unit}`
   }
   const effectiveUsersThisView = effectiveTeamCount(team, teamError)
+  const redesignCopy = {
+    zh: { title: '邀请成果', invited: '邀请收入', valid: '有效邀请', commission: '下级收入分佣', included: '已包含在邀请收入中', withdraw: '提现说明', detail: '查看奖励明细', change: '切换应用', frozen: '冻结中奖励', total: '奖励总余额', balance: '可用余额', description: '在这里查看你的邀请成果' },
+    en: { title: 'Invitation results', invited: 'Invitation income', valid: 'Verified invitees', commission: 'Downline commission', included: 'Included in invitation income', withdraw: 'Withdrawal information', detail: 'View reward activity', change: 'Switch app', frozen: 'Frozen rewards', total: 'Total reward balance', balance: 'Available balance', description: 'Track your invitation rewards here' },
+    es: { title: 'Resultados de invitaciones', invited: 'Ingresos por invitación', valid: 'Invitados verificados', commission: 'Comisión de invitados', included: 'Incluida en ingresos por invitación', withdraw: 'Información de retiro', detail: 'Ver movimientos', change: 'Cambiar aplicación', frozen: 'Recompensas congeladas', total: 'Saldo total de recompensas', balance: 'Saldo disponible', description: 'Consulta tus recompensas por invitación' },
+    id: { title: 'Hasil undangan', invited: 'Pendapatan undangan', valid: 'Undangan terverifikasi', commission: 'Komisi dari tim', included: 'Termasuk dalam pendapatan undangan', withdraw: 'Info penarikan', detail: 'Lihat rincian hadiah', change: 'Ganti aplikasi', frozen: 'Hadiah dibekukan', total: 'Total saldo hadiah', balance: 'Saldo tersedia', description: 'Pantau hadiah undanganmu di sini' },
+    pt: { title: 'Resultados dos convites', invited: 'Receita por convite', valid: 'Convidados verificados', commission: 'Comissão da equipe', included: 'Incluída na receita por convite', withdraw: 'Informações de saque', detail: 'Ver movimentações', change: 'Trocar aplicativo', frozen: 'Recompensas congeladas', total: 'Saldo total de recompensas', balance: 'Saldo disponível', description: 'Acompanhe suas recompensas aqui' },
+  }[locale]
+  async function switchEarningsWorkspace(code: 'TIMO' | 'LINKY') {
+    if (!session || switchingEarningsWorkspace || code === selectedPlatform) return
+    setSwitchingEarningsWorkspace(true)
+    try { await selectConsumerWorkspace(session.userId, session.accessToken, code); window.location.assign('/earnings') }
+    catch { setError(workspaceCopy[locale].error); setSwitchingEarningsWorkspace(false) }
+  }
 
   if (session && workspaceLoaded && !selectedPlatform) {
     return <div className="consumer-app-page"><main className="consumer-shell consumer-detail-page">
@@ -2195,6 +2225,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
         <header className="consumer-topbar">
           <a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />Bandeira</a>
           <div className="consumer-topbar-actions">
+            {session && selectedPlatform && earningsWorkspace ? <label className="earnings-workspace-select"><select aria-label={redesignCopy.change} value={selectedPlatform} disabled={switchingEarningsWorkspace} onChange={(event) => void switchEarningsWorkspace(event.target.value as 'TIMO' | 'LINKY')}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label> : null}
             {!session ? (
               <select className="consumer-language" aria-label={copy.languageLabel} value={locale} onChange={(event) => setLocale(event.target.value as keyof typeof externalPageCopyByLocale)}>
                 <option value="zh">中文</option>
@@ -2209,8 +2240,6 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
         </header>
 
         {error ? <div className="consumer-banner is-error" role="alert">{error}</div> : null}
-        {selectedPlatform ? <div className="consumer-workspace-banner"><strong>{consumerAppName(selectedPlatform)}</strong><span>{workspaceCopy[locale].bannerDescription(consumerAppName(selectedPlatform))}</span><a href="/account">{workspaceCopy[locale].switchOtherApp}</a></div> : null}
-
         {!session ? (
           <section className="consumer-auth-gate">
             <div className="consumer-auth-icon"><Wallet weight="duotone" aria-hidden="true" /></div>
@@ -2223,47 +2252,20 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
           </section>
         ) : (
           <>
-            <div className="consumer-home-greeting">
-              <h1 className="consumer-visually-hidden">{copy.earningsTitle}</h1>
-              <a className="consumer-home-profile-link" href="/account/profile" aria-label={consumerProfileCopy[locale].title}>
-                <span className="consumer-home-avatar">{profile?.avatarDataUrl ? <img src={profile.avatarDataUrl} alt="" /> : <User weight="fill" aria-hidden="true" />}</span>
-                <span className="consumer-home-profile-copy"><strong>{profile?.nickname || walletCopy.greeting}</strong><span>{walletCopy.greetingSubtitle}</span></span>
-              </a>
-              <a className="consumer-notification-link" href="/earnings/activity" aria-label={walletCopy.notificationLabel}><Bell weight="regular" aria-hidden="true" /><i /></a>
-            </div>
-
-            <section className="consumer-balance-card" aria-label={walletCopy.available}>
-              <div className="consumer-balance-top">
-                <div className="consumer-balance-label">
-                  <span>{walletCopy.available}{hasReference('available',availableReward) ? ` · ${referenceCopy}` : ''}</span>
-                  <button type="button" className="consumer-icon-button" onClick={() => setShowBalance((value) => !value)} aria-label={showBalance ? walletCopy.hideBalance : walletCopy.showBalance}>
-                    {showBalance ? <Eye weight="regular" aria-hidden="true" /> : <EyeSlash weight="regular" aria-hidden="true" />}
-                  </button>
-                </div>
-                <button className="consumer-hero-withdraw" type="button" onClick={() => setWithdrawalDialogOpen(true)}>{withdrawalCopy.title}</button>
-              </div>
-              <div className="consumer-balance-value">
-                <strong>{showBalance ? displayedValue('available',availableReward) : '••••••'}</strong>
-              </div>
-              <div className="consumer-balance-metrics">
-                <div>
-                  <span>{walletCopy.frozen}</span>
-                  <strong>{showBalance ? displayedValue('frozen',frozenReward) : '••••'}</strong>
-                </div>
-                <div>
-                  <span>{walletCopy.total}</span>
-                  <strong>{showBalance ? displayedValue('total',totalReward) : '••••'}</strong>
-                </div>
-                <div>
-                  <span>{walletCopy.income}</span>
-                  <strong>{showBalance ? displayedValue('income',wallet?.cumulativeIncomePoints ?? 0) : '••••'}</strong>
-                </div>
-                <div>
-                  <span>{copy.effectiveUsers}</span>
-                  <strong>{effectiveUsersThisView ?? '—'}</strong>
-                </div>
-              </div>
+            <div className="consumer-home-greeting earnings-redesign-greeting"><h1 className="consumer-visually-hidden">{copy.earningsTitle}</h1><div><strong>{walletCopy.greeting}</strong><span>{redesignCopy.description}</span></div><a className="consumer-notification-link" href="/earnings/activity" aria-label={walletCopy.notificationLabel}><Bell weight="regular" aria-hidden="true" /><i /></a></div>
+            <section className="consumer-balance-card earnings-redesign-balance" aria-label={redesignCopy.balance}>
+              <div className="consumer-balance-label"><span>{redesignCopy.balance}</span><button type="button" className="consumer-icon-button" onClick={() => setShowBalance((value) => !value)} aria-label={showBalance ? walletCopy.hideBalance : walletCopy.showBalance}>{showBalance ? <Eye weight="regular" /> : <EyeSlash weight="regular" />}</button></div>
+              <div className="consumer-balance-value"><strong>{showBalance ? displayedValue('available', availableReward) : '••••••'}</strong></div>
+              {hasReference('available', availableReward) ? <p className="earnings-reference-label">{referenceCopy}</p> : null}
+              <button className="consumer-hero-withdraw" type="button" onClick={() => setWithdrawalDialogOpen(true)}>{redesignCopy.withdraw}</button>
+              <div className="consumer-balance-metrics earnings-balance-metrics"><div><span>{redesignCopy.frozen}</span><strong>{showBalance ? displayedValue('frozen', frozenReward) : '••••'}</strong></div><div><span>{redesignCopy.total}</span><strong>{showBalance ? displayedValue('total', totalReward) : '••••'}</strong></div></div>
+              <a className="earnings-reward-link" href="/earnings/activity">{redesignCopy.detail} <ArrowRight weight="bold" /></a>
             </section>
+            <section className="earnings-invitation-results" aria-label={redesignCopy.title}><h2>{redesignCopy.title}</h2><div className="earnings-invitation-grid">
+              <div><span>{redesignCopy.invited}</span><strong>{showBalance ? displayedValue('income', wallet?.cumulativeIncomePoints ?? 0) : '••••'}</strong></div>
+              <div><span>{redesignCopy.valid}</span><strong>{verifiedInviteCount ?? '—'}</strong></div>
+              <div><span>{redesignCopy.commission}</span><strong>{!showBalance ? '••••' : wallet ? formatCommissionQuote(quoteFlow(commissionPoints, locale, walletCopy.unit)) : '—'}</strong><small>{redesignCopy.included}</small></div>
+            </div></section>
 
             {selectedPlatform && selectedPlatformVerified ? <ConsumerGradeProgressCard key={`${session.userId}:${selectedPlatform}`} userId={session.userId} accessToken={session.accessToken} platformCode={selectedPlatform} locale={locale} /> : null}
             {selectedPlatform && selectedEarningsReadable && !selectedPlatformVerified

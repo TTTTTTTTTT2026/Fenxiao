@@ -67,6 +67,14 @@ public class InvitationProgressService {
         return new InvitationProgressResponse(platform, items, page, size, result.getTotalElements(), result.hasNext());
     }
 
+    public long countVerified(Long inviterId, String platform) {
+        return switch (platform) {
+            case "TIMO" -> relations.countVerifiedTimoInvitees(inviterId);
+            case "LINKY" -> relations.countVerifiedLinkyInvitees(inviterId);
+            default -> throw new IllegalArgumentException("unsupported platform");
+        };
+    }
+
     static String maskPhone(String phone) {
         if (phone == null || phone.isBlank()) return null;
         String digits = phone.replaceAll("\\D", "");
