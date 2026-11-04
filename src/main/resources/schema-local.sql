@@ -446,3 +446,14 @@ INSERT INTO invitation_verification_campaign(name,platform_code,reward_points,en
 SELECT 'Timo 邀请核验奖励','TIMO',0,FALSE,0,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP WHERE NOT EXISTS (SELECT 1 FROM invitation_verification_campaign WHERE platform_code='TIMO');
 INSERT INTO invitation_verification_campaign(name,platform_code,reward_points,enabled,created_by,updated_by,created_at,updated_at)
 SELECT 'Linky 邀请核验奖励','LINKY',0,FALSE,0,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP WHERE NOT EXISTS (SELECT 1 FROM invitation_verification_campaign WHERE platform_code='LINKY');
+CREATE TABLE IF NOT EXISTS user_linky_binding_target_override (
+  user_id BIGINT PRIMARY KEY,
+  linky_account VARCHAR(8) NOT NULL,
+  guild_id VARCHAR(8) NOT NULL,
+  guild_name VARCHAR(128) NOT NULL,
+  guild_invite_code VARCHAR(128) NOT NULL,
+  change_reason VARCHAR(255) NOT NULL,
+  changed_by BIGINT NOT NULL,
+  created_at TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP NOT NULL
+);

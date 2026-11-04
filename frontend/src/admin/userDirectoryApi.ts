@@ -117,3 +117,7 @@ export function saveAdminEarningsReadAccess(token: string, userId: number, state
     body: JSON.stringify({ enabled: !state.enabled, expectedVersion: state.version, reason }),
   })
 }
+
+export function setIndividualLinkyBindingTarget(token:string,userId:number,data:{linkyAccount:string;guildId:string;guildInviteCode:string;reason:string}) {
+  return request(`/admin/user-platform-profiles/${userId}/linky-binding-target`, { method:'POST',headers:{'X-Admin-Session':token,'Content-Type':'application/json'},body:JSON.stringify(data) })
+}

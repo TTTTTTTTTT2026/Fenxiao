@@ -30,14 +30,15 @@ public class LinkyInvitationGuildAttributionService {
     private final GuildAccountConfigService guildConfigs;
     private final OperationAuditLogRepository auditLogs;
     private final Clock clock;
+    private final LinkyIndividualBindingTargetService individualTargets;
 
     @Autowired
     public LinkyInvitationGuildAttributionService(LinkyInvitationGuildAttributionRepository attributions,
                                                    DistributionRelationRepository relations,
                                                    GuildAccountConfigRepository legacyConfigs,
                                                    GuildAccountConfigService guildConfigs,
-                                                   OperationAuditLogRepository auditLogs) {
-        this(attributions, relations, legacyConfigs, guildConfigs, auditLogs, Clock.systemUTC());
+                                                   OperationAuditLogRepository auditLogs, LinkyIndividualBindingTargetService individualTargets) {
+        this(attributions, relations, legacyConfigs, guildConfigs, auditLogs, Clock.systemUTC(), individualTargets);
     }
 
     LinkyInvitationGuildAttributionService(LinkyInvitationGuildAttributionRepository attributions,
@@ -45,13 +46,14 @@ public class LinkyInvitationGuildAttributionService {
                                             GuildAccountConfigRepository legacyConfigs,
                                             GuildAccountConfigService guildConfigs,
                                             OperationAuditLogRepository auditLogs,
-                                            Clock clock) {
+                                            Clock clock, LinkyIndividualBindingTargetService individualTargets) {
         this.attributions = attributions;
         this.relations = relations;
         this.legacyConfigs = legacyConfigs;
         this.guildConfigs = guildConfigs;
         this.auditLogs = auditLogs;
         this.clock = clock;
+        this.individualTargets = individualTargets;
     }
 
     /** Resolves the guild for a user's own Linky binding. Fallback is recorded but never treated as platform evidence. */
@@ -65,6 +67,17 @@ public class LinkyInvitationGuildAttributionService {
                 ? LinkyInvitationGuildSource.SYSTEM_DEFAULT : LinkyInvitationGuildSource.FALLBACK_INHERITED;
         recordFallbackMarker(userId, target, marker);
         return target;
+    }
+
+    /** Individual exception applies only to this user and the configured Linky account. */
+    public ResolvedGuild resolveExpectedGuildForBinding(Long userId, String linkyAccount) {
+        var individual = individualTargets.findForBinding(userId, linkyAccount);
+        if (individual.isPresent()) {
+            var target = individual.get();
+            return new ResolvedGuild(target.guildId(), target.guildName(), target.guildInviteCode(),
+                    LinkyInvitationGuildSource.USER_BINDING_OVERRIDE, userId);
+        }
+        return resolveExpectedGuildForBinding(userId);
     }
 
     /** Writes the user's future Linky invitation-route guild after an authoritative Linky binding succeeds. */

@@ -14,6 +14,7 @@ import com.fenxiao.distribution.repository.UserProductOwnershipRepository;
 import com.fenxiao.user.entity.UserDistributionProfile;
 import com.fenxiao.user.repository.UserDistributionProfileRepository;
 import org.junit.jupiter.api.Test;
+import java.time.LocalDateTime;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -26,6 +27,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Transactional
 @SpringBootTest
 class InviteBindingRegistrationServiceTest {
+
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     @Autowired
     private DistributionBindingService distributionBindingService;
@@ -138,6 +142,23 @@ class InviteBindingRegistrationServiceTest {
         var override = linkyInvitationGuildAttributionRepository.findById(inviter.getUserId()).orElseThrow();
         assertThat(override.getGuildId()).isEqualTo("GUILD-MOVED");
         assertThat(override.getAttributionSource()).isEqualTo(LinkyInvitationGuildSource.ADMIN_OVERRIDE);
+    }
+
+    @Test
+    void individualTargetAppliesOnlyToExactUserAndAccountWithoutChangingInvitationRoute() {
+        var root=distributionBindingService.createProfile(51101L, "ID", "id", null);
+        var target=distributionBindingService.createProfile(51102L, "ID", "id", root.getInviteCode());
+        var peer=distributionBindingService.createProfile(51103L, "ID", "id", root.getInviteCode());
+        var child=distributionBindingService.createProfile(51104L, "ID", "id", target.getInviteCode());
+        linkyInvitationGuildAttributionService.override(target.getUserId(),"12345678","Invitation route","INVITE","existing",1L,"super_admin",null);
+        jdbc.update("INSERT INTO user_linky_binding_target_override(user_id,linky_account,guild_id,guild_name,guild_invite_code,change_reason,changed_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)",target.getUserId(),"87654320","31350499","Target guild","JOIN","approved",1L,LocalDateTime.now(),LocalDateTime.now());
+        var result=linkyInvitationGuildAttributionService.resolveExpectedGuildForBinding(target.getUserId(),"87654320");
+        assertThat(result.guildId()).isEqualTo("31350499");
+        assertThat(result.source()).isEqualTo(LinkyInvitationGuildSource.USER_BINDING_OVERRIDE);
+        assertThatThrownBy(()->linkyInvitationGuildAttributionService.resolveExpectedGuildForBinding(target.getUserId(),"87654321")).isInstanceOf(IllegalStateException.class);
+        assertThat(linkyInvitationGuildAttributionService.resolveExpectedGuildForBinding(peer.getUserId(),"87654321").guildId()).isEqualTo("LINKY_DEFAULT_GUILD");
+        assertThat(linkyInvitationGuildAttributionService.resolveExpectedGuildForBinding(child.getUserId(),"87654321").guildId()).isEqualTo("12345678");
+        assertThat(linkyInvitationGuildAttributionRepository.findById(target.getUserId()).orElseThrow().getGuildId()).isEqualTo("12345678");
     }
 
     @Test
