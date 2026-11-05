@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getConsumerGradeProgress, type ConsumerGradeProgressResponse } from './api'
 import { formatConsumerUserGrade, type ConsumerLocale } from './shared/catalog'
+import risingStar from './assets/earnings-rising-star-256-v1.png'
 
 const statusTitle: Record<ConsumerLocale, string> = { zh: '等级状态', en: 'Grade status', es: 'Estado del nivel', id: 'Status tingkat', pt: 'Status do nível' }
 const detailsLabel: Record<ConsumerLocale, string> = { zh: '查看升级规则', en: 'View grade requirements', es: 'Ver requisitos del nivel', id: 'Lihat syarat tingkat', pt: 'Ver requisitos do nível' }
@@ -34,7 +35,7 @@ export function ConsumerGradeProgressView({ data, locale, loading = false, error
   return <section className="consumer-grade-progress" aria-label={title}>
     <div className="consumer-grade-progress-main">
       <div className="consumer-grade-progress-star" aria-hidden="true">
-        <svg viewBox="0 0 64 64" fill="none"><path d="M32 5.5 39.9 21l17.2 2.6-12.4 12.1 2.9 17.1L32 44.7l-15.6 8.1 3-17.1L7 23.6 24.1 21 32 5.5Z" fill="currentColor"/><ellipse cx="32" cy="38" rx="26" ry="8" transform="rotate(-27 32 38)" stroke="currentColor" strokeWidth="3" /></svg>
+        <img src={risingStar} alt="" />
       </div>
       <div className="consumer-grade-progress-content">
     <div className="consumer-grade-progress-heading"><h2>{title}</h2>

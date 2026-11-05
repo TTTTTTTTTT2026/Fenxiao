@@ -7334,3 +7334,55 @@ code {
 .earnings-invitation-grid small { color: #695e58; }
 .consumer-task-section { margin-bottom: max(100px, calc(84px + env(safe-area-inset-bottom))); }
 @media (max-width: 360px) { .earnings-redesign-balance { padding: 16px; } .earnings-balance-header .earnings-reward-link { padding: 7px; font-size: 12px; } .earnings-invitation-results { padding: 16px; } }
+
+/* Earnings: compact hierarchy and warm surfaces from the approved mobile design. */
+.earnings-redesign-greeting { margin: 20px 2px 18px; }
+.earnings-redesign-greeting > div { gap: 3px; }
+.earnings-redesign-greeting > div strong { font-size: clamp(26px, 7vw, 34px); line-height: 1.15; font-weight: 800; }
+.earnings-redesign-greeting > div span { font-size: 15px; line-height: 1.4; }
+.earnings-redesign-balance { border-radius: 20px; padding: 20px; box-shadow: 0 12px 24px rgba(241, 95, 65, .18); }
+.earnings-balance-header .earnings-reward-link { border-radius: 999px; padding: 8px 12px; }
+.earnings-redesign-balance .consumer-balance-value { margin: 14px 0 20px; }
+.earnings-redesign-balance .consumer-balance-value strong { font-size: clamp(32px, 8.3vw, 52px); line-height: 1.05; letter-spacing: -.035em; }
+.earnings-redesign-balance .earnings-balance-metrics { border-radius: 14px; padding: 14px 10px; background: rgba(255, 246, 241, .87); }
+.earnings-redesign-balance .earnings-balance-metrics > div { padding: 0 10px; }
+.earnings-redesign-balance .earnings-balance-metrics strong { margin-top: 4px; font-weight: 800; }
+.earnings-redesign-balance .consumer-hero-withdraw { min-height: 46px; margin-top: 12px; border-radius: 999px; font-weight: 800; }
+.earnings-invitation-results { margin: 12px 0; padding: 18px; border-radius: 18px; box-shadow: 0 8px 22px rgba(138, 74, 48, .06); }
+.earnings-invitation-header { align-items: center; margin-bottom: 14px; }
+.earnings-invitation-header h2 { font-size: 20px; font-weight: 800; }
+.earnings-invitation-header a { color: #f05416; }
+.earnings-invitation-grid { row-gap: 12px; }
+.earnings-invitation-grid > div:nth-child(3) { padding-top: 12px; }
+.earnings-invitation-grid > div:nth-child(3) { padding-right: 100px; background: url('./assets/earnings-invitation-stars-300-v1.png') right bottom / 100px auto no-repeat; }
+.earnings-invitation-grid strong { font-weight: 800; line-height: 1.15; }
+.consumer-grade-progress { margin-top: 12px; padding: 16px; border: 1px solid rgba(255,255,255,.9); box-shadow: 0 8px 22px rgba(138, 74, 48, .06); }
+.consumer-grade-progress-main { align-items: center; gap: 12px; }
+.consumer-grade-progress-star { flex-basis: 62px; filter: none; }
+.consumer-grade-progress-star img { width: 100%; height: auto; display: block; }
+.consumer-grade-progress-content { gap: 6px; }
+.consumer-grade-progress-heading h2 { font-size: 19px; font-weight: 800; line-height: 1.2; }
+.consumer-grade-progress-details summary { width: 21px; height: 21px; font-size: 12px; }
+.consumer-grade-progress-message { color: #6f5a50; }
+.consumer-grade-progress-bar strong { font-size: 17px; }
+.consumer-task-section { margin-top: 12px; border-radius: 18px; box-shadow: 0 8px 22px rgba(138, 74, 48, .06); }
+.earnings-redesign-greeting { margin: 12px 2px; }
+.earnings-redesign-greeting > div strong { font-size: 22px; }
+.earnings-redesign-greeting > div span { font-size: 13px; }
+.earnings-redesign-balance { padding: 16px; }
+.earnings-redesign-balance .consumer-balance-value { margin: 9px 0 12px; }
+.earnings-redesign-balance .consumer-balance-value strong { font-size: clamp(30px, 8vw, 42px); }
+.earnings-redesign-balance .earnings-balance-metrics { padding: 10px 8px; }
+.earnings-redesign-balance .consumer-hero-withdraw { min-height: 44px; margin-top: 10px; }
+.earnings-invitation-results { padding: 15px; margin: 10px 0; }
+.earnings-invitation-header { margin-bottom: 8px; }
+.earnings-invitation-header h2 { font-size: 18px; }
+.earnings-invitation-grid { row-gap: 8px; }
+.earnings-invitation-grid strong { margin-top: 3px; }
+.earnings-invitation-grid > div:nth-child(3) { padding-top: 8px; }
+.consumer-grade-progress { margin-top: 10px; padding: 12px; }
+.consumer-grade-progress-star { flex-basis: 56px; }
+.consumer-grade-progress-content { gap: 4px; }
+.consumer-grade-progress-heading h2 { font-size: 17px; }
+.consumer-grade-progress p { font-size: 13px; line-height: 1.4; }
+@media (max-width: 360px) { .earnings-redesign-balance { padding: 16px; } .earnings-invitation-results { padding: 16px; } .earnings-invitation-grid > div:nth-child(3) { padding-right: 0; background: none; } .consumer-grade-progress { padding: 14px; } .consumer-grade-progress-star { flex-basis: 48px; } }
