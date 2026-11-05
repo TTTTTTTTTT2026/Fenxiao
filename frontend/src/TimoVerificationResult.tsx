@@ -31,7 +31,7 @@ export default function TimoVerificationResult({ binding, locale, loading, onRet
     <p className="consumer-verification-id"><span>Timo ID</span><strong>{binding.platformUserId}</strong></p>
     {reason ? <div><h4>{words.reason}</h4><p>{reason}</p></div> : null}
     <div><h4>{words.next}</h4><p>{manual ? words.assist : technical || state === 'SOURCE_STALE' ? words.later : words.check}</p></div>
-    {binding.status === 'REJECTED' ? <button className="consumer-form-submit" type="button" disabled={loading} onClick={onRetry}>{loading ? words.busy : words.retry}</button> : null}
+    {binding.status === 'REJECTED' || binding.status === 'SUBMITTED' ? <button className="consumer-form-submit" type="button" disabled={loading} onClick={onRetry}>{loading ? words.busy : words.retry}</button> : null}
     <details className="consumer-verification-help"><summary>{words.help}</summary><p>{words.correction}</p><p>{words.safe}</p>
     </details>
   </section>

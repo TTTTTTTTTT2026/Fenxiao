@@ -45,6 +45,7 @@ class ConsumerGradeProgressServiceTest {
         when(binding.getOfficialGuildId()).thenReturn("guild");
         when(bindings.findByUserIdAndPlatformCode(eq(1L), anyString())).thenReturn(Optional.of(binding));
         grades = mock(UserGradeAdminService.class);
+        when(grades.verifiedGuild(eq(1L), anyString())).thenReturn(Optional.of("guild"));
         when(grades.applicableBaseRules(anyString(), eq("ID"), eq("guild"), eq(now))).thenAnswer(invocation -> List.of(
                 new UserGradeRuleResponse(1, "rule", 1, "NEW_STAR", invocation.getArgument(0), "ID", null, 3, BigDecimal.ZERO,
                         now.minusDays(1), null, "ACTIVE", null, null, null, null)));
@@ -96,11 +97,20 @@ class ConsumerGradeProgressServiceTest {
         evaluation("LINKY", "GOLD", "QUALIFIED");
         assertThat(progress.get(1, "TIMO").state()).isEqualTo("IN_PROGRESS");
     }
-    @Test void missingEvaluationDoesNotBecomeZero() {
+    @Test void missingEvaluationShowsExistingLinkyFactsWithoutConfirmingAGrade() {
         jdbc.update("delete from user_grade_evaluation");
-        var result = progress.get(1, "TIMO");
-        assertThat(result.state()).isEqualTo("UNKNOWN");
-        assertThat(result.qualifiedDirectInviteCount()).isNull();
+        for (long id = 2; id <= 4; id++) invite(id, 1, "LINKY", "QUALIFIED");
+        var result = progress.get(1, "LINKY");
+        assertThat(result.state()).isEqualTo("AWAITING_REVIEW");
+        assertThat(result.qualifiedDirectInviteCount()).isEqualTo(3);
+        assertThat(result.currentGradeCode()).isNull();
+        assertThat(result.gradeEvaluatedAt()).isNull();
+        assertThat(jdbc.queryForObject("select count(*) from user_grade_evaluation", Integer.class)).isZero();
+        verify(grades, never()).evaluate(anyLong(), anyString());
+    }
+    @Test void missingVerifiedGuildDoesNotInventProgress() {
+        when(grades.verifiedGuild(1L, "LINKY")).thenReturn(Optional.empty());
+        assertThat(progress.get(1, "LINKY").state()).isEqualTo("UNKNOWN");
     }
     @Test void missingRuleDoesNotFallBackToHardcodedThree() {
         when(grades.applicableBaseRules(anyString(), anyString(), anyString(), any())).thenReturn(List.of());
