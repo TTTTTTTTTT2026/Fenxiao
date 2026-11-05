@@ -9,6 +9,7 @@ EyeSlash,
 IdentificationCard,
 LinkSimple,
 LockSimple,
+Question,
 ShareNetwork,
 ShieldCheck,
 SignIn,
@@ -1951,6 +1952,14 @@ const consumerWithdrawalCopy = {
   pt: { title: 'Gerenciar saques dos ganhos', close: 'Fechar', when: 'Quando os saques estarão disponíveis?', whenAnswer: 'A data ainda não foi definida. Acompanhe os anúncios oficiais.', how: 'Como os ganhos são pagos?', howAnswer: 'As recompensas por convite entram primeiro na conta de pontos e são liberadas após 7 dias. O método de saque será anunciado separadamente.' },
 } as const
 
+const pendingRewardCopy: Record<ConsumerLocale, { label: string; help: string; description: string }> = {
+  zh: { label: '待提现奖励', help: '了解待提现奖励', description: '这部分奖励目前仍处于冻结期，满足解冻条件后将计入可提现金额。提现功能的开放时间以官方通知为准。' },
+  en: { label: 'Pending rewards', help: 'About pending rewards', description: 'These rewards are currently frozen. Once unlock conditions are met, they will be added to your withdrawable balance. Withdrawal availability will be announced officially.' },
+  es: { label: 'Recompensas pendientes', help: 'Acerca de las recompensas pendientes', description: 'Estas recompensas están congeladas. Al cumplir las condiciones de liberación, se añadirán al saldo retirable. La disponibilidad de retiros se anunciará oficialmente.' },
+  id: { label: 'Hadiah tertunda', help: 'Tentang hadiah tertunda', description: 'Hadiah ini masih dibekukan. Setelah syarat pelepasan terpenuhi, nilainya akan ditambahkan ke saldo yang dapat ditarik. Ketersediaan penarikan akan diumumkan secara resmi.' },
+  pt: { label: 'Recompensas pendentes', help: 'Sobre recompensas pendentes', description: 'Essas recompensas estão congeladas. Quando as condições de liberação forem cumpridas, serão adicionadas ao saldo disponível para saque. A disponibilidade de saques será anunciada oficialmente.' },
+}
+
 const teamLoadCopy: Record<ConsumerLocale, { failed: string; retry: string }> = {
   zh: { failed: '团队数据暂时无法读取，当前人数不能按 0 计算。', retry: '重试' },
   en: { failed: 'Team data is temporarily unavailable. The count is not zero.', retry: 'Retry' },
@@ -1979,7 +1988,9 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   const [error, setError] = useState('')
   const [showBalance, setShowBalance] = useState(true)
   const [withdrawalDialogOpen, setWithdrawalDialogOpen] = useState(false)
+  const [pendingRewardDialogOpen, setPendingRewardDialogOpen] = useState(false)
   const withdrawalCopy = consumerWithdrawalCopy[locale]
+  const pendingCopy = pendingRewardCopy[locale]
   const copy = externalPageCopyByLocale[locale]
   const walletCopy = {
     zh: {
@@ -2030,11 +2041,11 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   }[locale]
 
   useEffect(() => {
-    if (!withdrawalDialogOpen) return
-    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setWithdrawalDialogOpen(false) }
+    if (!withdrawalDialogOpen && !pendingRewardDialogOpen) return
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') { setWithdrawalDialogOpen(false); setPendingRewardDialogOpen(false) } }
     window.addEventListener('keydown', closeOnEscape)
     return () => window.removeEventListener('keydown', closeOnEscape)
-  }, [withdrawalDialogOpen])
+  }, [withdrawalDialogOpen, pendingRewardDialogOpen])
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -2253,7 +2264,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
             <section className="consumer-balance-card earnings-redesign-balance" aria-label={hasReference('available', availableReward) ? redesignCopy.balance : walletCopy.available}>
               <div className="earnings-balance-header"><div className="consumer-balance-label"><span>{hasReference('available', availableReward) ? redesignCopy.balance : walletCopy.available}</span><button type="button" className="consumer-icon-button" onClick={() => setShowBalance((value) => !value)} aria-label={showBalance ? walletCopy.hideBalance : walletCopy.showBalance}>{showBalance ? <Eye weight="regular" /> : <EyeSlash weight="regular" />}</button></div><a className="earnings-reward-link" href="/earnings/activity">{redesignCopy.detail} <CaretRight weight="bold" /></a></div>
               <div className="consumer-balance-value"><strong>{showBalance ? displayedValue('available', availableReward) : '••••••'}</strong></div>
-              <div className="consumer-balance-metrics earnings-balance-metrics"><div><span>{redesignCopy.frozen}</span><strong>{showBalance ? displayedValue('frozen', frozenReward) : '••••'}</strong></div><div><span>{redesignCopy.total}</span><strong>{showBalance ? displayedValue('total', totalReward) : '••••'}</strong></div></div>
+              <div className="consumer-balance-metrics earnings-balance-metrics"><div><div className="earnings-pending-label"><span>{pendingCopy.label}</span><button type="button" className="earnings-pending-help" aria-label={pendingCopy.help} onClick={() => setPendingRewardDialogOpen(true)}><Question aria-hidden="true" /></button></div><strong>{showBalance ? displayedValue('frozen', frozenReward) : '••••'}</strong></div><div><span>{redesignCopy.total}</span><strong>{showBalance ? displayedValue('total', totalReward) : '••••'}</strong></div></div>
               <button className="consumer-hero-withdraw" type="button" onClick={() => setWithdrawalDialogOpen(true)}>{redesignCopy.withdraw}</button>
             </section>
             <section className="earnings-invitation-results" aria-label={redesignCopy.title}>
@@ -2282,6 +2293,12 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
               </div>
             </section>
 
+            {pendingRewardDialogOpen ? <div className="consumer-modal-backdrop" onClick={() => setPendingRewardDialogOpen(false)}>
+              <section className="consumer-withdrawal-dialog" role="dialog" aria-modal="true" aria-label={pendingCopy.label} onClick={(event) => event.stopPropagation()}>
+                <h2>{pendingCopy.label}</h2><p>{pendingCopy.description}</p>
+                <button type="button" autoFocus onClick={() => setPendingRewardDialogOpen(false)}>{withdrawalCopy.close}</button>
+              </section>
+            </div> : null}
             {withdrawalDialogOpen ? <div className="consumer-modal-backdrop" onClick={() => setWithdrawalDialogOpen(false)}>
               <section className="consumer-withdrawal-dialog" role="dialog" aria-modal="true" aria-label={withdrawalCopy.title} onClick={(event) => event.stopPropagation()}>
                 <h2>{withdrawalCopy.title}</h2>

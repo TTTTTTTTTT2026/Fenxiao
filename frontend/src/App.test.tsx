@@ -899,7 +899,8 @@ describe('Earnings landing page', () => {
   it('shows one income-details entry and keeps withdrawals informational', () => {
     const markup = renderToStaticMarkup(<App />)
     expect(markup).toContain('本应用已解冻积分')
-    expect(markup).toContain('确认中奖励')
+    expect(markup).toContain('待提现奖励')
+    expect(markup).toContain('了解待提现奖励')
     expect(markup).toContain('提现说明')
     expect(markup).not.toContain('申请提现')
     expect(markup).toContain('收入明细')
