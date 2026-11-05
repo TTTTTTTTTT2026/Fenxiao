@@ -2217,8 +2217,8 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   }
 
   return (
-    <div className="consumer-app-page">
-      <main className="consumer-shell">
+    <div className="consumer-app-page consumer-earnings-page">
+      <main className="consumer-shell consumer-earnings-shell">
         <header className="consumer-topbar">
           <a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />Bandeira</a>
           <div className="consumer-topbar-actions">
