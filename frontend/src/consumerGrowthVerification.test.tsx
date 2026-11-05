@@ -54,6 +54,14 @@ describe('consumer growth progress', () => {
 })
 
 describe('Timo verification recovery', () => {
+  it('allows a submitted binding to resume verification without resubmitting its ID', () => {
+    const html = renderToStaticMarkup(<TimoVerificationResult binding={{ ...binding, status: 'SUBMITTED', verificationState: null }} locale="zh" loading={false} onRetry={noop} localizedReason="" />)
+    expect(html).toContain('<button')
+    expect(html).toContain('再次核验')
+    expect(html).not.toContain('<input')
+    const busy = renderToStaticMarkup(<TimoVerificationResult binding={{ ...binding, status: 'SUBMITTED', verificationState: null }} locale="zh" loading onRetry={noop} localizedReason="" />)
+    expect(busy).toContain('disabled')
+  })
   it('explains a missing record without claiming the account does not exist', () => {
     const html = renderToStaticMarkup(<TimoVerificationResult binding={binding} locale="zh" loading={false} onRetry={noop} localizedReason="" />)
     expect(html).toContain('当前可用公会记录中尚未查到')

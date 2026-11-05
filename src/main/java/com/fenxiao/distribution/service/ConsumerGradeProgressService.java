@@ -44,22 +44,21 @@ public class ConsumerGradeProgressService {
         String currentGrade = confirmed.stream().filter(value -> rank(value) > 0).max(Comparator.comparingInt(ConsumerGradeProgressService::rank)).orElse(null);
         if (currentGrade != null) return result(platform, "ACHIEVED", currentGrade, null, null, null);
 
-        var binding = bindings.findByUserIdAndPlatformCode(userId, platform)
-                .filter(value -> "VERIFIED".equals(value.getBindingStatus().name()))
-                .filter(value -> value.getOfficialGuildId() != null && !value.getOfficialGuildId().isBlank());
-        if (binding.isEmpty()) return result(platform, "UNKNOWN", null, null, null, null);
+        var guild = grades.verifiedGuild(userId, platform);
+        if (guild.isEmpty()) return result(platform, "UNKNOWN", null, null, null, null);
         LocalDateTime now = LocalDateTime.now(clock);
-        var rule = grades.applicableBaseRules(platform, user.getCountryCode(), binding.get().getOfficialGuildId(), now)
+        var rule = grades.applicableBaseRules(platform, user.getCountryCode(), guild.get(), now)
                 .stream().filter(value -> "NEW_STAR".equals(value.gradeCode())).findFirst();
         if (rule.isEmpty() || rule.get().requiredDirectInviteCount() <= 0 || rule.get().requiredDirectIncome().signum() != 0)
             return result(platform, "UNKNOWN", null, null, null, null);
-        // Absence of a completed evaluation must not be presented as a confirmed normal-member grade or zero.
+        // Read existing qualification facts without refreshing or confirming a grade.
         var evaluation = jdbc.query("select evaluated_at from user_grade_evaluation where user_id=? and platform_code=? and guild_id=? and grade_code='NEW_STAR' and qualification_status='IN_PROGRESS' order by evaluated_at desc limit 1",
-                (rs, row) -> rs.getTimestamp(1).toLocalDateTime(), userId, platform, binding.get().getOfficialGuildId());
-        if (evaluation.isEmpty()) return result(platform, "UNKNOWN", null, null, null, null);
+                (rs, row) -> rs.getTimestamp(1).toLocalDateTime(), userId, platform, guild.get());
         int count = qualifications.qualifiedDirectInviteCount(userId, platform, now);
         int target = rule.get().requiredDirectInviteCount();
-        return result(platform, count >= target ? "AWAITING_REVIEW" : "IN_PROGRESS", "NORMAL_MEMBER", count, target, evaluation.getFirst());
+        return result(platform, count >= target ? "AWAITING_REVIEW" : "IN_PROGRESS",
+                evaluation.isEmpty() ? null : "NORMAL_MEMBER", count, target,
+                evaluation.isEmpty() ? null : evaluation.getFirst());
     }
 
     private ConsumerGradeProgressResponse result(String platform, String state, String grade, Integer count, Integer target, LocalDateTime at) {

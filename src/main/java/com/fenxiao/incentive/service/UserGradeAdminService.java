@@ -103,12 +103,22 @@ public class UserGradeAdminService {
     public List<UserGradeEvaluationResponse> evaluate(long userId, String platformCode) {
         UserDistributionProfile user = users.findById(userId).orElseThrow(() -> new IllegalArgumentException("user not found"));
         String platform = platform(platformCode);
-        var binding = bindings.findByUserIdAndPlatformCode(userId, platform)
-                .filter(value -> "VERIFIED".equals(value.getBindingStatus().name()) && value.getOfficialGuildId() != null && !value.getOfficialGuildId().isBlank())
+        String guild = verifiedGuild(userId, platform)
                 .orElseThrow(() -> new IllegalStateException("user has no verified platform guild binding"));
-        String guild = binding.getOfficialGuildId();
-        LocalDateTime now = LocalDateTime.now(clock);
-        return evaluateRules(user, platform, guild, now);
+        return evaluateRules(user, platform, guild, LocalDateTime.now(clock));
+    }
+
+    /** Read authoritative platform evidence without copying Linky bindings into the Timo table. */
+    @Transactional(readOnly = true)
+    public Optional<String> verifiedGuild(long userId, String platformCode) {
+        String platform = platform(platformCode);
+        if ("LINKY".equals(platform)) {
+            return jdbc.query("select guild_id from linky_account_binding where user_id=? and id=(select max(id) from linky_account_binding where user_id=?) and registration_eligibility='ELIGIBLE' and guild_check_status='MATCHED_OURS' and guild_id is not null and trim(guild_id)<>''",
+                    (rs, row) -> rs.getString(1), userId, userId).stream().findFirst();
+        }
+        return bindings.findByUserIdAndPlatformCode(userId, platform)
+                .filter(value -> "VERIFIED".equals(value.getBindingStatus().name()) && value.getOfficialGuildId() != null && !value.getOfficialGuildId().isBlank())
+                .map(value -> value.getOfficialGuildId());
     }
 
     private List<UserGradeEvaluationResponse> evaluateRules(UserDistributionProfile user, String platform, String guild, LocalDateTime now) {
@@ -136,7 +146,17 @@ public class UserGradeAdminService {
 
     /** Scheduled callers use this local-only refresh; it never calls MCN and never generates a payment. */
     public int refreshAllVerifiedUsers() {
-        List<Object[]> candidates = jdbc.query("select distinct b.user_id,b.platform_code from platform_account_binding b join invitation_relation_version i on i.inviter_user_id=b.user_id and i.effective_to is null where b.binding_status='VERIFIED'", (rs, row) -> new Object[]{rs.getLong(1), rs.getString(2)});
+        List<Object[]> candidates = jdbc.query("""
+                select distinct b.user_id,b.platform_code from platform_account_binding b
+                join invitation_relation_version i on i.inviter_user_id=b.user_id and i.effective_to is null
+                where b.platform_code='TIMO' and b.binding_status='VERIFIED'
+                union
+                select distinct b.user_id,'LINKY' from linky_account_binding b
+                join invitation_relation_version i on i.inviter_user_id=b.user_id and i.effective_to is null
+                where b.id=(select max(x.id) from linky_account_binding x where x.user_id=b.user_id)
+                and b.registration_eligibility='ELIGIBLE' and b.guild_check_status='MATCHED_OURS'
+                and b.guild_id is not null and trim(b.guild_id)<>''
+                """, (rs, row) -> new Object[]{rs.getLong(1), rs.getString(2)});
         int completed = 0;
         for (Object[] candidate : candidates) {
             try { evaluate((Long) candidate[0], (String) candidate[1]); completed++; } catch (RuntimeException ignored) { /* one user must not stop the batch */ }
