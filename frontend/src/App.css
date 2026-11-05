@@ -3690,6 +3690,25 @@ code {
 .consumer-grade-progress a,
 .consumer-grade-progress button { color: #b73d09; font-weight: 700; }
 .consumer-grade-progress button { justify-self: start; min-height: 44px; }
+.consumer-grade-progress { background: linear-gradient(120deg, #fff 40%, #fff3ed 100%); }
+.consumer-grade-progress-main { display: flex; align-items: flex-start; gap: 14px; min-width: 0; }
+.consumer-grade-progress-star { flex: 0 0 58px; color: #ff951e; filter: drop-shadow(0 4px 6px #ffb54655); }
+.consumer-grade-progress-star svg { display: block; width: 100%; }
+.consumer-grade-progress-content { display: grid; gap: 7px; flex: 1; min-width: 0; }
+.consumer-grade-progress-heading { display: flex; align-items: center; gap: 8px; }
+.consumer-grade-progress-details summary { display: grid; place-items: center; width: 24px; height: 24px; border: 1.5px solid currentColor; border-radius: 50%; font-size: 14px; font-weight: 700; cursor: pointer; list-style: none; }
+.consumer-grade-progress-details summary::-webkit-details-marker { display: none; }
+.consumer-grade-progress-details[open] > div { margin-top: 8px; }
+.consumer-grade-progress-details[open] { flex: 1; min-width: 0; }
+.consumer-grade-progress-heading:has(.consumer-grade-progress-details[open]) { align-items: flex-start; flex-wrap: wrap; }
+.consumer-grade-progress-details p { margin-bottom: 6px; }
+.consumer-grade-progress-bar { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.consumer-grade-progress-bar progress { flex: 1; min-width: 0; height: 12px; border: 0; border-radius: 99px; overflow: hidden; }
+.consumer-grade-progress-bar progress::-webkit-progress-bar { background: #eee3df; border-radius: 99px; }
+.consumer-grade-progress-bar progress::-webkit-progress-value { background: linear-gradient(90deg, #ffae21, #ff650b); border-radius: 99px; }
+.consumer-grade-progress-bar progress::-moz-progress-bar { background: linear-gradient(90deg, #ffae21, #ff650b); border-radius: 99px; }
+.consumer-grade-progress-bar strong { white-space: nowrap; font-size: 16px; }
+.consumer-grade-progress-bar strong span { color: #f65b16; }
 .consumer-verification-id { display: grid; gap: 4px; padding: 12px; background: #fff7f1; border-radius: 12px; }
 .consumer-verification-result .consumer-form-submit { margin-top: 0; width: 100%; min-height: 48px; white-space: normal; }
 .consumer-verification-result h4 { font-size: 14px; margin-bottom: 4px; }
