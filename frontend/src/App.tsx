@@ -1,6 +1,5 @@
 import {
 ArrowRight,
-Bell,
 CaretRight,
 CheckCircle,
 Copy,
@@ -10,11 +9,11 @@ EyeSlash,
 IdentificationCard,
 LinkSimple,
 LockSimple,
+Question,
 ShareNetwork,
 ShieldCheck,
 SignIn,
 SignOut,
-Sparkle,
 Target,
 User,
 UserCircle,
@@ -1953,6 +1952,14 @@ const consumerWithdrawalCopy = {
   pt: { title: 'Gerenciar saques dos ganhos', close: 'Fechar', when: 'Quando os saques estarão disponíveis?', whenAnswer: 'A data ainda não foi definida. Acompanhe os anúncios oficiais.', how: 'Como os ganhos são pagos?', howAnswer: 'As recompensas por convite entram primeiro na conta de pontos e são liberadas após 7 dias. O método de saque será anunciado separadamente.' },
 } as const
 
+const pendingRewardCopy: Record<ConsumerLocale, { label: string; help: string; description: string }> = {
+  zh: { label: '待提现奖励', help: '了解待提现奖励', description: '这部分奖励目前仍处于冻结期，满足解冻条件后将计入可提现金额。提现功能的开放时间以官方通知为准。' },
+  en: { label: 'Pending rewards', help: 'About pending rewards', description: 'These rewards are currently frozen. Once unlock conditions are met, they will be added to your withdrawable balance. Withdrawal availability will be announced officially.' },
+  es: { label: 'Recompensas pendientes', help: 'Acerca de las recompensas pendientes', description: 'Estas recompensas están congeladas. Al cumplir las condiciones de liberación, se añadirán al saldo retirable. La disponibilidad de retiros se anunciará oficialmente.' },
+  id: { label: 'Hadiah tertunda', help: 'Tentang hadiah tertunda', description: 'Hadiah ini masih dibekukan. Setelah syarat pelepasan terpenuhi, nilainya akan ditambahkan ke saldo yang dapat ditarik. Ketersediaan penarikan akan diumumkan secara resmi.' },
+  pt: { label: 'Recompensas pendentes', help: 'Sobre recompensas pendentes', description: 'Essas recompensas estão congeladas. Quando as condições de liberação forem cumpridas, serão adicionadas ao saldo disponível para saque. A disponibilidade de saques será anunciada oficialmente.' },
+}
+
 const teamLoadCopy: Record<ConsumerLocale, { failed: string; retry: string }> = {
   zh: { failed: '团队数据暂时无法读取，当前人数不能按 0 计算。', retry: '重试' },
   en: { failed: 'Team data is temporarily unavailable. The count is not zero.', retry: 'Retry' },
@@ -1981,7 +1988,9 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   const [error, setError] = useState('')
   const [showBalance, setShowBalance] = useState(true)
   const [withdrawalDialogOpen, setWithdrawalDialogOpen] = useState(false)
+  const [pendingRewardDialogOpen, setPendingRewardDialogOpen] = useState(false)
   const withdrawalCopy = consumerWithdrawalCopy[locale]
+  const pendingCopy = pendingRewardCopy[locale]
   const copy = externalPageCopyByLocale[locale]
   const walletCopy = {
     zh: {
@@ -2032,11 +2041,11 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   }[locale]
 
   useEffect(() => {
-    if (!withdrawalDialogOpen) return
-    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setWithdrawalDialogOpen(false) }
+    if (!withdrawalDialogOpen && !pendingRewardDialogOpen) return
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') { setWithdrawalDialogOpen(false); setPendingRewardDialogOpen(false) } }
     window.addEventListener('keydown', closeOnEscape)
     return () => window.removeEventListener('keydown', closeOnEscape)
-  }, [withdrawalDialogOpen])
+  }, [withdrawalDialogOpen, pendingRewardDialogOpen])
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -2128,7 +2137,6 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   const availableReward = wallet?.availablePoints ?? 0
   const totalReward = wallet?.totalPoints ?? 0
   const frozenReward = wallet?.frozenPoints ?? 0
-  const referenceCopy = { zh: '参考金额', en: 'Reference value', es: 'Valor de referencia', id: 'Nilai referensi', pt: 'Valor de referência' }[locale]
   const activityCopy = { zh: '邀请活动奖励', en: 'Invitation campaign reward', es: 'Recompensa de invitación', id: 'Hadiah kampanye undangan', pt: 'Recompensa de convite' }[locale]
   const manualCopy = { zh: '人工积分调整', en: 'Manual points adjustment', es: 'Ajuste manual de puntos', id: 'Penyesuaian poin manual', pt: 'Ajuste manual de pontos' }[locale]
   function hasReference(key: keyof AccountReferenceValues, points: number) {
@@ -2154,11 +2162,11 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   }
   const effectiveUsersThisView = effectiveTeamCount(team, teamError)
   const redesignCopy = {
-    zh: { title: '邀请成果', invited: '邀请收入', valid: '有效邀请', commission: '下级收入分佣', included: '已包含在邀请收入中', withdraw: '提现说明', detail: '查看奖励明细', change: '切换应用', frozen: '冻结中奖励', total: '奖励总余额', balance: '可用余额', description: '在这里查看你的邀请成果' },
-    en: { title: 'Invitation results', invited: 'Invitation income', valid: 'Verified invitees', commission: 'Downline commission', included: 'Included in invitation income', withdraw: 'Withdrawal information', detail: 'View reward activity', change: 'Switch app', frozen: 'Frozen rewards', total: 'Total reward balance', balance: 'Available balance', description: 'Track your invitation rewards here' },
-    es: { title: 'Resultados de invitaciones', invited: 'Ingresos por invitación', valid: 'Invitados verificados', commission: 'Comisión de invitados', included: 'Incluida en ingresos por invitación', withdraw: 'Información de retiro', detail: 'Ver movimientos', change: 'Cambiar aplicación', frozen: 'Recompensas congeladas', total: 'Saldo total de recompensas', balance: 'Saldo disponible', description: 'Consulta tus recompensas por invitación' },
-    id: { title: 'Hasil undangan', invited: 'Pendapatan undangan', valid: 'Undangan terverifikasi', commission: 'Komisi dari tim', included: 'Termasuk dalam pendapatan undangan', withdraw: 'Info penarikan', detail: 'Lihat rincian hadiah', change: 'Ganti aplikasi', frozen: 'Hadiah dibekukan', total: 'Total saldo hadiah', balance: 'Saldo tersedia', description: 'Pantau hadiah undanganmu di sini' },
-    pt: { title: 'Resultados dos convites', invited: 'Receita por convite', valid: 'Convidados verificados', commission: 'Comissão da equipe', included: 'Incluída na receita por convite', withdraw: 'Informações de saque', detail: 'Ver movimentações', change: 'Trocar aplicativo', frozen: 'Recompensas congeladas', total: 'Saldo total de recompensas', balance: 'Saldo disponível', description: 'Acompanhe suas recompensas aqui' },
+    zh: { title: '邀请与分佣', invited: '邀请收入', valid: '有效邀请', commission: '下级收入分佣', included: '已包含在邀请收入中', withdraw: '提现说明', detail: '收入明细', change: '切换应用', frozen: '确认中奖励', total: '奖励总余额', balance: '可提现金额', description: '在这里查看你的邀请成果' },
+    en: { title: 'Invitations & commission', invited: 'Invitation income', valid: 'Verified invitees', commission: 'Downline commission', included: 'Included in invitation income', withdraw: 'Withdrawal information', detail: 'Income details', change: 'Switch app', frozen: 'Rewards being confirmed', total: 'Total reward balance', balance: 'Withdrawable amount', description: 'Track your invitation rewards here' },
+    es: { title: 'Invitaciones y comisiones', invited: 'Ingresos por invitación', valid: 'Invitados verificados', commission: 'Comisión de invitados', included: 'Incluida en ingresos por invitación', withdraw: 'Información de retiro', detail: 'Detalle de ingresos', change: 'Cambiar aplicación', frozen: 'Recompensas en confirmación', total: 'Saldo total de recompensas', balance: 'Importe retirable', description: 'Consulta tus recompensas por invitación' },
+    id: { title: 'Undangan dan komisi', invited: 'Pendapatan undangan', valid: 'Undangan terverifikasi', commission: 'Komisi dari tim', included: 'Termasuk dalam pendapatan undangan', withdraw: 'Info penarikan', detail: 'Rincian pendapatan', change: 'Ganti aplikasi', frozen: 'Hadiah dalam konfirmasi', total: 'Total saldo hadiah', balance: 'Jumlah yang dapat ditarik', description: 'Pantau hadiah undanganmu di sini' },
+    pt: { title: 'Convites e comissões', invited: 'Receita por convite', valid: 'Convidados verificados', commission: 'Comissão da equipe', included: 'Incluída na receita por convite', withdraw: 'Informações de saque', detail: 'Detalhes de receita', change: 'Trocar aplicativo', frozen: 'Recompensas em confirmação', total: 'Saldo total de recompensas', balance: 'Valor disponível para saque', description: 'Acompanhe suas recompensas aqui' },
   }[locale]
   async function switchEarningsWorkspace(code: 'TIMO' | 'LINKY') {
     if (!session || switchingEarningsWorkspace || code === selectedPlatform) return
@@ -2186,7 +2194,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   }
 
   if (view !== 'overview') {
-    const detailTitle = view === 'effective' ? walletCopy.followAction : walletCopy.records
+    const detailTitle = view === 'effective' ? walletCopy.followAction : redesignCopy.detail
     return <div className="consumer-app-page"><main className="consumer-shell consumer-detail-page">
       <header className="consumer-topbar"><a className="consumer-brand" href="/earnings">Bandeira</a></header>
       <a className="consumer-detail-back" href="/earnings">← {consumerNavigationCopy[locale].earnings}</a>
@@ -2220,8 +2228,8 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   }
 
   return (
-    <div className="consumer-app-page">
-      <main className="consumer-shell">
+    <div className="consumer-app-page consumer-earnings-page">
+      <main className="consumer-shell consumer-earnings-shell">
         <header className="consumer-topbar">
           <a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />Bandeira</a>
           <div className="consumer-topbar-actions">
@@ -2252,90 +2260,50 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
           </section>
         ) : (
           <>
-            <div className="consumer-home-greeting earnings-redesign-greeting"><h1 className="consumer-visually-hidden">{copy.earningsTitle}</h1><div><strong>{walletCopy.greeting}</strong><span>{redesignCopy.description}</span></div><a className="consumer-notification-link" href="/earnings/activity" aria-label={walletCopy.notificationLabel}><Bell weight="regular" aria-hidden="true" /><i /></a></div>
-            <section className="consumer-balance-card earnings-redesign-balance" aria-label={redesignCopy.balance}>
-              <div className="consumer-balance-label"><span>{redesignCopy.balance}</span><button type="button" className="consumer-icon-button" onClick={() => setShowBalance((value) => !value)} aria-label={showBalance ? walletCopy.hideBalance : walletCopy.showBalance}>{showBalance ? <Eye weight="regular" /> : <EyeSlash weight="regular" />}</button></div>
+            <div className="consumer-home-greeting earnings-redesign-greeting"><h1 className="consumer-visually-hidden">{copy.earningsTitle}</h1><div><strong>{walletCopy.greeting}</strong><span>{redesignCopy.description}</span></div></div>
+            <section className="consumer-balance-card earnings-redesign-balance" aria-label={hasReference('available', availableReward) ? redesignCopy.balance : walletCopy.available}>
+              <div className="earnings-balance-header"><div className="consumer-balance-label"><span>{hasReference('available', availableReward) ? redesignCopy.balance : walletCopy.available}</span><button type="button" className="consumer-icon-button" onClick={() => setShowBalance((value) => !value)} aria-label={showBalance ? walletCopy.hideBalance : walletCopy.showBalance}>{showBalance ? <Eye weight="regular" /> : <EyeSlash weight="regular" />}</button></div><a className="earnings-reward-link" href="/earnings/activity">{redesignCopy.detail} <CaretRight weight="bold" /></a></div>
               <div className="consumer-balance-value"><strong>{showBalance ? displayedValue('available', availableReward) : '••••••'}</strong></div>
-              {hasReference('available', availableReward) ? <p className="earnings-reference-label">{referenceCopy}</p> : null}
+              <div className="consumer-balance-metrics earnings-balance-metrics"><div><div className="earnings-pending-label"><span>{pendingCopy.label}</span><button type="button" className="earnings-pending-help" aria-label={pendingCopy.help} onClick={() => setPendingRewardDialogOpen(true)}><Question aria-hidden="true" /></button></div><strong>{showBalance ? displayedValue('frozen', frozenReward) : '••••'}</strong></div><div><span>{redesignCopy.total}</span><strong>{showBalance ? displayedValue('total', totalReward) : '••••'}</strong></div></div>
               <button className="consumer-hero-withdraw" type="button" onClick={() => setWithdrawalDialogOpen(true)}>{redesignCopy.withdraw}</button>
-              <div className="consumer-balance-metrics earnings-balance-metrics"><div><span>{redesignCopy.frozen}</span><strong>{showBalance ? displayedValue('frozen', frozenReward) : '••••'}</strong></div><div><span>{redesignCopy.total}</span><strong>{showBalance ? displayedValue('total', totalReward) : '••••'}</strong></div></div>
-              <a className="earnings-reward-link" href="/earnings/activity">{redesignCopy.detail} <ArrowRight weight="bold" /></a>
             </section>
-            <section className="earnings-invitation-results" aria-label={redesignCopy.title}><h2>{redesignCopy.title}</h2><div className="earnings-invitation-grid">
-              <div><span>{redesignCopy.invited}</span><strong>{showBalance ? displayedValue('income', wallet?.cumulativeIncomePoints ?? 0) : '••••'}</strong></div>
-              <div><span>{redesignCopy.valid}</span><strong>{verifiedInviteCount ?? '—'}</strong></div>
-              <div><span>{redesignCopy.commission}</span><strong>{!showBalance ? '••••' : wallet ? formatCommissionQuote(quoteFlow(commissionPoints, locale, walletCopy.unit)) : '—'}</strong><small>{redesignCopy.included}</small></div>
-            </div></section>
+            <section className="earnings-invitation-results" aria-label={redesignCopy.title}>
+              <div className="earnings-invitation-header"><h2>{redesignCopy.title}</h2><a href="/earnings/commission">{commissionReportCopy[locale].title}<CaretRight weight="bold" aria-hidden="true" /></a></div>
+              <div className="earnings-invitation-grid">
+                <div><span>{redesignCopy.invited}</span><strong>{showBalance ? displayedValue('income', wallet?.cumulativeIncomePoints ?? 0) : '••••'}</strong></div>
+                <div><span>{redesignCopy.valid}</span><strong>{verifiedInviteCount ?? '—'}</strong></div>
+                <div><span>{redesignCopy.commission}</span><strong>{!showBalance ? '••••' : wallet ? formatCommissionQuote(quoteFlow(commissionPoints, locale, walletCopy.unit)) : '—'}</strong><small>{redesignCopy.included}</small></div>
+              </div>
+            </section>
 
             {selectedPlatform && selectedPlatformVerified ? <ConsumerGradeProgressCard key={`${session.userId}:${selectedPlatform}`} userId={session.userId} accessToken={session.accessToken} platformCode={selectedPlatform} locale={locale} /> : null}
             {selectedPlatform && selectedEarningsReadable && !selectedPlatformVerified
               ? <p className="consumer-workspace-banner" role="status">{consumerEarningsAccessCopy[locale]}</p> : null}
 
-            <a className="consumer-commission-entry" href="/earnings/commission">
-              <span><strong>{commissionReportCopy[locale].title}</strong><small>{commissionReportCopy[locale].entryHint}</small></span>
-              <CaretRight weight="bold" aria-hidden="true" />
-            </a>
-
             <section className="consumer-task-section">
               <div className="consumer-section-head consumer-task-head">
                 <h2><Target weight="fill" aria-hidden="true" />{walletCopy.actionsTitle}</h2>
-                <span>{walletCopy.actionsCount}</span>
+                <span>{({ zh: '3 个关键动作', en: '3 key actions', es: '3 acciones clave', id: '3 tindakan utama', pt: '3 ações importantes' } as const)[locale]}</span>
               </div>
 
               <div className="consumer-task-list">
                 <a href="/invite"><span className="is-orange"><UserPlus weight="fill" /></span><div><strong>{walletCopy.inviteAction}</strong><small>{walletCopy.invitedCount(home?.directInvitedUsers ?? 0)}</small></div><b>{walletCopy.goInvite}</b></a>
                 <a href="/account"><span className="is-pink"><LinkSimple weight="bold" /></span><div><strong>{walletCopy.bindAction}</strong><small>{walletCopy.bindHint}</small></div><b>{walletCopy.goBind}</b></a>
                 <a href="/earnings/effective-users"><span className="is-green"><UsersThree weight="fill" /></span><div><strong>{walletCopy.followAction}</strong><small>{teamError ? teamLoadCopy[locale].failed : effectiveUsersThisView === null ? copy.loading : walletCopy.effectiveCount(effectiveUsersThisView)}</small></div><b>{walletCopy.viewTeam}</b></a>
-                <a href="/earnings/activity"><span className="is-purple"><Sparkle weight="fill" /></span><div><strong>{walletCopy.records}</strong><small>{walletCopy.recordsCount(wallet?.totalRecords ?? 0)}</small></div><b>{walletCopy.viewRecords}</b></a>
               </div>
             </section>
 
-            <section className="consumer-activity-section">
-              <div className="consumer-section-head">
-                <h2>{walletCopy.records}</h2>
-                <a href="/earnings/activity">{walletCopy.allRecords}<CaretRight weight="bold" aria-hidden="true" /></a>
-              </div>
-
-              {loading ? (
-                <div className="consumer-loading-list" aria-label={copy.loading}>
-                  <span /><span /><span />
-                </div>
-              ) : rewardItems.length ? (
-                <div className="consumer-activity-list">
-                  {rewardItems.slice(0, 3).map((item) => {
-                    const isAvailable = item.type === 'UNFREEZE' || item.type === 'ACTIVITY_UNFREEZE' || item.type === 'MANUAL_ADJUSTMENT'
-                    const amount = (item.type === 'UNFREEZE' || item.type === 'ACTIVITY_UNFREEZE') ? item.availableDelta : item.frozenDelta + item.availableDelta
-                    return (
-                      <article className="consumer-activity-row" key={item.id}>
-                        <span className={`consumer-activity-icon ${isAvailable ? 'is-available' : 'is-frozen'}`}>
-                          {isAvailable ? <CheckCircle weight="fill" aria-hidden="true" /> : <LockSimple weight="fill" aria-hidden="true" />}
-                        </span>
-                        <div className="consumer-activity-copy">
-                          <strong>{item.type === 'MANUAL_ADJUSTMENT' ? manualCopy : item.type === 'ACTIVITY_REWARD' ? activityCopy : (item.type === 'UNFREEZE' || item.type === 'ACTIVITY_UNFREEZE') ? walletCopy.release : item.type === 'MCN_REVISION' ? walletCopy.revision : getRewardActivityTitle(item.rewardLevel)}</strong>
-                          <span>{item.platformCode}{item.type === 'MANUAL_ADJUSTMENT' ? '' : ` · ${walletCopy.sourceUser} #${item.sourceUserId}`}</span>
-                        </div>
-                        <div className={`consumer-activity-amount ${isAvailable ? 'is-available' : 'is-frozen'}`}>
-                          <strong>{amount > 0 ? '+' : ''}{quoteFlow(amount,locale,walletCopy.unit)}</strong>
-                          <span>{item.type === 'MANUAL_ADJUSTMENT' ? manualCopy : (item.type === 'UNFREEZE' || item.type === 'ACTIVITY_UNFREEZE') ? walletCopy.available : item.type === 'MCN_REVISION' ? walletCopy.revision : walletCopy.frozen} · {formatRewardDate(item.recordedAt)}</span>
-                        </div>
-                      </article>
-                    )
-                  })}
-                </div>
-              ) : (
-                <div className="consumer-empty-state">
-                  <UserPlus weight="duotone" aria-hidden="true" />
-                  <div><strong>{copy.emptyRewardsTitle}</strong><p>{copy.emptyRewardsHint}</p></div>
-                  <a href="/invite">{copy.emptyRewardsAction}</a>
-                </div>
-              )}
-            </section>
-
+            {pendingRewardDialogOpen ? <div className="consumer-modal-backdrop" onClick={() => setPendingRewardDialogOpen(false)}>
+              <section className="consumer-withdrawal-dialog" role="dialog" aria-modal="true" aria-label={pendingCopy.label} onClick={(event) => event.stopPropagation()}>
+                <h2>{pendingCopy.label}</h2><p>{pendingCopy.description}</p>
+                <button type="button" autoFocus onClick={() => setPendingRewardDialogOpen(false)}>{withdrawalCopy.close}</button>
+              </section>
+            </div> : null}
             {withdrawalDialogOpen ? <div className="consumer-modal-backdrop" onClick={() => setWithdrawalDialogOpen(false)}>
               <section className="consumer-withdrawal-dialog" role="dialog" aria-modal="true" aria-label={withdrawalCopy.title} onClick={(event) => event.stopPropagation()}>
                 <h2>{withdrawalCopy.title}</h2>
                 <h3>{withdrawalCopy.when}</h3><p>{withdrawalCopy.whenAnswer}</p>
-                <h3>{withdrawalCopy.how}</h3><p>{withdrawalCopy.howAnswer}</p>
+                <h3>{withdrawalCopy.how}</h3><p>{withdrawalCopy.howAnswer}</p><p>{({ zh: '货币金额按当前汇率估算，仅供参考；冻结中奖励将在满足条件后解冻。', en: 'Currency amounts are estimates based on the current rate. Frozen rewards unlock when conditions are met.', es: 'Los importes son estimaciones al tipo de cambio actual. Las recompensas congeladas se liberan al cumplir las condiciones.', id: 'Nilai mata uang adalah perkiraan berdasarkan kurs saat ini. Hadiah yang dibekukan dibuka setelah memenuhi syarat.', pt: 'Os valores são estimativas pela taxa atual. Recompensas congeladas são liberadas quando as condições são cumpridas.' } as const)[locale]}</p>
                 <button type="button" autoFocus onClick={() => setWithdrawalDialogOpen(false)}>{withdrawalCopy.close}</button>
               </section>
             </div> : null}

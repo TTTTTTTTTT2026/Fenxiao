@@ -746,7 +746,7 @@ describe('Earnings landing page', () => {
 
     expect(markup).toContain('我的收益')
     expect(markup).toContain('提现说明')
-    expect(markup).toContain('全部记录')
+    expect(markup).toContain('收入明细')
     expect(markup).toContain('主要导航')
     expect(markup).not.toContain('控制台')
     expect(markup).not.toContain('工作台')
@@ -896,56 +896,39 @@ describe('Earnings landing page', () => {
     expect(markup).not.toContain('三层裂变人数')
   })
 
-  it('renders frozen and unlocked points without enabling withdrawals', () => {
+  it('shows one income-details entry and keeps withdrawals informational', () => {
     const markup = renderToStaticMarkup(<App />)
-
-    expect(markup).toContain('可用余额')
-    expect(markup).toContain('冻结中')
+    expect(markup).toContain('本应用已解冻积分')
+    expect(markup).toContain('待提现奖励')
+    expect(markup).toContain('了解待提现奖励')
     expect(markup).toContain('提现说明')
     expect(markup).not.toContain('申请提现')
-    expect(markup).toContain('还没有收益记录')
-    expect(markup).toContain('先去生成邀请码并完成绑定，后续有收益会自动显示在这里。')
-    expect(markup).not.toContain('提现只会按可用奖励里的钻石数量生成申请单')
+    expect(markup).toContain('收入明细')
+    expect(markup.match(/href="\/earnings\/activity"/g)).toHaveLength(1)
+    expect(markup).not.toContain('最新收益记录')
   })
 
-  it('removes the educational earnings board from the primary journey', () => {
+  it('retains the earnings heading without the old tutorial', () => {
     const markup = renderToStaticMarkup(<App />)
-
-    expect(markup).toContain('可用余额')
     expect(markup).toContain('我的收益')
     expect(markup).not.toContain('你的收益会在这里持续更新')
-    expect(markup).not.toContain('邀请码固定不变')
   })
 
-  it('renders reward activity without a permanent status tutorial', () => {
+  it('shows invitation and commission together with a single report entry', () => {
     const markup = renderToStaticMarkup(<App />)
-
-    expect(markup).toContain('应用奖励流水')
-    expect(markup).toContain('全部记录')
-    expect(markup).not.toContain('状态说明')
-    expect(markup).not.toContain('冻结中：奖励正在等待结算')
-  })
-
-  it('prioritizes balances over explanatory summary cards', () => {
-    const markup = renderToStaticMarkup(<App />)
-
-    expect(markup).toContain('可用余额')
-    expect(markup).toContain('冻结中')
-    expect(markup).toContain('奖励总余额')
+    expect(markup).toContain('邀请与分佣')
     expect(markup).toContain('下级收入分佣')
     expect(markup).toContain('已包含在邀请收入中')
-    expect(markup).not.toContain('来自你的下线成员累计确认收益。')
+    expect(markup.match(/href="\/earnings\/commission"/g)).toHaveLength(1)
+    expect(markup).toContain('3 个关键动作')
+    expect(markup).not.toContain('应用奖励流水')
   })
 
-  it('moves secondary detail to dedicated routes', () => {
+  it('keeps the income activity on its dedicated route', () => {
+    window.location.pathname = '/earnings/activity'
     const markup = renderToStaticMarkup(<App />)
-
-    expect(markup).toContain('href="/earnings/effective-users"')
-    expect(markup).toContain('href="/earnings/activity"')
-    expect(markup).toContain('应用奖励流水')
-    expect(markup).not.toContain('<details>')
-    expect(markup).not.toContain('提现记录')
-    expect(markup).not.toContain('冻结中 → 可结算 → 风险冻结')
+    expect(markup).toContain('收入明细')
+    expect(markup).toContain('href="/earnings"')
   })
 
   it('maps direct rewards and legacy commission levels to safe labels', () => {

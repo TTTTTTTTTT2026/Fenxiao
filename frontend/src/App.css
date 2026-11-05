@@ -3690,6 +3690,25 @@ code {
 .consumer-grade-progress a,
 .consumer-grade-progress button { color: #b73d09; font-weight: 700; }
 .consumer-grade-progress button { justify-self: start; min-height: 44px; }
+.consumer-grade-progress { background: linear-gradient(120deg, #fff 40%, #fff3ed 100%); }
+.consumer-grade-progress-main { display: flex; align-items: flex-start; gap: 14px; min-width: 0; }
+.consumer-grade-progress-star { flex: 0 0 58px; color: #ff951e; filter: drop-shadow(0 4px 6px #ffb54655); }
+.consumer-grade-progress-star svg { display: block; width: 100%; }
+.consumer-grade-progress-content { display: grid; gap: 7px; flex: 1; min-width: 0; }
+.consumer-grade-progress-heading { display: flex; align-items: center; gap: 8px; }
+.consumer-grade-progress-details summary { display: grid; place-items: center; width: 24px; height: 24px; border: 1.5px solid currentColor; border-radius: 50%; font-size: 14px; font-weight: 700; cursor: pointer; list-style: none; }
+.consumer-grade-progress-details summary::-webkit-details-marker { display: none; }
+.consumer-grade-progress-details[open] > div { margin-top: 8px; }
+.consumer-grade-progress-details[open] { flex: 1; min-width: 0; }
+.consumer-grade-progress-heading:has(.consumer-grade-progress-details[open]) { align-items: flex-start; flex-wrap: wrap; }
+.consumer-grade-progress-details p { margin-bottom: 6px; }
+.consumer-grade-progress-bar { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.consumer-grade-progress-bar progress { flex: 1; min-width: 0; height: 12px; border: 0; border-radius: 99px; overflow: hidden; }
+.consumer-grade-progress-bar progress::-webkit-progress-bar { background: #eee3df; border-radius: 99px; }
+.consumer-grade-progress-bar progress::-webkit-progress-value { background: linear-gradient(90deg, #ffae21, #ff650b); border-radius: 99px; }
+.consumer-grade-progress-bar progress::-moz-progress-bar { background: linear-gradient(90deg, #ffae21, #ff650b); border-radius: 99px; }
+.consumer-grade-progress-bar strong { white-space: nowrap; font-size: 16px; }
+.consumer-grade-progress-bar strong span { color: #f65b16; }
 .consumer-verification-id { display: grid; gap: 4px; padding: 12px; background: #fff7f1; border-radius: 12px; }
 .consumer-verification-result .consumer-form-submit { margin-top: 0; width: 100%; min-height: 48px; white-space: normal; }
 .consumer-verification-result h4 { font-size: 14px; margin-bottom: 4px; }
@@ -7282,6 +7301,11 @@ code {
 .earnings-redesign-balance .earnings-balance-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; background: rgba(255,255,255,.83); }
 .earnings-redesign-balance .earnings-balance-metrics > div { padding: 4px 10px; border: 0; text-align: left; }
 .earnings-redesign-balance .earnings-balance-metrics > div + div { border-left: 1px solid #ddd0ca; }
+.earnings-pending-label { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.earnings-pending-label span { min-width: 0; }
+.earnings-pending-help { display: inline-grid; flex: none; place-items: center; width: 28px; height: 28px; margin: -6px 0; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #665750; cursor: pointer; }
+.earnings-pending-help svg { width: 16px; height: 16px; }
+.earnings-pending-help:focus-visible { outline: 2px solid #d64b16; outline-offset: 1px; }
 .earnings-reward-link { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; color: white; font-weight: 700; text-decoration: none; }
 .earnings-invitation-results { margin: 18px 0; padding: 22px; border-radius: 20px; background: #fff; box-shadow: 0 10px 30px #9c57330c; }
 .earnings-invitation-results h2 { margin: 0 0 14px; font-size: 21px; color: #241b18; }
@@ -7294,3 +7318,110 @@ code {
 .earnings-invitation-grid strong { margin-top: 5px; color: #241b18; font-size: clamp(15px,4vw,22px); }
 .earnings-invitation-grid small { margin-top: 5px; }
 .consumer-grade-progress progress { height: 12px; }
+/* Earnings balance and invitation summary */
+.earnings-redesign-balance { min-height: 0; padding: 22px; background-image: linear-gradient(115deg, #ff8b22 0%, #ff633b 49%, #f63d72 100%); }
+.earnings-balance-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.earnings-balance-header .consumer-balance-label { min-width: 0; }
+.earnings-balance-header .consumer-balance-label span { overflow-wrap: anywhere; }
+.earnings-balance-header .earnings-reward-link { flex: none; margin: 0; padding: 8px 12px; border-radius: 999px; background: #db332d; color: #fff; font-size: 13px; }
+.earnings-balance-header .earnings-reward-link svg { width: 14px; height: 14px; }
+.earnings-redesign-balance .consumer-balance-value { margin: 12px 0 18px; }
+.earnings-redesign-balance .earnings-balance-metrics { width: 100%; box-sizing: border-box; }
+.earnings-redesign-balance .earnings-balance-metrics > div { min-width: 0; }
+.earnings-redesign-balance .earnings-balance-metrics strong { font-size: clamp(13px, 3.6vw, 19px); overflow-wrap: anywhere; }
+.earnings-redesign-balance .consumer-hero-withdraw { display: flex; width: 100%; justify-content: center; min-height: 48px; margin: 15px 0 0; border: 0; font-size: 16px; }
+.earnings-invitation-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.earnings-invitation-header h2 { margin: 0; }
+.earnings-invitation-header a { display: inline-flex; align-items: center; gap: 3px; color: #d74716; font-size: 13px; font-weight: 700; text-decoration: none; min-height: 32px; }
+.earnings-invitation-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 14px; }
+.earnings-invitation-grid > div:nth-child(3) { grid-column: 1 / -1; border-left: 0; border-top: 1px solid #eee4dc; padding: 14px 0 0; }
+.earnings-invitation-grid strong { font-size: clamp(14px, 4vw, 22px); }
+.earnings-invitation-grid small { color: #695e58; }
+.consumer-task-section { margin-bottom: max(100px, calc(84px + env(safe-area-inset-bottom))); }
+@media (max-width: 360px) { .earnings-redesign-balance { padding: 16px; } .earnings-balance-header .earnings-reward-link { padding: 7px; font-size: 12px; } .earnings-invitation-results { padding: 16px; } }
+
+/* Earnings: compact hierarchy and warm surfaces from the approved mobile design. */
+.earnings-redesign-greeting { margin: 20px 2px 18px; }
+.earnings-redesign-greeting > div { gap: 3px; }
+.earnings-redesign-greeting > div strong { font-size: clamp(26px, 7vw, 34px); line-height: 1.15; font-weight: 800; }
+.earnings-redesign-greeting > div span { font-size: 15px; line-height: 1.4; }
+.earnings-redesign-balance { border-radius: 20px; padding: 20px; box-shadow: 0 12px 24px rgba(241, 95, 65, .18); }
+.earnings-balance-header .earnings-reward-link { border-radius: 999px; padding: 8px 12px; }
+.earnings-redesign-balance .consumer-balance-value { margin: 14px 0 20px; }
+.earnings-redesign-balance .consumer-balance-value strong { font-size: clamp(32px, 8.3vw, 52px); line-height: 1.05; letter-spacing: -.035em; }
+.earnings-redesign-balance .earnings-balance-metrics { border-radius: 14px; padding: 14px 10px; background: rgba(255, 246, 241, .87); }
+.earnings-redesign-balance .earnings-balance-metrics > div { padding: 0 10px; }
+.earnings-redesign-balance .earnings-balance-metrics strong { margin-top: 4px; font-weight: 800; }
+.earnings-redesign-balance .consumer-hero-withdraw { min-height: 46px; margin-top: 12px; border-radius: 999px; font-weight: 800; }
+.earnings-invitation-results { margin: 12px 0; padding: 18px; border-radius: 18px; box-shadow: 0 8px 22px rgba(138, 74, 48, .06); }
+.earnings-invitation-header { align-items: center; margin-bottom: 14px; }
+.earnings-invitation-header h2 { font-size: 20px; font-weight: 800; }
+.earnings-invitation-header a { color: #f05416; }
+.earnings-invitation-grid { row-gap: 12px; }
+.earnings-invitation-grid > div:nth-child(3) { padding-top: 12px; }
+.earnings-invitation-grid > div:nth-child(3) { padding-right: 100px; background: url('./assets/earnings-invitation-stars-300-v1.png') right bottom / 100px auto no-repeat; }
+.earnings-invitation-grid strong { font-weight: 800; line-height: 1.15; }
+.consumer-grade-progress { margin-top: 12px; padding: 16px; border: 1px solid rgba(255,255,255,.9); box-shadow: 0 8px 22px rgba(138, 74, 48, .06); }
+.consumer-grade-progress-main { align-items: center; gap: 12px; }
+.consumer-grade-progress-star { flex-basis: 62px; filter: none; }
+.consumer-grade-progress-star img { width: 100%; height: auto; display: block; }
+.consumer-grade-progress-content { gap: 6px; }
+.consumer-grade-progress-heading h2 { font-size: 19px; font-weight: 800; line-height: 1.2; }
+.consumer-grade-progress-details summary { width: 21px; height: 21px; font-size: 12px; }
+.consumer-grade-progress-message { color: #6f5a50; }
+.consumer-grade-progress-bar strong { font-size: 17px; }
+.consumer-task-section { margin-top: 12px; border-radius: 18px; box-shadow: 0 8px 22px rgba(138, 74, 48, .06); }
+.earnings-redesign-greeting { margin: 12px 2px; }
+.earnings-redesign-greeting > div strong { font-size: 22px; }
+.earnings-redesign-greeting > div span { font-size: 13px; }
+.earnings-redesign-balance { padding: 16px; }
+.earnings-redesign-balance .consumer-balance-value { margin: 9px 0 12px; }
+.earnings-redesign-balance .consumer-balance-value strong { font-size: clamp(30px, 8vw, 42px); }
+.earnings-redesign-balance .earnings-balance-metrics { padding: 10px 8px; }
+.earnings-redesign-balance .consumer-hero-withdraw { min-height: 44px; margin-top: 10px; }
+.earnings-invitation-results { padding: 15px; margin: 10px 0; }
+.earnings-invitation-header { margin-bottom: 8px; }
+.earnings-invitation-header h2 { font-size: 18px; }
+.earnings-invitation-grid { row-gap: 8px; }
+.earnings-invitation-grid strong { margin-top: 3px; }
+.earnings-invitation-grid > div:nth-child(3) { padding-top: 8px; }
+.consumer-grade-progress { margin-top: 10px; padding: 12px; }
+.consumer-grade-progress-star { flex-basis: 56px; }
+.consumer-grade-progress-content { gap: 4px; }
+.consumer-grade-progress-heading h2 { font-size: 17px; }
+.consumer-grade-progress p { font-size: 13px; line-height: 1.4; }
+@media (max-width: 360px) { .earnings-redesign-balance { padding: 16px; } .earnings-invitation-results { padding: 16px; } .earnings-invitation-grid > div:nth-child(3) { padding-right: 0; background: none; } .consumer-grade-progress { padding: 14px; } .consumer-grade-progress-star { flex-basis: 48px; } }
+
+/* The earnings design uses a warm page canvas and a full-width bottom bar.
+   Keep these rules local to this page; the other consumer tabs retain their navigation. */
+body:has(.consumer-earnings-page) { min-width: 0; }
+.consumer-earnings-page { background: #f9eae2; }
+.consumer-earnings-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: visible;
+  padding-bottom: 0;
+  background: #fff4ee url('./assets/earnings-warm-canvas-v1.jpg') top center / 100% 100% no-repeat;
+}
+.consumer-earnings-shell > .consumer-task-section { margin-bottom: 24px; }
+.consumer-earnings-shell .consumer-task-list div small { white-space: normal; overflow-wrap: anywhere; }
+.consumer-earnings-shell > .consumer-bottom-nav {
+  position: sticky;
+  bottom: 0;
+  flex-shrink: 0;
+  width: auto;
+  margin: auto -30px 0;
+  padding: 6px max(18px, env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+  border: 0;
+  border-top: 1px solid rgba(180, 119, 95, .08);
+  border-radius: 0;
+  background: rgba(255, 251, 249, .97);
+  box-shadow: 0 -5px 20px rgba(130, 70, 43, .04);
+}
+.consumer-earnings-shell > .consumer-bottom-nav a { min-height: 54px; border-radius: 0; }
+.consumer-earnings-shell > .consumer-bottom-nav a.is-active { color: #f05218; background: transparent; }
+@media (max-width: 560px) {
+  .consumer-earnings-shell > .consumer-bottom-nav { margin-right: -15px; margin-left: -15px; }
+}

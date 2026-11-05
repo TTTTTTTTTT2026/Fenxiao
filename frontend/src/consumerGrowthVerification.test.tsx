@@ -11,7 +11,7 @@ const noop = () => undefined
 describe('consumer growth progress', () => {
   it('uses direct qualification counts and links to existing direct invite progress', () => {
     const html = renderToStaticMarkup(<ConsumerGradeProgressView data={progress} locale="zh" onRetry={noop} />)
-    expect(html).toContain('2 / 3')
+    expect(html).toMatch(/<span>2<\/span>\s*\/\s*3/)
     expect(html).toContain('还差 1 位有效直邀')
     expect(html).toContain('/earnings/effective-users#direct-invite-progress')
     expect(html).not.toContain('/10')
@@ -24,7 +24,7 @@ describe('consumer growth progress', () => {
   it('does not ask upgraded users to achieve new star again', () => {
     const html = renderToStaticMarkup(<ConsumerGradeProgressView data={{ ...progress, state: 'ACHIEVED', currentGradeCode: 'SILVER' }} locale="zh" onRetry={noop} />)
     expect(html).toContain('银牌')
-    expect(html).not.toContain('2 / 3')
+    expect(html).not.toMatch(/<span>2<\/span>\s*\/\s*3/)
     expect(html).not.toContain('还差')
   })
   it.each(['UNKNOWN', 'REVIEW_REQUIRED'] as const)('does not turn %s into zero progress', (state) => {
@@ -37,14 +37,14 @@ describe('consumer growth progress', () => {
   it('hides stale numbers on failure or loading', () => {
     for (const props of [{ error: true }, { loading: true }]) {
       const html = renderToStaticMarkup(<ConsumerGradeProgressView data={progress} locale="zh" onRetry={noop} {...props} />)
-      expect(html).not.toContain('2 / 3')
+      expect(html).not.toMatch(/<span>2<\/span>\s*\/\s*3/)
       expect(html).not.toContain('还差')
     }
   })
   it.each(['zh', 'en', 'es', 'id', 'pt'] as const)('renders the grade and binding recovery in %s', (locale) => {
     const html = renderToStaticMarkup(<ConsumerGradeProgressView data={progress} locale={locale} onRetry={noop} />)
     const recovery = renderToStaticMarkup(<TimoVerificationResult binding={binding} locale={locale} loading={false} onRetry={noop} localizedReason="" />)
-    expect(html).toContain('2 / 3')
+    expect(html).toMatch(/<span>2<\/span>\s*\/\s*3/)
     expect(html).not.toContain('undefined')
     expect(recovery).toContain('<details')
     expect(recovery).toContain('123456789012')
