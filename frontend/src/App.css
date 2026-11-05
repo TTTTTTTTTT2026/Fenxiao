@@ -7294,3 +7294,24 @@ code {
 .earnings-invitation-grid strong { margin-top: 5px; color: #241b18; font-size: clamp(15px,4vw,22px); }
 .earnings-invitation-grid small { margin-top: 5px; }
 .consumer-grade-progress progress { height: 12px; }
+/* Earnings balance and invitation summary */
+.earnings-redesign-balance { min-height: 0; padding: 22px; background-image: linear-gradient(115deg, #ff8b22 0%, #ff633b 49%, #f63d72 100%); }
+.earnings-balance-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.earnings-balance-header .consumer-balance-label { min-width: 0; }
+.earnings-balance-header .consumer-balance-label span { overflow-wrap: anywhere; }
+.earnings-balance-header .earnings-reward-link { flex: none; margin: 0; padding: 8px 12px; border-radius: 999px; background: #db332d; color: #fff; font-size: 13px; }
+.earnings-balance-header .earnings-reward-link svg { width: 14px; height: 14px; }
+.earnings-redesign-balance .consumer-balance-value { margin: 12px 0 18px; }
+.earnings-redesign-balance .earnings-balance-metrics { width: 100%; box-sizing: border-box; }
+.earnings-redesign-balance .earnings-balance-metrics > div { min-width: 0; }
+.earnings-redesign-balance .earnings-balance-metrics strong { font-size: clamp(13px, 3.6vw, 19px); overflow-wrap: anywhere; }
+.earnings-redesign-balance .consumer-hero-withdraw { display: flex; width: 100%; justify-content: center; min-height: 48px; margin: 15px 0 0; border: 0; font-size: 16px; }
+.earnings-invitation-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.earnings-invitation-header h2 { margin: 0; }
+.earnings-invitation-header a { display: inline-flex; align-items: center; gap: 3px; color: #d74716; font-size: 13px; font-weight: 700; text-decoration: none; min-height: 32px; }
+.earnings-invitation-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 14px; }
+.earnings-invitation-grid > div:nth-child(3) { grid-column: 1 / -1; border-left: 0; border-top: 1px solid #eee4dc; padding: 14px 0 0; }
+.earnings-invitation-grid strong { font-size: clamp(14px, 4vw, 22px); }
+.earnings-invitation-grid small { color: #695e58; }
+.consumer-task-section { margin-bottom: max(100px, calc(84px + env(safe-area-inset-bottom))); }
+@media (max-width: 360px) { .earnings-redesign-balance { padding: 16px; } .earnings-balance-header .earnings-reward-link { padding: 7px; font-size: 12px; } .earnings-invitation-results { padding: 16px; } }
