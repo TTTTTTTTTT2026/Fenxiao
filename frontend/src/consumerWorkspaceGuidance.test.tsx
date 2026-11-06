@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { ConsumerUnboundDialog, ConsumerUnboundGuidance } from './consumerWorkspaceGuidance'
-import { canOpenEarningsWorkspace } from './consumerWorkspaceView'
+import { canOpenEarningsWorkspace, shouldShowTimoEarningsGuide } from './consumerWorkspaceView'
+import type { ConsumerWorkspaceResponse } from './api'
 
 describe('consumer unbound workspace guidance', () => {
   it.each([
@@ -24,7 +25,7 @@ describe('consumer unbound workspace guidance', () => {
     expect(markup).toContain('绑定 Linky')
     expect(markup).toContain('href="/account/timo"')
     expect(markup).toContain('href="/account/linky"')
-    expect(markup).not.toContain('href="/earnings"')
+    expect(markup).toContain('href="/earnings?app=timo"')
   })
 
   it('links an account-page notice to the existing binding section', () => {
@@ -32,10 +33,11 @@ describe('consumer unbound workspace guidance', () => {
     expect(markup).toContain('href="#consumer-platform-bindings"')
   })
 
-  it('allows the earnings tab only when an app workspace is selected', () => {
-    expect(canOpenEarningsWorkspace(null)).toBe(false)
-    expect(canOpenEarningsWorkspace('TIMO')).toBe(true)
-    expect(canOpenEarningsWorkspace('LINKY')).toBe(true)
+  it('opens the earnings tab for a selected workspace or a known Timo preference', () => {
+    expect(canOpenEarningsWorkspace(unboundWorkspace)).toBe(false)
+    expect(canOpenEarningsWorkspace({ ...unboundWorkspace, preferred: 'TIMO' })).toBe(true)
+    expect(canOpenEarningsWorkspace({ ...unboundWorkspace, selected: 'TIMO' })).toBe(true)
+    expect(canOpenEarningsWorkspace({ ...unboundWorkspace, selected: 'LINKY' })).toBe(true)
   })
 
   it('shows an in-place dialog with binding actions and a close button', () => {
@@ -51,5 +53,32 @@ describe('consumer unbound workspace guidance', () => {
     const markup = renderToStaticMarkup(<ConsumerUnboundDialog locale="zh" error onClose={() => undefined} />)
     expect(markup).toContain('暂时无法确认绑定状态')
     expect(markup).not.toContain('尚未完成应用绑定')
+  })
+})
+
+const unboundWorkspace: ConsumerWorkspaceResponse = {
+  selected: null,
+  preferred: null,
+  apps: [
+    { code: 'TIMO', verified: false, verifiedAt: null, earningsReadable: false },
+    { code: 'LINKY', verified: false, verifiedAt: null, earningsReadable: false },
+  ],
+}
+
+describe('Timo earnings guide routing', () => {
+  it('needs Timo intent and leaves a selected Linky workspace alone', () => {
+    expect(shouldShowTimoEarningsGuide(unboundWorkspace)).toBe(false)
+    expect(shouldShowTimoEarningsGuide(unboundWorkspace, true)).toBe(true)
+    expect(shouldShowTimoEarningsGuide({ ...unboundWorkspace, selected: 'TIMO' })).toBe(true)
+    expect(shouldShowTimoEarningsGuide({ ...unboundWorkspace, selected: 'LINKY' }, true)).toBe(false)
+  })
+
+  it.each([
+    { verified: false, earningsReadable: true },
+    { verified: true, earningsReadable: undefined },
+  ])('keeps existing Timo earnings for a readable workspace (%o)', (access) => {
+    const [timo, linky] = unboundWorkspace.apps
+    const workspace = { ...unboundWorkspace, selected: 'TIMO' as const, apps: [{ ...timo, ...access }, linky] }
+    expect(shouldShowTimoEarningsGuide(workspace, true)).toBe(false)
   })
 })

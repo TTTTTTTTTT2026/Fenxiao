@@ -1,0 +1,268 @@
+.binding-guide {
+  --guide-ink: #19131c;
+  --guide-accent: #b9380a;
+  --guide-orange: #cb410e;
+  --guide-tint: #fff0e3;
+  display: grid;
+  gap: 12px;
+  margin-block: 12px 20px;
+  color: var(--guide-ink);
+}
+
+.binding-guide-card {
+  padding: 16px;
+  border: 1px solid #f6e3d7;
+  border-radius: 17px;
+  background: #fff;
+  box-shadow: 0 4px 12px #6a311508;
+}
+
+.binding-guide h2 {
+  margin: 0;
+  font-size: 1.125rem;
+  line-height: 1.25;
+  font-weight: 800;
+}
+
+.binding-guide p {
+  margin: 4px 0 0;
+  color: #554b48;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.binding-guide-action {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px 12px;
+}
+
+.binding-guide-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--guide-tint);
+  color: var(--guide-accent);
+  font-size: 26px;
+}
+
+.binding-guide-cta {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--guide-orange);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--guide-accent);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 750;
+  line-height: 1.25;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.binding-guide-cta svg {
+  flex: none;
+}
+
+.binding-guide-cta:hover {
+  background: var(--guide-tint);
+}
+
+.binding-guide-cta:focus-visible,
+.binding-form-back:focus-visible {
+  outline: 2px solid var(--guide-accent, #b9380a);
+  outline-offset: 3px;
+}
+
+.binding-guide--earnings .binding-guide-cta {
+  grid-column: 1 / -1;
+  background: var(--guide-orange);
+  color: #fff;
+}
+
+.binding-guide--earnings .binding-guide-cta:hover {
+  background: #a93208;
+}
+
+.binding-guide--earnings .binding-guide-action > .binding-guide-icon {
+  border-radius: 50%;
+  background: var(--guide-orange);
+  color: #fff;
+}
+
+.binding-guide-tutorial ol {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.binding-guide-tutorial li {
+  display: grid;
+  grid-template-columns: 28px 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.binding-guide-tutorial .binding-guide-icon {
+  width: 44px;
+  height: 44px;
+  font-size: 22px;
+}
+
+.binding-guide-number {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--guide-orange);
+  color: #fff;
+}
+
+.binding-guide-tutorial li:not(:last-child) .binding-guide-number::after {
+  position: absolute;
+  top: 100%;
+  left: 13px;
+  width: 2px;
+  height: 24px;
+  background: #ffbc94;
+  content: '';
+}
+
+.binding-guide-hero {
+  display: flex;
+  align-items: center;
+  min-height: 208px;
+  padding: 16px;
+  border-radius: 19px;
+  background: #ffdec4 url('/timo-binding-hero.webp') center right / cover no-repeat;
+  color: #19131c;
+}
+
+.binding-guide-hero h1 {
+  width: 48%;
+  margin: 0;
+  font-size: clamp(1.1875rem, 5vw, 1.875rem);
+  font-weight: 850;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.consumer-earnings-shell.binding-earnings-shell {
+  background: #fff8f0;
+}
+
+.binding-earnings-shell > .consumer-bottom-nav a.is-active {
+  border-radius: 12px;
+  background: #ffecdc;
+  color: #b9380a;
+}
+
+.consumer-workspace-banner.binding-guide-attribution {
+  margin-bottom: 12px;
+  padding-block: 0;
+  column-gap: 6px;
+}
+
+.binding-guide-attribution span {
+  min-width: 0;
+  flex-basis: 110px;
+  padding-block: 8px;
+}
+
+.binding-guide-attribution a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.binding-form-title {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 4px;
+  margin-block: 0 12px;
+  text-align: center;
+}
+
+.binding-form-title .consumer-bind-title {
+  margin: 0;
+  font-size: clamp(1.125rem, 5vw, 1.5rem);
+}
+
+.binding-form-back {
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  border-radius: 10px;
+  color: #19131c;
+}
+
+.binding-form-anchor,
+.binding-form-anchor input {
+  scroll-margin-top: 16px;
+}
+
+@media (max-width: 350px) {
+  .binding-guide-hero {
+    min-height: 182px;
+    padding: 12px;
+  }
+
+  .binding-guide-hero h1 {
+    width: 47%;
+  }
+
+  .binding-guide-action {
+    grid-template-columns: 40px minmax(0, 1fr);
+    column-gap: 10px;
+  }
+
+  .binding-guide-action .binding-guide-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .binding-guide-cta {
+    grid-column: 1 / -1;
+  }
+}
+
+
+/* Keep overview controls out of view until the workspace and its access are known. */
+.earnings-workspace-loading {
+  margin-block: 12px;
+}
+
+.consumer-earnings-shell[data-workspace-unresolved] > :not(.consumer-topbar, .consumer-bottom-nav, .consumer-banner, .earnings-workspace-loading),
+.consumer-earnings-shell[data-workspace-unresolved] .consumer-topbar-actions {
+  display: none;
+}
+
+.consumer-shell.consumer-form-shell.consumer-binding-shell {
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+}
+
+.binding-form-anchor .consumer-form-submit {
+  width: 100%;
+}
+
+.binding-form-anchor > form > .consumer-form-submit,
+.binding-form-anchor > form > .consumer-form-note {
+  margin-top: 12px;
+}

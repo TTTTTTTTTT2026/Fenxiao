@@ -1,4 +1,5 @@
 import { ArrowRight, LinkSimple } from '@phosphor-icons/react'
+import { bindingGuideCopy, timoEarningsGuideHref } from './consumerBindingGuideCopy'
 
 type ConsumerLocale = 'zh' | 'en' | 'es' | 'id' | 'pt'
 
@@ -20,6 +21,7 @@ export function ConsumerUnboundGuidance({ locale, variant = 'notice', bindHref =
       <div className="consumer-unbound-actions">
         <a className="consumer-primary-link" href="/account/timo">{copy.timo}<ArrowRight weight="bold" aria-hidden="true" /></a>
         <a className="consumer-secondary-link" href="/account/linky">{copy.linky}<ArrowRight weight="bold" aria-hidden="true" /></a>
+        <a className="consumer-secondary-link" href={timoEarningsGuideHref}>{bindingGuideCopy[locale].exploreTimo}<ArrowRight weight="bold" aria-hidden="true" /></a>
       </div>
     </section>
   }

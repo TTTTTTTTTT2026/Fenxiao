@@ -13,6 +13,13 @@ export function canReadAppEarnings(app: ConsumerWorkspaceResponse['apps'][number
   return app.earningsReadable ?? app.verified
 }
 
-export function canOpenEarningsWorkspace(selected: ConsumerWorkspaceResponse['selected']) {
-  return selected !== null
+export function shouldShowTimoEarningsGuide(workspace: ConsumerWorkspaceResponse, explicitTimoIntent = false) {
+  const app = workspace.apps.find((item) => item.code === 'TIMO')
+  if (!app || app.verified || canReadAppEarnings(app)) return false
+  return workspace.selected === 'TIMO'
+    || (workspace.selected === null && (workspace.preferred === 'TIMO' || explicitTimoIntent))
+}
+
+export function canOpenEarningsWorkspace(workspace: ConsumerWorkspaceResponse, explicitTimoIntent = false) {
+  return workspace.selected !== null || shouldShowTimoEarningsGuide(workspace, explicitTimoIntent)
 }

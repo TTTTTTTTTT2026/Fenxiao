@@ -1,4 +1,5 @@
 import {
+ArrowLeft,
 ArrowRight,
 CaretRight,
 CheckCircle,
@@ -71,11 +72,13 @@ import { isAvatarValidationError,prepareAvatarDataUrl } from './avatarUpload'
 import InvitationProgressPanel from './InvitationProgressPanel'
 import ConsumerGradeProgressCard from './ConsumerGradeProgressCard'
 import TimoVerificationResult from './TimoVerificationResult'
+import ConsumerBindingGuide, { TimoEarningsHero } from './ConsumerBindingGuide'
+import { bindingGuideCopy, timoEarningsGuideHref } from './consumerBindingGuideCopy'
 import ConsumerPhoneCountrySelect from './ConsumerPhoneCountrySelect'
 import ConsumerDemoLeaderboard from './ConsumerDemoLeaderboard'
 import { consumerPhoneFormCopy,phoneCodeActionText,phoneCodePlaceholders } from './consumerPhoneFormCopy'
 import { ConsumerUnboundDialog,ConsumerUnboundGuidance } from './consumerWorkspaceGuidance'
-import { canOpenEarningsWorkspace, canReadAppEarnings, resolveConsumerAccountWorkspace } from './consumerWorkspaceView'
+import { canOpenEarningsWorkspace, canReadAppEarnings, resolveConsumerAccountWorkspace, shouldShowTimoEarningsGuide } from './consumerWorkspaceView'
 import { consumerEarningsAccessCopy } from './consumerEarningsAccessCopy'
 import { effectiveTeamCount } from './consumerTeamState'
 import PartnerPortal from './PartnerPortal'
@@ -349,6 +352,8 @@ function BindLandingPage() {
   const guildMismatch = error ? isLinkyGuildMismatch(error) : false
   const localizedBindingError = error ? localizeLinkyBindingError(error, locale) : ''
   const canSubmit = Boolean(session && linkyAccount.length === 8)
+  const guideCopy = bindingGuideCopy[locale]
+  const linkyInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -376,7 +381,7 @@ function BindLandingPage() {
 
   return (
     <div className="consumer-app-page">
-      <main className="consumer-shell consumer-form-shell">
+      <main className={session ? "consumer-shell consumer-form-shell consumer-binding-shell" : "consumer-shell consumer-form-shell"} lang={locale === 'pt' ? 'pt-BR' : locale}>
         <header className="consumer-topbar">
           <a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />Bandeira</a>
           <div className="consumer-topbar-actions">
@@ -391,7 +396,7 @@ function BindLandingPage() {
           </div>
         </header>
 
-        <section className="consumer-commercial-hero consumer-bind-hero">
+        {session ? <BindingPageTitle app="Linky" locale={locale} /> : <section className="consumer-commercial-hero consumer-bind-hero">
           <span className="consumer-visually-hidden">{accountCopy.bindingTitle}</span>
           <div className="consumer-commercial-kicker"><Diamond weight="fill" aria-hidden="true" /> Bandeira Rewards</div>
           <h1>{accountCopy.bindingTitle}</h1>
@@ -400,7 +405,7 @@ function BindLandingPage() {
             <span><ShieldCheck weight="fill" aria-hidden="true" />{platformBindingProofCopy[locale].ownership}</span>
             <span><LinkSimple weight="bold" aria-hidden="true" />{platformBindingProofCopy[locale].traceable}</span>
           </div>
-        </section>
+        </section>}
 
         {error ? (
           <section className="consumer-banner is-error" role="alert">
@@ -412,15 +417,15 @@ function BindLandingPage() {
         ) : null}
 
         {session ? (
-          <form className="consumer-form-card" onSubmit={handleSubmit}>
-            <div className="consumer-form-card-heading"><div><h2>{accountCopy.bindingTitle}</h2><p>{accountCopy.inviteRelationship}</p></div><LinkSimple size={28} weight="duotone" /></div>
+          <form className="consumer-form-card binding-form-anchor" onSubmit={handleSubmit}>
             <label className="consumer-field">
-              <span>{accountCopy.linkyAccount}</span>
-              <input value={linkyAccount} onChange={(event) => setLinkyAccount(event.target.value.replace(/\D/g, '').slice(0, 8))} placeholder={accountCopy.linkyPlaceholder} inputMode="numeric" autoFocus />
+              <span>{guideCopy.linkyLabel}</span>
+              <input ref={linkyInput} value={linkyAccount} onChange={(event) => setLinkyAccount(event.target.value.replace(/\D/g, '').slice(0, 8))} placeholder={guideCopy.input('Linky')} inputMode="numeric" autoComplete="off" maxLength={8} />
+              <small>{guideCopy.exclude}</small>
             </label>
             <input type="hidden" value={product} readOnly />
             <button className="consumer-form-submit" type="submit" disabled={loading || !canSubmit}>
-              {loading ? accountCopy.binding : accountCopy.bind}<ArrowRight weight="bold" aria-hidden="true" />
+              {loading ? accountCopy.binding : guideCopy.verify('Linky')}<ArrowRight weight="bold" aria-hidden="true" />
             </button>
             <p className="consumer-form-note"><ShieldCheck weight="fill" aria-hidden="true" />{accountCopy.bindingSubtitle}</p>
           </form>
@@ -443,7 +448,10 @@ function BindLandingPage() {
           </section>
         ) : null}
 
-        {session ? <ConsumerBottomNavigation locale={locale} active="account" /> : null}
+        {session ? <>
+          <ConsumerBindingGuide app="Linky" locale={locale} onFocusForm={() => focusBindingForm(linkyInput.current)} />
+          <ConsumerBottomNavigation locale={locale} active="account" />
+        </> : null}
       </main>
     </div>
   )
@@ -924,6 +932,7 @@ function timoPendingState(binding: PlatformBindingResponse, locale: ConsumerLoca
   if (binding.verificationState === 'MANUAL_REVIEW_REQUIRED') return timoHelpCopy[locale].manual
   if (binding.verificationState === 'ERROR') return timoHelpCopy[locale].technical
   if (binding.verificationState === 'SOURCE_STALE') return timoHelpCopy[locale].waiting
+  if (binding.status === 'VERIFYING') return timoBindingCopy[locale].verifying
   return timoBindingCopy[locale].submitted
 }
 
@@ -1176,7 +1185,8 @@ function ConsumerAccountLink({ locale }: { locale: ConsumerLocale }) {
   return <a className="consumer-account-link" href="/account"><UserCircle weight="regular" aria-hidden="true" /><span>{consumerAccountCopy[locale].accountShortcut}</span><CaretRight weight="bold" aria-hidden="true" /></a>
 }
 
-function ConsumerBottomNavigation({ locale, active }: { locale: ConsumerLocale; active: ConsumerNavigationKey }) {
+function ConsumerBottomNavigation({ locale, active, timoIntent = false }: { locale: ConsumerLocale; active: ConsumerNavigationKey; timoIntent?: boolean }) {
+  const earningsHref = timoIntent ? timoEarningsGuideHref : '/earnings'
   const labels = consumerNavigationCopy[locale]
   const [earningsDialog, setEarningsDialog] = useState<'unbound' | 'error' | null>(null)
   const [checkingEarnings, setCheckingEarnings] = useState(false)
@@ -1212,7 +1222,7 @@ function ConsumerBottomNavigation({ locale, active }: { locale: ConsumerLocale; 
     try {
       const workspace = await getConsumerWorkspace(session.userId, session.accessToken)
       if (!mounted.current) return
-      if (canOpenEarningsWorkspace(workspace.selected)) window.location.assign('/earnings')
+      if (canOpenEarningsWorkspace(workspace, timoIntent)) window.location.assign(earningsHref)
       else setEarningsDialog('unbound')
     } catch {
       if (mounted.current) setEarningsDialog('error')
@@ -1230,7 +1240,7 @@ function ConsumerBottomNavigation({ locale, active }: { locale: ConsumerLocale; 
   return (
     <>
       <nav className="consumer-bottom-nav" aria-label={consumerAccountCopy[locale].navigationLabel}>
-        <a ref={earningsLink} className={active === 'earnings' ? 'is-active' : undefined} href="/earnings" aria-current={active === 'earnings' ? 'page' : undefined} aria-busy={checkingEarnings || undefined} onClick={(event) => void handleEarningsClick(event)}><Wallet weight={active === 'earnings' ? 'fill' : 'regular'} aria-hidden="true" /><span>{labels.earnings}</span></a>
+        <a ref={earningsLink} className={active === 'earnings' ? 'is-active' : undefined} href={earningsHref} aria-current={active === 'earnings' ? 'page' : undefined} aria-busy={checkingEarnings || undefined} onClick={(event) => void handleEarningsClick(event)}><Wallet weight={active === 'earnings' ? 'fill' : 'regular'} aria-hidden="true" /><span>{labels.earnings}</span></a>
         <a className={active === 'invite' ? 'is-active' : undefined} href="/invite" aria-current={active === 'invite' ? 'page' : undefined}><UserPlus weight={active === 'invite' ? 'fill' : 'regular'} aria-hidden="true" /><span>{labels.invite}</span></a>
         <a className={active === 'account' ? 'is-active' : undefined} href="/account" aria-current={active === 'account' ? 'page' : undefined}><User weight={active === 'account' ? 'fill' : 'regular'} aria-hidden="true" /><span>{labels.account}</span></a>
       </nav>
@@ -1829,6 +1839,19 @@ function PublicProfilePage() {
   </main></div>
 }
 
+function BindingPageTitle({ app, locale }: { app: 'Timo' | 'Linky'; locale: ConsumerLocale }) {
+  const copy = bindingGuideCopy[locale]
+  return <div className="binding-form-title">
+    <a className="binding-form-back" href="/account" aria-label={copy.back}><ArrowLeft size={22} weight="bold" aria-hidden="true" /></a>
+    <h1 className="consumer-bind-title">{copy.bindingTitle(app)}</h1>
+  </div>
+}
+
+function focusBindingForm(target: HTMLElement | null) {
+  target?.focus({ preventScroll: true })
+  target?.scrollIntoView({ block: 'start' })
+}
+
 function TimoBindingPage() {
   const [session] = useState<SessionState | null>(() => loadJsonState<SessionState>(STORAGE_KEY))
   const [locale, setLocale] = useState<ConsumerLocale>(() => loadExternalLocale())
@@ -1838,6 +1861,9 @@ function TimoBindingPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const copy = timoBindingCopy[locale]
+  const guideCopy = bindingGuideCopy[locale]
+  const timoInput = useRef<HTMLInputElement>(null)
+  const timoForm = useRef<HTMLElement>(null)
 
   useEffect(() => {
     if (typeof window !== 'undefined') window.localStorage.setItem(EXTERNAL_LOCALE_KEY, locale)
@@ -1912,9 +1938,9 @@ function TimoBindingPage() {
 
   return (
     <div className="consumer-app-page">
-      <main className="consumer-shell consumer-form-shell">
+      <main className={session ? "consumer-shell consumer-form-shell consumer-binding-shell" : "consumer-shell consumer-form-shell"} lang={locale === 'pt' ? 'pt-BR' : locale}>
         <header className="consumer-topbar">
-          <a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />Bandeira</a>
+          <a className="consumer-brand" href={timoEarningsGuideHref}><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />Bandeira</a>
           <div className="consumer-topbar-actions">
             <select className="consumer-language" aria-label={externalPageCopyByLocale[locale].languageLabel} value={locale} onChange={(event) => setLocale(event.target.value as ConsumerLocale)}><option value="zh">中文</option><option value="en">EN</option><option value="es">ES</option><option value="id">ID</option><option value="pt">PT</option></select>
             {session ? <ConsumerAccountLink locale={locale} /> : null}
@@ -1922,23 +1948,25 @@ function TimoBindingPage() {
         </header>
 
         {session ? <>
-          <h1 className="consumer-bind-title">{copy.title}</h1>
+          <BindingPageTitle app="Timo" locale={locale} />
           {error ? <div className="consumer-banner is-error" role="alert">{error}</div> : null}
           {!error && success ? <div className="consumer-banner is-success" role="status"><CheckCircle size={20} weight="fill" />{success}</div> : null}
-          <section className="consumer-form-card">
-            <div className="consumer-form-card-heading"><div><h2>{copy.account}</h2><p>{timoHelpCopy[locale].findId}</p></div><IdentificationCard size={28} weight="duotone" /></div>
+          <section ref={timoForm} tabIndex={-1} className="consumer-form-card binding-form-anchor" aria-label={copy.account}>
             {isVerified ? <div className="consumer-form-note"><CheckCircle size={20} weight="fill" />{copy.verified}<br />Timo ID · {binding?.platformUserId}</div> : !binding ? (
               <form onSubmit={handleSubmit}>
-                <label className="consumer-field"><span>{copy.account}</span><input required value={timoId} onChange={(event) => setTimoId(event.target.value.replace(/\D/g, '').slice(0, 12))} placeholder={copy.placeholder} inputMode="numeric" autoComplete="off" pattern="[1-9][0-9]{11}" maxLength={12} /><small>{copy.hint}</small></label>
+                <label className="consumer-field"><span>{copy.account}</span><input ref={timoInput} required value={timoId} onChange={(event) => setTimoId(event.target.value.replace(/\D/g, '').slice(0, 12))} placeholder={guideCopy.input('Timo')} inputMode="numeric" autoComplete="off" pattern="[1-9][0-9]{11}" maxLength={12} /><small>{copy.hint}</small></label>
                 <button className="consumer-form-submit" type="submit" disabled={loading || !/^[1-9][0-9]{11}$/.test(timoId)}>{loading ? copy.verifying : copy.submit}</button>
+                <p className="consumer-form-note">{timoHelpCopy[locale].findId}</p>
               </form>
             ) : null}
             {binding && !isVerified ? <TimoVerificationResult binding={binding} locale={locale} loading={loading} onRetry={() => void handleRetryVerification()}
               localizedReason={binding.rejectionCode || binding.rejectionReason ? localizeTimoBindingError(binding.rejectionCode || binding.rejectionReason || '', locale) : ''}
               /> : null}
           </section>
+          {isVerified ? null : <ConsumerBindingGuide app="Timo" locale={locale} showStatus={!!binding}
+            onFocusForm={() => focusBindingForm(timoInput.current ?? timoForm.current)} />}
         </> : <section className="consumer-auth-gate"><div className="consumer-auth-icon"><LockSimple weight="duotone" aria-hidden="true" /></div><h1>{copy.signInTitle}</h1><p>{copy.signInHint}</p><a className="consumer-primary-link" href="/invite#phone-login">{copy.signIn}<ArrowRight weight="bold" aria-hidden="true" /></a></section>}
-        {session ? <ConsumerBottomNavigation locale={locale} active="account" /> : null}
+        {session ? <ConsumerBottomNavigation locale={locale} active="account" timoIntent /> : null}
       </main>
     </div>
   )
@@ -1966,6 +1994,37 @@ const teamLoadCopy: Record<ConsumerLocale, { failed: string; retry: string }> = 
   es: { failed: 'Los datos del equipo no están disponibles; el número no es cero.', retry: 'Reintentar' },
   id: { failed: 'Data tim sementara tidak tersedia; jumlahnya bukan nol.', retry: 'Coba lagi' },
   pt: { failed: 'Os dados da equipe estão indisponíveis; a contagem não é zero.', retry: 'Tentar novamente' },
+}
+
+function TimoEarningsGuide({ session, locale }: { session: SessionState; locale: ConsumerLocale }) {
+  const [binding, setBinding] = useState<PlatformBindingResponse | null>(null)
+  const [statusUnavailable, setStatusUnavailable] = useState(false)
+  const copy = bindingGuideCopy[locale]
+
+  useEffect(() => {
+    let active = true
+    void getPlatformBinding(session.userId, session.accessToken, 'TIMO')
+      .then((value) => { if (active) setBinding(value) })
+      .catch((err) => {
+        const message = err instanceof Error ? err.message.toLowerCase() : ''
+        if (active && !message.includes('platform binding not found')) setStatusUnavailable(true)
+      })
+    return () => { active = false }
+  }, [session])
+
+  const rejected = binding?.status === 'REJECTED' && (!binding.verificationState || binding.verificationState === 'NOT_FOUND')
+  const verificationMessage = statusUnavailable ? timoHelpCopy[locale].technical
+    : rejected ? timoBindingCopy[locale].rejected
+    : binding && binding.status !== 'UNBOUND' && binding.status !== 'VERIFIED' ? timoPendingState(binding, locale)
+    : undefined
+
+  return <div className="consumer-app-page"><main className="consumer-shell consumer-earnings-shell binding-earnings-shell" lang={locale === 'pt' ? 'pt-BR' : locale}>
+    <header className="consumer-topbar"><a className="consumer-brand" href={timoEarningsGuideHref}><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />Bandeira</a></header>
+    <div className="consumer-workspace-banner binding-guide-attribution"><strong>Timo</strong><span>{copy.attribution}</span><a href="/account">{copy.switchApp}</a></div>
+    <TimoEarningsHero locale={locale} />
+    <ConsumerBindingGuide app="Timo" locale={locale} verificationMessage={verificationMessage} />
+    <ConsumerBottomNavigation locale={locale} active="earnings" />
+  </main></div>
 }
 
 function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' | 'activity' }) {
@@ -2175,6 +2234,17 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
     catch { setError(workspaceCopy[locale].error); setSwitchingEarningsWorkspace(false) }
   }
 
+  const explicitTimoIntent = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('app') === 'timo'
+  const showTimoGuide = view === 'overview' && earningsWorkspace && shouldShowTimoEarningsGuide(earningsWorkspace, explicitTimoIntent)
+  useEffect(() => {
+    if (!showTimoGuide) return
+    const refreshOnReturn = (event: PageTransitionEvent) => { if (event.persisted) window.location.reload() }
+    window.addEventListener('pageshow', refreshOnReturn)
+    return () => window.removeEventListener('pageshow', refreshOnReturn)
+  }, [showTimoGuide])
+
+  if (session && showTimoGuide) return <TimoEarningsGuide session={session} locale={locale} />
+
   if (session && workspaceLoaded && !selectedPlatform) {
     return <div className="consumer-app-page"><main className="consumer-shell consumer-detail-page">
       <header className="consumer-topbar"><a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />Bandeira</a><ConsumerAccountLink locale={locale} /></header>
@@ -2229,7 +2299,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
 
   return (
     <div className="consumer-app-page consumer-earnings-page">
-      <main className="consumer-shell consumer-earnings-shell">
+      <main className="consumer-shell consumer-earnings-shell" data-workspace-unresolved={!!session && !workspaceLoaded || undefined}>
         <header className="consumer-topbar">
           <a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />Bandeira</a>
           <div className="consumer-topbar-actions">
@@ -2248,6 +2318,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
         </header>
 
         {error ? <div className="consumer-banner is-error" role="alert">{error}</div> : null}
+        {session && !workspaceLoaded && !error ? <p className="consumer-workspace-banner earnings-workspace-loading" role="status">{copy.loading}</p> : null}
         {!session ? (
           <section className="consumer-auth-gate">
             <div className="consumer-auth-icon"><Wallet weight="duotone" aria-hidden="true" /></div>
