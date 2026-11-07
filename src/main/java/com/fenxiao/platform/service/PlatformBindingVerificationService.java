@@ -50,10 +50,17 @@ public class PlatformBindingVerificationService {
     }
 
     public PlatformAccountBinding verifySubmittedBinding(Long userId, String platformCode) {
+        return verifySubmittedBinding(userId, platformCode, null);
+    }
+
+    public PlatformAccountBinding verifySubmittedBinding(Long userId, String platformCode, Long expectedBindingId) {
         if (mode.source() == PlatformVerificationSource.DISABLED) {
             throw new IllegalStateException("platform binding verification is temporarily disabled");
         }
-        PlatformAccountBinding binding = lifecycleService.getBinding(userId, platformCode);
+        PlatformAccountBinding binding = lifecycleService.lockBinding(userId, platformCode);
+        if (expectedBindingId != null && !expectedBindingId.equals(binding.getId())) {
+            throw new IllegalStateException("verification is for a previous binding");
+        }
         PlatformVerificationProvider provider = providers.get(mode.source());
         if (provider == null) throw new IllegalStateException("platform verification provider is unavailable for " + mode.source());
         String expectedGuildId = null;
@@ -72,7 +79,8 @@ public class PlatformBindingVerificationService {
                 boolean first = binding.getVerifiedAt() == null && !histories.existsByUserIdAndPlatformCodeAndToStatus(userId, binding.getPlatformCode(), "VERIFIED");
                 PlatformAccountBinding verified = lifecycleService.verify(new VerifyPlatformBindingRequest(
                     binding.getPlatformCode(), binding.getPlatformUserId(), result.globallySeenBeforeSubmission(),
-                    true, result.officialGuildId(), result.officialJoinedAt(), result.sourceSystem(), result.sourceReference()));
+                    true, result.officialGuildId(), result.officialJoinedAt(), result.sourceSystem(), result.sourceReference(),
+                    binding.getId()));
                 if (first && mode.source() == PlatformVerificationSource.MCN && "TIMO".equals(binding.getPlatformCode())) campaigns.capture(userId, "TIMO");
                 yield verified;
             }

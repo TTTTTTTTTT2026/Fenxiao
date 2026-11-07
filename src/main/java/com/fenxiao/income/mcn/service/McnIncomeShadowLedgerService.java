@@ -72,10 +72,10 @@ public class McnIncomeShadowLedgerService {
                 .map(McnIncomeRawLedgerEvent::getOriginalSourceEventId).filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
         Counts counts = new Counts();
         Instant now = clock.instant();
-        Map<String, Long> verifiedUsers = verifiedUsers(platform, latest);
+        AccountResolution accounts = verifiedUsers(platform, latest);
         List<Object[]> projectionRows = new java.util.ArrayList<>(latest.size());
         for (McnIncomeRawLedgerEvent fact : latest) {
-            ProjectionDecision decision = decision(fact, verifiedUsers, reversalTargets); counts.add(decision.status());
+            ProjectionDecision decision = decision(fact, accounts, reversalTargets); counts.add(decision.status());
             projectionRows.add(new Object[]{fact.getSourceSystem(), platform, fact.getSourceEventId(), fact.getId(), fact.getSourceRevision(), businessDate,
                     fact.getGuildId(), decision.resolvedUserId(), fact.getSettlementStatus().name(), fact.getEventType().name(), fact.getAmount(),
                     fact.getAmountUnit(), fact.getCurrencyCode(), decision.status(), Timestamp.from(fact.getSourceUpdatedAt()), Timestamp.from(now)});
@@ -198,17 +198,21 @@ public class McnIncomeShadowLedgerService {
     private String required(String value, String label) { if (value == null || value.isBlank()) throw new IllegalArgumentException(label + " is required"); return value.trim(); }
     private String requiredNote(String value) { String note = required(value, "review note"); if (note.length() > 255) throw new IllegalArgumentException("review note must be at most 255 characters"); return note; }
 
-    private Map<String, Long> verifiedUsers(String platform, java.util.Collection<McnIncomeRawLedgerEvent> facts) {
+    private AccountResolution verifiedUsers(String platform, java.util.Collection<McnIncomeRawLedgerEvent> facts) {
         List<String> accountIds = new java.util.ArrayList<>(new HashSet<>(facts.stream().map(McnIncomeRawLedgerEvent::getPlatformUserId).toList()));
         Map<String, Long> result = new HashMap<>();
+        Map<String, Instant> cutoffs = new HashMap<>();
         for (int start = 0; start < accountIds.size(); start += BINDING_LOOKUP_BATCH_SIZE) {
             List<String> batch = accountIds.subList(start, Math.min(start + BINDING_LOOKUP_BATCH_SIZE, accountIds.size()));
             result.putAll(verifiedAccounts.owners(platform, batch));
+            cutoffs.putAll(verifiedAccounts.resetCutoffs(platform, batch));
         }
-        return result;
+        return new AccountResolution(result, cutoffs);
     }
-    private ProjectionDecision decision(McnIncomeRawLedgerEvent fact, Map<String, Long> verifiedUsers, java.util.Set<String> reversalTargets) {
-        Long resolvedUserId = verifiedUsers.get(fact.getPlatformUserId());
+    private ProjectionDecision decision(McnIncomeRawLedgerEvent fact, AccountResolution accounts, java.util.Set<String> reversalTargets) {
+        String account = fact.getPlatformUserId();
+        Long resolvedUserId = McnIncomeVerifiedAccounts.predatesReset(account, fact.getOccurredAt(), accounts.cutoffs())
+                ? null : accounts.users().get(account);
         if (reversalTargets.contains(fact.getSourceEventId()) || fact.getEventType() == McnIncomeEventType.REVERSAL
                 || fact.getSettlementStatus() == McnIncomeSettlementStatus.REVERSED || fact.getSettlementStatus() == McnIncomeSettlementStatus.CANCELLED) return new ProjectionDecision("VOIDED", resolvedUserId);
         if (resolvedUserId == null) return new ProjectionDecision("UNMATCHED", null);
@@ -219,6 +223,7 @@ public class McnIncomeShadowLedgerService {
     private McnIncomeShadowLedgerSummaryResponse response(String platform, LocalDate day, int source, int latest, Counts c, String runId) { return new McnIncomeShadowLedgerSummaryResponse(platform, day, source, latest, c.boundFinal, c.unmatched, c.awaitingFinality, c.voided, runId); }
     private static class Counts { int boundFinal; int unmatched; int awaitingFinality; int voided; void add(String status) { switch (status) { case "BOUND_FINAL" -> boundFinal++; case "UNMATCHED" -> unmatched++; case "AWAITING_FINALITY" -> awaitingFinality++; case "VOIDED" -> voided++; default -> throw new IllegalStateException("unknown shadow status"); } } }
     private record ProjectionDecision(String status, Long resolvedUserId) { }
+    private record AccountResolution(Map<String, Long> users, Map<String, Instant> cutoffs) { }
     private record ExceptionRow(LocalDate businessDate, String guildId, String shadowStatus, String settlementStatus,
                                 String eventType, Instant sourceUpdatedAt) { }
 }

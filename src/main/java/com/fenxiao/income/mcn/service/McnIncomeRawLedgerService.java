@@ -22,6 +22,7 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 /**
  * Records source evidence only. This service intentionally has no dependency on the reward engine,
@@ -74,6 +75,8 @@ public class McnIncomeRawLedgerService {
         int duplicateFacts = 0;
         int unmatchedFacts = 0;
         Instant receivedAt = clock.instant();
+        var cutoffs = verifiedAccounts.resetCutoffs(platformCode, request.facts().stream()
+                .map(fact -> require(fact.platformUserId(), "platform user id")).distinct().toList());
         for (McnIncomeFactRequest fact : request.facts()) {
             String eventId = require(fact.sourceEventId(), "source event id");
             McnIncomeSourceRevision revisionInfo = McnIncomeSourceRevision.parse(require(fact.sourceRevision(), "source revision"));
@@ -98,12 +101,14 @@ public class McnIncomeRawLedgerService {
             }
 
             String platformUserId = require(fact.platformUserId(), "platform user id");
-            var binding = verifiedAccounts.byAccount(platformCode, platformUserId);
+            boolean historical = McnIncomeVerifiedAccounts.predatesReset(platformUserId, fact.occurredAt(), cutoffs);
+            var binding = historical ? Optional.<McnIncomeVerifiedAccounts.Account>empty()
+                    : verifiedAccounts.byAccount(platformCode, platformUserId);
             McnIncomeResolutionStatus resolutionStatus = binding.isPresent()
                     ? McnIncomeResolutionStatus.BOUND : McnIncomeResolutionStatus.UNMATCHED;
             Long resolvedUserId = binding.map(McnIncomeVerifiedAccounts.Account::userId).orElse(null);
-            String resolutionReason = binding.isPresent()
-                    ? "VERIFIED_PLATFORM_BINDING" : "NO_VERIFIED_PLATFORM_BINDING";
+            String resolutionReason = binding.isPresent() ? "VERIFIED_PLATFORM_BINDING"
+                    : historical ? "FACT_PREDATES_BINDING_RESET" : "NO_VERIFIED_PLATFORM_BINDING";
             if (resolutionStatus == McnIncomeResolutionStatus.UNMATCHED) {
                 unmatchedFacts++;
             }

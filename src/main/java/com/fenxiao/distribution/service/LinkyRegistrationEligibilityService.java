@@ -118,6 +118,9 @@ public class LinkyRegistrationEligibilityService {
 
     public LinkyAccountBinding attachRegisteredUser(String linkyAccount, Long userId, String phoneNumber, String inviteCode) {
         LinkyAccountBinding binding = assertEligibleForRegistration(linkyAccount);
+        if (binding.getUserId() != null && !binding.getUserId().equals(userId)) {
+            throw new IllegalStateException("linky account already registered");
+        }
         binding.attachRegistration(userId, phoneNumber, inviteCode);
         return linkyAccountBindingRepository.save(binding);
     }

@@ -1,0 +1,25 @@
+.binding-reset-fields,
+.binding-reset-fields label {
+  display: grid;
+  gap: 8px;
+}
+
+.binding-reset-fields {
+  gap: 12px;
+}
+
+.binding-reset-fields p {
+  margin: 0;
+}
+
+.binding-reset-fields input,
+.binding-reset-fields select {
+  box-sizing: border-box;
+  min-height: 36px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #d7d5d3;
+  border-radius: 6px;
+  background: #fff;
+  color: inherit;
+}

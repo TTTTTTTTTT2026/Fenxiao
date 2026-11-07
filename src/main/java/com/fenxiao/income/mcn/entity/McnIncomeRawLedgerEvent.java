@@ -185,4 +185,5 @@ public class McnIncomeRawLedgerEvent extends BaseEntity {
     public BigDecimal getAmount() { return amount; }
     public LocalDate getBusinessDate() { return businessDate; }
     public Instant getSourceUpdatedAt() { return sourceUpdatedAt; }
+    public Instant getOccurredAt() { return occurredAt; }
 }
