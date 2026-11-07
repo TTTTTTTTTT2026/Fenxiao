@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { Alert, Empty, Space, Tag, Typography } from 'antd'
-import { ProTable, type ProColumns } from '@ant-design/pro-components'
-import { getAdminUserPlatformProfiles, type UserPlatformProfileItem } from '../admin/userDirectoryApi'
+import { useRef, useState } from 'react'
+import { Alert, Button, Empty, Space, Tag, Typography } from 'antd'
+import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components'
+import BindingResetDialog from '../admin/BindingResetDialog'
+import { canResetPlatformBinding, getAdminUserPlatformProfiles, type UserPlatformProfileItem } from '../admin/userDirectoryApi'
 import type { AdminSessionResponse } from '../admin/authApi'
 import { formatConsumerUserGrade, formatCountryNameZh } from '../shared/catalog'
 import { formatDateTime } from '../shared/dateTime'
@@ -26,14 +27,24 @@ const columns: ProColumns<UserPlatformProfileItem>[] = [
 
 export default function UserDirectoryPage({ session }: { session: AdminSessionResponse }) {
   const [queryError, setQueryError] = useState('')
+  const [resetUserId, setResetUserId] = useState<number | null>(null)
+  const [resetMessage, setResetMessage] = useState('')
+  const table = useRef<ActionType>(null)
+  const canReset = canResetPlatformBinding(session.role)
+  const userColumns: ProColumns<UserPlatformProfileItem>[] = canReset ? [...columns, {
+    title: '操作', key: 'actions', width: 110, fixed: 'right', search: false,
+    render: (_, item) => <Button size="small" onClick={() => { setResetMessage(''); setResetUserId(item.userId) }}>重置绑定</Button>,
+  }] : columns
 
   return <>
     <Title level={3}>用户列表</Title>
-    <Text type="secondary">按注册时间从近到远显示；仅查看现有后台接口的数据，用户调整操作暂在旧版后台完成。</Text>
+    <Text type="secondary">按注册时间从近到远显示。其他用户调整操作在旧版后台完成。</Text>
     {queryError ? <Alert type="error" showIcon message={queryError} className="new-console-alert" /> : null}
+    {resetMessage ? <Alert type="success" showIcon message={resetMessage} className="new-console-alert" /> : null}
     <ProTable<UserPlatformProfileItem>
+      actionRef={table}
       rowKey="userId"
-      columns={columns}
+      columns={userColumns}
       request={async (params) => {
         setQueryError('')
         try {
@@ -49,8 +60,13 @@ export default function UserDirectoryPage({ session }: { session: AdminSessionRe
       pagination={{ defaultPageSize: 20, pageSizeOptions: ['20', '50', '100'], showSizeChanger: true }}
       options={{ density: true, reload: true, setting: false }}
       locale={{ emptyText: <Empty description="暂无符合条件的用户" /> }}
-      scroll={{ x: 1800 }}
+      scroll={{ x: canReset ? 1910 : 1800 }}
       cardBordered
     />
+    {resetUserId !== null && canReset ? <BindingResetDialog useConsoleModal token={session.sessionToken} userId={resetUserId}
+      onClose={() => setResetUserId(null)} onSaved={(app) => {
+        setResetMessage(`${app} 绑定已重置，用户可重新提交 ID。`)
+        void table.current?.reload()
+      }} /> : null}
   </>
 }

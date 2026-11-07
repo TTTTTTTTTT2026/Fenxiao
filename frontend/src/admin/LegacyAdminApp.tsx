@@ -162,7 +162,7 @@ type UserGradeDashboardResponse,
 type UserGradeLevelDashboardResponse,
 type UserPointDashboardResponse
 } from '../api'
-import { getAdminUserPlatformProfiles, getAdminUserDirectoryOptions, updateAdminUserNickname, updateAdminUserOperator, updateAdminUserValue, type UserDirectoryOptions, type UserPlatformProfileListResponse } from './userDirectoryApi'
+import { canResetPlatformBinding, getAdminUserPlatformProfiles, getAdminUserDirectoryOptions, updateAdminUserNickname, updateAdminUserOperator, updateAdminUserValue, type UserDirectoryOptions, type UserPlatformProfileListResponse } from './userDirectoryApi'
 import { changeAdminPassword, createAdminSession, getCurrentAdminSession, logoutAdminSession, logoutAllAdminSessions } from './authApi'
 import {
 buildLinkyReplaySummary,
@@ -206,6 +206,7 @@ import { DataTable,EmptyState,InfoCard,InfoRow,InlineHint,PanelSection,RelationI
 import LegacyUserDirectorySection, { type UserPlatformQuery } from './LegacyUserDirectorySection'
 import LinkyBindingTargetDialog from './LinkyBindingTargetDialog'
 import LegacyEarningsReadAccessDialog from './LegacyEarningsReadAccessDialog'
+import BindingResetDialog from './BindingResetDialog'
 import {
 ADMIN_SECTION_HASHES,
 SYSTEM_CONFIG_SECTION_VIEWS,
@@ -550,6 +551,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
   const [userPlatformAppliedQuery, setUserPlatformAppliedQuery] = useState<UserPlatformQuery>(userPlatformQuery)
   const [userDirectoryOptions, setUserDirectoryOptions] = useState<UserDirectoryOptions | null>(null)
   const [earningsAccessUserId, setEarningsAccessUserId] = useState<number | null>(null)
+  const [resetBindingUserId, setResetBindingUserId] = useState<number | null>(null)
   const [userOperationsDraft, setUserOperationsDraft] = useState<{ userId: number; field: 'operator' | 'value'; target: string; current: string; reason: string } | null>(null)
   const [linkyBindingTargetUserId, setLinkyBindingTargetUserId] = useState<number | null>(null)
   const [userNicknameDraft, setUserNicknameDraft] = useState<{ userId: number; current: string; target: string } | null>(null)
@@ -3546,6 +3548,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             onEarningsReadAccess={(item) => setEarningsAccessUserId(item.userId)}
             canManageEarningsReadAccess={canManageEarningsReadAccess}
             onLinkyBindingTarget={adminSession?.role?.toLowerCase() === 'super_admin' ? (item) => setLinkyBindingTargetUserId(item.userId) : undefined}
+            onResetBinding={canResetPlatformBinding(adminSession.role) ? (item) => setResetBindingUserId(item.userId) : undefined}
           /> : null}
 
           {linkyBindingTargetUserId !== null && adminSession ? <LinkyBindingTargetDialog token={adminSession.sessionToken} userId={linkyBindingTargetUserId} onClose={()=>setLinkyBindingTargetUserId(null)} onSaved={()=>{setLinkyBindingTargetUserId(null);setSuccessMessage('本人 Linky 绑定目标已保存；仍需用户提交账号完成正式核验。')}} /> : null}
@@ -3554,6 +3557,13 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             key={`${adminSession.sessionToken}:${earningsAccessUserId}`}
             token={adminSession.sessionToken} userId={earningsAccessUserId} onClose={() => setEarningsAccessUserId(null)}
             onSaved={() => { void loadUserPlatformProfiles() }} /> : null}
+
+          {resetBindingUserId !== null && canResetPlatformBinding(adminSession.role) ? <BindingResetDialog
+            token={adminSession.sessionToken} userId={resetBindingUserId} onClose={() => setResetBindingUserId(null)}
+            onSaved={(app) => {
+              setSuccessMessage(`${app} 绑定已重置，用户可重新提交 ID。`)
+              void loadUserPlatformProfiles()
+            }} /> : null}
 
           {canViewHighValueRanking && activeAdminSection === 'highValueRanking' && adminSession ? <LegacyHighValueRankingSection sessionToken={adminSession.sessionToken} /> : null}
 

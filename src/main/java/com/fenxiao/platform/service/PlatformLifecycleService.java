@@ -65,8 +65,14 @@ public class PlatformLifecycleService {
 
     public PlatformAccountBinding verify(VerifyPlatformBindingRequest request) {
         String platform = normalizePlatform(request.platformCode());
-        PlatformAccountBinding binding = bindingRepository.findByPlatformCodeAndPlatformUserId(platform, normalizePlatformUserId(platform, request.platformUserId()))
+        String account = normalizePlatformUserId(platform, request.platformUserId());
+        PlatformAccountBinding binding = bindingRepository.lockPlatformBinding(platform, account)
                 .orElseThrow(() -> new IllegalArgumentException("platform binding not found"));
+        // Legacy callbacks remain valid until an account is reset, when the external ID alone becomes ambiguous.
+        if (request.bindingId() == null ? bindingRepository.countPriorResets(platform, account) > 0
+                : !request.bindingId().equals(binding.getId())) {
+            throw new IllegalStateException("verification is for a previous binding");
+        }
         PlatformBindingStatus before = binding.getBindingStatus();
         String rejectionCode = null;
         String rejectionReason = null;
@@ -107,11 +113,14 @@ public class PlatformLifecycleService {
     }
 
     public PlatformLifecycleSnapshot ingest(PlatformBusinessFactRequest request) {
-        if (factRepository.existsBySourceSystemAndSourceEventId(request.sourceSystem(), request.sourceEventId())) {
-            PlatformAccountBinding existing = requireVerified(request.platformCode(), request.platformUserId());
-            return evaluate(existing);
-        }
         PlatformAccountBinding binding = requireVerified(request.platformCode(), request.platformUserId());
+        var resets = bindingRepository.findResetBoundaries(binding.getPlatformCode(), List.of(binding.getPlatformUserId()));
+        if (!resets.isEmpty() && !request.occurredAt().isAfter(resets.getFirst().getResetAt())) {
+            throw new IllegalStateException("platform fact predates the current binding and requires review");
+        }
+        if (factRepository.existsBySourceSystemAndSourceEventId(request.sourceSystem(), request.sourceEventId())) {
+            return evaluate(binding);
+        }
         if (request.factType() == PlatformFactType.NET_INCOME && (request.amount() == null || request.amount().signum() < 0)) {
             throw new IllegalArgumentException("net income amount must be zero or positive");
         }
@@ -128,6 +137,11 @@ public class PlatformLifecycleService {
 
     public PlatformAccountBinding getBinding(Long userId, String platformCode) {
         return bindingRepository.findByUserIdAndPlatformCode(userId, normalizePlatform(platformCode))
+                .orElseThrow(() -> new IllegalArgumentException("platform binding not found"));
+    }
+
+    public PlatformAccountBinding lockBinding(Long userId, String platformCode) {
+        return bindingRepository.lockUserBinding(userId, normalizePlatform(platformCode))
                 .orElseThrow(() -> new IllegalArgumentException("platform binding not found"));
     }
 
@@ -178,7 +192,7 @@ public class PlatformLifecycleService {
 
     private PlatformAccountBinding requireVerified(String platformCode, String platformUserId) {
         String platform = normalizePlatform(platformCode);
-        return bindingRepository.findByPlatformCodeAndPlatformUserId(platform, normalizePlatformUserId(platform, platformUserId))
+        return bindingRepository.lockPlatformBinding(platform, normalizePlatformUserId(platform, platformUserId))
                 .filter(value -> value.getBindingStatus() == PlatformBindingStatus.VERIFIED)
                 .orElseThrow(() -> new IllegalStateException("platform binding is not verified"));
     }

@@ -10,6 +10,14 @@ public record VerifyPlatformBindingRequest(
         @NotBlank String officialGuildId,
         @NotNull LocalDateTime officialJoinedAt,
         @NotBlank String sourceSystem,
-        String sourceReference
-) {}
+        String sourceReference,
+        Long bindingId
+) {
+    public VerifyPlatformBindingRequest(String platformCode, String platformUserId, boolean globallySeenBeforeSubmission,
+                                        boolean joinedTargetGuild, String officialGuildId, LocalDateTime officialJoinedAt,
+                                        String sourceSystem, String sourceReference) {
+        this(platformCode, platformUserId, globallySeenBeforeSubmission, joinedTargetGuild, officialGuildId,
+                officialJoinedAt, sourceSystem, sourceReference, null);
+    }
+}
 

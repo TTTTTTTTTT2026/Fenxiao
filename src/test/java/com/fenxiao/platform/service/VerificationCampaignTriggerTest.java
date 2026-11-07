@@ -29,7 +29,7 @@ class VerificationCampaignTriggerTest {
         when(mode.source()).thenReturn(PlatformVerificationSource.MCN);
         when(provider.source()).thenReturn(PlatformVerificationSource.MCN);
         when(provider.verify(any())).thenReturn(PlatformVerificationResult.found(false,"22000448",LocalDateTime.now(),"MCN_TIMO","test"));
-        when(lifecycle.getBinding(2L,"TIMO")).thenReturn(binding);
+        when(lifecycle.lockBinding(2L,"TIMO")).thenReturn(binding);
         when(lifecycle.verify(any())).thenReturn(binding);
         when(users.findById(2L)).thenReturn(Optional.of(UserDistributionProfile.create(2L,"BR","pt","TEST")));
         when(scope.resolve("TIMO","BR")).thenReturn(new McnTimoGuildScopeResolver.ResolvedGuildScope("22000448","BR"));

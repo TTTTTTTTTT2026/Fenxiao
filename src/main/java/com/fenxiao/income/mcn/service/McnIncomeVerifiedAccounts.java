@@ -7,7 +7,9 @@ import com.fenxiao.platform.entity.PlatformAccountBinding;
 import com.fenxiao.platform.repository.PlatformAccountBindingRepository;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -67,6 +69,17 @@ public class McnIncomeVerifiedAccounts {
                 .filter(value -> value.getBindingStatus() == PlatformBindingStatus.VERIFIED)
                 .collect(Collectors.toMap(PlatformAccountBinding::getPlatformUserId,
                         PlatformAccountBinding::getUserId, (first, ignored) -> first));
+    }
+
+    public Map<String, Instant> resetCutoffs(String platform, Collection<String> platformUserIds) {
+        if (platformUserIds.isEmpty()) return Map.of();
+        return platformBindings.findResetBoundaries(platform, platformUserIds).stream().collect(Collectors.toMap(
+                PlatformAccountBindingRepository.ResetBoundary::getPlatformUserId, boundary -> boundary.getResetAt().toInstant(ZoneOffset.UTC)));
+    }
+
+    static boolean predatesReset(String account, Instant occurredAt, Map<String, Instant> cutoffs) {
+        Instant cutoff = cutoffs.get(account);
+        return cutoff != null && !occurredAt.isAfter(cutoff);
     }
 
     private boolean eligible(LinkyAccountBinding value) {

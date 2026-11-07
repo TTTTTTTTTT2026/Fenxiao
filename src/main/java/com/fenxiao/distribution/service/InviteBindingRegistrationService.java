@@ -50,7 +50,7 @@ public class InviteBindingRegistrationService {
         String normalizedProductCode = normalizeProductCode(request.productCode());
         String normalizedLinkyAccount = normalizeLinkyAccount(request.linkyAccount());
 
-        UserDistributionProfile accountHolder = userDistributionProfileRepository.findById(userId)
+        UserDistributionProfile accountHolder = userDistributionProfileRepository.findByIdForBinding(userId)
                 .orElseThrow(() -> new IllegalArgumentException("user profile not found"));
         String normalizedWhatsappNumber = normalizeWhatsappNumber(accountHolder.getPhoneNumber());
         if (normalizedWhatsappNumber.isBlank()) {
@@ -103,7 +103,10 @@ public class InviteBindingRegistrationService {
         );
         invitationGuildAttributionService.recordVerifiedBinding(userId, verifiedBinding.getGuildId(),
                 verifiedBinding.getGuildName(), expectedGuild.guildInviteCode());
-        if (verificationMode.source() == LinkyVerificationSource.MCN) campaigns.capture(userId, "LINKY");
+        if (verificationMode.source() == LinkyVerificationSource.MCN
+                && inviteBindingRegistrationRepository.countPastLinkyBindings(userId) == 0) {
+            campaigns.capture(userId, "LINKY");
+        }
         return saved;
     }
 

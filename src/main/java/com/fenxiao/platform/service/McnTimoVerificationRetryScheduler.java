@@ -61,7 +61,7 @@ public class McnTimoVerificationRetryScheduler {
         Duration delay = retryDelay(last, retryableAttempts);
         if (now.isBefore(last.getAttemptedAt().plus(delay))) return;
         try {
-            verificationService.verifySubmittedBinding(binding.getUserId(), binding.getPlatformCode());
+            verificationService.verifySubmittedBinding(binding.getUserId(), binding.getPlatformCode(), binding.getId());
         } catch (RuntimeException exception) {
             log.warn("MCN Timo verification retry failed for bindingId={}: {}", binding.getId(), exception.getMessage());
         }

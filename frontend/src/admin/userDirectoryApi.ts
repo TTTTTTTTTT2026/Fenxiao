@@ -47,6 +47,35 @@ export type UserPlatformProfileListResponse = {
   size: number
 }
 
+export type BindingResetPlatform = 'TIMO' | 'LINKY'
+
+export type BindingResetPreview = {
+  status: string
+  maskedAccount: string | null
+  revision: string | null
+  blockedReason: string | null
+}
+
+export function canResetPlatformBinding(role: string) {
+  return ['super_admin', 'admin', 'operations'].includes(role.toLowerCase())
+}
+
+function bindingResetPath(userId: number, platform: BindingResetPlatform) {
+  return `/admin/distribution/user-platform-profiles/${userId}/binding-reset/${platform}`
+}
+
+export function getBindingResetPreview(token: string, userId: number, platform: BindingResetPlatform) {
+  return request<BindingResetPreview>(bindingResetPath(userId, platform), { headers: { 'X-Admin-Session': token } })
+}
+
+export function resetPlatformBinding(token: string, userId: number, platform: BindingResetPlatform, revision: string, reason: string) {
+  return request<void>(bindingResetPath(userId, platform), {
+    method: 'POST',
+    headers: { 'X-Admin-Session': token },
+    body: JSON.stringify({ revision, reason }),
+  })
+}
+
 export type UserDirectoryFilters = {
   userId?: number
   operatorAdminId?: number
