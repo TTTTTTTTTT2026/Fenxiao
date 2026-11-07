@@ -32,7 +32,7 @@ export default function ConsoleWorkbench({ session, busy, logoutError, onLogout 
       route={{ path: '/console', routes: routes.map((item) => ({ path: item.path, name: item.label })) }}
       location={{ pathname: selected?.path ?? window.location.pathname }}
       menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>}
-      actionsRender={() => [<Button key="legacy" href="/admin">旧版后台</Button>, <Button key="logout" onClick={onLogout} loading={busy}>退出登录</Button>]}
+      actionsRender={() => [<Button key="legacy" href={selected?.key === 'content' ? `/admin${selected.legacyHref}` : '/admin'}>旧版后台</Button>, <Button key="logout" onClick={onLogout} loading={busy}>退出登录</Button>]}
     >
       <div className="new-console-content">
         <div className="new-console-account-name">当前管理员：{session.displayName || session.username}</div>
