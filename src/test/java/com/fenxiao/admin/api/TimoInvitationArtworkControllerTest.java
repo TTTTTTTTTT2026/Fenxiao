@@ -82,7 +82,8 @@ class TimoInvitationArtworkControllerTest {
             // PR186 has identical V1-V86 scripts and Flyway configuration/dependencies.
             // Exercise its default validate/migrate behavior with the future V87 retained.
             try (var migrations = Files.list(Path.of("src/main/resources/db/migration"))) {
-                for (Path migration : migrations.filter(p -> !p.getFileName().toString().startsWith("V87__")).toList()) {
+                for (Path migration : migrations.filter(p -> Integer.parseInt(
+                        p.getFileName().toString().split("__", 2)[0].substring(1)) <= 86).toList()) {
                     Files.copy(migration, oldMigrations.resolve(migration.getFileName()));
                 }
             }
