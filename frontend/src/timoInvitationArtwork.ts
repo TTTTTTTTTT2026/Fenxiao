@@ -1,7 +1,7 @@
 import type { ConsumerLocale } from './shared/catalog'
 
 export const timoArtworkLocales: Record<ConsumerLocale, string> = {
-  zh: '中文', id: 'Bahasa Indonesia', en: 'English', es: 'Español', pt: 'Português (Brasil)',
+  zh: '中文', id: '印尼语', en: '英语', es: '西班牙语', pt: '葡萄牙语（巴西）',
 }
 
 const apiBase = import.meta.env.VITE_API_BASE_URL || ''
