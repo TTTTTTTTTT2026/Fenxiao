@@ -1,11 +1,12 @@
 export type AdminSettingsView = 'experiment' | 'guilds' | 'platforms' | 'incomeControlled' | 'incomeShadow' | 'mockVerification' | 'advanced' | 'seedInviter' | 'phoneVerification' | 'smsWhitelist'
 export type AdminAccountView = 'security' | 'staff' | 'audit'
-export type AdminSectionKey = 'operationsDashboard' | 'overview' | 'channel' | 'bindings' | 'riskQueue' | 'users' | 'highValueRanking' | 'platformGuildDirectory' | 'rewards' | 'userAccounts' | 'accountMaintenance' | 'verificationCampaigns' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'teams' | 'operatingDividends' | 'userGrades' | 'userGradeList' | 'advancedGradeAcceptance' | 'userGradeFacts' | 'tokenPointConversions' | 'pointCurrencyRates' | 'accounts' | 'accountManagement' | 'mySecurity' | 'securityRecords' | 'settings' | 'systemExperiment' | 'systemGuilds' | 'systemPlatforms' | 'systemIncomeControlled' | 'systemIncomeShadow' | 'systemMockVerification' | 'systemAdvanced' | 'systemSeedInviter' | 'systemPhoneVerification' | 'systemSmsWhitelist'
+export type AdminSectionKey = 'operationsDashboard' | 'overview' | 'channel' | 'content' | 'bindings' | 'riskQueue' | 'users' | 'highValueRanking' | 'platformGuildDirectory' | 'rewards' | 'userAccounts' | 'accountMaintenance' | 'verificationCampaigns' | 'commissionPolicies' | 'mentorDirectory' | 'mentorIncentives' | 'teams' | 'operatingDividends' | 'userGrades' | 'userGradeList' | 'advancedGradeAcceptance' | 'userGradeFacts' | 'tokenPointConversions' | 'pointCurrencyRates' | 'accounts' | 'accountManagement' | 'mySecurity' | 'securityRecords' | 'settings' | 'systemExperiment' | 'systemGuilds' | 'systemPlatforms' | 'systemIncomeControlled' | 'systemIncomeShadow' | 'systemMockVerification' | 'systemAdvanced' | 'systemSeedInviter' | 'systemPhoneVerification' | 'systemSmsWhitelist'
 
 export const ADMIN_SECTION_HASHES: Record<AdminSectionKey, string> = {
   operationsDashboard: '#admin-operations-dashboard',
   overview: '#admin-overview',
   channel: '#admin-channel-entries',
+  content: '#admin-content',
   bindings: '#admin-bindings',
   riskQueue: '#admin-risk-queue',
   users: '#admin-users',

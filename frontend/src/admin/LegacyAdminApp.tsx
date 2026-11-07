@@ -214,6 +214,7 @@ getVisibleFinanceSections,
 resolveAdminSectionFromHash,
 type AdminSectionKey,
 } from './navigation'
+import TimoInvitationArtworkSection from './TimoInvitationArtworkSection'
 import { canManageTeamsInAdmin } from './roleCapabilities'
 import { USER_GRADE_CATALOG } from './userGradeCatalog'
 import './LegacyAdminV3.css'
@@ -3703,6 +3704,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
             onCopy={(url) => { void copyPublicEntryLink(url) }}
           /> : null}
 
+          {activeAdminSection === 'content' && adminSession && canViewAdminSection('content') ? <TimoInvitationArtworkSection token={adminSession.sessionToken} /> : null}
           {activeAdminSection === 'verificationCampaigns' && adminSession?.role?.toLowerCase() === 'super_admin' ? <LegacyVerificationCampaigns sessionToken={adminSession.sessionToken} /> : null}
           {activeAdminSection === 'accountMaintenance' && visibleFinanceSections.includes('accountMaintenance') && adminSession ? <LegacyAccountMaintenance sessionToken={adminSession.sessionToken} /> : null}
 

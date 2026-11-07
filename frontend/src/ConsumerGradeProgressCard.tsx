@@ -1,3 +1,4 @@
+import { earningsHref } from './consumerEarningsPlatform'
 import { useEffect, useState } from 'react'
 import { getConsumerGradeProgress, type ConsumerGradeProgressResponse } from './api'
 import { formatConsumerUserGrade, type ConsumerLocale } from './shared/catalog'
@@ -40,7 +41,7 @@ export function ConsumerGradeProgressView({ data, locale, loading = false, error
       <div className="consumer-grade-progress-content">
     <div className="consumer-grade-progress-heading"><h2>{title}</h2>
       <details className="consumer-grade-progress-details"><summary aria-label={detailsLabel[locale]}>i</summary>
-        <div><p>{words.hint}</p><a href="/earnings/effective-users#direct-invite-progress">{words.progress} →</a></div>
+        <div><p>{words.hint}</p><a href={earningsHref('/earnings/effective-users#direct-invite-progress', data?.platformCode)}>{words.progress} →</a></div>
       </details>
     </div>
     {achieved ? <strong>{formatConsumerUserGrade(data!.currentGradeCode, locale)}</strong> : null}

@@ -12,7 +12,3 @@ export function resolveConsumerAccountWorkspace(workspace: ConsumerWorkspaceResp
 export function canReadAppEarnings(app: ConsumerWorkspaceResponse['apps'][number]) {
   return app.earningsReadable ?? app.verified
 }
-
-export function canOpenEarningsWorkspace(selected: ConsumerWorkspaceResponse['selected']) {
-  return selected !== null
-}
