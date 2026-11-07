@@ -2305,9 +2305,6 @@ function EarningsPage({ view = 'overview', requestedPlatform = readEarningsPlatf
               </div>
             </section>
 
-            {selectedPlatform && selectedPlatformVerified ? <InvitationProgressPanel userId={session.userId} accessToken={session.accessToken}
-              locale={locale} initialPlatform={selectedPlatform} allowSwitch={false} /> : null}
-
             {pendingRewardDialogOpen ? <div className="consumer-modal-backdrop" onClick={() => setPendingRewardDialogOpen(false)}>
               <section className="consumer-withdrawal-dialog" role="dialog" aria-modal="true" aria-label={pendingCopy.label} onClick={(event) => event.stopPropagation()}>
                 <h2>{pendingCopy.label}</h2><p>{pendingCopy.description}</p>
