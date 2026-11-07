@@ -7,15 +7,17 @@ import com.fenxiao.audit.repository.OperationAuditLogRepository;
 import com.fenxiao.common.api.ForbiddenException;
 import org.flywaydb.core.Flyway;
 import org.h2.jdbcx.JdbcDataSource;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.mockito.ArgumentCaptor;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.server.ResponseStatusException;
 
 import javax.imageio.ImageIO;
+import javax.sql.DataSource;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDateTime;
@@ -34,10 +36,7 @@ class TimoInvitationArtworkControllerTest {
     private final OperationAuditLogRepository audits = mock(OperationAuditLogRepository.class);
     private TimoInvitationArtworkController controller;
 
-    @BeforeEach
-    void setUp() {
-        var database = new JdbcDataSource();
-        database.setURL("jdbc:h2:mem:" + UUID.randomUUID() + ";MODE=MySQL;DB_CLOSE_DELAY=-1");
+    private void setUp(DataSource database) {
         var jdbc = new JdbcTemplate(database);
         jdbc.execute("CREATE TABLE business_marker (id INT PRIMARY KEY)");
         jdbc.update("INSERT INTO business_marker VALUES (1)");
@@ -48,8 +47,39 @@ class TimoInvitationArtworkControllerTest {
         when(sessions.assertPermission("ops", AdminPermission.WRITE)).thenReturn(principal("*"));
     }
 
+    private void setUpH2() {
+        var database = new JdbcDataSource();
+        database.setURL("jdbc:h2:mem:" + UUID.randomUUID() + ";MODE=MySQL;DB_CLOSE_DELAY=-1");
+        setUp(database);
+    }
+
     @Test
     void replacesOnlyTheRequestedLanguageAndServesValidatedImageBytes() throws Exception {
+        setUpH2();
+        verifyImageReplacement();
+    }
+
+    @Test
+    @EnabledIfEnvironmentVariable(named = "BANDEIRA_MYSQL_TEST_URL", matches = ".+")
+    void migratesAndReplacesArtworkOnIsolatedMySql() throws Exception {
+        String url = System.getenv("BANDEIRA_MYSQL_TEST_URL");
+        if (!url.matches("jdbc:mysql://127\\.0\\.0\\.1:[0-9]+/bandeira_snapshot_test\\?.+")) {
+            throw new IllegalArgumentException("isolated MySQL only");
+        }
+        String password = System.getenv().getOrDefault("BANDEIRA_MYSQL_TEST_PASSWORD", "");
+        var jdbc = new JdbcTemplate(new DriverManagerDataSource(url, "root", password));
+        String schema = "bandeira_snapshot_test_" + UUID.randomUUID().toString().replace("-", "");
+        jdbc.execute("CREATE DATABASE " + schema);
+        try {
+            String testUrl = url.replace("/bandeira_snapshot_test?", "/" + schema + "?");
+            setUp(new DriverManagerDataSource(testUrl, "root", password));
+            verifyImageReplacement();
+        } finally {
+            jdbc.execute("DROP DATABASE " + schema);
+        }
+    }
+
+    private void verifyImageReplacement() throws Exception {
         assertThat(controller.read("id").getStatusCode().value()).isEqualTo(404);
         byte[] first = png(4);
         byte[] next = png(8);
@@ -72,6 +102,7 @@ class TimoInvitationArtworkControllerTest {
 
     @Test
     void rejectsSpoofedImagesUnsupportedLanguagesAndScopedWriters() throws Exception {
+        setUpH2();
         when(sessions.assertPermission("reader", AdminPermission.WRITE)).thenThrow(new ForbiddenException("denied"));
         when(sessions.assertPermission("regional", AdminPermission.WRITE)).thenReturn(principal("ID"));
         var request = new MockHttpServletRequest();
