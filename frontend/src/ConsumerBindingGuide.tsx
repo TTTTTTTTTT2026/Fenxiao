@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { ArrowUp, CaretRight, CheckCircle, DeviceMobile, DownloadSimple, IdentificationCard, LinkSimple } from '@phosphor-icons/react'
+import { timoInvitationArtworkUrl } from './timoInvitationArtwork'
 import { bindingGuideCopy } from './consumerBindingGuideCopy'
 import './consumerBindingGuide.css'
 
@@ -16,8 +18,15 @@ type GuideProps = { app: AppName; locale: Locale } & (
 )
 
 export function TimoEarningsHero({ locale }: { locale: Locale }) {
-  return <section className="binding-guide-hero">
-    <h1>{bindingGuideCopy[locale].neutralTitle}</h1>
+  const [imageState, setImageState] = useState<'loading' | 'ready' | 'missing'>('loading')
+  const copy = bindingGuideCopy[locale]
+  return <section className={imageState === 'ready' ? 'binding-guide-artwork' : 'binding-guide-hero'}>
+    {imageState !== 'missing' ? <img src={timoInvitationArtworkUrl(locale)} alt="" hidden={imageState !== 'ready'}
+      onLoad={() => setImageState('ready')} onError={() => setImageState('missing')} /> : null}
+    <h1 className={imageState === 'ready' ? 'consumer-visually-hidden' : undefined}>
+      <span className="binding-guide-invite-label">{copy.invitationArtwork}</span>
+      {copy.neutralTitle}
+    </h1>
   </section>
 }
 

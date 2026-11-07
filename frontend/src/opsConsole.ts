@@ -154,6 +154,11 @@ export function buildAdminSectionLinks(role?: string): AdminSectionLink[] {
       href: '#admin-channel-entries',
     },
     {
+      label: '内容管理',
+      description: '按语言维护赚钱页 Timo 邀请主图。',
+      href: '#admin-content',
+    },
+    {
       label: '用户管理',
       description: '查看用户、邀请关系与风险队列。',
       href: '#admin-users',
@@ -202,7 +207,7 @@ export function buildAdminSectionLinks(role?: string): AdminSectionLink[] {
 
   const roleSections: Record<string, string[]> = {
     finance: ['#admin-overview', '#admin-rewards', '#admin-mentors', '#admin-user-grade-list', '#admin-advanced-grade-acceptance', '#admin-user-grade-facts', '#admin-accounts'],
-    operations: ['#admin-overview', '#admin-channel-entries', '#admin-users', '#admin-platform-guild-directory', '#admin-rewards', '#admin-mentors', '#admin-teams', '#admin-user-grade-list', '#admin-advanced-grade-acceptance', '#admin-user-grade-facts', '#admin-accounts'],
+    operations: ['#admin-overview', '#admin-channel-entries', '#admin-content', '#admin-users', '#admin-platform-guild-directory', '#admin-rewards', '#admin-mentors', '#admin-teams', '#admin-user-grade-list', '#admin-advanced-grade-acceptance', '#admin-user-grade-facts', '#admin-accounts'],
     operator: ['#admin-overview', '#admin-channel-entries', '#admin-users', '#admin-platform-guild-directory', '#admin-accounts'],
     customer_support: ['#admin-overview', '#admin-users', '#admin-accounts'],
     mentor: ['#admin-overview', '#admin-users', '#admin-accounts'],

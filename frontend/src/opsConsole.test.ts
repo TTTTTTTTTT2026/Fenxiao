@@ -166,6 +166,11 @@ describe('buildAdminSectionLinks', () => {
         href: '#admin-channel-entries',
       },
       {
+        label: '内容管理',
+        description: '按语言维护赚钱页 Timo 邀请主图。',
+        href: '#admin-content',
+      },
+      {
         label: '用户管理',
         description: '查看用户、邀请关系与风险队列。',
         href: '#admin-users',

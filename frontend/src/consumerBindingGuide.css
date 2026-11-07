@@ -173,24 +173,6 @@
   color: #b9380a;
 }
 
-.consumer-workspace-banner.binding-guide-attribution {
-  margin-bottom: 12px;
-  padding-block: 0;
-  column-gap: 6px;
-}
-
-.binding-guide-attribution span {
-  min-width: 0;
-  flex-basis: 110px;
-  padding-block: 8px;
-}
-
-.binding-guide-attribution a {
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-}
-
 .binding-form-title {
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr) 44px;
@@ -249,8 +231,8 @@
   margin-block: 12px;
 }
 
-.consumer-earnings-shell[data-workspace-unresolved] > :not(.consumer-topbar, .consumer-bottom-nav, .consumer-banner, .earnings-workspace-loading),
-.consumer-earnings-shell[data-workspace-unresolved] .consumer-topbar-actions {
+.consumer-earnings-shell[data-workspace-unresolved] > :not(.consumer-topbar, .consumer-bottom-nav, .consumer-banner, .earnings-workspace-loading, .earnings-platform-tabs),
+.consumer-earnings-shell[data-workspace-unresolved] .consumer-account-link {
   display: none;
 }
 
@@ -265,4 +247,60 @@
 .binding-form-anchor > form > .consumer-form-submit,
 .binding-form-anchor > form > .consumer-form-note {
   margin-top: 12px;
+}
+
+.earnings-platform-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin-bottom: 14px;
+  padding: 4px;
+  border: 1px solid #f6e3d7;
+  border-radius: 14px;
+  background: #fffaf7;
+}
+
+.earnings-platform-tabs a {
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  border-radius: 10px;
+  color: #554b48;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.earnings-platform-tabs a[aria-current] {
+  background: #ffecdc;
+  color: #a8320b;
+}
+
+.earnings-platform-tabs a:focus-visible {
+  outline: 2px solid #b9380a;
+  outline-offset: -2px;
+}
+
+.binding-guide-invite-label {
+  display: block;
+  margin-bottom: 8px;
+  color: #a8320b;
+  font-size: 0.875rem;
+  letter-spacing: normal;
+}
+
+.binding-guide-artwork {
+  overflow: hidden;
+  border-radius: 19px;
+  background: #fff0e3;
+}
+
+.consumer-earnings-shell > .consumer-invitation-progress {
+  margin: 0 0 24px;
+}
+
+.binding-guide-artwork img {
+  display: block;
+  width: 100%;
+  max-height: 360px;
+  object-fit: contain;
 }

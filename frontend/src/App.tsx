@@ -22,7 +22,7 @@ UserPlus,
 UsersThree,
 Wallet,
 } from '@phosphor-icons/react'
-import { useEffect,useRef,useState,type FormEvent,type MouseEvent as ReactMouseEvent } from 'react'
+import { useEffect,useRef,useState,type FormEvent } from 'react'
 import {
 getConsumerWorkspace,
 getVerifiedInviteCount,
@@ -52,7 +52,6 @@ type InvitationCommissionReportResponse,
 type InvitationCommissionSourceResponse,
 type InvitationRewardAccountResponse,
 type AccountReferenceValues,
-type InviteBindingResponse,
 type LinkyAccountBindingResponse,
 type PlatformBindingResponse,
 type UserPublicProfileResponse
@@ -73,12 +72,13 @@ import InvitationProgressPanel from './InvitationProgressPanel'
 import ConsumerGradeProgressCard from './ConsumerGradeProgressCard'
 import TimoVerificationResult from './TimoVerificationResult'
 import ConsumerBindingGuide, { TimoEarningsHero } from './ConsumerBindingGuide'
-import { bindingGuideCopy, timoEarningsGuideHref } from './consumerBindingGuideCopy'
+import { bindingGuideCopy } from './consumerBindingGuideCopy'
+import { earningsHref, earningsPlatformFromSearch, resolveEarningsPlatform, type EarningsPlatform } from './consumerEarningsPlatform'
 import ConsumerPhoneCountrySelect from './ConsumerPhoneCountrySelect'
 import ConsumerDemoLeaderboard from './ConsumerDemoLeaderboard'
 import { consumerPhoneFormCopy,phoneCodeActionText,phoneCodePlaceholders } from './consumerPhoneFormCopy'
-import { ConsumerUnboundDialog,ConsumerUnboundGuidance } from './consumerWorkspaceGuidance'
-import { canOpenEarningsWorkspace, canReadAppEarnings, resolveConsumerAccountWorkspace, shouldShowTimoEarningsGuide } from './consumerWorkspaceView'
+import { ConsumerUnboundGuidance } from './consumerWorkspaceGuidance'
+import { canReadAppEarnings, resolveConsumerAccountWorkspace } from './consumerWorkspaceView'
 import { consumerEarningsAccessCopy } from './consumerEarningsAccessCopy'
 import { effectiveTeamCount } from './consumerTeamState'
 import PartnerPortal from './PartnerPortal'
@@ -345,7 +345,6 @@ function BindLandingPage() {
   const [linkyAccount, setLinkyAccount] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [result, setResult] = useState<InviteBindingResponse | null>(null)
 
   const copy = copyByLocale[locale]
   const accountCopy = consumerAccountCopy[locale]
@@ -367,11 +366,11 @@ function BindLandingPage() {
     setLoading(true)
     setError('')
     try {
-      const response = await registerLinkyAccount(session.userId, session.accessToken, {
+      await registerLinkyAccount(session.userId, session.accessToken, {
         productCode: product,
         linkyAccount,
       })
-      setResult(response)
+      window.location.replace(earningsHref('/earnings', 'LINKY'))
     } catch (err) {
       setError(err instanceof Error ? err.message : copy.failure)
     } finally {
@@ -412,8 +411,6 @@ function BindLandingPage() {
             <strong>{guildMismatch ? localizedBindingError : copy.failure}</strong>
             {!guildMismatch ? <span>{localizedBindingError}</span> : null}
           </section>
-        ) : result ? (
-          <section className="consumer-banner is-success" role="status"><strong>{copy.success}</strong><span>{accountCopy.bindingSuccess}</span></section>
         ) : null}
 
         {session ? (
@@ -436,17 +433,6 @@ function BindLandingPage() {
             <a className="consumer-primary-link" href="/invite#phone-login">{accountCopy.signIn}<ArrowRight weight="bold" aria-hidden="true" /></a>
           </section>
         )}
-
-        {result ? (
-          <section className="consumer-result-card">
-            <div><CheckCircle weight="fill" aria-hidden="true" /><strong>{copy.resultWritten}</strong></div>
-            <dl>
-              <div><dt>{accountCopy.linkyAccount}</dt><dd>{result.linkyAccount}</dd></div>
-              <div><dt>{copy.status}</dt><dd>{accountCopy.active}</dd></div>
-            </dl>
-            <a href="/account">{accountCopy.accountShortcut}<ArrowRight weight="bold" aria-hidden="true" /></a>
-          </section>
-        ) : null}
 
         {session ? <>
           <ConsumerBindingGuide app="Linky" locale={locale} onFocusForm={() => focusBindingForm(linkyInput.current)} />
@@ -1156,7 +1142,7 @@ const consumerUserGradeLabel: Record<ConsumerLocale, string> = {
 }
 
 const consumerNavigationCopy: Record<ConsumerLocale, Record<ConsumerNavigationKey, string>> = {
-  zh: { earnings: '收益', invite: '邀请', account: '我的' },
+  zh: { earnings: '赚钱', invite: '邀请', account: '我的' },
   en: { earnings: 'Earnings', invite: 'Invite', account: 'Account' },
   es: { earnings: 'Ganancias', invite: 'Invitar', account: 'Cuenta' },
   id: { earnings: 'Penghasilan', invite: 'Undang', account: 'Akun' },
@@ -1185,68 +1171,32 @@ function ConsumerAccountLink({ locale }: { locale: ConsumerLocale }) {
   return <a className="consumer-account-link" href="/account"><UserCircle weight="regular" aria-hidden="true" /><span>{consumerAccountCopy[locale].accountShortcut}</span><CaretRight weight="bold" aria-hidden="true" /></a>
 }
 
-function ConsumerBottomNavigation({ locale, active, timoIntent = false }: { locale: ConsumerLocale; active: ConsumerNavigationKey; timoIntent?: boolean }) {
-  const earningsHref = timoIntent ? timoEarningsGuideHref : '/earnings'
+function ConsumerBottomNavigation({ locale, active, platform }: { locale: ConsumerLocale; active: ConsumerNavigationKey; platform?: EarningsPlatform | null }) {
   const labels = consumerNavigationCopy[locale]
-  const [earningsDialog, setEarningsDialog] = useState<'unbound' | 'error' | null>(null)
-  const [checkingEarnings, setCheckingEarnings] = useState(false)
-  const earningsClickInFlight = useRef(false)
-  const earningsLink = useRef<HTMLAnchorElement>(null)
-  const mounted = useRef(true)
+  return <nav className="consumer-bottom-nav" aria-label={consumerAccountCopy[locale].navigationLabel}>
+    <a className={active === 'earnings' ? 'is-active' : undefined} href={earningsHref('/earnings', platform)} aria-current={active === 'earnings' ? 'page' : undefined}><Wallet weight={active === 'earnings' ? 'fill' : 'regular'} aria-hidden="true" /><span>{labels.earnings}</span></a>
+    <a className={active === 'invite' ? 'is-active' : undefined} href="/invite" aria-current={active === 'invite' ? 'page' : undefined}><UserPlus weight={active === 'invite' ? 'fill' : 'regular'} aria-hidden="true" /><span>{labels.invite}</span></a>
+    <a className={active === 'account' ? 'is-active' : undefined} href="/account" aria-current={active === 'account' ? 'page' : undefined}><User weight={active === 'account' ? 'fill' : 'regular'} aria-hidden="true" /><span>{labels.account}</span></a>
+  </nav>
+}
 
-  useEffect(() => {
-    mounted.current = true
-    return () => { mounted.current = false }
-  }, [])
+function EarningsLanguageSelect({ locale, onChange }: { locale: ConsumerLocale; onChange: (locale: ConsumerLocale) => void }) {
+  return <select className="consumer-language" aria-label={externalPageCopyByLocale[locale].languageLabel} value={locale} onChange={(event) => onChange(event.target.value as ConsumerLocale)}>
+    <option value="zh">中文</option><option value="id">ID</option><option value="en">EN</option><option value="es">ES</option><option value="pt">PT</option>
+  </select>
+}
 
-  useEffect(() => {
-    if (!earningsDialog) return
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setEarningsDialog(null)
-        earningsLink.current?.focus()
-      }
-    }
-    window.addEventListener('keydown', closeOnEscape)
-    return () => window.removeEventListener('keydown', closeOnEscape)
-  }, [earningsDialog])
+type EarningsPlatformChange = (platform: EarningsPlatform) => void
 
-  async function handleEarningsClick(event: ReactMouseEvent<HTMLAnchorElement>) {
-    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
-    event.preventDefault()
-    if (active === 'earnings' || earningsClickInFlight.current) return
-    const session = loadJsonState<SessionState>(STORAGE_KEY)
-    if (!session) { window.location.assign('/invite#phone-login'); return }
-    earningsClickInFlight.current = true
-    setCheckingEarnings(true)
-    try {
-      const workspace = await getConsumerWorkspace(session.userId, session.accessToken)
-      if (!mounted.current) return
-      if (canOpenEarningsWorkspace(workspace, timoIntent)) window.location.assign(earningsHref)
-      else setEarningsDialog('unbound')
-    } catch {
-      if (mounted.current) setEarningsDialog('error')
-    } finally {
-      earningsClickInFlight.current = false
-      if (mounted.current) setCheckingEarnings(false)
-    }
-  }
-
-  function closeEarningsDialog() {
-    setEarningsDialog(null)
-    earningsLink.current?.focus()
-  }
-
-  return (
-    <>
-      <nav className="consumer-bottom-nav" aria-label={consumerAccountCopy[locale].navigationLabel}>
-        <a ref={earningsLink} className={active === 'earnings' ? 'is-active' : undefined} href={earningsHref} aria-current={active === 'earnings' ? 'page' : undefined} aria-busy={checkingEarnings || undefined} onClick={(event) => void handleEarningsClick(event)}><Wallet weight={active === 'earnings' ? 'fill' : 'regular'} aria-hidden="true" /><span>{labels.earnings}</span></a>
-        <a className={active === 'invite' ? 'is-active' : undefined} href="/invite" aria-current={active === 'invite' ? 'page' : undefined}><UserPlus weight={active === 'invite' ? 'fill' : 'regular'} aria-hidden="true" /><span>{labels.invite}</span></a>
-        <a className={active === 'account' ? 'is-active' : undefined} href="/account" aria-current={active === 'account' ? 'page' : undefined}><User weight={active === 'account' ? 'fill' : 'regular'} aria-hidden="true" /><span>{labels.account}</span></a>
-      </nav>
-      {earningsDialog ? <ConsumerUnboundDialog locale={locale} error={earningsDialog === 'error'} onClose={closeEarningsDialog} /> : null}
-    </>
-  )
+function EarningsPlatformTabs({ platform, locale, onChange }: { platform: EarningsPlatform; locale: ConsumerLocale; onChange?: EarningsPlatformChange }) {
+  return <nav className="earnings-platform-tabs" aria-label={workspaceCopy[locale].title}>
+    {(['TIMO', 'LINKY'] as const).map((code) => <a key={code} href={earningsHref('/earnings', code)}
+      aria-current={platform === code ? 'page' : undefined} onClick={(event) => {
+        if (!onChange || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+        event.preventDefault()
+        if (code !== platform) onChange(code)
+      }}>{consumerAppName(code)}</a>)}
+  </nav>
 }
 
 const inviteErrorCopyByLocale = {
@@ -1475,7 +1425,7 @@ function InviteCodePage() {
       const nextSession = saveUserSession(profile)
       setSession(nextSession)
       setPhoneForm({ ...phoneForm, inviteCode: profile.inviteCode, countryCode: profile.countryCode as ClientCountryCode, languageCode: profile.languageCode })
-      window.location.assign('/app')
+      window.location.replace('/earnings')
     } catch (err) {
       setError(localizeInviteOperationError(err, locale, 'signIn'))
     } finally {
@@ -1499,7 +1449,7 @@ function InviteCodePage() {
       const profile = await passwordLogin({ phoneNumber: phoneNumberForSubmission, password: loginPassword })
       setSession(saveUserSession(profile))
       setLoginPassword('')
-      window.location.assign('/app')
+      window.location.replace('/earnings')
     } catch {
       setError(passwordCopy.failure)
     } finally {
@@ -1612,7 +1562,6 @@ function AccountPage() {
   const [workspace, setWorkspace] = useState<ConsumerWorkspaceResponse | null>(null)
   const [workspaceError, setWorkspaceError] = useState(false)
   const [workspaceDialogOpen, setWorkspaceDialogOpen] = useState(false)
-  const [firstBindingDialogOpen, setFirstBindingDialogOpen] = useState(false)
   const [switchingWorkspace, setSwitchingWorkspace] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
   const [linkyBinding, setLinkyBinding] = useState<LinkyAccountBindingResponse | null>(null)
@@ -1653,17 +1602,6 @@ function AccountPage() {
       .catch(() => { if (active) setUserGradeCode('NORMAL_MEMBER') })
     return () => { active = false }
   }, [session])
-
-  useEffect(() => {
-    if (!session || !workspace || linkyStatusLoading || timoStatusLoading || linkyStatusError || timoStatusError
-        || workspace.apps.some(canReadAppEarnings) || linkyBinding
-        || timoBinding?.status === 'SUBMITTED' || timoBinding?.status === 'VERIFYING' || timoBinding?.status === 'VERIFIED') return
-    const key = `fenxiao-binding-guidance-${session.userId}`
-    if (window.sessionStorage.getItem(key)) return
-    window.sessionStorage.setItem(key, 'shown')
-    const timer = window.setTimeout(() => setFirstBindingDialogOpen(true), 0)
-    return () => window.clearTimeout(timer)
-  }, [session, workspace, linkyStatusLoading, timoStatusLoading, linkyStatusError, timoStatusError, linkyBinding, timoBinding])
 
   const statusCopy = {
     zh: { unbound: '未绑定', submitted: '绑定中', verifying: '核验中', verified: '已绑定', rejected: '核验未通过', loading: '状态读取中', error: '状态暂不可用', view: '查看详情' },
@@ -1764,7 +1702,6 @@ function AccountPage() {
                 <button className="consumer-workspace-close" type="button" onClick={() => setWorkspaceDialogOpen(false)}>{workCopy.close}</button>
               </section>
             </div> : null}
-            {firstBindingDialogOpen ? <ConsumerUnboundDialog locale={locale} onClose={() => setFirstBindingDialogOpen(false)} /> : null}
           </>
         ) : (
           <section className="consumer-auth-gate"><div className="consumer-auth-icon"><LockSimple weight="duotone" aria-hidden="true" /></div><h1>{copy.signInTitle}</h1><p>{copy.signInHint}</p><a className="consumer-primary-link" href="/invite#phone-login">{copy.signIn}<ArrowRight weight="bold" aria-hidden="true" /></a></section>
@@ -1892,7 +1829,7 @@ function TimoBindingPage() {
     try {
       const verified = await verifyPlatformBinding(session.userId, session.accessToken, 'TIMO')
       setBinding(verified)
-      if (verified.status === 'VERIFIED') setSuccess(copy.verified)
+      if (verified.status === 'VERIFIED') window.location.replace(earningsHref('/earnings', 'TIMO'))
       else if (verified.status === 'REJECTED') setSuccess('')
       else setSuccess(timoPendingState(verified, locale))
     } catch (err) {
@@ -1940,7 +1877,7 @@ function TimoBindingPage() {
     <div className="consumer-app-page">
       <main className={session ? "consumer-shell consumer-form-shell consumer-binding-shell" : "consumer-shell consumer-form-shell"} lang={locale === 'pt' ? 'pt-BR' : locale}>
         <header className="consumer-topbar">
-          <a className="consumer-brand" href={timoEarningsGuideHref}><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />Bandeira</a>
+          <a className="consumer-brand" href={earningsHref('/earnings', 'TIMO')}><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />Bandeira</a>
           <div className="consumer-topbar-actions">
             <select className="consumer-language" aria-label={externalPageCopyByLocale[locale].languageLabel} value={locale} onChange={(event) => setLocale(event.target.value as ConsumerLocale)}><option value="zh">中文</option><option value="en">EN</option><option value="es">ES</option><option value="id">ID</option><option value="pt">PT</option></select>
             {session ? <ConsumerAccountLink locale={locale} /> : null}
@@ -1966,7 +1903,7 @@ function TimoBindingPage() {
           {isVerified ? null : <ConsumerBindingGuide app="Timo" locale={locale} showStatus={!!binding}
             onFocusForm={() => focusBindingForm(timoInput.current ?? timoForm.current)} />}
         </> : <section className="consumer-auth-gate"><div className="consumer-auth-icon"><LockSimple weight="duotone" aria-hidden="true" /></div><h1>{copy.signInTitle}</h1><p>{copy.signInHint}</p><a className="consumer-primary-link" href="/invite#phone-login">{copy.signIn}<ArrowRight weight="bold" aria-hidden="true" /></a></section>}
-        {session ? <ConsumerBottomNavigation locale={locale} active="account" timoIntent /> : null}
+        {session ? <ConsumerBottomNavigation locale={locale} active="account" /> : null}
       </main>
     </div>
   )
@@ -1996,11 +1933,11 @@ const teamLoadCopy: Record<ConsumerLocale, { failed: string; retry: string }> = 
   pt: { failed: 'Os dados da equipe estão indisponíveis; a contagem não é zero.', retry: 'Tentar novamente' },
 }
 
-function TimoEarningsGuide({ session, locale }: { session: SessionState; locale: ConsumerLocale }) {
+function TimoEarningsGuide({ session, locale, onLanguageChange, onPlatformChange }: {
+  session: SessionState; locale: ConsumerLocale; onLanguageChange: (locale: ConsumerLocale) => void; onPlatformChange?: EarningsPlatformChange
+}) {
   const [binding, setBinding] = useState<PlatformBindingResponse | null>(null)
   const [statusUnavailable, setStatusUnavailable] = useState(false)
-  const copy = bindingGuideCopy[locale]
-
   useEffect(() => {
     let active = true
     void getPlatformBinding(session.userId, session.accessToken, 'TIMO')
@@ -2019,15 +1956,41 @@ function TimoEarningsGuide({ session, locale }: { session: SessionState; locale:
     : undefined
 
   return <div className="consumer-app-page"><main className="consumer-shell consumer-earnings-shell binding-earnings-shell" lang={locale === 'pt' ? 'pt-BR' : locale}>
-    <header className="consumer-topbar"><a className="consumer-brand" href={timoEarningsGuideHref}><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />Bandeira</a></header>
-    <div className="consumer-workspace-banner binding-guide-attribution"><strong>Timo</strong><span>{copy.attribution}</span><a href="/account">{copy.switchApp}</a></div>
-    <TimoEarningsHero locale={locale} />
+    <header className="consumer-topbar"><a className="consumer-brand" href={earningsHref('/earnings', 'TIMO')}><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />Bandeira</a><EarningsLanguageSelect locale={locale} onChange={onLanguageChange} /></header>
+    <EarningsPlatformTabs platform="TIMO" locale={locale} onChange={onPlatformChange} />
+    <TimoEarningsHero key={locale} locale={locale} />
     <ConsumerBindingGuide app="Timo" locale={locale} verificationMessage={verificationMessage} />
-    <ConsumerBottomNavigation locale={locale} active="earnings" />
+    <ConsumerBottomNavigation locale={locale} active="earnings" platform="TIMO" />
   </main></div>
 }
 
-function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' | 'activity' }) {
+function readEarningsPlatform() {
+  return earningsPlatformFromSearch(typeof window === 'undefined' ? '' : window.location.search)
+}
+
+function EarningsOverview() {
+  const [platform, setPlatform] = useState(readEarningsPlatform)
+
+  useEffect(() => {
+    const restorePlatform = () => setPlatform(readEarningsPlatform())
+    window.addEventListener('popstate', restorePlatform)
+    return () => window.removeEventListener('popstate', restorePlatform)
+  }, [])
+
+  function changePlatform(next: EarningsPlatform) {
+    if (next === platform) return
+    window.history.pushState(null, '', earningsHref('/earnings', next))
+    setPlatform(next)
+  }
+
+  return <EarningsPage key={platform ?? 'default'} requestedPlatform={platform} onPlatformChange={changePlatform} />
+}
+
+function EarningsPage({ view = 'overview', requestedPlatform = readEarningsPlatform(), onPlatformChange }: {
+  view?: 'overview' | 'effective' | 'activity'
+  requestedPlatform?: EarningsPlatform | null
+  onPlatformChange?: EarningsPlatformChange
+}) {
   const [session, setSession] = useState<SessionState | null>(() => loadJsonState<SessionState>(STORAGE_KEY))
   const [locale, setLocale] = useState<keyof typeof externalPageCopyByLocale>(() => loadExternalLocale())
   const [home, setHome] = useState<DistributionHomeResponse | null>(null)
@@ -2040,9 +2003,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   const [selectedPlatformVerified, setSelectedPlatformVerified] = useState(false)
   const [selectedEarningsReadable, setSelectedEarningsReadable] = useState(false)
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false)
-  const [earningsWorkspace, setEarningsWorkspace] = useState<ConsumerWorkspaceResponse | null>(null)
   const [verifiedInviteCount, setVerifiedInviteCount] = useState<number | null>(null)
-  const [switchingEarningsWorkspace, setSwitchingEarningsWorkspace] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showBalance, setShowBalance] = useState(true)
@@ -2113,17 +2074,17 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
   }, [locale])
 
   useEffect(() => {
+    let active = true
     async function loadData() {
       if (!session) return
       setLoading(true)
       setError('')
       try {
         const workspace = await getConsumerWorkspace(session.userId, session.accessToken)
+        if (!active) return
         setWorkspaceLoaded(true)
-        setEarningsWorkspace(workspace)
         setVerifiedInviteCount(null)
-        if (!workspace.selected) { setSelectedPlatform(null); return }
-        const platformCode = workspace.selected
+        const platformCode = resolveEarningsPlatform(workspace, requestedPlatform)
         setReferenceValues(null)
         setSelectedPlatform(platformCode)
         const verified = workspace.apps.some((app) => app.code === platformCode && app.verified)
@@ -2133,18 +2094,20 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
         if (!readable) return
         const [homeData, teamData, walletData, referenceData, inviteCountData] = await Promise.all([
           getDistributionHome(session.userId, session.accessToken, platformCode),
-          getDistributionEffectiveTeam(session.userId, session.accessToken, platformCode).catch(() => { setTeamError(true); return null }),
+          getDistributionEffectiveTeam(session.userId, session.accessToken, platformCode).catch(() => null),
           getDistributionInvitationAccount(session.userId, session.accessToken, 0, 20, platformCode),
           getAccountReferenceValues(session.userId, session.accessToken, platformCode).catch(() => null),
           getVerifiedInviteCount(session.userId, session.accessToken, platformCode).catch(() => null),
         ])
+        if (!active) return
         setHome(homeData)
         setTeam(teamData)
-        if (teamData) setTeamError(false)
+        setTeamError(teamData === null)
         setWallet(walletData)
         setReferenceValues(referenceData)
         setVerifiedInviteCount(inviteCountData?.platformCode === platformCode ? inviteCountData.count : null)
       } catch (err) {
+        if (!active) return
         const message = err instanceof Error ? err.message : ''
         if (/access denied|unauthorized|session/i.test(message)) {
           window.localStorage.removeItem(STORAGE_KEY)
@@ -2154,12 +2117,13 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
           setError(walletCopy.loadFailure)
         }
       } finally {
-        setLoading(false)
+        if (active) setLoading(false)
       }
     }
 
     void loadData()
-  }, [session, view, teamReload, walletCopy.loadFailure, walletCopy.sessionExpired])
+    return () => { active = false }
+  }, [session, view, requestedPlatform, teamReload, walletCopy.loadFailure, walletCopy.sessionExpired])
 
   async function loadMoreWallet() {
     if (!session || !selectedPlatform || !wallet || wallet.items.length >= wallet.totalRecords) return
@@ -2177,7 +2141,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
 
   const rewardItems = wallet?.items ?? []
   const commissionPoints = (wallet?.directIncomePoints ?? 0) + (wallet?.indirectIncomePoints ?? 0)
-  const quoteFlow=usePointReferenceQuotes(session,selectedPlatform,[commissionPoints, ...rewardItems.map(item=>(item.type==='UNFREEZE' || item.type==='ACTIVITY_UNFREEZE') ? item.availableDelta : item.frozenDelta+item.availableDelta)])
+  const quoteFlow=usePointReferenceQuotes(session,selectedEarningsReadable ? selectedPlatform : null,[commissionPoints, ...rewardItems.map(item=>(item.type==='UNFREEZE' || item.type==='ACTIVITY_UNFREEZE') ? item.availableDelta : item.frozenDelta+item.availableDelta)])
 
   function getRewardActivityTitle(level?: number | null) {
     return level === 1 ? walletCopy.direct : walletCopy.indirect
@@ -2227,39 +2191,24 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
     id: { title: 'Undangan dan komisi', invited: 'Pendapatan undangan', valid: 'Undangan terverifikasi', commission: 'Komisi dari tim', included: 'Termasuk dalam pendapatan undangan', withdraw: 'Info penarikan', detail: 'Rincian pendapatan', change: 'Ganti aplikasi', frozen: 'Hadiah dalam konfirmasi', total: 'Total saldo hadiah', balance: 'Jumlah yang dapat ditarik', description: 'Pantau hadiah undanganmu di sini' },
     pt: { title: 'Convites e comissões', invited: 'Receita por convite', valid: 'Convidados verificados', commission: 'Comissão da equipe', included: 'Incluída na receita por convite', withdraw: 'Informações de saque', detail: 'Detalhes de receita', change: 'Trocar aplicativo', frozen: 'Recompensas em confirmação', total: 'Saldo total de recompensas', balance: 'Valor disponível para saque', description: 'Acompanhe suas recompensas aqui' },
   }[locale]
-  async function switchEarningsWorkspace(code: 'TIMO' | 'LINKY') {
-    if (!session || switchingEarningsWorkspace || code === selectedPlatform) return
-    setSwitchingEarningsWorkspace(true)
-    try { await selectConsumerWorkspace(session.userId, session.accessToken, code); window.location.assign('/earnings') }
-    catch { setError(workspaceCopy[locale].error); setSwitchingEarningsWorkspace(false) }
-  }
-
-  const explicitTimoIntent = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('app') === 'timo'
-  const showTimoGuide = view === 'overview' && earningsWorkspace && shouldShowTimoEarningsGuide(earningsWorkspace, explicitTimoIntent)
+  const visiblePlatform = selectedPlatform ?? requestedPlatform
+  const showTimoGuide = view === 'overview' && selectedPlatform === 'TIMO' && workspaceLoaded && !selectedEarningsReadable
   useEffect(() => {
-    if (!showTimoGuide) return
+    if (!workspaceLoaded || selectedEarningsReadable) return
     const refreshOnReturn = (event: PageTransitionEvent) => { if (event.persisted) window.location.reload() }
     window.addEventListener('pageshow', refreshOnReturn)
     return () => window.removeEventListener('pageshow', refreshOnReturn)
-  }, [showTimoGuide])
+  }, [workspaceLoaded, selectedEarningsReadable])
 
-  if (session && showTimoGuide) return <TimoEarningsGuide session={session} locale={locale} />
-
-  if (session && workspaceLoaded && !selectedPlatform) {
-    return <div className="consumer-app-page"><main className="consumer-shell consumer-detail-page">
-      <header className="consumer-topbar"><a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />Bandeira</a><ConsumerAccountLink locale={locale} /></header>
-      <ConsumerUnboundGuidance locale={locale} variant="gate" />
-      <ConsumerBottomNavigation locale={locale} active="earnings" />
-    </main></div>
-  }
+  if (session && showTimoGuide) return <TimoEarningsGuide session={session} locale={locale} onLanguageChange={setLocale} onPlatformChange={onPlatformChange} />
 
   if (session && selectedPlatform && !selectedEarningsReadable) {
     const appName = consumerAppName(selectedPlatform)
-    return <div className="consumer-app-page"><main className="consumer-shell consumer-detail-page">
-      <header className="consumer-topbar"><a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />Bandeira</a><ConsumerAccountLink locale={locale} /></header>
-      <div className="consumer-workspace-banner"><strong>{appName}</strong><span>{workspaceCopy[locale].bannerDescription(appName)}</span><a href="/account">{workspaceCopy[locale].switchOtherApp}</a></div>
+    return <div className="consumer-app-page"><main className={view === 'overview' ? 'consumer-shell consumer-earnings-shell binding-earnings-shell' : 'consumer-shell consumer-detail-page'} lang={locale === 'pt' ? 'pt-BR' : locale}>
+      <header className="consumer-topbar"><a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />Bandeira</a><EarningsLanguageSelect locale={locale} onChange={setLocale} /></header>
+      <EarningsPlatformTabs platform={selectedPlatform} locale={locale} onChange={onPlatformChange} />
       <section className="consumer-auth-gate"><div className="consumer-auth-icon"><LinkSimple weight="duotone" aria-hidden="true" /></div><h1>{workspaceCopy[locale].emptyTitle(appName)}</h1><p>{workspaceCopy[locale].emptyHint(appName)}</p><a className="consumer-primary-link" href={selectedPlatform === 'TIMO' ? '/account/timo' : '/account/linky'}>{workspaceCopy[locale].bind}<ArrowRight weight="bold" aria-hidden="true" /></a></section>
-      <ConsumerBottomNavigation locale={locale} active="earnings" />
+      <ConsumerBottomNavigation locale={locale} active="earnings" platform={selectedPlatform} />
     </main></div>
   }
 
@@ -2267,7 +2216,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
     const detailTitle = view === 'effective' ? walletCopy.followAction : redesignCopy.detail
     return <div className="consumer-app-page"><main className="consumer-shell consumer-detail-page">
       <header className="consumer-topbar"><a className="consumer-brand" href="/earnings">Bandeira</a></header>
-      <a className="consumer-detail-back" href="/earnings">← {consumerNavigationCopy[locale].earnings}</a>
+      <a className="consumer-detail-back" href={earningsHref('/earnings', selectedPlatform)}>← {consumerNavigationCopy[locale].earnings}</a>
       <section className="consumer-commercial-heading"><h1>{detailTitle}</h1></section>
       {selectedPlatform ? <p className="consumer-workspace-banner">{workspaceCopy[locale].appSummary(consumerAppName(selectedPlatform))}</p> : null}
       {error ? <div className="consumer-banner is-error" role="alert">{error}</div> : null}
@@ -2293,30 +2242,22 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
           {wallet && wallet.items.length < wallet.totalRecords ? <button className="consumer-detail-load-more" type="button" onClick={() => void loadMoreWallet()} disabled={loading}>{loading ? copy.loading : walletCopy.loadMore}</button> : null}
         </section>}
       {view === 'effective' && selectedPlatform && session ? <InvitationProgressPanel userId={session.userId} accessToken={session.accessToken} locale={locale} initialPlatform={selectedPlatform} allowSwitch={false} /> : null}
-      {session ? <ConsumerBottomNavigation locale={locale} active="earnings" /> : null}
+      {session ? <ConsumerBottomNavigation locale={locale} active="earnings" platform={selectedPlatform} /> : null}
     </main></div>
   }
 
   return (
     <div className="consumer-app-page consumer-earnings-page">
-      <main className="consumer-shell consumer-earnings-shell" data-workspace-unresolved={!!session && !workspaceLoaded || undefined}>
+      <main className="consumer-shell consumer-earnings-shell" lang={locale === 'pt' ? 'pt-BR' : locale} data-workspace-unresolved={!!session && !workspaceLoaded || undefined}>
         <header className="consumer-topbar">
           <a className="consumer-brand" href="/earnings"><img className="consumer-brand-logo" src="/bandeira-logo-v1.png" alt="" />Bandeira</a>
           <div className="consumer-topbar-actions">
-            {session && selectedPlatform && earningsWorkspace ? <label className="earnings-workspace-select"><select aria-label={redesignCopy.change} value={selectedPlatform} disabled={switchingEarningsWorkspace} onChange={(event) => void switchEarningsWorkspace(event.target.value as 'TIMO' | 'LINKY')}><option value="TIMO">Timo</option><option value="LINKY">Linky</option></select></label> : null}
-            {!session ? (
-              <select className="consumer-language" aria-label={copy.languageLabel} value={locale} onChange={(event) => setLocale(event.target.value as keyof typeof externalPageCopyByLocale)}>
-                <option value="zh">中文</option>
-                <option value="en">EN</option>
-                <option value="es">ES</option>
-                <option value="id">ID</option>
-                <option value="pt">PT</option>
-              </select>
-            ) : null}
+            <EarningsLanguageSelect locale={locale} onChange={setLocale} />
             {session ? <ConsumerAccountLink locale={locale} /> : <a className="consumer-account-link" href="/invite#phone-login"><UserCircle weight="regular" aria-hidden="true" /><span>{walletCopy.signIn}</span><CaretRight weight="bold" aria-hidden="true" /></a>}
           </div>
         </header>
 
+        {session && visiblePlatform ? <EarningsPlatformTabs platform={visiblePlatform} locale={locale} onChange={onPlatformChange} /> : null}
         {error ? <div className="consumer-banner is-error" role="alert">{error}</div> : null}
         {session && !workspaceLoaded && !error ? <p className="consumer-workspace-banner earnings-workspace-loading" role="status">{copy.loading}</p> : null}
         {!session ? (
@@ -2333,13 +2274,13 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
           <>
             <div className="consumer-home-greeting earnings-redesign-greeting"><h1 className="consumer-visually-hidden">{copy.earningsTitle}</h1><div><strong>{walletCopy.greeting}</strong><span>{redesignCopy.description}</span></div></div>
             <section className="consumer-balance-card earnings-redesign-balance" aria-label={hasReference('available', availableReward) ? redesignCopy.balance : walletCopy.available}>
-              <div className="earnings-balance-header"><div className="consumer-balance-label"><span>{hasReference('available', availableReward) ? redesignCopy.balance : walletCopy.available}</span><button type="button" className="consumer-icon-button" onClick={() => setShowBalance((value) => !value)} aria-label={showBalance ? walletCopy.hideBalance : walletCopy.showBalance}>{showBalance ? <Eye weight="regular" /> : <EyeSlash weight="regular" />}</button></div><a className="earnings-reward-link" href="/earnings/activity">{redesignCopy.detail} <CaretRight weight="bold" /></a></div>
+              <div className="earnings-balance-header"><div className="consumer-balance-label"><span>{hasReference('available', availableReward) ? redesignCopy.balance : walletCopy.available}</span><button type="button" className="consumer-icon-button" onClick={() => setShowBalance((value) => !value)} aria-label={showBalance ? walletCopy.hideBalance : walletCopy.showBalance}>{showBalance ? <Eye weight="regular" /> : <EyeSlash weight="regular" />}</button></div><a className="earnings-reward-link" href={earningsHref('/earnings/activity', selectedPlatform)}>{redesignCopy.detail} <CaretRight weight="bold" /></a></div>
               <div className="consumer-balance-value"><strong>{showBalance ? displayedValue('available', availableReward) : '••••••'}</strong></div>
               <div className="consumer-balance-metrics earnings-balance-metrics"><div><div className="earnings-pending-label"><span>{pendingCopy.label}</span><button type="button" className="earnings-pending-help" aria-label={pendingCopy.help} onClick={() => setPendingRewardDialogOpen(true)}><Question aria-hidden="true" /></button></div><strong>{showBalance ? displayedValue('frozen', frozenReward) : '••••'}</strong></div><div><span>{redesignCopy.total}</span><strong>{showBalance ? displayedValue('total', totalReward) : '••••'}</strong></div></div>
               <button className="consumer-hero-withdraw" type="button" onClick={() => setWithdrawalDialogOpen(true)}>{redesignCopy.withdraw}</button>
             </section>
             <section className="earnings-invitation-results" aria-label={redesignCopy.title}>
-              <div className="earnings-invitation-header"><h2>{redesignCopy.title}</h2><a href="/earnings/commission">{commissionReportCopy[locale].title}<CaretRight weight="bold" aria-hidden="true" /></a></div>
+              <div className="earnings-invitation-header"><h2>{redesignCopy.title}</h2><a href={earningsHref('/earnings/commission', selectedPlatform)}>{commissionReportCopy[locale].title}<CaretRight weight="bold" aria-hidden="true" /></a></div>
               <div className="earnings-invitation-grid">
                 <div><span>{redesignCopy.invited}</span><strong>{showBalance ? displayedValue('income', wallet?.cumulativeIncomePoints ?? 0) : '••••'}</strong></div>
                 <div><span>{redesignCopy.valid}</span><strong>{verifiedInviteCount ?? '—'}</strong></div>
@@ -2360,9 +2301,12 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
               <div className="consumer-task-list">
                 <a href="/invite"><span className="is-orange"><UserPlus weight="fill" /></span><div><strong>{walletCopy.inviteAction}</strong><small>{walletCopy.invitedCount(home?.directInvitedUsers ?? 0)}</small></div><b>{walletCopy.goInvite}</b></a>
                 <a href="/account"><span className="is-pink"><LinkSimple weight="bold" /></span><div><strong>{walletCopy.bindAction}</strong><small>{walletCopy.bindHint}</small></div><b>{walletCopy.goBind}</b></a>
-                <a href="/earnings/effective-users"><span className="is-green"><UsersThree weight="fill" /></span><div><strong>{walletCopy.followAction}</strong><small>{teamError ? teamLoadCopy[locale].failed : effectiveUsersThisView === null ? copy.loading : walletCopy.effectiveCount(effectiveUsersThisView)}</small></div><b>{walletCopy.viewTeam}</b></a>
+                <a href={earningsHref('/earnings/effective-users', selectedPlatform)}><span className="is-green"><UsersThree weight="fill" /></span><div><strong>{walletCopy.followAction}</strong><small>{teamError ? teamLoadCopy[locale].failed : effectiveUsersThisView === null ? copy.loading : walletCopy.effectiveCount(effectiveUsersThisView)}</small></div><b>{walletCopy.viewTeam}</b></a>
               </div>
             </section>
+
+            {selectedPlatform && selectedPlatformVerified ? <InvitationProgressPanel userId={session.userId} accessToken={session.accessToken}
+              locale={locale} initialPlatform={selectedPlatform} allowSwitch={false} /> : null}
 
             {pendingRewardDialogOpen ? <div className="consumer-modal-backdrop" onClick={() => setPendingRewardDialogOpen(false)}>
               <section className="consumer-withdrawal-dialog" role="dialog" aria-modal="true" aria-label={pendingCopy.label} onClick={(event) => event.stopPropagation()}>
@@ -2381,7 +2325,7 @@ function EarningsPage({ view = 'overview' }: { view?: 'overview' | 'effective' |
           </>
         )}
 
-        {session ? <ConsumerBottomNavigation locale={locale} active="earnings" /> : null}
+        {session ? <ConsumerBottomNavigation locale={locale} active="earnings" platform={selectedPlatform} /> : null}
       </main>
     </div>
   )
@@ -2439,8 +2383,9 @@ function CommissionReportPage({ directInviteeUserId }: { directInviteeUserId?: n
     let active = true
     void getConsumerWorkspace(session.userId, session.accessToken).then((workspace) => {
       if (!active) return
-      setPlatform(workspace.selected)
-      setEarningsReadable(workspace.apps.some((app) => app.code === workspace.selected && canReadAppEarnings(app)))
+      const selected = resolveEarningsPlatform(workspace, earningsPlatformFromSearch(window.location.search))
+      setPlatform(selected)
+      setEarningsReadable(workspace.apps.some((app) => app.code === selected && canReadAppEarnings(app)))
       setWorkspaceLoaded(true)
     }).catch(() => { if (active) { setError(copy.failed); setWorkspaceLoaded(true) } })
     return () => { active = false }
@@ -2491,10 +2436,10 @@ function CommissionReportPage({ directInviteeUserId }: { directInviteeUserId?: n
     } catch { setError(copy.failed) } finally { setLoading(false) }
   }
 
-  const reportUrl = `/earnings/commission?${new URLSearchParams({ startDate, endDate })}`
+  const reportUrl = earningsHref(`/earnings/commission?${new URLSearchParams({ startDate, endDate })}`, platform)
   return <div className="consumer-app-page"><main className="consumer-shell consumer-detail-page" lang={pageLanguage}>
     <header className="consumer-topbar"><a className="consumer-brand" href="/earnings">Bandeira</a><ConsumerAccountLink locale={locale} /></header>
-    <a className="consumer-detail-back" href={directInviteeUserId ? reportUrl : '/earnings'}>← {directInviteeUserId ? copy.back : consumerNavigationCopy[locale].earnings}</a>
+    <a className="consumer-detail-back" href={directInviteeUserId ? reportUrl : earningsHref('/earnings', platform)}>← {directInviteeUserId ? copy.back : consumerNavigationCopy[locale].earnings}</a>
     <section className="consumer-commercial-heading"><h1>{copy.title}</h1></section>
     {!session ? <a className="consumer-primary-link" href="/invite#phone-login">{copy.signIn}</a> : !workspaceLoaded ? <p>{workspaceCopy[locale].loading}</p> : !platform || !earningsReadable ? <ConsumerUnboundGuidance locale={locale} variant="gate" /> : <>
       <p className="consumer-workspace-banner">{copy.app(consumerAppName(platform))}</p>
@@ -2518,7 +2463,7 @@ function CommissionReportPage({ directInviteeUserId }: { directInviteeUserId?: n
       </section> : valid && !directInviteeUserId && report?.platformCode === platform && report.startDate === startDate && report.endDate === endDate ? <section className="consumer-settings-card">
         <div className="consumer-detail-grid consumer-commission-summary"><div><span>{copy.direct}</span><strong>{quotePoints(report.directPoints,locale,copy.points)}</strong></div><div><span>{copy.indirect}</span><strong>{quotePoints(report.indirectPoints,locale,copy.points)}</strong></div><div><span>{copy.total}</span><strong>{quotePoints(report.totalPoints,locale,copy.points)}</strong></div></div>
         {report.unattributedPoints !== 0 ? <p className="consumer-commission-warning">{copy.unresolved}{metricSeparator}{quotePoints(report.unattributedPoints,locale,copy.points)}</p> : null}
-        {report.items.length ? <div className="consumer-commission-list">{report.items.map((item) => item.userId > 0 ? <a className="consumer-commission-row" key={item.userId} href={`/earnings/commission/invitees/${item.userId}?${new URLSearchParams({ startDate, endDate })}`}><span><strong>{item.nickname || copy.unknown}</strong><small>#{item.userId} · {copy.details}</small></span><span><small>{copy.direct} {quotePoints(item.directPoints,locale,copy.points)}</small><small>{copy.indirect} {quotePoints(item.indirectPoints,locale,copy.points)}</small><strong>{copy.total} {quotePoints(item.totalPoints,locale,copy.points)}</strong></span><CaretRight weight="bold" /></a> : <div className="consumer-commission-row" key="unresolved"><strong>{copy.unresolved}</strong><strong>{quotePoints(item.totalPoints,locale,copy.points)}</strong></div>)}</div> : !loading ? <p>{copy.empty}</p> : null}
+        {report.items.length ? <div className="consumer-commission-list">{report.items.map((item) => item.userId > 0 ? <a className="consumer-commission-row" key={item.userId} href={earningsHref(`/earnings/commission/invitees/${item.userId}?${new URLSearchParams({ startDate, endDate })}`, platform)}><span><strong>{item.nickname || copy.unknown}</strong><small>#{item.userId} · {copy.details}</small></span><span><small>{copy.direct} {quotePoints(item.directPoints,locale,copy.points)}</small><small>{copy.indirect} {quotePoints(item.indirectPoints,locale,copy.points)}</small><strong>{copy.total} {quotePoints(item.totalPoints,locale,copy.points)}</strong></span><CaretRight weight="bold" /></a> : <div className="consumer-commission-row" key="unresolved"><strong>{copy.unresolved}</strong><strong>{quotePoints(item.totalPoints,locale,copy.points)}</strong></div>)}</div> : !loading ? <p>{copy.empty}</p> : null}
       </section> : null}
       {loading ? <p>{workspaceCopy[locale].loading}</p> : null}
       {(directInviteeUserId
@@ -2526,33 +2471,16 @@ function CommissionReportPage({ directInviteeUserId }: { directInviteeUserId?: n
         : report?.platformCode === platform && report.startDate === startDate && report.endDate === endDate && report.hasMore)
         ? <button className="consumer-detail-load-more" type="button" disabled={loading} onClick={() => void loadMore()}>{copy.load}</button> : null}
     </>}
-    {session ? <ConsumerBottomNavigation locale={locale} active="earnings" /> : null}
+    {session ? <ConsumerBottomNavigation locale={locale} active="earnings" platform={platform} /> : null}
   </main></div>
 }
 
 function ConsumerLandingPage() {
   const [session] = useState<SessionState | null>(() => loadJsonState<SessionState>(STORAGE_KEY))
-  const [error, setError] = useState(false)
-  const locale = loadExternalLocale()
   useEffect(() => {
-    if (!session) return
-    let active = true
-    void getConsumerWorkspace(session.userId, session.accessToken)
-      .then((workspace) => { if (active) window.location.replace(workspace.selected ? '/earnings' : '/account') })
-      .catch((error) => {
-        if (!active) return
-        if (/access denied|unauthorized|session/i.test(String(error))) {
-          window.localStorage.removeItem(STORAGE_KEY)
-          window.location.replace('/invite#phone-login')
-        } else setError(true)
-      })
-    return () => { active = false }
+    if (session) window.location.replace('/earnings')
   }, [session])
-  if (!session) return <InviteCodePage />
-  return <div className="consumer-app-page"><main className="consumer-shell consumer-form-shell"><section className="consumer-settings-card">
-    <h1>{error ? workspaceCopy[locale].error : workspaceCopy[locale].loading}</h1>
-    {error ? <a href="/app">{workspaceCopy[locale].choose}</a> : null}
-  </section></main></div>
+  return session ? null : <InviteCodePage />
 }
 
 function App() {
@@ -2573,7 +2501,7 @@ function App() {
     return <CommissionReportPage directInviteeUserId={Number.isSafeInteger(directInviteeUserId) ? directInviteeUserId : -1} />
   }
   if (pathname.startsWith('/earnings/commission')) return <CommissionReportPage />
-  if (pathname.startsWith('/earnings')) return <EarningsPage />
+  if (pathname.startsWith('/earnings')) return <EarningsOverview />
   if (hostname === 'app.bandeira.fandodo.online') return <InviteCodePage />
   const designPreview = import.meta.env.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('adminPreview') === '1'
   return <ConsoleApp initialAdminSession={designPreview ? {

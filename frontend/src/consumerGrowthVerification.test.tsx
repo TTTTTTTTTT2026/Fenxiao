@@ -13,7 +13,7 @@ describe('consumer growth progress', () => {
     const html = renderToStaticMarkup(<ConsumerGradeProgressView data={progress} locale="zh" onRetry={noop} />)
     expect(html).toMatch(/<span>2<\/span>\s*\/\s*3/)
     expect(html).toContain('还差 1 位有效直邀')
-    expect(html).toContain('/earnings/effective-users#direct-invite-progress')
+    expect(html).toContain('/earnings/effective-users?app=timo#direct-invite-progress')
     expect(html).not.toContain('/10')
   })
   it('does not call an unmet review a granted grade', () => {
