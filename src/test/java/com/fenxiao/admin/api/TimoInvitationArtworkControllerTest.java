@@ -22,6 +22,9 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.junit.jupiter.api.io.TempDir;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -32,6 +35,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class TimoInvitationArtworkControllerTest {
+    @TempDir
+    Path oldMigrations;
     private final AdminSessionService sessions = mock(AdminSessionService.class);
     private final OperationAuditLogRepository audits = mock(OperationAuditLogRepository.class);
     private TimoInvitationArtworkController controller;
@@ -74,6 +79,20 @@ class TimoInvitationArtworkControllerTest {
             String testUrl = url.replace("/bandeira_snapshot_test?", "/" + schema + "?");
             setUp(new DriverManagerDataSource(testUrl, "root", password));
             verifyImageReplacement();
+            // PR186 has identical V1-V86 scripts and Flyway configuration/dependencies.
+            // Exercise its default validate/migrate behavior with the future V87 retained.
+            try (var migrations = Files.list(Path.of("src/main/resources/db/migration"))) {
+                for (Path migration : migrations.filter(p -> !p.getFileName().toString().startsWith("V87__")).toList()) {
+                    Files.copy(migration, oldMigrations.resolve(migration.getFileName()));
+                }
+            }
+            var oldFlyway = Flyway.configure().dataSource(testUrl, "root", password)
+                    .locations("filesystem:" + oldMigrations.toAbsolutePath()).load();
+            oldFlyway.validate();
+            assertThat(oldFlyway.migrate().migrationsExecuted).isZero();
+            var migrated = new JdbcTemplate(new DriverManagerDataSource(testUrl, "root", password));
+            assertThat(migrated.queryForObject("SELECT COUNT(*) FROM timo_invitation_artwork", Integer.class)).isEqualTo(2);
+            assertThat(migrated.queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE version='87' AND success=1", Integer.class)).isEqualTo(1);
         } finally {
             jdbc.execute("DROP DATABASE " + schema);
         }
@@ -116,6 +135,15 @@ class TimoInvitationArtworkControllerTest {
                 .isInstanceOf(ResponseStatusException.class);
         assertThat(controller.read("id").getStatusCode().value()).isEqualTo(404);
         verify(audits, times(0)).save(any());
+    }
+
+    @Test
+    void acceptsAnImageExactlyAtTheOneMiBLimit() throws Exception {
+        setUpH2();
+        byte[] bytes = java.util.Arrays.copyOf(png(2), 1024 * 1024);
+        assertThat(controller.replace("ops", "id", image(bytes), new MockHttpServletRequest())
+                .getStatusCode().value()).isEqualTo(204);
+        assertThat(controller.read("id").getBody()).isEqualTo(bytes);
     }
 
     private static AdminSessionService.AdminPrincipal principal(String region) {
