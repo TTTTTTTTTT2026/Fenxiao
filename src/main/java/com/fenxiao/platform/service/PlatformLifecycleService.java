@@ -21,6 +21,7 @@ import java.util.*;
 @Service
 @Transactional
 public class PlatformLifecycleService {
+    private final com.fenxiao.distribution.service.RegistrationClaimGuard claimGuard;
     private final PlatformAccountBindingRepository bindingRepository;
     private final PlatformBindingHistoryRepository historyRepository;
     private final PlatformBusinessFactRepository factRepository;
@@ -39,7 +40,8 @@ public class PlatformLifecycleService {
                                     UserDistributionProfileRepository userRepository,
                                     IncentiveShadowService incentiveShadowService,
                                     @Value("${app.distribution.lifecycle.shadow-only:true}") boolean shadowOnly,
-                                    Clock clock) {
+                                    Clock clock, com.fenxiao.distribution.service.RegistrationClaimGuard claimGuard) {
+        this.claimGuard = claimGuard;
         this.bindingRepository = bindingRepository; this.historyRepository = historyRepository;
         this.factRepository = factRepository; this.policyRepository = policyRepository;
         this.snapshotRepository = snapshotRepository; this.userRepository = userRepository;
@@ -48,10 +50,12 @@ public class PlatformLifecycleService {
     }
 
     public PlatformAccountBinding submit(Long userId, String platformCode, String platformUserId) {
-        // Share the same user lock with assisted submissions and binding resets.
-        userRepository.findByIdForBinding(userId).orElseThrow(() -> new IllegalArgumentException("user not found"));
         String platform = normalizePlatform(platformCode);
         String externalId = normalizePlatformUserId(platform, platformUserId);
+        claimGuard.lock(platform + ":" + externalId);
+        claimGuard.assertAccountAvailable(userId, platform, externalId);
+        // Share the same user lock with assisted submissions and binding resets.
+        userRepository.findByIdForBinding(userId).orElseThrow(() -> new IllegalArgumentException("user not found"));
         bindingRepository.findByUserIdAndPlatformCode(userId, platform).ifPresent(value -> {
             throw new IllegalStateException("user already has a binding for platform " + platform);
         });

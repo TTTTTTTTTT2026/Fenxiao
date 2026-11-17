@@ -30,7 +30,7 @@ public class AccountLifecycleService {
     }
 
     public UserDistributionProfile change(Long userId, String action, String reason, Long operatorId, String operatorRole, String requestIp) {
-        UserDistributionProfile profile = profileRepository.findById(userId)
+        UserDistributionProfile profile = profileRepository.findByIdForBinding(userId)
                 .orElseThrow(() -> new IllegalArgumentException("distribution profile not found"));
         AccountStatus before = profile.getAccountStatus();
         String normalizedAction = action == null ? "" : action.trim().toUpperCase();

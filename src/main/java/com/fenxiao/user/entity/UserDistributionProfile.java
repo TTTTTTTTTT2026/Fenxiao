@@ -60,6 +60,13 @@ public class UserDistributionProfile extends BaseEntity {
     @Column(name = "account_status", nullable = false, length = 32)
     private AccountStatus accountStatus;
 
+    @Column(name = "preregistration_inviter_id")
+    private Long preregistrationInviterId;
+    @Column(name = "claimed_at")
+    private LocalDateTime claimedAt;
+    @Column(name = "activated_at")
+    private LocalDateTime activatedAt;
+
     @Column(name = "cancelled_at")
     private LocalDateTime cancelledAt;
 
@@ -114,6 +121,28 @@ public class UserDistributionProfile extends BaseEntity {
     }
 
     public AccountStatus getAccountStatus() { return accountStatus; }
+    public Long getPreregistrationInviterId() { return preregistrationInviterId; }
+    public LocalDateTime getClaimedAt() { return claimedAt; }
+    public void prepareRegistration(Long inviterId) {
+        preregistrationInviterId = inviterId;
+        accountStatus = AccountStatus.PRE_REGISTERED;
+        apiAccessToken = null;
+    }
+    public void completePreRegistration(LocalDateTime now, boolean claimed) {
+        if (accountStatus == AccountStatus.PRE_REGISTERED) {
+            accountStatus = AccountStatus.ACTIVE;
+            activatedAt = now;
+        }
+        if (claimed && preregistrationInviterId != null && claimedAt == null) claimedAt = now;
+    }
+    public void expirePreRegistration() {
+        if (preregistrationInviterId == null || activatedAt != null || claimedAt != null
+                || (accountStatus != AccountStatus.PRE_REGISTERED && accountStatus != AccountStatus.FROZEN)) return;
+        accountStatus = AccountStatus.PRE_REGISTRATION_EXPIRED;
+        phoneNumber = null;
+        apiAccessToken = null;
+        sessionVersion++;
+    }
     public LocalDateTime getCancelledAt() { return cancelledAt; }
     public long getSessionVersion() { return sessionVersion; }
 
@@ -158,13 +187,20 @@ public class UserDistributionProfile extends BaseEntity {
     }
 
     public void freezeAccount() {
+        if (accountStatus == AccountStatus.PRE_REGISTRATION_EXPIRED) throw new IllegalStateException("pre-registration expired");
         if (accountStatus == AccountStatus.CANCELLED) throw new IllegalStateException("cancelled account is permanent");
         accountStatus = AccountStatus.FROZEN;
         sessionVersion++;
     }
 
     public void activateAccount() {
+        if (accountStatus == AccountStatus.PRE_REGISTRATION_EXPIRED) throw new IllegalStateException("pre-registration expired");
         if (accountStatus == AccountStatus.CANCELLED) throw new IllegalStateException("cancelled account is permanent");
+        if (preregistrationInviterId != null && activatedAt == null && claimedAt == null) {
+            accountStatus = AccountStatus.PRE_REGISTERED;
+            sessionVersion++;
+            return;
+        }
         accountStatus = AccountStatus.ACTIVE;
         sessionVersion++;
     }

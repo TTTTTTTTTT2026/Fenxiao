@@ -56,6 +56,30 @@ public class DistributionBindingService {
         return profile;
     }
 
+    public UserDistributionProfile createPreRegistration(Long userId, String country, String language, String phone, Long inviterId) {
+        var profile = UserDistributionProfile.create(userId, country, language, generateUniqueInviteCode());
+        profile.bindPhoneNumber(phone);
+        profile.prepareRegistration(inviterId);
+        return userProfileRepository.saveAndFlush(profile);
+    }
+
+    public void completePreRegistration(UserDistributionProfile profile, boolean claimed) {
+        var status = profile.getAccountStatus();
+        if (status != com.fenxiao.identity.domain.AccountStatus.PRE_REGISTERED
+                && status != com.fenxiao.identity.domain.AccountStatus.ACTIVE)
+            throw new IllegalStateException("account is not active");
+        Long inviterId = profile.getPreregistrationInviterId();
+        if (inviterId == null) return;
+        var inviter = userProfileRepository.findById(inviterId).orElseThrow();
+        if (!relationRepository.existsByUserId(profile.getUserId())) {
+            bindInviter(profile.getUserId(), inviter.getInviteCode());
+            relationshipFoundationService.initializeForRegistration(profile, inviterId, inviter.getInviteCode());
+        }
+        profile.completePreRegistration(java.time.LocalDateTime.now(java.time.Clock.systemUTC()), claimed);
+    }
+
+    public void claimPreRegistration(UserDistributionProfile profile) { completePreRegistration(profile, true); }
+
     public UserDistributionProfile ensureRootProfile(Long userId, String countryCode, String languageCode) {
         return userProfileRepository.findById(userId)
                 .orElseGet(() -> createProfile(userId, countryCode, languageCode, null));

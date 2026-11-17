@@ -1,3 +1,5 @@
+import PreRegistrationPage from "./PreRegistrationPage"
+import { preRegistrationCopy } from "./preRegistrationCopy"
 import {
 ArrowLeft,
 ArrowRight,
@@ -1685,6 +1687,7 @@ function AccountPage() {
               <button className="consumer-workspace-trigger" type="button" onClick={() => setWorkspaceDialogOpen(true)} aria-haspopup="dialog"><span>{workCopy.title}</span><strong>{consumerAppName(accountWorkspace.selected!)}</strong><CaretRight weight="bold" aria-hidden="true" /></button>
               {workspaceError ? <p className="consumer-workspace-error" role="alert">{workCopy.error}</p> : null}
             </section> : null}
+            <section className="consumer-settings-card"><a className="consumer-workspace-trigger" href="/account/add-subordinate"><span>{preRegistrationCopy[locale].title}</span><UserPlus aria-hidden="true" /></a></section>
             <section className="consumer-settings-card consumer-security-card">
               <div className="consumer-security-copy"><span className="consumer-security-icon"><ShieldCheck weight="duotone" aria-hidden="true" /></span><div><h2>{copy.security}</h2><p>{copy.signOutHint}</p></div></div>
               <button className="consumer-sign-out-button" type="button" onClick={() => void handleSignOut()} disabled={signingOut}><SignOut weight="bold" aria-hidden="true" />{signingOut ? copy.signingOut : copy.signOut}</button>
@@ -2480,12 +2483,19 @@ function ConsumerLandingPage() {
   return session ? null : <InviteCodePage />
 }
 
+function AddSubordinatePage() {
+  const [locale, setLocale] = useState<ConsumerLocale>(() => loadExternalLocale())
+  const [session] = useState<SessionState | null>(() => loadJsonState<SessionState>(STORAGE_KEY))
+  return <PreRegistrationPage session={session} locale={locale} onLocale={value => { setLocale(value); window.localStorage.setItem(EXTERNAL_LOCALE_KEY, value) }} footer={session ? <ConsumerBottomNavigation locale={locale} active="account" /> : undefined} />
+}
+
 function App() {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '/'
   const hostname = typeof window !== 'undefined' ? window.location.hostname : ''
   if (hostname === 'partner.bandeira.fandodo.online') return <PartnerPortal />
   if (hostname === 'app.bandeira.fandodo.online' && (pathname === '/' || pathname.startsWith('/admin'))) return <ConsumerLandingPage />
   if (pathname === '/app') return <ConsumerLandingPage />
+  if (pathname.startsWith('/account/add-subordinate')) return <AddSubordinatePage />
   if (pathname.startsWith('/account/profile')) return <PublicProfilePage />
   if (pathname.startsWith('/account/timo')) return <TimoBindingPage />
   if (pathname.startsWith('/account/linky') || pathname.startsWith('/bind')) return <BindLandingPage />

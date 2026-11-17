@@ -18,6 +18,8 @@ import java.util.Locale;
 
 @Service
 public class PhoneAuthService {
+    private final com.fenxiao.distribution.service.RegistrationClaimGuard claimGuard;
+    private final PreRegistrationExpiryService preregistrationExpiry;
     private static final String PURPOSE = "LOGIN";
     private static final int MAX_ATTEMPTS = 5;
     private static final int TTL_MINUTES = 10;
@@ -38,8 +40,8 @@ public class PhoneAuthService {
                             DistributionBindingService bindingService,
                             SmsSender smsSender,
                             SmsDailyWhitelistService dailyWhitelist,
-                            UserSessionService userSessionService) {
-        this(codeRepository, profileRepository, bindingService, smsSender, dailyWhitelist, userSessionService, Clock.systemUTC());
+                            UserSessionService userSessionService, RegistrationClaimGuard claimGuard, PreRegistrationExpiryService preregistrationExpiry) {
+        this(codeRepository, profileRepository, bindingService, smsSender, dailyWhitelist, userSessionService, Clock.systemUTC(), claimGuard, preregistrationExpiry);
     }
 
     PhoneAuthService(PhoneVerificationCodeRepository codeRepository,
@@ -48,7 +50,9 @@ public class PhoneAuthService {
                      SmsSender smsSender,
                      SmsDailyWhitelistService dailyWhitelist,
                      UserSessionService userSessionService,
-                     Clock clock) {
+                     Clock clock, RegistrationClaimGuard claimGuard, PreRegistrationExpiryService preregistrationExpiry) {
+        this.preregistrationExpiry = preregistrationExpiry;
+        this.claimGuard = claimGuard;
         this.codeRepository = codeRepository;
         this.profileRepository = profileRepository;
         this.bindingService = bindingService;
@@ -98,7 +102,9 @@ public class PhoneAuthService {
     @Transactional
     public LoginResult login(PhoneLoginRequest request) {
         String normalizedPhone = normalizePhone(request.phoneNumber());
-        boolean existingUser = profileRepository.findByPhoneNumber(normalizedPhone).isPresent();
+        claimGuard.lock("PHONE:" + normalizedPhone);
+        preregistrationExpiry.expireForPhone(normalizedPhone);
+        boolean existingUser = profileRepository.findByPhoneNumberForClaim(normalizedPhone, alternatePhone(normalizedPhone)).isPresent();
         if (!existingUser) {
             String countryCode = defaultIfBlank(request.countryCode(), "BR").toUpperCase(Locale.ROOT);
             if ("BR".equals(countryCode) && !normalizedPhone.startsWith("+55")) {
@@ -122,7 +128,7 @@ public class PhoneAuthService {
         }
         code.consume();
         codeRepository.save(code);
-        UserDistributionProfile profile = profileRepository.findByPhoneNumber(normalizedPhone).orElseGet(() -> {
+        UserDistributionProfile profile = profileRepository.findByPhoneNumberForClaim(normalizedPhone, alternatePhone(normalizedPhone)).orElseGet(() -> {
             long generatedUserId = 9000000000L + Math.abs((long) normalizedPhone.hashCode());
             while (profileRepository.existsById(generatedUserId)) generatedUserId++;
             UserDistributionProfile createdProfile = bindingService.createProfile(
@@ -133,10 +139,15 @@ public class PhoneAuthService {
             createdProfile.bindPhoneNumber(normalizedPhone);
             return profileRepository.save(createdProfile);
         });
+        if (profile.getPreregistrationInviterId() != null && profile.getClaimedAt() == null) {
+            bindingService.claimPreRegistration(profile);
+            preregistrationExpiry.recordPhoneClaim(profile.getUserId());
+        }
         UserSessionService.IssuedSession session = userSessionService.issue(profile.getUserId());
         return new LoginResult(profile, session);
     }
 
+    static String alternatePhone(String phone) { return phone.startsWith("+") ? phone.substring(1) : "+" + phone; }
     static String normalizePhone(String phoneNumber) {
         String normalized = phoneNumber == null ? "" : phoneNumber.replaceAll("[\\s()-]", "").trim();
         if (!normalized.matches("^\\+?[0-9]{6,20}$")) throw new IllegalArgumentException("phone number is invalid");

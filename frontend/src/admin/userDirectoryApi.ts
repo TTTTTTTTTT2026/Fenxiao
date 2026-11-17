@@ -27,6 +27,7 @@ export type UserPlatformProfileItem = {
   countryCode: string
   phoneNumber: string | null
   registeredAt: string
+  accountStatus?: string
   directInviterUserId: number | null
   directInviterNickname: string | null
   userGradeCode: string
@@ -149,4 +150,8 @@ export function saveAdminEarningsReadAccess(token: string, userId: number, state
 
 export function setIndividualLinkyBindingTarget(token:string,userId:number,data:{linkyAccount:string;guildId:string;guildInviteCode:string;reason:string}) {
   return request(`/admin/user-platform-profiles/${userId}/linky-binding-target`, { method:'POST',headers:{'X-Admin-Session':token,'Content-Type':'application/json'},body:JSON.stringify(data) })
+}
+
+export function accountStatusLabel(status?: string) {
+  return ({ ACTIVE: '正常', FROZEN: '已冻结', CANCELLED: '已注销', PRE_REGISTERED: '预注册', PRE_REGISTRATION_EXPIRED: '预注册已取消' } as Record<string, string>)[status ?? ''] || status || '—'
 }

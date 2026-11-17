@@ -1,3 +1,4 @@
+import { accountStatusLabel } from "./userDirectoryApi"
 import { Copy } from '@phosphor-icons/react'
 import type { UserDirectoryOptions, UserPlatformProfileItem, UserPlatformProfileListResponse } from './userDirectoryApi'
 import { formatConsumerUserGrade, formatCountryNameZh } from '../shared/catalog'
@@ -76,12 +77,12 @@ export default function LegacyUserDirectorySection({
         <div className="admin-user-directory-table"><DataTable headers={['用户 ID', '昵称', '归属国家', '用户等级', '手机号', '邀请码', '注册时间', '对接运营', '用户价值', '直接邀请人', 'Linky 实际绑定', 'Timo 实际绑定', 'Linky 邀请链归属', '密码登录', '未绑定收益查看', '操作']}
           rows={(profiles?.items ?? []).map((item) => [
             <strong>#{item.userId}</strong>, item.nickname?.trim() || '-',
-            formatCountryNameZh(item.countryCode), formatConsumerUserGrade(item.userGradeCode, 'zh'), item.phoneNumber || '-',
+            formatCountryNameZh(item.countryCode), <div className="stack-gap small"><span>{formatConsumerUserGrade(item.userGradeCode, 'zh')}</span>{item.accountStatus ? <span>{accountStatusLabel(item.accountStatus)}</span> : null}</div>, item.phoneNumber || '-',
             item.inviteCode ? <div className="invite-code-cell"><span>{item.inviteCode}</span><button className="ghost-btn small-btn invite-code-copy-btn" type="button" onClick={() => onCopyInviteCode(item.inviteCode)} aria-label={`复制邀请码 ${item.inviteCode}`} title="复制邀请码"><Copy size={15} weight="bold" aria-hidden="true" /></button></div> : '-',
             formatDateTime(item.registeredAt),
             item.operatorAdminId == null ? '未分配' : `${item.operatorName || '运营账号'} #${item.operatorAdminId}`,
             item.valueCode === 'HIGH_VALUE' ? '高价值用户' : '一般用户',
-            item.directInviterUserId == null ? '根节点' : <div className="stack-gap small"><strong>#{item.directInviterUserId}</strong>{item.directInviterNickname ? <span>{item.directInviterNickname}</span> : null}</div>,
+            item.directInviterUserId == null ? (item.accountStatus?.startsWith('PRE_') ? '预注册，关系未生效' : '根节点') : <div className="stack-gap small"><strong>#{item.directInviterUserId}</strong>{item.directInviterNickname ? <span>{item.directInviterNickname}</span> : null}</div>,
             item.linky ? <div className="stack-gap small"><strong>{item.linky.accountId}</strong><span>{item.linky.status} · {item.linky.guildName || item.linky.guildId || '未返回公会'}{item.linky.expectedGuildSource ? ` · 目标来源 ${item.linky.expectedGuildSource}` : ''}</span></div> : '-',
             item.timo ? <div className="stack-gap small"><strong>{item.timo.accountId}</strong><span>{item.timo.status} · {item.timo.guildId || '未返回公会'}</span></div> : '-',
             item.invitationGuild ? <div className="stack-gap small"><strong>{item.invitationGuild.guildName} · {item.invitationGuild.guildId}</strong><span>{item.invitationGuild.source}{item.invitationGuild.inheritedFromUserId ? ` · 继承自 #${item.invitationGuild.inheritedFromUserId}` : ''}</span></div> : '-',

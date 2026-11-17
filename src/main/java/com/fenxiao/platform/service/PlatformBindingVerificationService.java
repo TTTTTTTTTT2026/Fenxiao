@@ -49,6 +49,22 @@ public class PlatformBindingVerificationService {
         this.providers = Map.copyOf(mapped);
     }
 
+    public record Preflight(PlatformVerificationResult result, String expectedGuildId, String expectedCountry) {}
+
+    public Preflight verifyBeforeSubmission(Long userId, String platform, String account, LocalDateTime submittedAt) {
+        if (mode.source() == PlatformVerificationSource.DISABLED) throw new IllegalStateException("verification disabled");
+        var provider = providers.get(mode.source());
+        if (provider == null) throw new IllegalStateException("verification provider unavailable");
+        String country = users.findById(userId).orElseThrow().getCountryCode();
+        String guild = null, expectedCountry = null;
+        if (mode.source() == PlatformVerificationSource.MCN && "TIMO".equals(platform)) {
+            var scope = mcnTimoGuilds.resolve(platform, country);
+            guild = scope.officialGuildId(); expectedCountry = scope.mcnCountry();
+        }
+        return new Preflight(provider.verify(new PlatformVerificationRequest(userId, platform, account, country,
+                guild, expectedCountry, submittedAt)), guild, expectedCountry);
+    }
+
     public PlatformAccountBinding verifySubmittedBinding(Long userId, String platformCode) {
         return verifySubmittedBinding(userId, platformCode, null);
     }
@@ -61,18 +77,10 @@ public class PlatformBindingVerificationService {
         if (expectedBindingId != null && !expectedBindingId.equals(binding.getId())) {
             throw new IllegalStateException("verification is for a previous binding");
         }
-        PlatformVerificationProvider provider = providers.get(mode.source());
-        if (provider == null) throw new IllegalStateException("platform verification provider is unavailable for " + mode.source());
-        String expectedGuildId = null;
-        String expectedCountry = null;
-        String countryCode = users.findById(userId).orElseThrow(() -> new IllegalArgumentException("user not found")).getCountryCode();
-        if (mode.source() == PlatformVerificationSource.MCN && "TIMO".equals(binding.getPlatformCode())) {
-            McnTimoGuildScopeResolver.ResolvedGuildScope scope = mcnTimoGuilds.resolve(binding.getPlatformCode(), countryCode);
-            expectedGuildId = scope.officialGuildId();
-            expectedCountry = scope.mcnCountry();
-        }
-        PlatformVerificationResult result = provider.verify(new PlatformVerificationRequest(userId, binding.getPlatformCode(),
-                binding.getPlatformUserId(), countryCode, expectedGuildId, expectedCountry, binding.getSubmittedAt()));
+        Preflight check = verifyBeforeSubmission(userId, binding.getPlatformCode(), binding.getPlatformUserId(), binding.getSubmittedAt());
+        String expectedGuildId = check.expectedGuildId();
+        String expectedCountry = check.expectedCountry();
+        PlatformVerificationResult result = check.result();
         attempts.save(PlatformVerificationAttempt.record(binding, expectedGuildId, expectedCountry, result, LocalDateTime.now(clock)));
         return switch (result.outcome()) {
             case FOUND -> {
