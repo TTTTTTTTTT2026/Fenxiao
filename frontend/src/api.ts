@@ -1,4 +1,12 @@
 import { request } from './httpClient'
+export type PreRegistrationInput = { countryCode: string; phoneNumber: string; platformCode: 'TIMO' | 'LINKY'; platformUserId: string; revision?: number }
+export type PreRegistrationItem = { id: number; userId: number; countryCode: string; maskedPhone: string; platformCode: 'TIMO' | 'LINKY'; maskedAccount: string; status: string; reasonCode: string; submittedAt: string; expiresAt: string; lastCheckedAt: string | null; attemptCount: number; revision: number; claimed: boolean; canEdit: boolean }
+export type PreRegistrationList = { items: PreRegistrationItem[]; page: number; total: number; hasNext: boolean; canAddTimo: boolean; canAddLinky: boolean }
+const preRegistrationPath = (id: number) => `/api/distribution/team/${id}/pre-registrations`
+export function getPreRegistrations(id: number, token: string, page = 0) { return request<PreRegistrationList>(`${preRegistrationPath(id)}?page=${page}&size=20`, { headers: { 'X-Distribution-Token': token } }) }
+export function getPreRegistrationInput(id: number, token: string, application: number) { return request<PreRegistrationInput>(`${preRegistrationPath(id)}/${application}/edit-input`, { headers: { 'X-Distribution-Token': token } }) }
+export function savePreRegistration(id: number, token: string, input: PreRegistrationInput, application?: number) { return request<PreRegistrationItem>(`${preRegistrationPath(id)}${application ? `/${application}` : ''}`, { method: application ? 'PATCH' : 'POST', headers: { 'X-Distribution-Token': token }, body: JSON.stringify(input) }) }
+export function withdrawPreRegistration(id: number, token: string, item: PreRegistrationItem) { return request<PreRegistrationItem>(`${preRegistrationPath(id)}/${item.id}?revision=${item.revision}`, { method: 'DELETE', headers: { 'X-Distribution-Token': token } }) }
 import type { UserPlatformProfileInvitationGuild } from './admin/userDirectoryApi'
 export { ApiRequestError } from './httpClient'
 export { getAdminUserPlatformProfiles } from './admin/userDirectoryApi'

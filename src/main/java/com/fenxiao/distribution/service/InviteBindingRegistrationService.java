@@ -17,6 +17,7 @@ import java.util.Locale;
 @Service
 @Transactional
 public class InviteBindingRegistrationService {
+    private final com.fenxiao.distribution.service.RegistrationClaimGuard claimGuard;
 
     private final UserDistributionProfileRepository userDistributionProfileRepository;
     private final InviteBindingRegistrationRepository inviteBindingRegistrationRepository;
@@ -35,7 +36,8 @@ public class InviteBindingRegistrationService {
                                             LinkyRegistrationEligibilityService linkyRegistrationEligibilityService,
                                             LinkyBindingVerificationService linkyBindingVerificationService,
                                             LinkyInvitationGuildAttributionService invitationGuildAttributionService,
-                                            LinkyVerificationModeService verificationMode, VerificationCampaignService campaigns) {
+                                            LinkyVerificationModeService verificationMode, VerificationCampaignService campaigns, com.fenxiao.distribution.service.RegistrationClaimGuard claimGuard) {
+        this.claimGuard = claimGuard;
         this.userDistributionProfileRepository = userDistributionProfileRepository;
         this.inviteBindingRegistrationRepository = inviteBindingRegistrationRepository;
         this.distributionRelationRepository = distributionRelationRepository;
@@ -50,6 +52,8 @@ public class InviteBindingRegistrationService {
         String normalizedProductCode = normalizeProductCode(request.productCode());
         String normalizedLinkyAccount = normalizeLinkyAccount(request.linkyAccount());
 
+        claimGuard.lock("LINKY:" + normalizedLinkyAccount);
+        claimGuard.assertAccountAvailable(userId, "LINKY", normalizedLinkyAccount);
         UserDistributionProfile accountHolder = userDistributionProfileRepository.findByIdForBinding(userId)
                 .orElseThrow(() -> new IllegalArgumentException("user profile not found"));
         String normalizedWhatsappNumber = normalizeWhatsappNumber(accountHolder.getPhoneNumber());

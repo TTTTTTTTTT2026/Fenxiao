@@ -7441,3 +7441,54 @@ body:has(.consumer-earnings-page) { min-width: 0; }
 @media (max-width: 560px) {
   .consumer-earnings-shell > .consumer-bottom-nav { margin-right: -15px; margin-left: -15px; }
 }
+/* Inviter pre-registration follows the existing consumer form/card treatment. */
+.prereg-back, .consumer-settings-back { display: inline-flex; align-items: center; gap: 6px; color: #92513a; font-size: 14px; text-decoration: none; margin: 8px 0; }
+.prereg-page h1 { scroll-margin-top: 20px; }
+.prereg-form-card fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.prereg-form-card legend { padding: 0; font-weight: 700; font-size: 14px; margin-bottom: 10px; }
+.prereg-form-card label { display: block; margin: 18px 0 8px; font-size: 14px; font-weight: 600; }
+.prereg-form-card input { box-sizing: border-box; width: 100%; min-width: 0; border: 1px solid #ead5c9; border-radius: 12px; background: #fffdfb; padding: 14px 12px; font-size: 16px; color: #17233b; }
+.prereg-form-card input:focus { outline: 2px solid #ff6b32; outline-offset: 2px; }
+.prereg-tabs { display: flex; border-radius: 12px; background: #fff1e6; padding: 4px; gap: 4px; }
+.prereg-tabs button { flex: 1; border: 0; border-radius: 9px; padding: 10px; font-weight: 700; background: transparent; color: #8f583e; cursor: pointer; }
+.prereg-tabs button.selected { background: #d8440a; color: white; box-shadow: 0 2px 5px #bd4d1020; }
+.prereg-phone { display: flex; align-items: stretch; gap: 8px; }
+.prereg-phone .consumer-phone-country { flex: 0 0 88px; align-self: stretch; }
+.prereg-form-card .consumer-form-submit { width: 100%; box-sizing: border-box; margin-top: 12px; white-space: normal; min-height: 46px; }
+.prereg-form-card button:disabled, .prereg-list button:disabled { opacity: .5; cursor: default; }
+.prereg-note { color: #7b6b64; font-size: 13px; line-height: 1.7; margin: 12px 0 0; overflow-wrap: anywhere; }
+.prereg-notice, .prereg-error { padding: 13px; border-radius: 12px; font-size: 14px; line-height: 1.7; background: #fff0e4; color: #935421; overflow-wrap: anywhere; }
+.prereg-error { color: #ac2626; background: #fff0ed; }
+.prereg-list-head, .prereg-item-heading, .prereg-item-actions, .prereg-pagination { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.prereg-list-head h2 { margin: 0; }
+.prereg-list button, .prereg-text-button { border: 1px solid #f0c9b3; background: #fffaf6; color: #b53b0e; border-radius: 9px; padding: 9px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+.prereg-text-button { width: 100%; margin-top: 10px; }
+.prereg-item { border-top: 1px solid #efdfd4; padding: 18px 0; overflow-wrap: anywhere; }
+.prereg-item:first-of-type { margin-top: 16px; }
+.prereg-item:last-of-type { padding-bottom: 0; }
+.prereg-item p { font-size: 13px; line-height: 1.7; margin: 7px 0; }
+.prereg-reason { color: #795b4c; }
+.prereg-item dl { font-size: 12px; color: #7b6b64; margin: 12px 0; }
+.prereg-item dl div { display: flex; justify-content: space-between; gap: 8px; margin: 5px 0; flex-wrap: wrap; }
+.prereg-item dd { margin: 0; }
+.prereg-status { border-radius: 6px; padding: 4px 7px; font-size: 12px; background: #fff0de; color: #96612b; }
+.prereg-status-completed { color: #237148; background: #e8f5e9; }
+.prereg-status-expired, .prereg-status-withdrawn { color: #777; background: #f3f1ee; }
+.prereg-item-actions { justify-content: flex-start; margin-top: 10px; }
+.prereg-pagination { margin-top: 18px; }
+
+.prereg-page .consumer-commercial-heading { margin: 24px 0 18px; }
+.prereg-page .consumer-commercial-heading h1 { font-size: 32px; line-height: 1.2; }
+.prereg-page .consumer-settings-card { border-color: #f2dfd1; box-shadow: 0 9px 25px #98512c0a; padding: 20px; }
+.prereg-page .prereg-phone { gap: 0; border: 1px solid #ead5c9; border-radius: 12px; overflow: hidden; }
+.prereg-page .prereg-phone input { border: 0; border-radius: 0; min-height: 48px; padding-left: 12px; }
+.prereg-page .prereg-phone .consumer-phone-country { background: #fff3e9; border-right: 1px solid #ead5c9; }
+.prereg-page .prereg-list { gap: 0; }
+.prereg-page .prereg-item dl { display: block; margin: 12px 0; }
+.prereg-page .prereg-item dl div { display: flex; padding: 0; background: none; border-radius: 0; }
+.prereg-page .prereg-item dd { font-weight: 400; color: #7b6b64; }
+.prereg-page .prereg-item p { margin: 7px 0; }
+.prereg-page .prereg-note { color: #7b6b64; }
+
+a.consumer-workspace-trigger { text-decoration: none; }
+.consumer-settings-back + .consumer-commercial-heading { margin-top: 24px; }

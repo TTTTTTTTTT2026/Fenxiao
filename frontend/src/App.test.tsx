@@ -130,7 +130,7 @@ describe('App external landing pages', () => {
     expect(markup).not.toContain('WhatsApp 号码')
   })
 
-  it('offers a signed-in user a clear sign-out action in the account page', () => {
+  it('keeps invitee binding and sign-out in settings, with only the settings shortcut on my account', () => {
     const localStorage = createStorage()
     localStorage.setItem('fenxiao-web-session', JSON.stringify({
       userId: 10001,
@@ -149,14 +149,24 @@ describe('App external landing pages', () => {
 
     const markup = renderToStaticMarkup(<App />)
 
-    expect(markup).toContain('账户安全')
-    expect(markup).toContain('退出登录')
-    expect(markup).toContain('consumer-sign-out-button')
+    expect(markup).toContain('href="/account/settings"')
+    expect(markup).not.toContain('href="/account/add-subordinate"')
+    expect(markup).not.toContain('退出登录')
+    expect(markup).not.toContain('consumer-sign-out-button')
     expect(markup).toContain('绑定平台账号')
     expect(markup).toContain('读取应用状态中…')
     expect(markup).not.toContain('切换应用工作区')
     expect(markup).not.toContain('绑定后，平台数据才能归入当前账户并进入奖励计算。')
     expect(markup).not.toContain('使用官方 12 位 Timo ID 完成归属核验。')
+    window.location.pathname = '/account/settings'
+    const settings = renderToStaticMarkup(<App />)
+    expect(settings).toContain('<h1>设置</h1>')
+    expect(settings).toContain('绑定与核验被邀请人')
+    expect(settings).toContain('href="/account/add-subordinate"')
+    expect(settings).toContain('账户安全')
+    expect(settings).toContain('退出登录')
+    expect(settings).toContain('consumer-sign-out-button')
+    expect(settings).not.toContain('id="consumer-platform-bindings"')
   })
 
   it('renders a dedicated Timo binding page with a twelve-digit ID contract', () => {

@@ -3514,7 +3514,7 @@ function ConsoleApp({ initialViewMode = 'user', initialAdminSession = null }: Co
                       `${item.countryCode} / ${item.languageCode}`,
                       item.inviteCode,
                       `${item.directInviteeCount} 人${item.effectiveUser ? ' · 已有效' : ''}`,
-                      `${item.accountStatus} / ${item.userStatus}`,
+                      `${({ ACTIVE: '正常', FROZEN: '已冻结', CANCELLED: '已注销', PRE_REGISTERED: '预注册', PRE_REGISTRATION_EXPIRED: '预注册已取消' } as Record<string, string>)[item.accountStatus] || item.accountStatus} / ${item.userStatus}`,
                       `${formatDateTime(item.createdAt)} · ${item.createdByRole} #${item.createdBy}`,
                     ])}
                     emptyText="暂无种子邀请人。创建后会自动出现在这里，也可以点击刷新列表查询历史记录。"

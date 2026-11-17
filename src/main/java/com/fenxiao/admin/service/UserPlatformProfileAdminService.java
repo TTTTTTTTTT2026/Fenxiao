@@ -131,7 +131,7 @@ public class UserPlatformProfileAdminService {
                     linky(linkyByUser.get(profile.getUserId())), timo(timoByUser.get(profile.getUserId())),
                     invitationGuild(guildByUser.get(profile.getUserId()), legacyGuildByUser.get(profile.getUserId())),
                     operations.operatorAdminId(), operations.operatorName(), operations.valueCode(),
-                    earningsReadByUser.getOrDefault(profile.getUserId(), List.of()));
+                    earningsReadByUser.getOrDefault(profile.getUserId(), List.of()), profile.getAccountStatus().name());
         }).toList();
         return new UserPlatformProfileListResponse(items, searchPage.total(), safePage, safeSize);
     }

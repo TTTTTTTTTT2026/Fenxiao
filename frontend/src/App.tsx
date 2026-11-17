@@ -1,3 +1,5 @@
+import PreRegistrationPage from "./PreRegistrationPage"
+import { preRegistrationCopy } from "./preRegistrationCopy"
 import {
 ArrowLeft,
 ArrowRight,
@@ -1556,7 +1558,15 @@ function InviteCodePage() {
   )
 }
 
-function AccountPage() {
+const consumerSettingsCopy = {
+  zh: { title: '设置', subtitle: '账号与登录管理。', back: '返回我的' },
+  en: { title: 'Settings', subtitle: 'Manage your account and sign-in.', back: 'Back to my account' },
+  es: { title: 'Ajustes', subtitle: 'Administra tu cuenta y el inicio de sesión.', back: 'Volver a mi cuenta' },
+  id: { title: 'Pengaturan', subtitle: 'Kelola akun dan sesi masuk Anda.', back: 'Kembali ke akun saya' },
+  pt: { title: 'Configurações', subtitle: 'Gerencie sua conta e sessão.', back: 'Voltar à minha conta' },
+} as const
+
+function AccountPage({ view = 'account' }: { view?: 'account' | 'settings' }) {
   const [session, setSession] = useState<SessionState | null>(() => loadJsonState<SessionState>(STORAGE_KEY))
   const [locale, setLocale] = useState<ConsumerLocale>(() => loadExternalLocale())
   const [workspace, setWorkspace] = useState<ConsumerWorkspaceResponse | null>(null)
@@ -1564,6 +1574,7 @@ function AccountPage() {
   const [workspaceDialogOpen, setWorkspaceDialogOpen] = useState(false)
   const [switchingWorkspace, setSwitchingWorkspace] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
+  const signOutInFlight = useRef(false)
   const [linkyBinding, setLinkyBinding] = useState<LinkyAccountBindingResponse | null>(null)
   const [timoBinding, setTimoBinding] = useState<PlatformBindingResponse | null>(null)
   const [linkyStatusLoading, setLinkyStatusLoading] = useState(true)
@@ -1581,7 +1592,7 @@ function AccountPage() {
   }, [locale])
 
   useEffect(() => {
-    if (!session) return
+    if (!session || view === 'settings') return
     let active = true
     void getConsumerWorkspace(session.userId, session.accessToken)
       .then((value) => {
@@ -1601,7 +1612,7 @@ function AccountPage() {
       .then((value) => { if (active) setUserGradeCode(value.userGradeCode) })
       .catch(() => { if (active) setUserGradeCode('NORMAL_MEMBER') })
     return () => { active = false }
-  }, [session])
+  }, [session, view])
 
   const statusCopy = {
     zh: { unbound: '未绑定', submitted: '绑定中', verifying: '核验中', verified: '已绑定', rejected: '核验未通过', loading: '状态读取中', error: '状态暂不可用', view: '查看详情' },
@@ -1635,7 +1646,8 @@ function AccountPage() {
   }
 
   async function handleSignOut() {
-    if (!session || signingOut) return
+    if (!session || signOutInFlight.current) return
+    signOutInFlight.current = true
     setSigningOut(true)
     try {
       await logoutUserSession(session.accessToken)
@@ -1660,7 +1672,9 @@ function AccountPage() {
 
         {session ? (
           <>
-            <section className="consumer-commercial-heading"><p><Diamond weight="fill" aria-hidden="true" /> Bandeira Rewards</p><h1>{copy.title}</h1><span>{copy.subtitle}</span></section>
+            {view === 'settings' ? <a className="consumer-settings-back" href="/account"><ArrowLeft aria-hidden="true" />{consumerSettingsCopy[locale].back}</a> : null}
+            <section className="consumer-commercial-heading"><p><Diamond weight="fill" aria-hidden="true" /> Bandeira Rewards</p><h1>{view === 'settings' ? consumerSettingsCopy[locale].title : copy.title}</h1><span>{view === 'settings' ? consumerSettingsCopy[locale].subtitle : copy.subtitle}</span></section>
+            {view === 'account' ? <>
             {workspace && !accountWorkspace.selected ? <ConsumerUnboundGuidance locale={locale} bindHref="#consumer-platform-bindings" /> : null}
             {workspace?.apps.some((app) => app.code === workspace.selected && app.earningsAccessGranted && !app.verified)
               ? <p className="consumer-workspace-banner" role="status">{consumerEarningsAccessCopy[locale]}</p> : null}
@@ -1685,11 +1699,15 @@ function AccountPage() {
               <button className="consumer-workspace-trigger" type="button" onClick={() => setWorkspaceDialogOpen(true)} aria-haspopup="dialog"><span>{workCopy.title}</span><strong>{consumerAppName(accountWorkspace.selected!)}</strong><CaretRight weight="bold" aria-hidden="true" /></button>
               {workspaceError ? <p className="consumer-workspace-error" role="alert">{workCopy.error}</p> : null}
             </section> : null}
+            <section className="consumer-settings-card consumer-workspace-card"><a className="consumer-workspace-trigger" href="/account/settings"><span>{consumerSettingsCopy[locale].title}</span><CaretRight aria-hidden="true" /></a></section>
+            </> : <>
+            <section className="consumer-settings-card consumer-workspace-card"><a className="consumer-workspace-trigger" href="/account/add-subordinate"><span>{preRegistrationCopy[locale].title}</span><UserPlus aria-hidden="true" /></a></section>
             <section className="consumer-settings-card consumer-security-card">
               <div className="consumer-security-copy"><span className="consumer-security-icon"><ShieldCheck weight="duotone" aria-hidden="true" /></span><div><h2>{copy.security}</h2><p>{copy.signOutHint}</p></div></div>
               <button className="consumer-sign-out-button" type="button" onClick={() => void handleSignOut()} disabled={signingOut}><SignOut weight="bold" aria-hidden="true" />{signingOut ? copy.signingOut : copy.signOut}</button>
             </section>
-            {workspaceDialogOpen && accountWorkspace.canSwitch ? <div className="consumer-modal-backdrop" onClick={() => setWorkspaceDialogOpen(false)}>
+            </>}
+            {view === 'account' && workspaceDialogOpen && accountWorkspace.canSwitch ? <div className="consumer-modal-backdrop" onClick={() => setWorkspaceDialogOpen(false)}>
               <section className="consumer-workspace-dialog" role="dialog" aria-modal="true" aria-label={workCopy.dialogTitle} onClick={(event) => event.stopPropagation()}>
                 <h2>{workCopy.dialogTitle}</h2>
                 {workspace ? (['TIMO', 'LINKY'] as const).map((code) => {
@@ -2480,12 +2498,20 @@ function ConsumerLandingPage() {
   return session ? null : <InviteCodePage />
 }
 
+function AddSubordinatePage() {
+  const [locale, setLocale] = useState<ConsumerLocale>(() => loadExternalLocale())
+  const [session] = useState<SessionState | null>(() => loadJsonState<SessionState>(STORAGE_KEY))
+  return <PreRegistrationPage session={session} locale={locale} onLocale={value => { setLocale(value); window.localStorage.setItem(EXTERNAL_LOCALE_KEY, value) }} footer={session ? <ConsumerBottomNavigation locale={locale} active="account" /> : undefined} />
+}
+
 function App() {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '/'
   const hostname = typeof window !== 'undefined' ? window.location.hostname : ''
   if (hostname === 'partner.bandeira.fandodo.online') return <PartnerPortal />
   if (hostname === 'app.bandeira.fandodo.online' && (pathname === '/' || pathname.startsWith('/admin'))) return <ConsumerLandingPage />
   if (pathname === '/app') return <ConsumerLandingPage />
+  if (pathname.startsWith('/account/settings')) return <AccountPage view="settings" />
+  if (pathname.startsWith('/account/add-subordinate')) return <AddSubordinatePage />
   if (pathname.startsWith('/account/profile')) return <PublicProfilePage />
   if (pathname.startsWith('/account/timo')) return <TimoBindingPage />
   if (pathname.startsWith('/account/linky') || pathname.startsWith('/bind')) return <BindLandingPage />

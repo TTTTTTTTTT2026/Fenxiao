@@ -20,6 +20,7 @@ import java.time.LocalDateTime;
 
 @Service
 public class InviterBindingService {
+    private final com.fenxiao.distribution.service.RegistrationClaimGuard claimGuard;
     private final UserDistributionProfileRepository users;
     private final DistributionRelationRepository relations;
     private final InvitationProgressService progress;
@@ -34,7 +35,8 @@ public class InviterBindingService {
                                 InvitationProgressService progress, PlatformLifecycleService timo,
                                 InviteBindingRegistrationService linky, LinkyAccountBindingRepository linkyBindings,
                                 LinkyVerificationAttemptRepository linkyAttempts, OperationAuditLogRepository audits,
-                                Clock clock) {
+                                Clock clock, com.fenxiao.distribution.service.RegistrationClaimGuard claimGuard) {
+        this.claimGuard = claimGuard;
         this.users = users; this.relations = relations; this.progress = progress; this.timo = timo;
         this.linky = linky; this.linkyBindings = linkyBindings; this.linkyAttempts = linkyAttempts;
         this.audits = audits; this.clock = clock;
@@ -47,6 +49,7 @@ public class InviterBindingService {
         String pattern = "TIMO".equals(platform) ? "[1-9][0-9]{11}" : "[0-9]{8}";
         if (!("TIMO".equals(platform) || "LINKY".equals(platform)) || account == null || !account.matches(pattern))
             throw new IllegalArgumentException("invalid assisted binding account");
+        claimGuard.lock(platform + ":" + account);
         if (inviterId.equals(inviteeId)) throw new ForbiddenException("direct invitee required");
         // Serialize against the invitee's own submission, reset, and another assisted submission.
         for (long id : new long[]{Math.min(inviterId, inviteeId), Math.max(inviterId, inviteeId)}) {

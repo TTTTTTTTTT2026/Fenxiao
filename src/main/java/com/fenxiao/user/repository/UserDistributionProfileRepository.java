@@ -18,6 +18,9 @@ public interface UserDistributionProfileRepository extends JpaRepository<UserDis
     Optional<UserDistributionProfile> findByIdForBinding(Long userId);
     Optional<UserDistributionProfile> findByInviteCode(String inviteCode);
     Optional<UserDistributionProfile> findByPhoneNumber(String phoneNumber);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from UserDistributionProfile u where u.phoneNumber=:phoneNumber or u.phoneNumber=:alternate")
+    Optional<UserDistributionProfile> findByPhoneNumberForClaim(String phoneNumber, String alternate);
     boolean existsByInviteCode(String inviteCode);
     long countByEffectiveUserTrue();
     long countByUserIdIn(Collection<Long> userIds);
