@@ -465,7 +465,7 @@ export type TeamListResponse = {
 
 export type InvitationProgressResponse = {
   platformCode: 'TIMO' | 'LINKY'
-  items: Array<{ userId: number; maskedPhone: string | null; registeredAt: string | null; bindingStatus: string }>
+  items: Array<{ userId: number; maskedPhone: string | null; registeredAt: string | null; bindingStatus: string; maskedAccount?: string | null; canBind?: boolean }>
   page: number
   size: number
   total: number
@@ -1165,6 +1165,14 @@ export function getDistributionTeam(userId: number, accessToken: string) {
 export function getInvitationProgress(userId: number, accessToken: string, platformCode: 'TIMO' | 'LINKY', page = 0) {
   return request<InvitationProgressResponse>(`/api/distribution/team/${userId}/invitation-progress?${new URLSearchParams({ platformCode, page: String(page), size: '20' })}`, {
     headers: { 'X-Distribution-Token': accessToken },
+  })
+}
+
+export function submitInviteeBinding(inviterId: number, inviteeId: number, accessToken: string,
+  platformCode: 'TIMO' | 'LINKY', platformUserId: string) {
+  return request<InvitationProgressResponse['items'][number]>(`/api/distribution/team/${inviterId}/invitees/${inviteeId}/bindings`, {
+    method: 'POST', headers: { 'X-Distribution-Token': accessToken },
+    body: JSON.stringify({ platformCode, platformUserId }),
   })
 }
 
