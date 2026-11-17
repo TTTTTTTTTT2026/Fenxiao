@@ -5,6 +5,7 @@ import com.fenxiao.distribution.entity.DistributionRelation;
 import com.fenxiao.distribution.entity.LinkyAccountBinding;
 import com.fenxiao.distribution.repository.DistributionRelationRepository;
 import com.fenxiao.distribution.repository.LinkyAccountBindingRepository;
+import com.fenxiao.distribution.repository.LinkyVerificationAttemptRepository;
 import com.fenxiao.platform.entity.PlatformAccountBinding;
 import com.fenxiao.platform.repository.PlatformAccountBindingRepository;
 import com.fenxiao.user.entity.UserDistributionProfile;
@@ -27,7 +28,7 @@ class InvitationProgressServiceTest {
         var profiles = mock(UserDistributionProfileRepository.class);
         var linky = mock(LinkyAccountBindingRepository.class);
         var timo = mock(PlatformAccountBindingRepository.class);
-        var service = new InvitationProgressService(relations, profiles, linky, timo);
+        var service = new InvitationProgressService(relations, profiles, linky, timo, mock(LinkyVerificationAttemptRepository.class));
         var relation = DistributionRelation.createBound(102L, "ID", BindSource.INVITE_CODE, 101L, null, null, false);
         when(relations.findByLevel1InviterIdAndBindSourceOrderByIdDesc(eq(101L), eq(BindSource.INVITE_CODE), any(PageRequest.class)))
                 .thenReturn(new PageImpl<>(List.of(relation)));
@@ -55,7 +56,7 @@ class InvitationProgressServiceTest {
         var timo = mock(PlatformAccountBindingRepository.class);
         when(relations.findByLevel1InviterIdAndBindSourceOrderByIdDesc(eq(101L), eq(BindSource.INVITE_CODE), any(PageRequest.class)))
                 .thenReturn(new PageImpl<>(List.of()));
-        var result = new InvitationProgressService(relations, profiles, linky, timo).get(101L, "LINKY", 0, 20);
+        var result = new InvitationProgressService(relations, profiles, linky, timo, mock(LinkyVerificationAttemptRepository.class)).get(101L, "LINKY", 0, 20);
         assertTrue(result.items().isEmpty());
         verifyNoInteractions(profiles, linky, timo);
     }

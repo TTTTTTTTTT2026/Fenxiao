@@ -12,6 +12,10 @@ import java.util.List;
 import java.util.Optional;
 
 public interface DistributionRelationRepository extends JpaRepository<DistributionRelation, Long> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select r from DistributionRelation r where r.userId = :userId")
+    Optional<DistributionRelation> findByUserIdForBinding(Long userId);
+
     Optional<DistributionRelation> findByUserId(Long userId);
 
     boolean existsByUserId(Long userId);

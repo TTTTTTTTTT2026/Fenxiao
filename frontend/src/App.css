@@ -6656,6 +6656,22 @@ code {
 .consumer-invitation-row { display: grid; gap: 4px; padding: 12px 0; border-top: 1px solid #f0e9e3; overflow-wrap: anywhere; }
 .consumer-invitation-row span { color: #675d57; font-size: 13px; }
 .consumer-invitation-row b { color: #db5428; }
+.consumer-invitation-row-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.consumer-invitation-row-head button { border: 1px solid #efd9cd; border-radius: 8px; padding: 7px 14px; background: #fffaf6; color: #b84118; font: inherit; font-size: 13px; cursor: pointer; }
+.consumer-assisted-dialog { width: min(440px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); box-sizing: border-box; overflow-y: auto; border: 0; border-radius: 22px; padding: 24px; color: #27211d; background: #fffaf6; box-shadow: 0 18px 48px #30201633; }
+.consumer-assisted-dialog::backdrop { background: rgb(16 22 35 / 50%); }
+.consumer-assisted-dialog h2 { margin: 0 0 18px; font-size: 21px; }
+.consumer-assisted-dialog p { line-height: 1.6; overflow-wrap: anywhere; }
+.consumer-assisted-hint { color: #675d57; font-size: 14px; }
+.consumer-assisted-dialog label { display: grid; gap: 8px; font-weight: 600; }
+.consumer-assisted-dialog input { min-width: 0; width: 100%; box-sizing: border-box; border: 1px solid #e8d8ce; border-radius: 10px; padding: 12px; font: inherit; background: white; color: #27211d; }
+.consumer-assisted-dialog small { display: block; margin: 8px 0 14px; color: #675d57; }
+.consumer-assisted-dialog button { min-height: 44px; }
+.consumer-assisted-dialog .consumer-form-submit { width: 100%; margin-top: 14px; padding: 12px; border: 0; border-radius: 12px; background: #f15822; color: white; font: inherit; font-weight: 700; cursor: pointer; }
+.consumer-assisted-dialog button:disabled { opacity: .55; cursor: default; }
+.consumer-assisted-dialog [role="alert"] { color: #a52b18; }
+.consumer-assisted-result { margin: 18px 0; padding: 12px; border-radius: 12px; background: #fff0e5; }
+.consumer-assisted-close { width: 100%; margin-top: 12px; padding: 10px; border: 0; border-radius: 10px; background: #f2e9e2; color: #443c37; font: inherit; cursor: pointer; }
 
 .consumer-field input,
 .consumer-input-with-icon input,

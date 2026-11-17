@@ -48,7 +48,8 @@ public class PlatformLifecycleService {
     }
 
     public PlatformAccountBinding submit(Long userId, String platformCode, String platformUserId) {
-        userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("user not found"));
+        // Share the same user lock with assisted submissions and binding resets.
+        userRepository.findByIdForBinding(userId).orElseThrow(() -> new IllegalArgumentException("user not found"));
         String platform = normalizePlatform(platformCode);
         String externalId = normalizePlatformUserId(platform, platformUserId);
         bindingRepository.findByUserIdAndPlatformCode(userId, platform).ifPresent(value -> {

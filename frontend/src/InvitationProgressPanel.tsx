@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { getInvitationProgress, type InvitationProgressResponse } from './api'
 import type { ConsumerLocale } from './shared/catalog'
+import InviterBindingDialog from './InviterBindingDialog'
 
 type Platform = 'TIMO' | 'LINKY'
 
@@ -23,8 +24,10 @@ export default function InvitationProgressPanel({ userId, accessToken, locale, i
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [reload, setReload] = useState(0)
+  const [bindingTarget, setBindingTarget] = useState<InvitationProgressResponse['items'][number] | null>(null)
   const words = copy[locale]
   const section = useRef<HTMLElement>(null)
+  const currentPlatform = useRef<Platform>(initialPlatform)
 
   useEffect(() => {
     if (window.location.hash === '#direct-invite-progress') section.current?.scrollIntoView({ block: 'start' })
@@ -44,6 +47,7 @@ export default function InvitationProgressPanel({ userId, accessToken, locale, i
     setResult(null)
     setError(false)
     setLoading(true)
+    currentPlatform.current = next
     setPlatform(next)
   }
 
@@ -57,27 +61,36 @@ export default function InvitationProgressPanel({ userId, accessToken, locale, i
     if (!result?.hasMore || loading) return
     setLoading(true)
     setError(false)
+    const requestedPlatform = platform
     try {
       const next = await getInvitationProgress(userId, accessToken, platform, result.page + 1)
-      setResult({ ...next, items: [...result.items, ...next.items] })
-    } catch { setError(true) } finally { setLoading(false) }
+      if (currentPlatform.current === requestedPlatform) setResult({ ...next, items: [...result.items, ...next.items] })
+    } catch { if (currentPlatform.current === requestedPlatform) setError(true) }
+    finally { if (currentPlatform.current === requestedPlatform) setLoading(false) }
   }
 
   return <section ref={section} id="direct-invite-progress" className="consumer-settings-card consumer-invitation-progress" aria-label={words.title}>
     <h2>{words.title}</h2><p>{words.hint}</p>
     {allowSwitch ? <div className="consumer-invitation-apps" role="group" aria-label="App">
-      {(['TIMO', 'LINKY'] as const).map((app) => <button key={app} type="button" className={platform === app ? 'is-selected' : ''} onClick={() => choosePlatform(app)}>{app === 'TIMO' ? 'Timo' : 'Linky'}</button>)}
+      {(['TIMO', 'LINKY'] as const).map((app) => <button key={app} type="button" disabled={!!bindingTarget} className={platform === app ? 'is-selected' : ''} onClick={() => choosePlatform(app)}>{app === 'TIMO' ? 'Timo' : 'Linky'}</button>)}
     </div> : <strong>{platform === 'TIMO' ? 'Timo' : 'Linky'}</strong>}
     {result?.platformCode === platform && result.items.length ? <div className="consumer-invitation-list">
       {result.items.map((item) => <div className="consumer-invitation-row" key={item.userId}>
-        <strong>#{item.userId}</strong>
+        <div className="consumer-invitation-row-head"><strong>#{item.userId}</strong>
+          {item.canBind && item.bindingStatus === 'UNBOUND' ? <button type="button" onClick={() => setBindingTarget(item)}>
+            {{ zh: '绑定', en: 'Bind', es: 'Vincular', id: 'Hubungkan', pt: 'Vincular' }[locale]}</button> : null}</div>
         <span>{words.phone}: {item.maskedPhone || '—'}</span>
         <span>{words.registered}: {item.registeredAt?.slice(0, 10) || '—'}</span>
         <span>{words.bind}: <b>{words.statuses[item.bindingStatus] || words.unknown}</b></span>
+        {item.maskedAccount ? <span>{platform === 'TIMO' ? 'Timo' : 'Linky'} ID · {item.maskedAccount}</span> : null}
       </div>)}
     </div> : !loading && !error ? <p>{words.empty}</p> : null}
     {error ? <p role="alert">{words.failed} <button type="button" onClick={retry}>{words.retry}</button></p> : null}
     {loading ? <p role="status">…</p> : null}
     {result?.platformCode === platform && result.hasMore ? <button type="button" disabled={loading} onClick={() => void loadMore()}>{words.more}</button> : null}
+    {bindingTarget ? <InviterBindingDialog inviterId={userId} accessToken={accessToken} platform={platform}
+      item={bindingTarget} locale={locale} onClose={() => setBindingTarget(null)} onRefresh={retry}
+      onSubmitted={updated => setResult(current => current ? { ...current,
+        items: current.items.map(item => item.userId === updated.userId ? updated : item) } : current)} /> : null}
   </section>
 }
