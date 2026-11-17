@@ -101,7 +101,7 @@ export default function PreRegistrationPage({ session, locale, onLocale, footer 
       <label className="consumer-language-select"><select aria-label="Language" value={locale} onChange={event => onLocale(event.target.value as ConsumerLocale)}>
         <option value="zh">中文</option><option value="en">English</option><option value="es">Español</option><option value="id">Bahasa Indonesia</option><option value="pt">Português</option>
       </select></label></header>
-    <a className="prereg-back" href="/account"><ArrowLeft aria-hidden="true" />{words.back}</a>
+    <a className="prereg-back" href="/account/settings"><ArrowLeft aria-hidden="true" />{words.back}</a>
     <section className="consumer-commercial-heading"><h1 ref={heading} tabIndex={-1}>{words.title}</h1><span>{words.subtitle}</span></section>
     {!session ? <a className="consumer-primary-link" href="/invite#phone-login">{words.signIn}<ArrowRight /></a> : <>
       <section className="consumer-settings-card prereg-form-card">

@@ -7442,7 +7442,7 @@ body:has(.consumer-earnings-page) { min-width: 0; }
   .consumer-earnings-shell > .consumer-bottom-nav { margin-right: -15px; margin-left: -15px; }
 }
 /* Inviter pre-registration follows the existing consumer form/card treatment. */
-.prereg-back { display: inline-flex; align-items: center; gap: 6px; color: #92513a; font-size: 14px; text-decoration: none; margin: 8px 0; }
+.prereg-back, .consumer-settings-back { display: inline-flex; align-items: center; gap: 6px; color: #92513a; font-size: 14px; text-decoration: none; margin: 8px 0; }
 .prereg-page h1 { scroll-margin-top: 20px; }
 .prereg-form-card fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .prereg-form-card legend { padding: 0; font-weight: 700; font-size: 14px; margin-bottom: 10px; }
@@ -7489,3 +7489,6 @@ body:has(.consumer-earnings-page) { min-width: 0; }
 .prereg-page .prereg-item dd { font-weight: 400; color: #7b6b64; }
 .prereg-page .prereg-item p { margin: 7px 0; }
 .prereg-page .prereg-note { color: #7b6b64; }
+
+a.consumer-workspace-trigger { text-decoration: none; }
+.consumer-settings-back + .consumer-commercial-heading { margin-top: 24px; }
